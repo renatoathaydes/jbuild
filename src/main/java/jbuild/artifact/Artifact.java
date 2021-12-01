@@ -32,8 +32,15 @@ public class Artifact {
                 return new Artifact(coordinates[0], coordinates[1], coordinates[2], coordinates[3]);
             default:
                 throw new IllegalArgumentException("Cannot parse coordinates, expected 2 to 4 parts, found " +
-                        coordinates.length);
+                        coordinates.length + " in '" + artifact + "'");
         }
+    }
+
+    /**
+     * @return a standard file name for this artifact (artifactId-version.extension)
+     */
+    public String toFileName() {
+        return artifactId + "-" + version + "." + extension;
     }
 
     @Override

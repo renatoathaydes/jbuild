@@ -1,4 +1,4 @@
-package jbuild.artifact.util;
+package jbuild.util;
 
 import jbuild.errors.AsyncException;
 
@@ -7,15 +7,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import static java.util.stream.Collectors.toList;
+import java.util.stream.Stream;
 
 public class AsyncUtils {
 
-    public static <T> List<T> waitForAll(List<? extends Future<T>> list) {
+    public static <T> Stream<T> waitForEach(List<? extends Future<T>> list) {
         return list.stream()
-                .map(future -> handlingAsyncErrors(() -> future.get(10, TimeUnit.SECONDS)))
-                .collect(toList());
+                .map(future -> handlingAsyncErrors(() -> future.get(10, TimeUnit.SECONDS)));
     }
 
     public static <T> T handlingAsyncErrors(AsyncSupplier<T> supplier) {

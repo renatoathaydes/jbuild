@@ -4,18 +4,13 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
-import jbuild.artifact.util.AsyncUtils;
 import jbuild.errors.HttpError;
 
 import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toList;
 
 public class DependenciesManager {
 
@@ -37,20 +32,5 @@ public class DependenciesManager {
         }
 
         return resolutions;
-    }
-
-    public static void main(String[] args) {
-        var artifacts = Stream.of(args)
-                .map(Artifact::parseCoordinates)
-                .collect(toList());
-
-        var results = AsyncUtils.waitForAll(new DependenciesManager().downloadAllByHttp(artifacts));
-
-        for (var result : results) {
-            result.use(
-                    resolved -> System.out.println("Resolved " + resolved.artifact + ": " + resolved.contents.length + " bytes"),
-                    error -> System.out.println("ERROR: http status = " + error.httpResponse.statusCode() + ", http body = " +
-                            new String(error.httpResponse.body(), StandardCharsets.UTF_8)));
-        }
     }
 }

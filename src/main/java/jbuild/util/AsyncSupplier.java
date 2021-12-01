@@ -1,4 +1,4 @@
-package jbuild.artifact.util;
+package jbuild.util;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;

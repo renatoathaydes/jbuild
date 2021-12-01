@@ -31,7 +31,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
 
     @Override
     public CompletableFuture<ArtifactResolution<HttpError<byte[]>>> retrieve(Artifact artifact) {
-        var fileName = artifact.artifactId + "-" + artifact.version + "." + artifact.extension;
+        var fileName = artifact.toFileName();
 
         var requestPath = artifact.groupId.replace(".", "/") + "/" +
                 artifact.artifactId + "/" +
@@ -44,7 +44,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
             if (response.statusCode() == 200) {
                 return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact));
             }
-            return ArtifactResolution.failure(new HttpError<>(response));
+            return ArtifactResolution.failure(new HttpError<>(response), artifact);
         });
     }
 }
