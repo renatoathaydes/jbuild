@@ -110,7 +110,7 @@ final class CommandExecutor {
         var file = new File(outDir, resolvedArtifact.artifact.toFileName());
         try (var out = new FileOutputStream(file)) {
             try {
-                out.write(resolvedArtifact.contents);
+                resolvedArtifact.consumeContents(out);
                 if (verbose) {
                     System.out.println("Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
                 }

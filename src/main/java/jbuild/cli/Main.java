@@ -93,7 +93,7 @@ public class Main {
         System.out.println("Resolved " + resolvedArtifacts.size() + " artifacts.");
         if (verbose) {
             for (var artifact : resolvedArtifacts) {
-                System.out.println("  * " + artifact.artifact + " (" + artifact.contents.length + " bytes)");
+                System.out.println("  * " + artifact.artifact + " (" + artifact.contentLength + " bytes)");
             }
         }
     }
@@ -101,7 +101,7 @@ public class Main {
     private static void exitWithError(String message, int exitCode, long startTime) {
         System.err.println(message);
         System.err.println("Build failed in " + time(startTime) +
-                "! [exit code=" + exitCode + "");
+                "! [exit code=" + exitCode + "]");
         System.exit(exitCode);
     }
 
