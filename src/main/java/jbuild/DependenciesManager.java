@@ -3,10 +3,12 @@ package jbuild;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
+import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.errors.HttpError;
 
 import java.net.http.HttpClient;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,10 +21,19 @@ public class DependenciesManager {
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
-        return downloadAll(artifacts, new HttpArtifactRetriever(httpClient));
+        return retrieveAll(artifacts, new HttpArtifactRetriever(httpClient));
     }
 
-    public <Err> List<CompletableFuture<ArtifactResolution<Err>>> downloadAll(
+    public List<CompletableFuture<ArtifactResolution<Throwable>>> fetchAllFromFileSystem(List<Artifact> artifacts) {
+        return retrieveAll(artifacts, new FileArtifactRetriever());
+    }
+
+    public List<CompletableFuture<ArtifactResolution<Throwable>>> fetchAllFromFileSystem(List<Artifact> artifacts,
+                                                                                         Path repositoryDir) {
+        return retrieveAll(artifacts, new FileArtifactRetriever(repositoryDir));
+    }
+
+    public <Err> List<CompletableFuture<ArtifactResolution<Err>>> retrieveAll(
             List<Artifact> artifacts,
             ArtifactRetriever<Err> retriever) {
         var resolutions = new ArrayList<CompletableFuture<ArtifactResolution<Err>>>(artifacts.size());
