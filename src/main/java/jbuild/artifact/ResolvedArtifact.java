@@ -7,11 +7,13 @@ public final class ResolvedArtifact {
     private byte[] contents;
     public final long contentLength;
     public final Artifact artifact;
+    public final ArtifactRetriever<?> retriever;
 
-    public ResolvedArtifact(byte[] contents, Artifact artifact) {
+    public ResolvedArtifact(byte[] contents, Artifact artifact, ArtifactRetriever<?> retriever) {
         this.contents = contents;
         this.contentLength = contents.length;
         this.artifact = artifact;
+        this.retriever = retriever;
     }
 
     @Override
@@ -19,6 +21,7 @@ public final class ResolvedArtifact {
         return "ResolvedArtifact{" +
                 "content-length=" + contentLength +
                 ", artifact=" + artifact +
+                ", retriever=" + retriever.getDescription() +
                 '}';
     }
 

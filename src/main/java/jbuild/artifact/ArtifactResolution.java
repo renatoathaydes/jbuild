@@ -1,33 +1,33 @@
 package jbuild.artifact;
 
+import jbuild.errors.ArtifactRetrievalError;
+
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public final class ArtifactResolution<Err> {
+public final class ArtifactResolution<Err extends ArtifactRetrievalError> {
 
     private final ResolvedArtifact resolvedArtifact;
     private final Err error;
-    public final Artifact requestedArtifact;
 
     private ArtifactResolution(ResolvedArtifact resolvedArtifact,
-                               Err error,
-                               Artifact requestedArtifact) {
+                               Err error) {
         // one and only one arg may be null
         if ((resolvedArtifact == null) == (error == null)) {
             throw new IllegalStateException("Expected one null of resolvedArtifact [" +
                     resolvedArtifact + "] and error [" + error + "]");
         }
         this.resolvedArtifact = resolvedArtifact;
-        this.requestedArtifact = requestedArtifact;
         this.error = error;
     }
 
-    public static <E> ArtifactResolution<E> success(ResolvedArtifact resolvedArtifact) {
-        return new ArtifactResolution<>(resolvedArtifact, null, resolvedArtifact.artifact);
+    public static <E extends ArtifactRetrievalError> ArtifactResolution<E> success(
+            ResolvedArtifact resolvedArtifact) {
+        return new ArtifactResolution<>(resolvedArtifact, null);
     }
 
-    public static <E> ArtifactResolution<E> failure(E error, Artifact artifact) {
-        return new ArtifactResolution<>(null, error, artifact);
+    public static <E extends ArtifactRetrievalError> ArtifactResolution<E> failure(E error) {
+        return new ArtifactResolution<>(null, error);
     }
 
     public <T> T with(Function<ResolvedArtifact, T> withArtifact,

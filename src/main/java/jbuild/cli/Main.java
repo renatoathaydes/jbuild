@@ -85,7 +85,7 @@ public class Main {
         } catch (JBuildException e) {
             exitWithError(e.getMessage(), exitCode(e.getErrorCause()), startTime);
         } catch (Exception e) {
-            exitWithError(e.getMessage(), exitCode(JBuildException.ErrorCause.UNKNOWN), startTime);
+            exitWithError(e.toString(), exitCode(JBuildException.ErrorCause.UNKNOWN), startTime);
         }
     }
 

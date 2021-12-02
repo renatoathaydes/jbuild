@@ -31,6 +31,11 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
     }
 
     @Override
+    public String getDescription() {
+        return "http-repository[" + baseUrl + "]";
+    }
+
+    @Override
     public CompletableFuture<ArtifactResolution<HttpError<byte[]>>> retrieve(Artifact artifact) {
         var requestPath = MavenUtils.standardArtifactPath(artifact, false);
 
@@ -38,9 +43,9 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).thenApply(response -> {
             if (response.statusCode() == 200) {
-                return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact));
+                return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this));
             }
-            return ArtifactResolution.failure(new HttpError<>(response), artifact);
+            return ArtifactResolution.failure(new HttpError<>(this, artifact, response));
         });
     }
 }

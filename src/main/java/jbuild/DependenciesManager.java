@@ -5,6 +5,8 @@ import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
+import jbuild.errors.ArtifactRetrievalError;
+import jbuild.errors.FileRetrievalError;
 import jbuild.errors.HttpError;
 
 import java.net.http.HttpClient;
@@ -24,16 +26,18 @@ public class DependenciesManager {
         return retrieveAll(artifacts, new HttpArtifactRetriever(httpClient));
     }
 
-    public List<CompletableFuture<ArtifactResolution<Throwable>>> fetchAllFromFileSystem(List<Artifact> artifacts) {
+    public List<CompletableFuture<ArtifactResolution<FileRetrievalError>>> fetchAllFromFileSystem(
+            List<Artifact> artifacts) {
         return retrieveAll(artifacts, new FileArtifactRetriever());
     }
 
-    public List<CompletableFuture<ArtifactResolution<Throwable>>> fetchAllFromFileSystem(List<Artifact> artifacts,
-                                                                                         Path repositoryDir) {
+    public List<CompletableFuture<ArtifactResolution<FileRetrievalError>>> fetchAllFromFileSystem(
+            List<Artifact> artifacts,
+            Path repositoryDir) {
         return retrieveAll(artifacts, new FileArtifactRetriever(repositoryDir));
     }
 
-    public <Err> List<CompletableFuture<ArtifactResolution<Err>>> retrieveAll(
+    public <Err extends ArtifactRetrievalError> List<CompletableFuture<ArtifactResolution<Err>>> retrieveAll(
             List<Artifact> artifacts,
             ArtifactRetriever<Err> retriever) {
         var resolutions = new ArrayList<CompletableFuture<ArtifactResolution<Err>>>(artifacts.size());

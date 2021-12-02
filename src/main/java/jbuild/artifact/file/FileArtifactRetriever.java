@@ -4,6 +4,7 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.errors.FileRetrievalError;
 import jbuild.util.MavenUtils;
 
 import java.io.FileNotFoundException;
@@ -13,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static jbuild.util.FileUtils.readAllBytes;
 
-public class FileArtifactRetriever implements ArtifactRetriever<Throwable> {
+public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalError> {
 
     private final Path rootDir;
 
@@ -35,7 +36,12 @@ public class FileArtifactRetriever implements ArtifactRetriever<Throwable> {
     }
 
     @Override
-    public CompletableFuture<ArtifactResolution<Throwable>> retrieve(Artifact artifact) {
+    public String getDescription() {
+        return "file-repository[" + rootDir + "]";
+    }
+
+    @Override
+    public CompletableFuture<ArtifactResolution<FileRetrievalError>> retrieve(Artifact artifact) {
         var path = MavenUtils.standardArtifactPath(artifact, true);
         var file = rootDir.resolve(Paths.get(path));
         if (file.toFile().isFile()) {
@@ -44,11 +50,12 @@ public class FileArtifactRetriever implements ArtifactRetriever<Throwable> {
             return readAllBytes(file).thenApply(bytes -> completeWith(artifact, bytes));
         } else {
             return CompletableFuture.completedFuture(
-                    ArtifactResolution.failure(new FileNotFoundException(file.toString()), artifact));
+                    ArtifactResolution.failure(new FileRetrievalError(this, artifact,
+                            new FileNotFoundException(file.toString()))));
         }
     }
 
-    private ArtifactResolution<Throwable> completeWith(Artifact artifact, byte[] bytes) {
-        return ArtifactResolution.success(new ResolvedArtifact(bytes, artifact));
+    private ArtifactResolution<FileRetrievalError> completeWith(Artifact artifact, byte[] bytes) {
+        return ArtifactResolution.success(new ResolvedArtifact(bytes, artifact, this));
     }
 }

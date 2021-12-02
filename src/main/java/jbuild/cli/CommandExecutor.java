@@ -4,16 +4,17 @@ import jbuild.DependenciesManager;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.errors.FileRetrievalError;
 import jbuild.errors.HttpError;
 import jbuild.errors.JBuildException;
 import jbuild.util.AsyncUtils;
 import jbuild.util.FileUtils;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.NoSuchFileException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,7 +49,7 @@ final class CommandExecutor {
         });
 
         var writeErrors = new ConcurrentLinkedQueue<String>();
-        var fileSystemErrors = new ConcurrentLinkedQueue<ArtifactResolution<Throwable>>();
+        var fileSystemErrors = new ConcurrentLinkedQueue<ArtifactResolution<FileRetrievalError>>();
 
         AsyncUtils.waitForEach(dependenciesManager.fetchAllFromFileSystem(artifacts), Duration.ofSeconds(10))
                 .forEach(resolution -> resolution.use(
@@ -60,7 +61,7 @@ final class CommandExecutor {
 
         if (!fileSystemErrors.isEmpty()) {
             var artifactsRemaining = fileSystemErrors.stream()
-                    .map(r -> r.requestedArtifact)
+                    .map(r -> r.getErrorUnchecked().getArtifact())
                     .collect(toList());
 
             AsyncUtils.waitForEach(dependenciesManager.downloadAllByHttp(artifactsRemaining),
@@ -99,6 +100,10 @@ final class CommandExecutor {
                                                    ConcurrentLinkedQueue<String> writeErrors,
                                                    File outDir,
                                                    boolean verbose) {
+        if (verbose) {
+            System.out.println(resolvedArtifact.artifact + " successfully resolved from " +
+                    resolvedArtifact.retriever.getDescription());
+        }
         writerExecutor.execute(() -> writeArtifact(resolvedArtifact, outDir, writeErrors, verbose));
         return resolvedArtifact;
     }
@@ -122,7 +127,7 @@ final class CommandExecutor {
         }
     }
 
-    private static String reportErrors(Collection<ArtifactResolution<Throwable>> fileSystemErrors,
+    private static String reportErrors(Collection<ArtifactResolution<FileRetrievalError>> fileSystemErrors,
                                        Collection<ArtifactResolution<HttpError<byte[]>>> httpErrors,
                                        Collection<String> writeErrors,
                                        boolean verbose) {
@@ -135,13 +140,14 @@ final class CommandExecutor {
         return builder.toString();
     }
 
-    private static Collection<ArtifactResolution<Throwable>> intersectionOf(
-            Collection<ArtifactResolution<Throwable>> fileSystemErrors,
+    private static Collection<ArtifactResolution<FileRetrievalError>> intersectionOf(
+            Collection<ArtifactResolution<FileRetrievalError>> fileSystemErrors,
             Collection<ArtifactResolution<HttpError<byte[]>>> httpErrors) {
-        var result = new ArrayList<ArtifactResolution<Throwable>>(fileSystemErrors.size());
+        var result = new ArrayList<ArtifactResolution<FileRetrievalError>>(fileSystemErrors.size());
         for (var fsError : fileSystemErrors) {
             for (var httpError : httpErrors) {
-                if (fsError.requestedArtifact.equals(httpError.requestedArtifact)) {
+                if (fsError.getErrorUnchecked().getArtifact()
+                        .equals(httpError.getErrorUnchecked().getArtifact())) {
                     result.add(fsError);
                     break;
                 }
@@ -150,17 +156,21 @@ final class CommandExecutor {
         return result;
     }
 
-    private static void reportFileSystemErrors(Collection<ArtifactResolution<Throwable>> fileSystemErrors,
+    private static void reportFileSystemErrors(Collection<ArtifactResolution<FileRetrievalError>> fileSystemErrors,
                                                StringBuilder builder) {
         for (var fileSystemError : fileSystemErrors) {
-            var error = fileSystemError.getErrorUnchecked().getCause();
-            String cause;
-            if (error instanceof NoSuchFileException) {
-                cause = " was not found in the local file system";
+            var error = fileSystemError.getErrorUnchecked();
+            builder.append("WARNING: ").append(error.getArtifact());
+            if (error.reason instanceof FileNotFoundException) {
+                builder.append(" was not found in ")
+                        .append(error.getRetriever().getDescription());
             } else {
-                cause = " could not be read in the local file system due to " + error;
+                builder.append(" could not be read in ")
+                        .append(error.getRetriever().getDescription())
+                        .append(" due to ")
+                        .append(error.reason);
             }
-            builder.append("WARNING: ").append(fileSystemError.requestedArtifact).append(cause).append('\n');
+            builder.append('\n');
         }
     }
 
@@ -170,8 +180,9 @@ final class CommandExecutor {
         for (var httpError : httpErrors) {
             var error = httpError.getErrorUnchecked();
             builder.append("ERROR: ")
-                    .append(httpError.requestedArtifact)
-                    .append(" could not be fetched from http repository: http-status=")
+                    .append(error.getArtifact()).append(" could not be fetched from ")
+                    .append(error.getRetriever().getDescription())
+                    .append(": http-status=")
                     .append(error.httpResponse.statusCode())
                     .append(verbose
                             ? ", http-body = " + new String(error.httpResponse.body(), StandardCharsets.UTF_8)

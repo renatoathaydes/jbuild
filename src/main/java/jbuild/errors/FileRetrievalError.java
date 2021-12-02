@@ -3,18 +3,16 @@ package jbuild.errors;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactRetriever;
 
-import java.net.http.HttpResponse;
-
-public class HttpError<B> implements ArtifactRetrievalError {
+public class FileRetrievalError implements ArtifactRetrievalError {
 
     private final ArtifactRetriever<?> retriever;
     private final Artifact artifact;
-    public final HttpResponse<B> httpResponse;
+    public final Throwable reason;
 
-    public HttpError(ArtifactRetriever<?> retriever, Artifact artifact, HttpResponse<B> httpResponse) {
+    public FileRetrievalError(ArtifactRetriever<?> retriever, Artifact artifact, Throwable reason) {
         this.retriever = retriever;
         this.artifact = artifact;
-        this.httpResponse = httpResponse;
+        this.reason = reason;
     }
 
     @Override
