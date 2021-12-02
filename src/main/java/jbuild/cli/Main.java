@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class Main {
-    static final String JBUILD_VERSION = "1.0";
+    static final String JBUILD_VERSION = "0.0";
 
     static final String USAGE = "------ JBuild CLI ------\n" +
             "Version: " + JBUILD_VERSION + "\n" +
@@ -30,7 +30,7 @@ public class Main {
             "It can only download Maven artifacts for now.\n" +
             "\n" +
             "Usage:\n" +
-            "    java <options> <artifacts>...\n" +
+            "    jbuild <options> <artifacts>...\n" +
             "Options:\n" +
             "    --directory\n" +
             "    -d        output directory.\n" +
@@ -62,9 +62,15 @@ public class Main {
             return;
         }
 
-        var artifacts = options.artifacts.stream()
-                .map(Artifact::parseCoordinates)
-                .collect(toList());
+        List<Artifact> artifacts;
+        try {
+            artifacts = options.artifacts.stream()
+                    .map(Artifact::parseCoordinates)
+                    .collect(toList());
+        } catch (IllegalArgumentException e) {
+            exitWithError("ERROR: " + e.getMessage(), 1);
+            return;
+        }
 
         if (options.verbose) {
             System.out.print("Parsed artifacts coordinates:\n" + artifacts.stream()
@@ -89,7 +95,7 @@ public class Main {
                         resolved -> writeArtifact(resolved, outDir, anyError, verbose),
                         error -> {
                             anyError.set(true);
-                            handleError(error, resolution.requestedArtifact);
+                            handleError(error, resolution.requestedArtifact, verbose);
                         },
                         latch::countDown));
 
@@ -116,10 +122,11 @@ public class Main {
         System.exit(i);
     }
 
-    private static void handleError(HttpError<byte[]> error, Artifact artifact) {
+    private static void handleError(HttpError<byte[]> error, Artifact artifact, boolean verbose) {
         System.out.println("ERROR: Could not fetch " + artifact +
-                " http status = " + error.httpResponse.statusCode() + ", http body = " +
-                new String(error.httpResponse.body(), StandardCharsets.UTF_8));
+                " http-status=" + error.httpResponse.statusCode() + (verbose
+                ? ", http-body = " + new String(error.httpResponse.body(), StandardCharsets.UTF_8)
+                : ""));
     }
 
     private static void writeArtifact(ResolvedArtifact resolvedArtifact,
