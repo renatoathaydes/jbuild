@@ -5,6 +5,7 @@ import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.HttpError;
+import jbuild.util.MavenUtils;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -31,14 +32,9 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
 
     @Override
     public CompletableFuture<ArtifactResolution<HttpError<byte[]>>> retrieve(Artifact artifact) {
-        var fileName = artifact.toFileName();
+        var requestPath = MavenUtils.standardArtifactPath(artifact, false);
 
-        var requestPath = artifact.groupId.replace(".", "/") + "/" +
-                artifact.artifactId + "/" +
-                artifact.version + "/" + fileName;
-
-        var request = HttpRequest.newBuilder(URI.create(baseUrl + "/" + requestPath))
-                .build();
+        var request = HttpRequest.newBuilder(URI.create(baseUrl + "/" + requestPath)).build();
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).thenApply(response -> {
             if (response.statusCode() == 200) {
