@@ -1,24 +1,17 @@
 package jbuild.cli;
 
-import jbuild.DependenciesManager;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
-import jbuild.errors.HttpError;
-import jbuild.util.AsyncUtils;
-import jbuild.util.FileUtils;
+import jbuild.errors.JBuildException;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 
 public class Main {
     static final String JBUILD_VERSION = "0.0";
@@ -45,7 +38,13 @@ public class Main {
             "  jbuild -d out org.apache.maven:maven:3.3.9";
 
     public static void main(String[] args) {
+        var startTime = System.currentTimeMillis();
+
         var options = new Options().parse(args);
+
+        if (options.verbose) {
+            System.out.println("Parsed CLI options in " + time(startTime));
+        }
 
         if (options.help) {
             System.out.println(USAGE);
@@ -68,7 +67,7 @@ public class Main {
                     .map(Artifact::parseCoordinates)
                     .collect(toList());
         } catch (IllegalArgumentException e) {
-            exitWithError("ERROR: " + e.getMessage(), 1);
+            exitWithError("ERROR: " + e.getMessage(), exitCode(USER_INPUT), startTime);
             return;
         }
 
@@ -78,76 +77,40 @@ public class Main {
                     .collect(joining()));
         }
 
-        fetchArtifacts(artifacts, new File(options.outDir), options.verbose);
-    }
-
-    private static void fetchArtifacts(List<Artifact> artifacts, File outDir, boolean verbose) {
-        var dirExists = FileUtils.ensureDirectoryExists(outDir);
-        if (!dirExists) {
-            exitWithError("ERROR: Directory does not exist and cannot be created: " + outDir.getPath(), 1);
-        }
-
-        var latch = new CountDownLatch(artifacts.size());
-        var anyError = new AtomicBoolean(false);
-
-        AsyncUtils.waitForEach(new DependenciesManager().downloadAllByHttp(artifacts))
-                .forEach(resolution -> resolution.use(
-                        resolved -> writeArtifact(resolved, outDir, anyError, verbose),
-                        error -> {
-                            anyError.set(true);
-                            handleError(error, resolution.requestedArtifact, verbose);
-                        },
-                        latch::countDown));
-
         try {
-            var ok = latch.await(2, TimeUnit.MINUTES);
-            if (!ok) {
-                exitWithError("ERROR: Timeout while waiting for artifacts!", 4);
-            }
-        } catch (InterruptedException e) {
-            exitWithError("ERROR: Interrupted while waiting for artifact downloads!", 3);
+            var resolvedArtifacts = CommandExecutor.fetchArtifacts(
+                    artifacts, new File(options.outDir), options.verbose);
+            reportArtifacts(resolvedArtifacts, options.verbose);
+            System.out.println("Build passed in " + time(startTime) + "!");
+        } catch (JBuildException e) {
+            exitWithError(e.getMessage(), exitCode(e.getErrorCause()), startTime);
+        } catch (Exception e) {
+            exitWithError(e.getMessage(), exitCode(JBuildException.ErrorCause.UNKNOWN), startTime);
         }
+    }
 
-        if (anyError.get()) {
-            exitWithError("Build failed!", 1);
-        }
-
+    private static void reportArtifacts(Collection<ResolvedArtifact> resolvedArtifacts, boolean verbose) {
+        System.out.println("Resolved " + resolvedArtifacts.size() + " artifacts.");
         if (verbose) {
-            System.out.println("All artifacts successfully downloaded to " + outDir.getPath());
-        }
-    }
-
-    private static void exitWithError(String s, int i) {
-        System.err.println(s);
-        System.exit(i);
-    }
-
-    private static void handleError(HttpError<byte[]> error, Artifact artifact, boolean verbose) {
-        System.out.println("ERROR: Could not fetch " + artifact +
-                " http-status=" + error.httpResponse.statusCode() + (verbose
-                ? ", http-body = " + new String(error.httpResponse.body(), StandardCharsets.UTF_8)
-                : ""));
-    }
-
-    private static void writeArtifact(ResolvedArtifact resolvedArtifact,
-                                      File outDir,
-                                      AtomicBoolean anyError,
-                                      boolean verbose) {
-        var file = new File(outDir, resolvedArtifact.artifact.toFileName());
-        try (var out = new FileOutputStream(file)) {
-            try {
-                out.write(resolvedArtifact.contents);
-                if (verbose) {
-                    System.out.println("Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
-                }
-            } catch (IOException e) {
-                System.err.println("ERROR: unable to write to file " + file + " due to " + e);
-                anyError.set(true);
+            for (var artifact : resolvedArtifacts) {
+                System.out.println("  * " + artifact.artifact + " (" + artifact.contents.length + " bytes)");
             }
-        } catch (IOException e) {
-            System.err.println("ERROR: unable to open file " + file + " due to " + e);
-            anyError.set(true);
         }
+    }
+
+    private static void exitWithError(String message, int exitCode, long startTime) {
+        System.err.println(message);
+        System.err.println("Build failed in " + time(startTime) +
+                "! [exit code=" + exitCode + "");
+        System.exit(exitCode);
+    }
+
+    private static String time(long startTime) {
+        return (System.currentTimeMillis() - startTime) + "ms";
+    }
+
+    private static int exitCode(JBuildException.ErrorCause errorCause) {
+        return errorCause.ordinal();
     }
 }
 

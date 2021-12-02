@@ -47,4 +47,26 @@ public class Artifact {
     public String toString() {
         return "Artifact{" + groupId + ':' + artifactId + ':' + version + ':' + extension + '}';
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Artifact artifact = (Artifact) o;
+
+        if (!groupId.equals(artifact.groupId)) return false;
+        if (!artifactId.equals(artifact.artifactId)) return false;
+        if (!version.equals(artifact.version)) return false;
+        return extension.equals(artifact.extension);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = groupId.hashCode();
+        result = 31 * result + artifactId.hashCode();
+        result = 31 * result + version.hashCode();
+        result = 31 * result + extension.hashCode();
+        return result;
+    }
 }

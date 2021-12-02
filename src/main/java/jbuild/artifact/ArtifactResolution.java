@@ -53,4 +53,10 @@ public final class ArtifactResolution<Err> {
         }
         if (alwaysRun != null) alwaysRun.run();
     }
+
+    public Err getErrorUnchecked() {
+        return with(ok -> {
+            throw new IllegalStateException("not an error");
+        }, error -> error);
+    }
 }

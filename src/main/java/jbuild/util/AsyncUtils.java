@@ -2,6 +2,7 @@ package jbuild.util;
 
 import jbuild.errors.AsyncException;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -11,9 +12,9 @@ import java.util.stream.Stream;
 
 public class AsyncUtils {
 
-    public static <T> Stream<T> waitForEach(List<? extends Future<T>> list) {
+    public static <T> Stream<T> waitForEach(List<? extends Future<T>> list, Duration timeout) {
         return list.stream()
-                .map(future -> handlingAsyncErrors(() -> future.get(10, TimeUnit.SECONDS)));
+                .map(future -> handlingAsyncErrors(() -> future.get(timeout.toMillis(), TimeUnit.MILLISECONDS)));
     }
 
     public static <T> T handlingAsyncErrors(AsyncSupplier<T> supplier) {
