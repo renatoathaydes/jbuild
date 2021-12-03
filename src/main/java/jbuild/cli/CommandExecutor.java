@@ -167,7 +167,7 @@ public final class CommandExecutor {
                                                StringBuilder builder) {
         for (var fileSystemError : fileSystemErrors) {
             var error = fileSystemError.getErrorUnchecked();
-            builder.append("WARNING: ").append(error.getArtifact());
+            builder.append(error.getArtifact());
             if (error.reason instanceof FileNotFoundException) {
                 builder.append(" was not found in ")
                         .append(error.getRetriever().getDescription());
