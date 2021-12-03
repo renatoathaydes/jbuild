@@ -1,6 +1,6 @@
 package jbuild.cli;
 
-import jbuild.DependenciesManager;
+import jbuild.DependenciesFetcher;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ResolvedArtifact;
@@ -40,7 +40,7 @@ final class CommandExecutor {
         }
 
         var resolvedArtifacts = new ConcurrentLinkedQueue<ResolvedArtifact>();
-        var dependenciesManager = new DependenciesManager();
+        var fetcher = new DependenciesFetcher();
 
         var writerExecutor = Executors.newSingleThreadExecutor((runnable) -> {
             var thread = new Thread(runnable, "command-executor-output-writer");
@@ -51,7 +51,7 @@ final class CommandExecutor {
         var writeErrors = new ConcurrentLinkedQueue<String>();
         var fileSystemErrors = new ConcurrentLinkedQueue<ArtifactResolution<FileRetrievalError>>();
 
-        AsyncUtils.waitForEach(dependenciesManager.fetchAllFromFileSystem(artifacts), Duration.ofSeconds(10))
+        AsyncUtils.waitForEach(fetcher.fetchAllFromFileSystem(artifacts), Duration.ofSeconds(10))
                 .forEach(resolution -> resolution.use(
                         resolved -> resolvedArtifacts.add(
                                 handleResolved(writerExecutor, resolved, writeErrors, outDir, verbose)),
@@ -64,7 +64,7 @@ final class CommandExecutor {
                     .map(r -> r.getErrorUnchecked().getArtifact())
                     .collect(toList());
 
-            AsyncUtils.waitForEach(dependenciesManager.downloadAllByHttp(artifactsRemaining),
+            AsyncUtils.waitForEach(fetcher.fetchAllByHttp(artifactsRemaining),
                             Duration.ofSeconds(5L * artifactsRemaining.size()))
                     .forEach(resolution -> resolution.use(
                             resolved -> resolvedArtifacts.add(
