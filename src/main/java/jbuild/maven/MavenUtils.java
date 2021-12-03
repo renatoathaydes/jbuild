@@ -1,0 +1,33 @@
+package jbuild.maven;
+
+import jbuild.artifact.Artifact;
+import org.xml.sax.SAXException;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+
+public final class MavenUtils {
+
+    public static String standardArtifactPath(Artifact artifact, boolean usePlatformSeparator) {
+        var fileName = artifact.toFileName();
+        var sep = usePlatformSeparator ? File.separatorChar : '/';
+
+        return artifact.groupId.replace('.', sep) + sep +
+                artifact.artifactId + sep +
+                artifact.version + sep + fileName;
+    }
+
+    public static MavenPom parsePom(InputStream stream) throws ParserConfigurationException, IOException, SAXException {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        try (stream) {
+            return new MavenPom(db.parse(stream));
+        }
+    }
+}

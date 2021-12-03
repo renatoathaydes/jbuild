@@ -5,7 +5,7 @@ import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.HttpError;
-import jbuild.util.MavenUtils;
+import jbuild.maven.MavenUtils;
 
 import java.net.URI;
 import java.net.http.HttpClient;
