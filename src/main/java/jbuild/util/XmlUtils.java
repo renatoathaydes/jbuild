@@ -40,7 +40,12 @@ public final class XmlUtils {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static String textOf(Optional<? extends Node> node) {
+        return textOf(node, "");
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    public static String textOf(Optional<? extends Node> node, String defaultValue) {
         return node.flatMap(c -> Optional.ofNullable(c.getTextContent()))
-                .orElse("");
+                .orElse(defaultValue);
     }
 }

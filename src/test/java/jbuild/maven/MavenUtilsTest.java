@@ -16,8 +16,12 @@ public class MavenUtilsTest {
             pom = MavenUtils.parsePom(stream);
         }
         assertThat(pom)
-                .has(dependencies(new Artifact("junit", "junit", "4.12")))
+                .has(dependencies(dep("junit", "junit", "4.12", Scope.TEST)))
                 .has(artifactCoordinates(new Artifact("com.athaydes.javanna", "javanna", "1.1")));
+    }
+
+    private static Dependency dep(String groupId, String artifactId, String version, Scope scope) {
+        return new Dependency(new Artifact(groupId, artifactId, version), scope);
     }
 
 }

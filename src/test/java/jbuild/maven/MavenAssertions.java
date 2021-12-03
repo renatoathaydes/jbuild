@@ -7,8 +7,8 @@ import java.util.List;
 
 final class MavenAssertions {
 
-    static Condition<? super MavenPom> dependencies(Artifact... artifacts) {
-        List<Artifact> expectedArtifacts = List.of(artifacts);
+    static Condition<? super MavenPom> dependencies(Dependency... dependencies) {
+        var expectedArtifacts = List.of(dependencies);
         return new Condition<>(pom -> pom.getDependencies().equals(expectedArtifacts),
                 " dependencies %s", expectedArtifacts);
     }
