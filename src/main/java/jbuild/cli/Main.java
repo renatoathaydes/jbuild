@@ -3,9 +3,9 @@ package jbuild.cli;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.JBuildException;
+import jbuild.log.JBuildLog;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -38,26 +38,42 @@ public class Main {
             "  jbuild -d out org.apache.maven:maven:3.3.9";
 
     public static void main(String[] args) {
+        new Main(args);
+    }
+
+    private final JBuildLog log;
+    private final CommandExecutor commandExecutor;
+
+    private Main(String[] args) {
         var startTime = System.currentTimeMillis();
 
         var options = new Options().parse(args);
 
-        if (options.verbose) {
-            System.out.println("Parsed CLI options in " + time(startTime));
-        }
+        this.log = new JBuildLog(System.out, options.verbose);
+        this.commandExecutor = new CommandExecutor(log);
 
+        log.verbosePrintln(() -> "Parsed CLI options in " + time(startTime));
+
+        run(options, startTime);
+    }
+
+    private void run(Options options, long startTime) {
         if (options.help) {
-            System.out.println(USAGE);
+            log.println(USAGE);
             return;
         }
 
         if (options.version) {
-            System.out.println(JBUILD_VERSION);
+            log.println(JBUILD_VERSION);
             return;
         }
 
+        fetchArtifacts(options, startTime);
+    }
+
+    private void fetchArtifacts(Options options, long startTime) {
         if (options.artifacts.isEmpty()) {
-            System.out.println("No artifacts were provided. Nothing to do.");
+            log.println("No artifacts were provided. Nothing to do.");
             return;
         }
 
@@ -67,21 +83,19 @@ public class Main {
                     .map(Artifact::parseCoordinates)
                     .collect(toList());
         } catch (IllegalArgumentException e) {
-            exitWithError("ERROR: " + e.getMessage(), exitCode(USER_INPUT), startTime);
+            exitWithError(e.getMessage(), exitCode(USER_INPUT), startTime);
             return;
         }
 
-        if (options.verbose) {
-            System.out.print("Parsed artifacts coordinates:\n" + artifacts.stream()
-                    .map(a -> "  * " + a + "\n")
-                    .collect(joining()));
-        }
+        log.verbosePrintln(() -> "Parsed artifacts coordinates:\n" + artifacts.stream()
+                .map(a -> "  * " + a + "\n")
+                .collect(joining()));
 
         try {
-            var resolvedArtifacts = CommandExecutor.fetchArtifacts(
+            var resolvedArtifacts = commandExecutor.fetchArtifacts(
                     artifacts, new File(options.outDir), options.verbose);
             reportArtifacts(resolvedArtifacts, options.verbose);
-            System.out.println("Build passed in " + time(startTime) + "!");
+            log.println(() -> "Build passed in " + time(startTime) + "!");
         } catch (JBuildException e) {
             exitWithError(e.getMessage(), exitCode(e.getErrorCause()), startTime);
         } catch (Exception e) {
@@ -98,10 +112,10 @@ public class Main {
         }
     }
 
-    private static void exitWithError(String message, int exitCode, long startTime) {
-        System.err.println(message);
-        System.err.println("Build failed in " + time(startTime) +
-                "! [exit code=" + exitCode + "]");
+    private void exitWithError(String message, int exitCode, long startTime) {
+        log.print("ERROR: ");
+        log.println(message);
+        log.println(() -> "Build failed in " + time(startTime) + "! [exit code=" + exitCode + "]");
         System.exit(exitCode);
     }
 
@@ -110,44 +124,6 @@ public class Main {
     }
 
     private static int exitCode(JBuildException.ErrorCause errorCause) {
-        return errorCause.ordinal();
-    }
-}
-
-final class Options {
-
-    final List<String> artifacts = new ArrayList<>();
-    String outDir = "out";
-    boolean verbose;
-    boolean help;
-    boolean version;
-
-    Options parse(String[] args) {
-        var nextIsDir = false;
-        for (String arg : args) {
-            if (nextIsDir) {
-                outDir = arg;
-                nextIsDir = false;
-            } else if (!arg.startsWith("-")) {
-                artifacts.add(arg);
-            } else if (isEither(arg, "-V", "--verbose")) {
-                verbose = true;
-            } else if (isEither(arg, "-v", "--version")) {
-                version = true;
-                return this;
-            } else if (isEither(arg, "-h", "--help")) {
-                help = true;
-                return this;
-            } else if (isEither(arg, "-d", "--directory")) {
-                nextIsDir = true;
-            } else {
-                System.err.println("Invalid option: " + arg + "\nRun jbuild --help for usage.");
-            }
-        }
-        return this;
-    }
-
-    private static boolean isEither(String arg, String opt1, String opt2) {
-        return opt1.equals(arg) || opt2.equals(arg);
+        return errorCause.ordinal() + 1;
     }
 }

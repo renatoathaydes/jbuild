@@ -7,6 +7,7 @@ import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.FileRetrievalError;
 import jbuild.errors.HttpError;
 import jbuild.errors.JBuildException;
+import jbuild.log.JBuildLog;
 import jbuild.util.AsyncUtils;
 import jbuild.util.FileUtils;
 
@@ -28,9 +29,15 @@ import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.TIMEOUT;
 
-final class CommandExecutor {
+public final class CommandExecutor {
 
-    static Collection<ResolvedArtifact> fetchArtifacts(
+    private final JBuildLog log;
+
+    public CommandExecutor(JBuildLog log) {
+        this.log = log;
+    }
+
+    public Collection<ResolvedArtifact> fetchArtifacts(
             List<Artifact> artifacts, File outDir, boolean verbose) {
         var dirExists = FileUtils.ensureDirectoryExists(outDir);
         if (!dirExists) {
@@ -88,36 +95,36 @@ final class CommandExecutor {
         }
 
         if (verbose) {
-            System.out.println("All " + artifacts.size() +
+            log.println("All " + artifacts.size() +
                     " artifacts successfully downloaded to " + outDir.getPath());
         }
 
         return resolvedArtifacts;
     }
 
-    private static ResolvedArtifact handleResolved(ExecutorService writerExecutor,
-                                                   ResolvedArtifact resolvedArtifact,
-                                                   ConcurrentLinkedQueue<String> writeErrors,
-                                                   File outDir,
-                                                   boolean verbose) {
+    private ResolvedArtifact handleResolved(ExecutorService writerExecutor,
+                                            ResolvedArtifact resolvedArtifact,
+                                            ConcurrentLinkedQueue<String> writeErrors,
+                                            File outDir,
+                                            boolean verbose) {
         if (verbose) {
-            System.out.println(resolvedArtifact.artifact + " successfully resolved from " +
+            log.println(resolvedArtifact.artifact + " successfully resolved from " +
                     resolvedArtifact.retriever.getDescription());
         }
         writerExecutor.execute(() -> writeArtifact(resolvedArtifact, outDir, writeErrors, verbose));
         return resolvedArtifact;
     }
 
-    private static void writeArtifact(ResolvedArtifact resolvedArtifact,
-                                      File outDir,
-                                      Collection<String> errors,
-                                      boolean verbose) {
+    private void writeArtifact(ResolvedArtifact resolvedArtifact,
+                               File outDir,
+                               Collection<String> errors,
+                               boolean verbose) {
         var file = new File(outDir, resolvedArtifact.artifact.toFileName());
         try (var out = new FileOutputStream(file)) {
             try {
                 resolvedArtifact.consumeContents(out);
                 if (verbose) {
-                    System.out.println("Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
+                    log.println("Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
                 }
             } catch (IOException e) {
                 errors.add("unable to write to file " + file + " due to " + e);
