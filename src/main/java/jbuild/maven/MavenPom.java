@@ -6,6 +6,7 @@ import org.w3c.dom.Element;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static java.util.stream.Collectors.toList;
 import static jbuild.util.XmlUtils.childNamed;
@@ -21,6 +22,12 @@ public final class MavenPom {
                 new IllegalArgumentException("Not a POM XML document"));
     }
 
+    public Optional<Artifact> getParent() {
+        return childNamed("parent", project)
+                .map(MavenPom::toDependency)
+                .map(Dependency::getArtifact);
+    }
+
     public List<Dependency> getDependencies() {
         var depsNode = childNamed("dependencies", project);
         if (depsNode.isEmpty()) {
@@ -33,7 +40,11 @@ public final class MavenPom {
     }
 
     public Artifact getCoordinates() {
-        return toDependency(project).getArtifact();
+        var artifact = toDependency(project).getArtifact();
+        if (artifact.groupId.isBlank() || artifact.version.isBlank()) {
+            return getParent().map(artifact::mergeWith).orElse(artifact);
+        }
+        return artifact;
     }
 
     @Override

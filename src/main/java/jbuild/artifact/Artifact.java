@@ -1,5 +1,7 @@
 package jbuild.artifact;
 
+import static jbuild.util.TextUtils.firstNonBlank;
+
 public class Artifact {
     public final String groupId;
     public final String artifactId;
@@ -19,6 +21,13 @@ public class Artifact {
 
     public Artifact(String groupId, String artifactId) {
         this(groupId, artifactId, "", "jar");
+    }
+
+    public Artifact mergeWith(Artifact other) {
+        return new Artifact(firstNonBlank(groupId, other.groupId),
+                firstNonBlank(artifactId, other.artifactId),
+                firstNonBlank(version, other.version),
+                firstNonBlank(extension, other.extension));
     }
 
     public static Artifact parseCoordinates(String artifact) {
