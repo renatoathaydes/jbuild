@@ -14,6 +14,7 @@ import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 
 public class Main {
+
     static final String JBUILD_VERSION = "0.0";
 
     static final String USAGE = "------ JBuild CLI ------\n" +
@@ -93,8 +94,8 @@ public class Main {
 
         try {
             var resolvedArtifacts = commandExecutor.fetchArtifacts(
-                    artifacts, new File(options.outDir), options.verbose);
-            reportArtifacts(resolvedArtifacts, options.verbose);
+                    artifacts, new File(options.outDir));
+            reportArtifacts(resolvedArtifacts);
             log.println(() -> "Build passed in " + time(startTime) + "!");
         } catch (JBuildException e) {
             exitWithError(e.getMessage(), exitCode(e.getErrorCause()), startTime);
@@ -103,11 +104,11 @@ public class Main {
         }
     }
 
-    private static void reportArtifacts(Collection<ResolvedArtifact> resolvedArtifacts, boolean verbose) {
-        System.out.println("Resolved " + resolvedArtifacts.size() + " artifacts.");
-        if (verbose) {
+    private void reportArtifacts(Collection<ResolvedArtifact> resolvedArtifacts) {
+        log.println("Resolved " + resolvedArtifacts.size() + " artifacts.");
+        if (log.isVerbose()) {
             for (var artifact : resolvedArtifacts) {
-                System.out.println("  * " + artifact.artifact + " (" + artifact.contentLength + " bytes)");
+                log.println("  * " + artifact.artifact + " (" + artifact.contentLength + " bytes)");
             }
         }
     }

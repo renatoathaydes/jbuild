@@ -43,4 +43,7 @@ public final class JBuildLog {
         if (verbose && enabled) out.println(messageGetter.get());
     }
 
+    public boolean isVerbose() {
+        return verbose;
+    }
 }
