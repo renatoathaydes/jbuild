@@ -1,4 +1,4 @@
-package jbuild.cli;
+package jbuild.cli.commands;
 
 import jbuild.DependenciesFetcher;
 import jbuild.artifact.Artifact;
@@ -29,11 +29,11 @@ import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.TIMEOUT;
 
-public final class CommandExecutor {
+public final class FetchCommandExecutor {
 
     private final JBuildLog log;
 
-    public CommandExecutor(JBuildLog log) {
+    public FetchCommandExecutor(JBuildLog log) {
         this.log = log;
     }
 
