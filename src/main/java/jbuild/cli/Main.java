@@ -40,7 +40,7 @@ public class Main {
             "\n" +
             "  * fetch\n" +
             "      Usage:\n" +
-            "        jbuild fetch <options... | artifact...>\n"+
+            "        jbuild fetch <options... | artifact...>\n" +
             "      Options:\n" +
             "        --directory\n" +
             "        -d        output directory.\n" +
@@ -113,8 +113,8 @@ public class Main {
                 .collect(joining()));
 
         try {
-            var resolvedArtifacts = new FetchCommandExecutor(log).fetchArtifacts(
-                    artifacts, new File(fetchOptions.outDir));
+            var resolvedArtifacts = FetchCommandExecutor.createDefault(log)
+                    .fetchArtifacts(artifacts, new File(fetchOptions.outDir));
             reportArtifacts(resolvedArtifacts);
             log.println(() -> "Build passed in " + time(startTime) + "!");
         } catch (JBuildException e) {

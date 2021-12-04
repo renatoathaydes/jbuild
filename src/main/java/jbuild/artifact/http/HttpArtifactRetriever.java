@@ -11,9 +11,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
-public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]>> {
+public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
     public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2";
 
@@ -30,13 +30,17 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
         this(httpClient, MAVEN_CENTRAL_URL);
     }
 
+    public HttpArtifactRetriever() {
+        this(DefaultHttpClient.get());
+    }
+
     @Override
     public String getDescription() {
         return "http-repository[" + baseUrl + "]";
     }
 
     @Override
-    public CompletableFuture<ArtifactResolution<HttpError<byte[]>>> retrieve(Artifact artifact) {
+    public CompletionStage<ArtifactResolution<HttpError>> retrieve(Artifact artifact) {
         var requestPath = MavenUtils.standardArtifactPath(artifact, false);
 
         var request = HttpRequest.newBuilder(URI.create(baseUrl + "/" + requestPath)).build();
@@ -45,7 +49,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError<byte[]
             if (response.statusCode() == 200) {
                 return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this));
             }
-            return ArtifactResolution.failure(new HttpError<>(this, artifact, response));
+            return ArtifactResolution.failure(new HttpError(artifact, response));
         });
     }
 }

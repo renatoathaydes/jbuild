@@ -1,44 +1,100 @@
 package jbuild.commands;
 
-import jbuild.DependenciesFetcher;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
+import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
-import jbuild.errors.FileRetrievalError;
-import jbuild.errors.HttpError;
+import jbuild.artifact.file.FileArtifactRetriever;
+import jbuild.artifact.http.HttpArtifactRetriever;
+import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
-import jbuild.util.AsyncUtils;
 import jbuild.util.FileUtils;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static java.util.stream.Collectors.toList;
+import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.TIMEOUT;
+import static jbuild.util.CollectionUtils.append;
 
-public final class FetchCommandExecutor {
+public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
     private final JBuildLog log;
+    private final List<? extends ArtifactRetriever<? extends Err>> retrievers;
 
-    public FetchCommandExecutor(JBuildLog log) {
+    public FetchCommandExecutor(JBuildLog log,
+                                List<? extends ArtifactRetriever<? extends Err>> retrievers) {
         this.log = log;
+        this.retrievers = retrievers;
     }
 
-    public Collection<ResolvedArtifact> fetchArtifacts(
-            List<Artifact> artifacts, File outDir) {
+    public static FetchCommandExecutor<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
+        return new FetchCommandExecutor<>(log, List.of(
+                new FileArtifactRetriever(),
+                new HttpArtifactRetriever()));
+    }
+
+    public <S> Map<Artifact, CompletionStage<Iterable<S>>> fetchArtifacts(List<? extends Artifact> artifacts,
+                                                                          FetchHandler<S> handler) {
+        var result = new HashMap<Artifact, CompletionStage<Iterable<S>>>(artifacts.size());
+        for (Artifact artifact : artifacts) {
+            var completion = fetch(artifact, retrievers.iterator(), handler);
+            result.put(artifact, completion);
+        }
+        return result;
+    }
+
+    private <S> CompletionStage<Iterable<S>> fetch(
+            Artifact artifact,
+            Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
+            FetchHandler<S> handler) {
+        if (remainingRetrievers.hasNext()) {
+            var retriever = remainingRetrievers.next();
+            return fetch(artifact, retriever, remainingRetrievers, handler, List.of());
+        }
+        return CompletableFuture.completedFuture(List.of());
+    }
+
+    private <S> CompletionStage<Iterable<S>> fetch(Artifact artifact,
+                                                   ArtifactRetriever<?> retriever,
+                                                   Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
+                                                   FetchHandler<S> handler,
+                                                   Iterable<S> currentResults) {
+        return retriever.retrieve(artifact)
+                .thenCompose(resolution -> handler.handle(resolution)
+                        .thenCompose(res ->
+                                fetchIfNotDone(artifact, remainingRetrievers, handler, currentResults, res)));
+    }
+
+    private <S> CompletionStage<Iterable<S>> fetchIfNotDone(Artifact artifact,
+                                                            Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
+                                                            FetchHandler<S> handler,
+                                                            Iterable<S> currentResults,
+                                                            FetchHandleResult<S> result) {
+        var results = append(currentResults, result.getResult());
+        if (remainingRetrievers.hasNext() && result.shouldContinue()) {
+            return fetch(artifact, remainingRetrievers.next(), remainingRetrievers, handler, results);
+        } else {
+            return CompletableFuture.completedFuture(results);
+        }
+    }
+
+    public List<ResolvedArtifact> fetchArtifacts(List<Artifact> artifacts, File outDir) {
         var dirExists = FileUtils.ensureDirectoryExists(outDir);
         if (!dirExists) {
             throw new JBuildException(
@@ -46,54 +102,72 @@ public final class FetchCommandExecutor {
                     IO_WRITE);
         }
 
-        var resolvedArtifacts = new ConcurrentLinkedQueue<ResolvedArtifact>();
-        var fetcher = new DependenciesFetcher();
-
         var writerExecutor = Executors.newSingleThreadExecutor((runnable) -> {
             var thread = new Thread(runnable, "command-executor-output-writer");
             thread.setDaemon(true);
             return thread;
         });
 
-        var writeErrors = new ConcurrentLinkedQueue<String>();
-        var fileSystemErrors = new ConcurrentLinkedQueue<ArtifactResolution<FileRetrievalError>>();
+        // no concurrency needed because we only write in one thread
+        var writeErrors = new ArrayList<String>();
+        var resolvedArtifacts = new ArrayList<ResolvedArtifact>();
+        var retrievalErrors = new HashMap<Artifact, List<ArtifactRetrievalError>>();
 
-        AsyncUtils.waitForEach(fetcher.fetchAllFromFileSystem(artifacts), Duration.ofSeconds(10))
-                .forEach(resolution -> resolution.use(
-                        resolved -> resolvedArtifacts.add(
-                                handleResolved(writerExecutor, resolved, writeErrors, outDir)),
-                        error -> fileSystemErrors.add(resolution)));
+        var allCompletions = fetchArtifacts(artifacts, resolution -> {
+            var error = resolution.with(
+                    success -> handleResolved(writerExecutor, success, writeErrors, outDir),
+                    this::handleFailure);
+            return CompletableFuture.completedFuture(continueIf(error != null, resolution));
+        });
 
-        var httpErrors = new ConcurrentLinkedQueue<ArtifactResolution<HttpError<byte[]>>>();
+        var completedArtifactsLatch = new CountDownLatch(artifacts.size());
 
-        if (!fileSystemErrors.isEmpty()) {
-            var artifactsRemaining = fileSystemErrors.stream()
-                    .map(r -> r.getErrorUnchecked().getArtifact())
-                    .collect(toList());
+        allCompletions.forEach((artifact, result) -> result.thenAccept((resolutions) -> {
+            writerExecutor.submit(() -> {
+                for (var resolution : resolutions) {
+                    resolution.use(resolvedArtifacts::add,
+                            error -> retrievalErrors.computeIfAbsent(artifact,
+                                    (ignore) -> new ArrayList<>(4)
+                            ).add(error));
+                }
+            });
+            completedArtifactsLatch.countDown();
+        }));
 
-            AsyncUtils.waitForEach(fetcher.fetchAllByHttp(artifactsRemaining),
-                            Duration.ofSeconds(5L * artifactsRemaining.size()))
-                    .forEach(resolution -> resolution.use(
-                            resolved -> resolvedArtifacts.add(
-                                    handleResolved(writerExecutor, resolved, writeErrors, outDir)),
-                            error -> httpErrors.add(resolution)));
+        // wait for all artifact resolution completions, then let the writer executor finish its job
+
+        try {
+            var ok = completedArtifactsLatch.await(300, TimeUnit.SECONDS);
+            if (!ok) {
+                writerExecutor.shutdownNow();
+                throw new JBuildException("Timeout waiting for all artifacts to get fetched.\n" +
+                        "To increase the timeout, run jbuild with --timeout <seconds>", TIMEOUT);
+            }
+        } catch (InterruptedException e) {
+            writerExecutor.shutdownNow();
+            throw new RuntimeException(e);
         }
+
+        // any artifacts that got resolved successfully should be removed from the list of retrievalErrors
+        writerExecutor.submit(() -> {
+            for (var resolved : resolvedArtifacts) {
+                retrievalErrors.remove(resolved.artifact);
+            }
+        });
 
         writerExecutor.shutdown();
 
         try {
-            var ok = writerExecutor.awaitTermination(10, TimeUnit.SECONDS);
+            var ok = writerExecutor.awaitTermination(30, TimeUnit.SECONDS);
             if (!ok) {
-                throw new JBuildException("Could not terminate writing output within timeout", TIMEOUT);
+                throw new JBuildException("Could not terminate writing artifacts within timeout", TIMEOUT);
             }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-        if (!httpErrors.isEmpty() || !writeErrors.isEmpty()) {
-            throw new JBuildException(
-                    reportErrors(fileSystemErrors, httpErrors, writeErrors, log.isVerbose()),
-                    IO_WRITE);
+        if (!retrievalErrors.isEmpty() || !writeErrors.isEmpty()) {
+            throw new JBuildException(reportErrors(retrievalErrors, writeErrors, log.isVerbose()), IO_WRITE);
         }
 
         log.verbosePrintln(() -> "All " + artifacts.size() +
@@ -102,15 +176,19 @@ public final class FetchCommandExecutor {
         return resolvedArtifacts;
     }
 
-    private ResolvedArtifact handleResolved(ExecutorService writerExecutor,
-                                            ResolvedArtifact resolvedArtifact,
-                                            ConcurrentLinkedQueue<String> writeErrors,
-                                            File outDir) {
-
+    private <T> T handleResolved(ExecutorService writerExecutor,
+                                 ResolvedArtifact resolvedArtifact,
+                                 Collection<String> writeErrors,
+                                 File outDir) {
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved from " +
                 resolvedArtifact.retriever.getDescription());
         writerExecutor.execute(() -> writeArtifact(resolvedArtifact, outDir, writeErrors));
-        return resolvedArtifact;
+        return null;
+    }
+
+    private ArtifactRetrievalError handleFailure(ArtifactRetrievalError error) {
+        log.verbosePrintln(error::getDescription);
+        return error;
     }
 
     private void writeArtifact(ResolvedArtifact resolvedArtifact,
@@ -129,74 +207,50 @@ public final class FetchCommandExecutor {
         }
     }
 
-    private static String reportErrors(Collection<ArtifactResolution<FileRetrievalError>> fileSystemErrors,
-                                       Collection<ArtifactResolution<HttpError<byte[]>>> httpErrors,
+    private static String reportErrors(Map<Artifact, List<ArtifactRetrievalError>> retrievalErrors,
                                        Collection<String> writeErrors,
                                        boolean verbose) {
-        // if a file-system error artifact did not cause a http-error, we don't need to report it
-        var nonResolvedFileSystemErrors = intersectionOf(fileSystemErrors, httpErrors);
         var builder = new StringBuilder(4096);
-        reportFileSystemErrors(nonResolvedFileSystemErrors, builder);
-        reportHttpErrors(httpErrors, builder, verbose);
-        reportWriteErrors(writeErrors, builder);
+        if (!retrievalErrors.isEmpty()) {
+            builder.append("Artifact retrieval errors:\n");
+            retrievalErrors.forEach((artifact, artifactRetrievalErrors) -> {
+                for (var error : artifactRetrievalErrors) {
+                    builder.append("  * ");
+                    error.describe(builder, verbose);
+                    builder.append('\n');
+                }
+            });
+        }
+        if (!writeErrors.isEmpty()) {
+            builder.append("Artifact writing errors:\n");
+            for (var error : writeErrors) {
+                builder.append("  * ").append(error).append('\n');
+            }
+        }
         return builder.toString();
     }
 
-    private static Collection<ArtifactResolution<FileRetrievalError>> intersectionOf(
-            Collection<ArtifactResolution<FileRetrievalError>> fileSystemErrors,
-            Collection<ArtifactResolution<HttpError<byte[]>>> httpErrors) {
-        var result = new ArrayList<ArtifactResolution<FileRetrievalError>>(fileSystemErrors.size());
-        for (var fsError : fileSystemErrors) {
-            for (var httpError : httpErrors) {
-                if (fsError.getErrorUnchecked().getArtifact()
-                        .equals(httpError.getErrorUnchecked().getArtifact())) {
-                    result.add(fsError);
-                    break;
+    public interface FetchHandleResult<Res> {
+        boolean shouldContinue();
+
+        Res getResult();
+
+        static <Res> FetchHandleResult<Res> continueIf(boolean condition, Res result) {
+            return new FetchHandleResult<Res>() {
+                @Override
+                public boolean shouldContinue() {
+                    return condition;
                 }
-            }
-        }
-        return result;
-    }
 
-    private static void reportFileSystemErrors(Collection<ArtifactResolution<FileRetrievalError>> fileSystemErrors,
-                                               StringBuilder builder) {
-        for (var fileSystemError : fileSystemErrors) {
-            var error = fileSystemError.getErrorUnchecked();
-            builder.append(error.getArtifact());
-            if (error.reason instanceof FileNotFoundException) {
-                builder.append(" was not found in ")
-                        .append(error.getRetriever().getDescription());
-            } else {
-                builder.append(" could not be read in ")
-                        .append(error.getRetriever().getDescription())
-                        .append(" due to ")
-                        .append(error.reason);
-            }
-            builder.append('\n');
+                @Override
+                public Res getResult() {
+                    return result;
+                }
+            };
         }
     }
 
-    private static void reportHttpErrors(Collection<ArtifactResolution<HttpError<byte[]>>> httpErrors,
-                                         StringBuilder builder,
-                                         boolean verbose) {
-        for (var httpError : httpErrors) {
-            var error = httpError.getErrorUnchecked();
-            builder.append("ERROR: ")
-                    .append(error.getArtifact()).append(" could not be fetched from ")
-                    .append(error.getRetriever().getDescription())
-                    .append(": http-status=")
-                    .append(error.httpResponse.statusCode())
-                    .append(verbose
-                            ? ", http-body = " + new String(error.httpResponse.body(), StandardCharsets.UTF_8)
-                            : "")
-                    .append('\n');
-        }
-    }
-
-    private static void reportWriteErrors(Collection<String> writeErrors,
-                                          StringBuilder builder) {
-        for (var writeError : writeErrors) {
-            builder.append("ERROR: ").append(writeError).append('\n');
-        }
+    public interface FetchHandler<Res> {
+        CompletionStage<FetchHandleResult<Res>> handle(ArtifactResolution<?> resolution);
     }
 }

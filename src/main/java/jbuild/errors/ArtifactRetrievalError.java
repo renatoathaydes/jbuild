@@ -1,10 +1,16 @@
 package jbuild.errors;
 
 import jbuild.artifact.Artifact;
-import jbuild.artifact.ArtifactRetriever;
 
 public interface ArtifactRetrievalError {
-    ArtifactRetriever<?> getRetriever();
 
     Artifact getArtifact();
+
+    void describe(StringBuilder builder, boolean verbose);
+
+    default String getDescription() {
+        var builder = new StringBuilder();
+        describe(builder, false);
+        return builder.toString();
+    }
 }

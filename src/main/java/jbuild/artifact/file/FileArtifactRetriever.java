@@ -11,6 +11,7 @@ import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import static jbuild.util.FileUtils.readAllBytes;
 
@@ -41,7 +42,7 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
     }
 
     @Override
-    public CompletableFuture<ArtifactResolution<FileRetrievalError>> retrieve(Artifact artifact) {
+    public CompletionStage<ArtifactResolution<FileRetrievalError>> retrieve(Artifact artifact) {
         var path = MavenUtils.standardArtifactPath(artifact, true);
         var file = rootDir.resolve(Paths.get(path));
         if (file.toFile().isFile()) {

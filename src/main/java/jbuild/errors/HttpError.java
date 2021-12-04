@@ -1,29 +1,32 @@
 package jbuild.errors;
 
 import jbuild.artifact.Artifact;
-import jbuild.artifact.ArtifactRetriever;
 
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 
-public class HttpError<B> implements ArtifactRetrievalError {
+public class HttpError implements ArtifactRetrievalError {
 
-    private final ArtifactRetriever<?> retriever;
     private final Artifact artifact;
-    public final HttpResponse<B> httpResponse;
+    public final HttpResponse<byte[]> httpResponse;
 
-    public HttpError(ArtifactRetriever<?> retriever, Artifact artifact, HttpResponse<B> httpResponse) {
-        this.retriever = retriever;
+    public HttpError(Artifact artifact,
+                     HttpResponse<byte[]> httpResponse) {
         this.artifact = artifact;
         this.httpResponse = httpResponse;
     }
 
     @Override
-    public ArtifactRetriever<?> getRetriever() {
-        return retriever;
+    public Artifact getArtifact() {
+        return artifact;
     }
 
     @Override
-    public Artifact getArtifact() {
-        return artifact;
+    public void describe(StringBuilder builder, boolean verbose) {
+        builder.append(artifact).append(" could not be fetched: http-status=")
+                .append(httpResponse.statusCode())
+                .append(verbose
+                        ? ", http-body = " + new String(httpResponse.body(), StandardCharsets.UTF_8)
+                        : "");
     }
 }
