@@ -2,7 +2,7 @@ package jbuild.cli;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
-import jbuild.cli.commands.FetchCommandExecutor;
+import jbuild.commands.FetchCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;

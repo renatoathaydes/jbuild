@@ -1,4 +1,4 @@
-package jbuild.cli.commands;
+package jbuild.commands;
 
 import jbuild.DependenciesFetcher;
 import jbuild.artifact.Artifact;
