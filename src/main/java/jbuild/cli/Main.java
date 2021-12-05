@@ -51,13 +51,23 @@ public class Main {
             "Available commands:\n" +
             "\n" +
             "  * fetch\n" +
+            "    Fetches Maven artifacts from the local Maven repo or Maven Central."+
             "      Usage:\n" +
             "        jbuild fetch <options... | artifact...>\n" +
             "      Options:\n" +
             "        --directory\n" +
             "        -d        output directory.\n" +
             "      Example:\n" +
-            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0";
+            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" +
+            "\n" +
+            "  * deps\n" +
+            "    List the direct dependencies of the given artifacts."+
+            "      Usage:\n" +
+            "        jbuild deps <artifact...>\n" +
+            "      Example:\n" +
+            "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
+            "\n" +
+            "";
 
     public static void main(String[] args) {
         new Main(args);
