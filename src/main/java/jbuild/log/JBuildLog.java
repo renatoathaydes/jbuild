@@ -19,27 +19,27 @@ public final class JBuildLog {
         this.enabled = enabled;
     }
 
-    public void println(String message) {
+    public void println(CharSequence message) {
         if (enabled) out.println(message);
     }
 
-    public void print(String message) {
+    public void print(CharSequence message) {
         if (enabled) out.print(message);
     }
 
-    public void println(Supplier<String> messageGetter) {
+    public void println(Supplier<? extends CharSequence> messageGetter) {
         if (enabled) out.println(messageGetter.get());
     }
 
-    public void print(Supplier<String> messageGetter) {
+    public void print(Supplier<? extends CharSequence> messageGetter) {
         if (enabled) out.print(messageGetter.get());
     }
 
-    public void verbosePrintln(String message) {
+    public void verbosePrintln(CharSequence message) {
         if (verbose && enabled) out.println(message);
     }
 
-    public void verbosePrintln(Supplier<String> messageGetter) {
+    public void verbosePrintln(Supplier<? extends CharSequence> messageGetter) {
         if (verbose && enabled) out.println(messageGetter.get());
     }
 

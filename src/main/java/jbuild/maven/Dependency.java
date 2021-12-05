@@ -4,8 +4,8 @@ import jbuild.artifact.Artifact;
 
 public final class Dependency {
 
-    private final Artifact artifact;
-    private final Scope scope;
+    public final Artifact artifact;
+    public final Scope scope;
 
     public Dependency(Artifact artifact, Scope scope) {
         this.artifact = artifact;
@@ -14,14 +14,6 @@ public final class Dependency {
 
     public Dependency(Artifact artifact) {
         this(artifact, Scope.COMPILE);
-    }
-
-    public Artifact getArtifact() {
-        return artifact;
-    }
-
-    public Scope getScope() {
-        return scope;
     }
 
     @Override

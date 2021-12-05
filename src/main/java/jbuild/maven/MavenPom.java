@@ -25,7 +25,7 @@ public final class MavenPom {
     public Optional<Artifact> getParent() {
         return childNamed("parent", project)
                 .map(MavenPom::toDependency)
-                .map(Dependency::getArtifact);
+                .map(d -> d.artifact);
     }
 
     public List<Dependency> getDependencies() {
@@ -40,7 +40,7 @@ public final class MavenPom {
     }
 
     public Artifact getCoordinates() {
-        var artifact = toDependency(project).getArtifact();
+        var artifact = toDependency(project).artifact;
         if (artifact.groupId.isBlank() || artifact.version.isBlank()) {
             return getParent().map(artifact::mergeWith).orElse(artifact);
         }

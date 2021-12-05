@@ -30,6 +30,13 @@ public class Artifact {
                 firstNonBlank(extension, other.extension));
     }
 
+    public Artifact pom() {
+        if ("pom".equals(extension)) {
+            return this;
+        }
+        return new Artifact(groupId, artifactId, version, "pom");
+    }
+
     public static Artifact parseCoordinates(String artifact) {
         var coordinates = artifact.split(":");
         switch (coordinates.length) {

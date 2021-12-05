@@ -1,6 +1,8 @@
 package jbuild.artifact;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 public final class ResolvedArtifact {
@@ -32,5 +34,14 @@ public final class ResolvedArtifact {
         }
         writer.write(c);
         contents = null;
+    }
+
+    public InputStream consumeContents() {
+        var c = contents;
+        if (c == null) {
+            throw new IllegalStateException("artifact contents already consumed: " + artifact);
+        }
+        contents = null;
+        return new ByteArrayInputStream(c);
     }
 }

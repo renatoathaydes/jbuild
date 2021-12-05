@@ -49,7 +49,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
             if (response.statusCode() == 200) {
                 return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this));
             }
-            return ArtifactResolution.failure(new HttpError(artifact, response));
+            return ArtifactResolution.failure(new HttpError(artifact, this, response));
         });
     }
 }

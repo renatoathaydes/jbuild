@@ -2,7 +2,7 @@ package jbuild.errors;
 
 public class JBuildException extends RuntimeException {
     public enum ErrorCause {
-        UNKNOWN, USER_INPUT, TIMEOUT, IO_READ, IO_WRITE
+        UNKNOWN, USER_INPUT, TIMEOUT, IO_READ, IO_WRITE, ACTION_ERROR
     }
 
     private final ErrorCause cause;

@@ -1,19 +1,22 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
-import jbuild.artifact.ResolvedArtifact;
+import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
+import jbuild.util.Executable;
 
 import java.io.File;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 
 public class Main {
@@ -83,11 +86,27 @@ public class Main {
             case "fetch":
                 fetchArtifacts(options, startTime);
                 break;
+            case "deps":
+                listDeps(options, startTime);
+                break;
             default:
                 exitWithError("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT, startTime);
         }
 
+    }
+
+    private void listDeps(Options options, long startTime) {
+        var artifacts = parseArtifacts(startTime, options.commandArgs);
+
+        withErrorHandling(() -> {
+            DepsCommandExecutor.createDefault(log).fetchDependenciesOf(artifacts).forEach((artifact, pom) -> {
+                log.println("Dependencies of " + artifact + ":\n");
+                for (var dependency : pom.getDependencies()) {
+                    log.println("  * " + dependency);
+                }
+            });
+        }, startTime);
     }
 
     private void fetchArtifacts(Options options, long startTime) {
@@ -98,39 +117,75 @@ public class Main {
             return;
         }
 
-        List<Artifact> artifacts;
+        var artifacts = parseArtifacts(startTime, fetchOptions.artifacts);
+
+        var latch = new CountDownLatch(artifacts.size());
+        var anyError = new AtomicReference<ErrorCause>();
+
+        FetchCommandExecutor.createDefault(log).fetchArtifacts(artifacts, new File(fetchOptions.outDir))
+                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
+                    try {
+                        if (err != null || ok.isEmpty()) {
+                            anyError.set(ErrorCause.UNKNOWN);
+
+                            // exceptional completions are not reported by the executor, so we need to report here
+                            if (err != null) {
+                                log.print("An error occurred while fetching " + artifact + ": ");
+                                if (err instanceof JBuildException) {
+                                    log.println(err.getMessage());
+                                    anyError.set(((JBuildException) err).getErrorCause());
+                                } else {
+                                    log.println(err.toString());
+                                }
+                            } else { // ok is empty: non-exceptional error
+                                log.println("Failed to fetch " + artifact);
+                            }
+                        }
+                    } finally {
+                        latch.countDown();
+                    }
+                }));
+
+        withErrorHandling(() -> {
+            latch.await();
+
+            var errorCause = anyError.get();
+            if (errorCause != null) {
+                exitWithError("Could not fetch all artifacts successfully", errorCause, startTime);
+            }
+
+            log.verbosePrintln(() -> (artifacts.size() > 1 ? "All " + artifacts.size() + " artifacts" : "Artifact") +
+                    " successfully downloaded to " + fetchOptions.outDir);
+        }, startTime);
+    }
+
+    private void withErrorHandling(Executable exe, long startTime) {
         try {
-            artifacts = fetchOptions.artifacts.stream()
+            exe.run();
+        } catch (JBuildException e) {
+            exitWithError(e.getMessage(), e.getErrorCause(), startTime);
+        } catch (Exception e) {
+            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
+        }
+        log.println(() -> "Build passed in " + time(startTime) + "!");
+    }
+
+    private Set<? extends Artifact> parseArtifacts(long startTime, List<String> coordinates) {
+        Set<Artifact> artifacts;
+        try {
+            artifacts = coordinates.stream()
                     .map(Artifact::parseCoordinates)
-                    .collect(toList());
+                    .collect(toSet());
         } catch (IllegalArgumentException e) {
             exitWithError(e.getMessage(), USER_INPUT, startTime);
-            return;
+            throw new RuntimeException("unreachable");
         }
 
         log.verbosePrintln(() -> "Parsed artifacts coordinates:\n" + artifacts.stream()
                 .map(a -> "  * " + a + "\n")
                 .collect(joining()));
 
-        try {
-            var resolvedArtifacts = FetchCommandExecutor.createDefault(log)
-                    .fetchArtifacts(artifacts, new File(fetchOptions.outDir));
-            reportArtifacts(resolvedArtifacts);
-            log.println(() -> "Build passed in " + time(startTime) + "!");
-        } catch (JBuildException e) {
-            exitWithError(e.getMessage(), e.getErrorCause(), startTime);
-        } catch (Exception e) {
-            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
-        }
-    }
-
-    private void reportArtifacts(Collection<ResolvedArtifact> resolvedArtifacts) {
-        log.println("Resolved " + resolvedArtifacts.size() + " artifacts.");
-        if (log.isVerbose()) {
-            for (var artifact : resolvedArtifacts) {
-                log.println("  * " + artifact.artifact + " (" + artifact.contentLength + " bytes)");
-            }
-        }
+        return artifacts;
     }
 
     private void exitWithError(String message, ErrorCause cause, long startTime) {
