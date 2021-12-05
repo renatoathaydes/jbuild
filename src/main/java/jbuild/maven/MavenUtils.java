@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Map;
 
 public final class MavenUtils {
 
@@ -52,5 +53,13 @@ public final class MavenUtils {
         return LocalDateTime.parse(timestamp,
                         DateTimeFormatter.ofPattern("yyyyMMddHHmmss", Locale.ROOT))
                 .toInstant(ZoneOffset.UTC);
+    }
+
+    public static String resolveProperty(String value, Map<String, String> properties) {
+        if (value.startsWith("${") && value.endsWith("}")) {
+            var key= value.substring(2, value.length() - 1);
+            return properties.getOrDefault(key, value);
+        }
+        return value;
     }
 }
