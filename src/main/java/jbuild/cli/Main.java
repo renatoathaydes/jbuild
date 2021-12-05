@@ -15,6 +15,9 @@ import jbuild.util.Executable;
 import jbuild.util.FileUtils;
 
 import java.io.File;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -278,6 +281,11 @@ public class Main {
                 if (!release.isBlank()) {
                     log.println("  * Release: " + latest);
                 }
+
+                mavenMetadata.getLastUpdated().ifPresent(updated -> {
+                    log.println("  * Last updated: " + ZonedDateTime.ofInstant(updated, ZoneId.systemDefault())
+                            .format(DateTimeFormatter.RFC_1123_DATE_TIME));
+                });
 
                 if (versions.isEmpty()) {
                     log.println("  * no versions available");

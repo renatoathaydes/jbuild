@@ -10,6 +10,11 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 public final class MavenUtils {
 
@@ -41,5 +46,11 @@ public final class MavenUtils {
         try (stream) {
             return new MavenMetadata(db.parse(stream));
         }
+    }
+
+    public static Instant parseMavenTimestamp(String timestamp) {
+        return LocalDateTime.parse(timestamp,
+                        DateTimeFormatter.ofPattern("yyyyMMddHHmmss", Locale.ROOT))
+                .toInstant(ZoneOffset.UTC);
     }
 }

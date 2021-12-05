@@ -3,6 +3,8 @@ package jbuild.maven;
 import jbuild.artifact.Artifact;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static jbuild.maven.MavenAssertions.artifactCoordinates;
 import static jbuild.maven.MavenAssertions.dependencies;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +37,12 @@ public class MavenUtilsTest {
                         dep("com.google.errorprone", "error_prone_annotations", ""),
                         dep("com.google.j2objc", "j2objc-annotations", "")))
                 .has(artifactCoordinates(new Artifact("com.google.guava", "guava", "31.0.1-jre")));
+    }
+
+    @Test
+    void canParseMavenTimestamp() {
+        assertThat(MavenUtils.parseMavenTimestamp("20210927195736"))
+                .isEqualTo(Instant.parse("2021-09-27T19:57:36.00Z"));
     }
 
     private static Dependency dep(String groupId, String artifactId, String version, Scope scope) {
