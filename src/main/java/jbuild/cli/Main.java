@@ -41,7 +41,7 @@ public class Main {
             "Version: " + JBUILD_VERSION + "\n" +
             "\n" +
             "Utility to build Java (JVM) applications.\n" +
-            "It can only download Maven artifacts for now.\n" +
+            "This is work in progress!\n" +
             "\n" +
             "Usage:\n" +
             "    jbuild <root-option> <cmd> <cmd-args...> \n" +
@@ -63,7 +63,7 @@ public class Main {
             "        --directory\n" +
             "        -d        output directory.\n" +
             "      Example:\n" +
-            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" +
+            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0\n" +
             "\n" +
             "  * deps\n" +
             "    List the direct dependencies of the given artifacts." +
