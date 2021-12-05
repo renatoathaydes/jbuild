@@ -8,14 +8,10 @@ import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.errors.ArtifactRetrievalError;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.util.Describable;
 import jbuild.util.Either;
-import jbuild.util.FileUtils;
 
-import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -26,8 +22,8 @@ import java.util.concurrent.CompletionStage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
-import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.util.CollectionUtils.append;
+import static jbuild.util.CollectionUtils.foldEither;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;
 
@@ -95,16 +91,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
     public Map<Artifact, CompletionStage<Optional<ResolvedArtifact>>> fetchArtifacts(
             Set<? extends Artifact> artifacts,
-            File outDir) {
-        var dirExists = FileUtils.ensureDirectoryExists(outDir);
-        if (!dirExists) {
-            throw new JBuildException(
-                    "Output directory does not exist and cannot be created: " + outDir.getPath(),
-                    IO_WRITE);
-        }
-
-        var fileWriter = new ArtifactFileWriter(outDir);
-
+            ArtifactFileWriter fileWriter) {
         // first stage: run all retrievers and output handlers, accumulating the results for each artifact
         var fetchCompletions = fetchArtifacts(
                 artifacts,
@@ -117,38 +104,26 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
         // second stage: check that for each artifact, at least one retrieval was fully successful,
         // otherwise group the errors
-        Map<Artifact, CompletionStage<Either<ResolvedArtifact, List<Describable>>>> errorCheckCompletions =
-                mapValues(fetchCompletions, c -> c.thenApply((resolutions) -> {
-                    var errors = new ArrayList<Describable>(fetchCompletions.size());
-
-                    for (var resolution : resolutions) {
-                        var resolvedArtifact = resolution.map(success -> success, err -> {
-                            errors.add(err);
-                            return null;
-                        });
-                        if (resolvedArtifact != null) {
-                            return Either.left(resolvedArtifact);
-                        }
-                    }
-                    return Either.right(errors);
-                }));
+        Map<Artifact, CompletionStage<Either<ResolvedArtifact, List<Describable>>>> errorFoldingCompletions =
+                mapValues(fetchCompletions, c -> c.thenApply((resolutions) ->
+                        foldEither(resolutions, fetchCompletions.size())));
 
         // third stage: report all successes if verbose log is enabled
         Map<Artifact, CompletionStage<Either<ResolvedArtifact, List<Describable>>>> reportingCompletions;
 
         if (log.isVerbose()) {
-            reportingCompletions = mapValues(errorCheckCompletions, c -> c.thenApply((result) -> result.map(
+            reportingCompletions = mapValues(errorFoldingCompletions, c -> c.thenApply((result) -> result.map(
                     this::reportSuccess,
                     Either::right
             )));
         } else {
-            reportingCompletions = errorCheckCompletions;
+            reportingCompletions = errorFoldingCompletions;
         }
 
         // final stage: report all errors
         return mapEntries(reportingCompletions, (artifact, c) -> c.thenApply((result) -> result.map(
                 Optional::of,
-                errors -> reportErrors(artifact, errors, log.isVerbose())
+                errors -> reportErrors(log, artifact, errors)
         )));
     }
 
@@ -175,16 +150,16 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
         return completedFuture(Either.right(error));
     }
 
-    private Optional<ResolvedArtifact> reportErrors(
+    static <T> Optional<T> reportErrors(
+            JBuildLog log,
             Artifact artifact,
-            List<? extends Describable> errors,
-            boolean verbose) {
+            List<? extends Describable> errors) {
         var builder = new StringBuilder(4096);
         if (!errors.isEmpty()) {
             builder.append("Unable to retrieve ").append(artifact).append(" due to:\n");
             for (var error : errors) {
                 builder.append("  * ");
-                error.describe(builder, verbose);
+                error.describe(builder, log.isVerbose());
                 builder.append('\n');
             }
         } else {

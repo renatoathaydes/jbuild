@@ -1,6 +1,7 @@
 package jbuild.artifact;
 
 import static jbuild.util.TextUtils.firstNonBlank;
+import static jbuild.util.TextUtils.requireNonBlank;
 
 public class Artifact {
     public final String groupId;
@@ -12,7 +13,7 @@ public class Artifact {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
-        this.extension = extension;
+        this.extension = firstNonBlank(extension, "jar");
     }
 
     public Artifact(String groupId, String artifactId, String version) {
@@ -20,7 +21,7 @@ public class Artifact {
     }
 
     public Artifact(String groupId, String artifactId) {
-        this(groupId, artifactId, "", "jar");
+        this(groupId, artifactId, "", "");
     }
 
     public Artifact mergeWith(Artifact other) {
@@ -39,16 +40,22 @@ public class Artifact {
 
     public static Artifact parseCoordinates(String artifact) {
         var coordinates = artifact.split(":");
+        String groupId = "", artifactId = "";
+        if (coordinates.length > 1) {
+            groupId = requireNonBlank(coordinates[0], "groupId");
+            artifactId = requireNonBlank(coordinates[1], "artifactId");
+        }
         switch (coordinates.length) {
             case 2:
-                return new Artifact(coordinates[0], coordinates[1]);
+                return new Artifact(groupId, artifactId);
             case 3:
-                return new Artifact(coordinates[0], coordinates[1], coordinates[2]);
+                return new Artifact(groupId, artifactId, coordinates[2]);
             case 4:
-                return new Artifact(coordinates[0], coordinates[1], coordinates[2], coordinates[3]);
+                return new Artifact(groupId, artifactId, coordinates[2], coordinates[3]);
             default:
-                throw new IllegalArgumentException("Cannot parse coordinates, expected 2 to 4 parts, found " +
-                        coordinates.length + " in '" + artifact + "'");
+                throw new IllegalArgumentException("Cannot parse coordinates, expected 2 to 4 parts" +
+                        " (groupId:artifactId[:version[:extension]]), found " +
+                        coordinates.length + " part(s) in '" + artifact + "'");
         }
     }
 
@@ -56,12 +63,16 @@ public class Artifact {
      * @return a standard file name for this artifact (artifactId-version.extension)
      */
     public String toFileName() {
-        return artifactId + "-" + version + "." + extension;
+        return artifactId + (version.isBlank() ? "" : "-" + version) + "." + extension;
     }
 
     @Override
     public String toString() {
-        return "Artifact{" + groupId + ':' + artifactId + ':' + version + ':' + extension + '}';
+        return "Artifact{" + getCoordinates() + ':' + extension + '}';
+    }
+
+    public String getCoordinates() {
+        return groupId + ':' + artifactId + ':' + version;
     }
 
     @Override

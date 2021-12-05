@@ -1,23 +1,32 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
+import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
+import jbuild.maven.MavenPom;
+import jbuild.maven.Scope;
 import jbuild.util.Executable;
+import jbuild.util.FileUtils;
 
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.CollectionUtils.sorted;
 
 public class Main {
 
@@ -99,11 +108,53 @@ public class Main {
     private void listDeps(Options options, long startTime) {
         var artifacts = parseArtifacts(startTime, options.commandArgs);
 
+        var latch = new CountDownLatch(artifacts.size());
+        var anyError = new AtomicReference<ErrorCause>();
+        var pomByArtifact = new ConcurrentSkipListMap<Artifact, MavenPom>(comparing(Artifact::getCoordinates));
+
+        var depsCommandExecutor = DepsCommandExecutor.createDefault(log);
+
+        depsCommandExecutor.fetchPoms(artifacts).forEach((artifact, pomCompletion) -> {
+            pomCompletion.whenComplete((ok, err) -> {
+                try {
+                    if (ok.isPresent()) {
+                        pomByArtifact.put(artifact, ok.get());
+                    } else {
+                        reportErrors(anyError, artifact, false, err);
+                    }
+                } finally {
+                    latch.countDown();
+                }
+            });
+        });
+
         withErrorHandling(() -> {
-            DepsCommandExecutor.createDefault(log).fetchDependenciesOf(artifacts).forEach((artifact, pom) -> {
-                log.println("Dependencies of " + artifact + ":\n");
-                for (var dependency : pom.getDependencies()) {
-                    log.println("  * " + dependency);
+            latch.await();
+
+            var errorCause = anyError.get();
+            if (errorCause != null) {
+                exitWithError("Could not fetch all Maven POMs successfully", errorCause, startTime);
+            }
+
+            pomByArtifact.forEach((artifact, pom) -> {
+                log.println("Dependencies of " + artifact.getCoordinates() + ":");
+                if (pom.getDependencies().isEmpty()) {
+                    log.println("  * no dependencies");
+                    return;
+                }
+
+                var groupedDeps = pom.getDependencies().stream()
+                        .collect(groupingBy(dep -> dep.scope));
+
+                // iterated sorted by scope declaration order
+                for (Scope scope : Scope.values()) {
+                    var deps = groupedDeps.get(scope);
+                    if (deps != null && !deps.isEmpty()) {
+                        log.println("  - scope " + scope);
+                        for (var dependency : sorted(deps, comparing(dep -> dep.artifact.getCoordinates()))) {
+                            log.println("    * " + dependency.artifact.getCoordinates());
+                        }
+                    }
                 }
             });
         }, startTime);
@@ -119,35 +170,34 @@ public class Main {
 
         var artifacts = parseArtifacts(startTime, fetchOptions.artifacts);
 
+        var outDir = new File(fetchOptions.outDir);
+
+        var dirExists = FileUtils.ensureDirectoryExists(outDir);
+        if (!dirExists) {
+            throw new JBuildException(
+                    "Output directory does not exist and cannot be created: " + outDir.getPath(),
+                    IO_WRITE);
+        }
+
+        var fileWriter = new ArtifactFileWriter(outDir);
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
 
-        FetchCommandExecutor.createDefault(log).fetchArtifacts(artifacts, new File(fetchOptions.outDir))
+        FetchCommandExecutor.createDefault(log).fetchArtifacts(artifacts, fileWriter)
                 .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
                     try {
-                        if (err != null || ok.isEmpty()) {
-                            anyError.set(ErrorCause.UNKNOWN);
-
-                            // exceptional completions are not reported by the executor, so we need to report here
-                            if (err != null) {
-                                log.print("An error occurred while fetching " + artifact + ": ");
-                                if (err instanceof JBuildException) {
-                                    log.println(err.getMessage());
-                                    anyError.set(((JBuildException) err).getErrorCause());
-                                } else {
-                                    log.println(err.toString());
-                                }
-                            } else { // ok is empty: non-exceptional error
-                                log.println("Failed to fetch " + artifact);
-                            }
-                        }
+                        reportErrors(anyError, artifact, ok.isEmpty(), err);
                     } finally {
                         latch.countDown();
                     }
                 }));
 
         withErrorHandling(() -> {
-            latch.await();
+            try {
+                latch.await();
+            } finally {
+                fileWriter.close();
+            }
 
             var errorCause = anyError.get();
             if (errorCause != null) {
@@ -157,6 +207,28 @@ public class Main {
             log.verbosePrintln(() -> (artifacts.size() > 1 ? "All " + artifacts.size() + " artifacts" : "Artifact") +
                     " successfully downloaded to " + fetchOptions.outDir);
         }, startTime);
+    }
+
+    private void reportErrors(AtomicReference<ErrorCause> anyError,
+                              Artifact artifact,
+                              boolean isUnknownError,
+                              Throwable err) {
+        if (err != null || isUnknownError) {
+            anyError.set(ErrorCause.UNKNOWN);
+
+            // exceptional completions are not reported by the executor, so we need to report here
+            if (err != null) {
+                log.print("An error occurred while fetching " + artifact + ": ");
+                if (err instanceof JBuildException) {
+                    log.println(err.getMessage());
+                    anyError.set(((JBuildException) err).getErrorCause());
+                } else {
+                    log.println(err.toString());
+                }
+            } else { // ok is empty: non-exceptional error
+                log.println("Failed to fetch " + artifact);
+            }
+        }
     }
 
     private void withErrorHandling(Executable exe, long startTime) {

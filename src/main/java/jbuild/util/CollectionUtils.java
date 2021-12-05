@@ -1,7 +1,11 @@
 package jbuild.util;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
@@ -56,5 +60,28 @@ public final class CollectionUtils {
             result.put(entry.getKey(), transform.apply(entry.getKey(), entry.getValue()));
         }
         return result;
+    }
+
+    public static <T> Either<T, List<Describable>> foldEither(
+            Iterable<Either<T, Describable>> eitherIterable,
+            int sizeHint) {
+        var errors = new ArrayList<Describable>(sizeHint);
+
+        for (var either : eitherIterable) {
+            var result = either.map(success -> success, err -> {
+                errors.add(err);
+                return null;
+            });
+            if (result != null) {
+                return Either.left(result);
+            }
+        }
+        return Either.right(errors);
+    }
+
+    public static <T> Iterable<T> sorted(Collection<T> collection, Comparator<T> comparator) {
+        var mutable = new ArrayList<>(collection);
+        mutable.sort(comparator);
+        return mutable;
     }
 }
