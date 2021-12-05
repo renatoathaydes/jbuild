@@ -9,6 +9,22 @@ import java.util.Optional;
 
 public final class XmlUtils {
 
+    public static Optional<Element> descendantOf(Node node, String... names) {
+        var current = node;
+        for (var name : names) {
+            var maybeCurrent = childNamed(name, current);
+            if (maybeCurrent.isPresent()) {
+                current = maybeCurrent.get();
+            } else {
+                return Optional.empty();
+            }
+        }
+        if (current instanceof Element) {
+            return Optional.of((Element) current);
+        }
+        return Optional.empty();
+    }
+
     public static Optional<Element> childNamed(String name, Node node) {
         var children = node.getChildNodes();
         for (var i = 0; i < children.getLength(); i++) {

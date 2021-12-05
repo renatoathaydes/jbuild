@@ -15,8 +15,6 @@ import java.util.concurrent.CompletionStage;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
-    public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2";
-
     private final HttpClient httpClient;
     private final String baseUrl;
 
@@ -27,7 +25,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
     }
 
     public HttpArtifactRetriever(HttpClient httpClient) {
-        this(httpClient, MAVEN_CENTRAL_URL);
+        this(httpClient, MavenUtils.MAVEN_CENTRAL_URL);
     }
 
     public HttpArtifactRetriever() {

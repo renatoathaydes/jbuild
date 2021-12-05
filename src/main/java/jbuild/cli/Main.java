@@ -4,9 +4,11 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
+import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
+import jbuild.maven.MavenMetadata;
 import jbuild.maven.MavenPom;
 import jbuild.maven.Scope;
 import jbuild.util.Executable;
@@ -51,7 +53,7 @@ public class Main {
             "Available commands:\n" +
             "\n" +
             "  * fetch\n" +
-            "    Fetches Maven artifacts from the local Maven repo or Maven Central."+
+            "    Fetches Maven artifacts from the local Maven repo or Maven Central." +
             "      Usage:\n" +
             "        jbuild fetch <options... | artifact...>\n" +
             "      Options:\n" +
@@ -61,12 +63,18 @@ public class Main {
             "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" +
             "\n" +
             "  * deps\n" +
-            "    List the direct dependencies of the given artifacts."+
+            "    List the direct dependencies of the given artifacts." +
             "      Usage:\n" +
             "        jbuild deps <artifact...>\n" +
             "      Example:\n" +
             "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
             "\n" +
+            "  * versions\n" +
+            "    List the versions of the given artifacts that are available on Maven Central." +
+            "      Usage:\n" +
+            "        jbuild versions <artifact...>\n" +
+            "      Example:\n" +
+            "        jbuild versions junit:junit\n" +
             "";
 
     public static void main(String[] args) {
@@ -108,6 +116,9 @@ public class Main {
             case "deps":
                 listDeps(options, startTime);
                 break;
+            case "versions":
+                listVersions(options, startTime);
+                break;
             default:
                 exitWithError("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT, startTime);
@@ -117,6 +128,11 @@ public class Main {
 
     private void listDeps(Options options, long startTime) {
         var artifacts = parseArtifacts(startTime, options.commandArgs);
+
+        if (artifacts.isEmpty()) {
+            log.println("No artifacts were provided. Nothing to do.");
+            return;
+        }
 
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
@@ -219,6 +235,67 @@ public class Main {
         }, startTime);
     }
 
+    private void listVersions(Options options, long startTime) {
+        var artifacts = parseArtifacts(startTime, options.commandArgs);
+
+        if (artifacts.isEmpty()) {
+            log.println("No artifacts were provided. Nothing to do.");
+            return;
+        }
+
+        var latch = new CountDownLatch(artifacts.size());
+        var anyError = new AtomicReference<ErrorCause>();
+        var metadataByArtifact = new ConcurrentSkipListMap<Artifact, MavenMetadata>(comparing(Artifact::getCoordinates));
+
+        new VersionsCommandExecutor(log).getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
+                eitherCompletionStage.whenComplete((completion, throwable) -> {
+                    if (throwable != null) {
+                        reportErrors(anyError, artifact, false, throwable);
+                        latch.countDown();
+                        return;
+                    }
+                    try {
+                        completion.use(
+                                ok -> metadataByArtifact.put(artifact, ok),
+                                err -> reportErrors(anyError, artifact, false, err));
+                    } finally {
+                        latch.countDown();
+                    }
+                }));
+
+        withErrorHandling(() -> {
+            latch.await();
+            metadataByArtifact.forEach((artifact, mavenMetadata) -> {
+                log.println("Versions of " + artifact.getCoordinates() + ":");
+
+                var latest = mavenMetadata.getLatestVersion();
+                var release = mavenMetadata.getReleaseVersion();
+                var versions = mavenMetadata.getVersions();
+
+                if (!latest.isBlank()) {
+                    log.println("  * Latest: " + latest);
+                }
+                if (!release.isBlank()) {
+                    log.println("  * Release: " + latest);
+                }
+
+                if (versions.isEmpty()) {
+                    log.println("  * no versions available");
+                } else {
+                    log.println("  * All versions:");
+                    for (var version : versions) {
+                        log.println("    - " + version);
+                    }
+                }
+            });
+
+            var errorCause = anyError.get();
+            if (errorCause != null) {
+                exitWithError("Could not fetch all versions successfully", errorCause, startTime);
+            }
+        }, startTime);
+    }
+
     private void reportErrors(AtomicReference<ErrorCause> anyError,
                               Artifact artifact,
                               boolean isUnknownError,
@@ -228,7 +305,7 @@ public class Main {
 
             // exceptional completions are not reported by the executor, so we need to report here
             if (err != null) {
-                log.print("An error occurred while fetching " + artifact + ": ");
+                log.print("An error occurred while processing " + artifact + ": ");
                 if (err instanceof JBuildException) {
                     log.println(err.getMessage());
                     anyError.set(((JBuildException) err).getErrorCause());
@@ -236,7 +313,7 @@ public class Main {
                     log.println(err.toString());
                 }
             } else { // ok is empty: non-exceptional error
-                log.println("Failed to fetch " + artifact);
+                log.println("Failed to handle " + artifact);
             }
         }
     }

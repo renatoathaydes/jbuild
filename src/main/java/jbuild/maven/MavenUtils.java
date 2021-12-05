@@ -13,6 +13,8 @@ import java.io.InputStream;
 
 public final class MavenUtils {
 
+    public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2";
+
     public static String standardArtifactPath(Artifact artifact, boolean usePlatformSeparator) {
         var fileName = artifact.toFileName();
         var sep = usePlatformSeparator ? File.separatorChar : '/';
@@ -28,6 +30,16 @@ public final class MavenUtils {
         DocumentBuilder db = dbf.newDocumentBuilder();
         try (stream) {
             return new MavenPom(db.parse(stream));
+        }
+    }
+
+    public static MavenMetadata parseMavenMetadata(InputStream stream)
+            throws ParserConfigurationException, IOException, SAXException {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        try (stream) {
+            return new MavenMetadata(db.parse(stream));
         }
     }
 }
