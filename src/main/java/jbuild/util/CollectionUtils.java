@@ -14,7 +14,7 @@ import java.util.function.Function;
 public final class CollectionUtils {
 
     public static <T> Iterable<T> append(T first, Iterable<T> rest) {
-        return () -> new Iterator<T>() {
+        return () -> new Iterator<>() {
             T firstItem = first;
             final Iterator<T> delegate = rest.iterator();
 
@@ -36,7 +36,7 @@ public final class CollectionUtils {
     }
 
     public static <T> Iterable<T> append(Iterable<T> iter, T last) {
-        return () -> new Iterator<T>() {
+        return () -> new Iterator<>() {
             final Iterator<T> delegate = iter.iterator();
             boolean done = false;
 
@@ -60,7 +60,7 @@ public final class CollectionUtils {
     }
 
     public static <T> Iterable<T> append(Iterable<T> first, Iterable<T> last) {
-        return () -> new Iterator<T>() {
+        return () -> new Iterator<>() {
             Iterator<T> delegate = first.iterator();
             boolean doneFirst = false;
 

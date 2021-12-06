@@ -52,7 +52,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
                 (requestedArtifact, resolution) -> resolution.value.map(
                         this::handleResolved,
                         this::handleRetrievalError
-                ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res, resolution)));
+                ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res)));
 
         // second stage: check that for each artifact, at least one retrieval was fully successful,
         // otherwise group the errors
@@ -100,6 +100,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         if (parentArtifact.isEmpty()) {
             return completedFuture(Either.left(pom));
         }
+        // TODO combine pom with the retrieved parent pom
         return fetchCommandExecutor.fetchArtifact(parentArtifact.get())
                 .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors));
     }

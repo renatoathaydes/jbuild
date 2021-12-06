@@ -51,7 +51,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                                 continueIf(resolution.value.map(ok -> false, err -> true),
                                         resolution.value.map(
                                                 Either::left,
-                                                err -> Either.right(NonEmptyCollection.of(err))), resolution))
+                                                err -> Either.right(NonEmptyCollection.of(err)))))
         ).thenApply(CollectionUtils::foldEither);
     }
 
@@ -105,7 +105,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                 (requestedArtifact, resolution) -> resolution.value.map(
                         success -> handleResolved(fileWriter, success),
                         this::handleRetrievalError
-                ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res, resolution)));
+                ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res)));
 
         // second stage: check that for each artifact, at least one retrieval was fully successful,
         // otherwise group the errors
@@ -176,12 +176,8 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
         Res getResult();
 
-        ArtifactResolution<?> getResolution();
-
         static <Res> FetchHandleResult<Res> continueIf(boolean condition,
-                                                       Res result,
-                                                       // FIXME remove it, it's not used
-                                                       ArtifactResolution<?> resolution) {
+                                                       Res result) {
             return new FetchHandleResult<Res>() {
                 @Override
                 public boolean shouldContinue() {
@@ -191,11 +187,6 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                 @Override
                 public Res getResult() {
                     return result;
-                }
-
-                @Override
-                public ArtifactResolution<?> getResolution() {
-                    return resolution;
                 }
             };
         }

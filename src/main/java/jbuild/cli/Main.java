@@ -165,6 +165,7 @@ public class Main {
                 exitWithError("Could not fetch all Maven POMs successfully", errorCause, startTime);
             }
 
+            // FIXME should have optional POM here so we can fail the build when at least one is missing
             pomByArtifact.forEach((artifact, pom) -> {
                 log.println("Dependencies of " + artifact.getCoordinates() + ":");
                 if (pom.getDependencies().isEmpty()) {
