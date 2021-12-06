@@ -9,8 +9,10 @@ import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
+import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
 import jbuild.util.Either;
+import jbuild.util.NonEmptyCollection;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -22,66 +24,71 @@ import java.util.concurrent.CompletionStage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
-import static jbuild.util.CollectionUtils.append;
-import static jbuild.util.CollectionUtils.foldEither;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;
 
 public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
     private final JBuildLog log;
-    private final List<? extends ArtifactRetriever<? extends Err>> retrievers;
+    private final NonEmptyCollection<? extends ArtifactRetriever<? extends Err>> retrievers;
 
     public FetchCommandExecutor(JBuildLog log,
-                                List<? extends ArtifactRetriever<? extends Err>> retrievers) {
+                                NonEmptyCollection<? extends ArtifactRetriever<? extends Err>> retrievers) {
         this.log = log;
         this.retrievers = retrievers;
     }
 
     public static FetchCommandExecutor<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
-        return new FetchCommandExecutor<>(log, List.of(
-                new FileArtifactRetriever(),
+        return new FetchCommandExecutor<>(log, NonEmptyCollection.of(
+                NonEmptyCollection.of(new FileArtifactRetriever()),
                 new HttpArtifactRetriever()));
     }
 
-    public <S> Map<Artifact, CompletionStage<Iterable<S>>> fetchArtifacts(Set<? extends Artifact> artifacts,
-                                                                          FetchHandler<S> handler) {
-        var result = new HashMap<Artifact, CompletionStage<Iterable<S>>>(artifacts.size());
-        for (Artifact artifact : artifacts) {
-            var completion = fetch(artifact, retrievers.iterator(), handler);
+    public CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> fetchArtifact(Artifact artifact) {
+        return fetchArtifact(artifact,
+                (FetchHandler<Either<ResolvedArtifact, NonEmptyCollection<Describable>>>)
+                        (requestedArtifact, resolution) -> completedFuture(
+                                continueIf(resolution.value.map(ok -> false, err -> true),
+                                        resolution.value.map(
+                                                Either::left,
+                                                err -> Either.right(NonEmptyCollection.of(err))), resolution))
+        ).thenApply(CollectionUtils::foldEither);
+    }
+
+    public <S> Map<Artifact, CompletionStage<NonEmptyCollection<S>>> fetchArtifacts(Set<? extends Artifact> artifacts,
+                                                                                    FetchHandler<S> handler) {
+        var result = new HashMap<Artifact, CompletionStage<NonEmptyCollection<S>>>(artifacts.size());
+        for (var artifact : artifacts) {
+            var completion = fetchArtifact(artifact, handler);
             result.put(artifact, completion);
         }
         return result;
     }
 
-    private <S> CompletionStage<Iterable<S>> fetch(
+    public <S> CompletionStage<NonEmptyCollection<S>> fetchArtifact(
             Artifact artifact,
-            Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
             FetchHandler<S> handler) {
-        if (remainingRetrievers.hasNext()) {
-            var retriever = remainingRetrievers.next();
-            return fetch(artifact, retriever, remainingRetrievers, handler, List.of());
-        }
-        return completedFuture(List.of());
+        var retrievers = this.retrievers.iterator();
+        return fetch(artifact, retrievers.next(), retrievers, handler, List.of());
     }
 
-    private <S> CompletionStage<Iterable<S>> fetch(Artifact artifact,
-                                                   ArtifactRetriever<?> retriever,
-                                                   Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
-                                                   FetchHandler<S> handler,
-                                                   Iterable<S> currentResults) {
+    private <S> CompletionStage<NonEmptyCollection<S>> fetch(Artifact artifact,
+                                                             ArtifactRetriever<?> retriever,
+                                                             Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
+                                                             FetchHandler<S> handler,
+                                                             Iterable<S> currentResults) {
         return retriever.retrieve(artifact)
                 .thenCompose(resolution -> handler.handle(artifact, resolution)
                         .thenCompose(res ->
                                 fetchIfNotDone(artifact, remainingRetrievers, handler, currentResults, res)));
     }
 
-    private <S> CompletionStage<Iterable<S>> fetchIfNotDone(Artifact artifact,
-                                                            Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
-                                                            FetchHandler<S> handler,
-                                                            Iterable<S> currentResults,
-                                                            FetchHandleResult<S> result) {
-        var results = append(currentResults, result.getResult());
+    private <S> CompletionStage<NonEmptyCollection<S>> fetchIfNotDone(Artifact artifact,
+                                                                      Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
+                                                                      FetchHandler<S> handler,
+                                                                      Iterable<S> currentResults,
+                                                                      FetchHandleResult<S> result) {
+        var results = NonEmptyCollection.of(currentResults, result.getResult());
         if (remainingRetrievers.hasNext() && result.shouldContinue()) {
             return fetch(artifact, remainingRetrievers.next(), remainingRetrievers, handler, results);
         } else {
@@ -98,18 +105,16 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                 (requestedArtifact, resolution) -> resolution.value.map(
                         success -> handleResolved(fileWriter, success),
                         this::handleRetrievalError
-                ).thenApply(res ->
-                        continueIf(res.map(ok -> false, err -> err instanceof ArtifactRetrievalError),
-                                res, resolution)));
+                ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res, resolution)));
 
         // second stage: check that for each artifact, at least one retrieval was fully successful,
         // otherwise group the errors
-        Map<Artifact, CompletionStage<Either<ResolvedArtifact, List<Describable>>>> errorFoldingCompletions =
-                mapValues(fetchCompletions, c -> c.thenApply((resolutions) ->
-                        foldEither(resolutions, fetchCompletions.size())));
+        Map<Artifact, CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>>> errorFoldingCompletions =
+                mapValues(fetchCompletions, c ->
+                        c.thenApply(CollectionUtils::foldEither));
 
         // third stage: report all successes if verbose log is enabled
-        Map<Artifact, CompletionStage<Either<ResolvedArtifact, List<Describable>>>> reportingCompletions;
+        Map<Artifact, CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>>> reportingCompletions;
 
         if (log.isVerbose()) {
             reportingCompletions = mapValues(errorFoldingCompletions, c -> c.thenApply((result) -> result.map(
@@ -133,7 +138,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
         return Either.left(resolvedArtifact);
     }
 
-    private CompletionStage<Either<ResolvedArtifact, Describable>> handleResolved(
+    private CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> handleResolved(
             ArtifactFileWriter fileWriter,
             ResolvedArtifact resolvedArtifact) {
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved from " +
@@ -141,29 +146,25 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
         return fileWriter.write(resolvedArtifact).thenApply(result -> result.map(file -> {
             log.verbosePrintln(() -> "Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
             return Either.left(resolvedArtifact);
-        }, Either::right));
+        }, err -> Either.right(NonEmptyCollection.of(err))));
     }
 
-    private CompletionStage<Either<ResolvedArtifact, Describable>> handleRetrievalError(
+    private CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> handleRetrievalError(
             ArtifactRetrievalError error) {
         log.verbosePrintln(error::getDescription);
-        return completedFuture(Either.right(error));
+        return completedFuture(Either.right(NonEmptyCollection.of(error)));
     }
 
     static <T> Optional<T> reportErrors(
             JBuildLog log,
             Artifact artifact,
-            List<? extends Describable> errors) {
+            NonEmptyCollection<? extends Describable> errors) {
         var builder = new StringBuilder(4096);
-        if (!errors.isEmpty()) {
-            builder.append("Unable to retrieve ").append(artifact).append(" due to:\n");
-            for (var error : errors) {
-                builder.append("  * ");
-                error.describe(builder, log.isVerbose());
-                builder.append('\n');
-            }
-        } else {
-            builder.append("Unable to retrieve ").append(artifact).append('\n');
+        builder.append("Unable to retrieve ").append(artifact).append(" due to:\n");
+        for (var error : errors) {
+            builder.append("  * ");
+            error.describe(builder, log.isVerbose());
+            builder.append('\n');
         }
         log.print(builder);
         return Optional.empty();
@@ -179,6 +180,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
         static <Res> FetchHandleResult<Res> continueIf(boolean condition,
                                                        Res result,
+                                                       // FIXME remove it, it's not used
                                                        ArtifactResolution<?> resolution) {
             return new FetchHandleResult<Res>() {
                 @Override

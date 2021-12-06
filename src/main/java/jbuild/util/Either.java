@@ -1,5 +1,7 @@
 package jbuild.util;
 
+import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -40,6 +42,13 @@ public final class Either<L, R> {
             withLeft.accept(left);
         }
         withRight.accept(right);
+    }
+
+    public <T> Optional<Either<L, T>> combineRight(Either<L, R> other, BiFunction<R, R, T> combiner) {
+        if (right != null && other.right != null) {
+            return Optional.of(right(combiner.apply(this.right, other.right)));
+        }
+        return Optional.empty();
     }
 
 }

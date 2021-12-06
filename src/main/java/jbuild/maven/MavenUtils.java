@@ -45,7 +45,8 @@ public final class MavenUtils {
                 artifact.version + sep + fileName;
     }
 
-    public static MavenPom parsePom(InputStream stream) throws ParserConfigurationException, IOException, SAXException {
+    public static MavenPom parsePom(InputStream stream)
+            throws ParserConfigurationException, IOException, SAXException {
         var db = XmlSingletons.INSTANCE.factory.newDocumentBuilder();
         try (stream) {
             return new MavenPom(db.parse(stream));
