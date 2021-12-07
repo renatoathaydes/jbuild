@@ -1,17 +1,18 @@
 package jbuild.maven;
 
 import jbuild.artifact.Artifact;
+import jbuild.util.CollectionUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.maven.MavenUtils.resolveProperty;
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
@@ -20,37 +21,51 @@ import static jbuild.util.XmlUtils.textOf;
 public final class MavenPom {
 
     private final Element project;
+    private final MavenPom parentPom;
 
     // only resolve properties if necessary
     private Map<String, String> properties;
 
-    public MavenPom(Document doc) {
-        this.project = childNamed("project", doc).orElseThrow(() ->
-                new IllegalArgumentException("Not a POM XML document"));
+    private MavenPom(Element project, MavenPom parentPom) {
+        this.project = project;
+        this.parentPom = parentPom;
     }
 
-    public Optional<Artifact> getParent() {
+    public MavenPom(Document doc) {
+        this(childNamed("project", doc).orElseThrow(() ->
+                        new IllegalArgumentException("Not a POM XML document")),
+                null);
+    }
+
+    public MavenPom withParent(MavenPom parentPom) {
+        return new MavenPom(project, parentPom);
+    }
+
+    public Optional<Artifact> getParentArtifact() {
         return childNamed("parent", project)
                 .map(a -> MavenPom.toDependency(a, getProperties()))
                 .map(d -> d.artifact);
     }
 
-    public List<Dependency> getDependencies() {
+    public Set<Dependency> getDependencies() {
         var depsNode = childNamed("dependencies", project);
         if (depsNode.isEmpty()) {
-            return List.of();
+            return parentPom == null ? Set.of() : parentPom.getDependencies();
         }
+
         var deps = childrenNamed("dependency", depsNode.get());
         var props = getProperties();
-        return deps.stream()
-                .map(dep -> MavenPom.toDependency(dep, props))
-                .collect(toList());
+
+        return CollectionUtils.intersection(parentPom == null ? Set.of() : parentPom.getDependencies(),
+                deps.stream()
+                        .map(dep -> MavenPom.toDependency(dep, props))
+                        .collect(toSet()));
     }
 
     public Artifact getCoordinates() {
         var artifact = toDependency(project, getProperties()).artifact;
         if (artifact.groupId.isBlank() || artifact.version.isBlank()) {
-            return getParent().map(artifact::mergeWith).orElse(artifact);
+            return getParentArtifact().map(artifact::mergeWith).orElse(artifact);
         }
         return artifact;
     }

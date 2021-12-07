@@ -3,12 +3,12 @@ package jbuild.maven;
 import jbuild.artifact.Artifact;
 import org.assertj.core.api.Condition;
 
-import java.util.List;
+import java.util.Set;
 
 final class MavenAssertions {
 
     static Condition<? super MavenPom> dependencies(Dependency... dependencies) {
-        var expectedArtifacts = List.of(dependencies);
+        var expectedArtifacts = Set.of(dependencies);
         return new Condition<>(pom -> pom.getDependencies().equals(expectedArtifacts),
                 " dependencies %s", expectedArtifacts);
     }

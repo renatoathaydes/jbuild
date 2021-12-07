@@ -25,6 +25,24 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void canParseChildPomWithParentPom() throws Exception {
+        MavenPom pom;
+        try (var stream = getClass().getResourceAsStream("child.pom.xml")) {
+            pom = MavenUtils.parsePom(stream);
+        }
+        MavenPom parent;
+        try (var stream = getClass().getResourceAsStream("parent.pom.xml")) {
+            parent = MavenUtils.parsePom(stream);
+        }
+        assertThat(pom.withParent(parent))
+                .has(dependencies(
+//                        dep("com.google.code.findbugs", "jsr305", "3.0.2", Scope.COMPILE),
+                        dep("com.athaydes.jbuild", "jbuild", "3.2.1", Scope.COMPILE),
+                        dep("com.athaydes", "jbuild-example", "1.2.3", Scope.COMPILE)))
+                .has(artifactCoordinates(new Artifact("com.athaydes.test", "jbuild-child", "1.0")));
+    }
+
+    @Test
     void canParseBigMavenPom() throws Exception {
         MavenPom pom;
         try (var stream = getClass().getResourceAsStream("guava.pom.xml")) {

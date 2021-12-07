@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -86,6 +88,15 @@ public final class CollectionUtils {
                 return delegate.next();
             }
         };
+    }
+
+    public static <T> Set<T> intersection(Set<T> set1, Set<T> set2) {
+        if (set1.isEmpty()) return set2;
+        if (set2.isEmpty()) return set1;
+        var result = new HashSet<T>(set1.size() + set2.size());
+        result.addAll(set1);
+        result.addAll(set2);
+        return result;
     }
 
     public static <K, A, B> Map<K, B> mapValues(Map<K, A> map, Function<A, B> transform) {

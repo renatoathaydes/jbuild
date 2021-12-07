@@ -96,13 +96,15 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
     }
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withParentIfNeeded(MavenPom pom) {
-        var parentArtifact = pom.getParent();
+        var parentArtifact = pom.getParentArtifact();
         if (parentArtifact.isEmpty()) {
             return completedFuture(Either.left(pom));
         }
-        // TODO combine pom with the retrieved parent pom
         return fetchCommandExecutor.fetchArtifact(parentArtifact.get())
-                .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors));
+                .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors))
+                .thenComposeAsync(res -> res.map(
+                        parentPom -> completedFuture(Either.left(pom.withParent(parentPom))),
+                        this::handleRetrievalErrors));
     }
 
 }
