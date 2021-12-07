@@ -6,6 +6,7 @@ import org.w3c.dom.Node;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public final class XmlUtils {
 
@@ -63,5 +64,11 @@ public final class XmlUtils {
     public static String textOf(Optional<? extends Node> node, String defaultValue) {
         return node.flatMap(c -> Optional.ofNullable(c.getTextContent()))
                 .orElse(defaultValue);
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    public static String textOf(Optional<? extends Node> node, Supplier<String> defaultValue) {
+        return node.flatMap(c -> Optional.ofNullable(c.getTextContent()))
+                .orElseGet(defaultValue);
     }
 }

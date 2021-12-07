@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.athaydes.test</groupId>
+        <artifactId>jbuild-test-parent</artifactId>
+        <version>1.0</version>
+    </parent>
+    <artifactId>jbuild-child</artifactId>
+    <dependencies>
+        <dependency>
+            <groupId>com.athaydes.jbuild</groupId>
+            <artifactId>jbuild</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+        </dependency>
+    </dependencies>
+</project>

@@ -61,9 +61,9 @@ public final class CollectionUtils {
         };
     }
 
-    public static <T> Iterable<T> append(Iterable<T> first, Iterable<T> last) {
+    public static <T> Iterable<T> append(Iterable<T> front, Iterable<T> back) {
         return () -> new Iterator<>() {
-            Iterator<T> delegate = first.iterator();
+            Iterator<T> delegate = front.iterator();
             boolean doneFirst = false;
 
             @Override
@@ -72,7 +72,7 @@ public final class CollectionUtils {
                 if (delegate.hasNext()) {
                     return true;
                 } else if (!doneFirst) {
-                    delegate = last.iterator();
+                    delegate = back.iterator();
                     doneFirst = true;
                     return hasNext();
                 }
@@ -90,7 +90,7 @@ public final class CollectionUtils {
         };
     }
 
-    public static <T> Set<T> intersection(Set<T> set1, Set<T> set2) {
+    public static <T> Set<T> union(Set<T> set1, Set<T> set2) {
         if (set1.isEmpty()) return set2;
         if (set2.isEmpty()) return set1;
         var result = new HashSet<T>(set1.size() + set2.size());

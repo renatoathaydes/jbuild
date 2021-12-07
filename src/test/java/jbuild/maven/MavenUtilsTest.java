@@ -15,28 +15,19 @@ public class MavenUtilsTest {
 
     @Test
     void canParseSimpleMavenPom() throws Exception {
-        MavenPom pom;
-        try (var stream = getClass().getResourceAsStream("javana.pom.xml")) {
-            pom = MavenUtils.parsePom(stream);
-        }
-        assertThat(pom)
+        assertThat(readPom("javana.pom.xml"))
                 .has(dependencies(dep("junit", "junit", "4.12", Scope.TEST)))
                 .has(artifactCoordinates(new Artifact("com.athaydes.javanna", "javanna", "1.1")));
     }
 
     @Test
     void canParseChildPomWithParentPom() throws Exception {
-        MavenPom pom;
-        try (var stream = getClass().getResourceAsStream("child.pom.xml")) {
-            pom = MavenUtils.parsePom(stream);
-        }
-        MavenPom parent;
-        try (var stream = getClass().getResourceAsStream("parent.pom.xml")) {
-            parent = MavenUtils.parsePom(stream);
-        }
+        var pom = readPom("child.pom.xml");
+        var parent = readPom("parent.pom.xml");
+
         assertThat(pom.withParent(parent))
                 .has(dependencies(
-//                        dep("com.google.code.findbugs", "jsr305", "3.0.2", Scope.COMPILE),
+                        dep("com.google.code.findbugs", "jsr305", "3.0.2", Scope.COMPILE),
                         dep("com.athaydes.jbuild", "jbuild", "3.2.1", Scope.COMPILE),
                         dep("com.athaydes", "jbuild-example", "1.2.3", Scope.COMPILE)))
                 .has(artifactCoordinates(new Artifact("com.athaydes.test", "jbuild-child", "1.0")));
@@ -44,28 +35,23 @@ public class MavenUtilsTest {
 
     @Test
     void canParseBigMavenPom() throws Exception {
-        MavenPom pom;
-        try (var stream = getClass().getResourceAsStream("guava.pom.xml")) {
-            pom = MavenUtils.parsePom(stream);
-        }
-        assertThat(pom)
+        var pom = readPom("guava.pom.xml");
+        var parent = readPom("guava-parent.pom.xml");
+
+        assertThat(pom.withParent(parent))
                 .has(dependencies(
                         dep("com.google.guava", "failureaccess", "1.0.1"),
                         dep("com.google.guava", "listenablefuture", "9999.0-empty-to-avoid-conflict-with-guava"),
-                        dep("com.google.code.findbugs", "jsr305", ""),
-                        dep("org.checkerframework", "checker-qual", ""),
-                        dep("com.google.errorprone", "error_prone_annotations", ""),
-                        dep("com.google.j2objc", "j2objc-annotations", "")))
+                        dep("com.google.code.findbugs", "jsr305", "3.0.2"),
+                        dep("org.checkerframework", "checker-qual", "3.12.0"),
+                        dep("com.google.errorprone", "error_prone_annotations", "2.7.1"),
+                        dep("com.google.j2objc", "j2objc-annotations", "1.3")))
                 .has(artifactCoordinates(new Artifact("com.google.guava", "guava", "31.0.1-jre")));
     }
 
     @Test
     void canParseMavenPomUsingProperties() throws Exception {
-        MavenPom pom;
-        try (var stream = getClass().getResourceAsStream("junit.pom.xml")) {
-            pom = MavenUtils.parsePom(stream);
-        }
-        assertThat(pom)
+        assertThat(readPom("junit.pom.xml"))
                 .has(dependencies(
                         dep("org.hamcrest", "hamcrest-core", "1.3", Scope.COMPILE),
                         dep("org.hamcrest", "hamcrest-library", "1.3", Scope.TEST)
@@ -104,6 +90,12 @@ public class MavenUtilsTest {
                 assertThat(MavenUtils.resolveProperty(example.value, example.properties))
                         .isEqualTo(example.expectedResolvedValue)
         );
+    }
+
+    private static MavenPom readPom(String resourcePath) throws Exception {
+        try (var stream = MavenUtilsTest.class.getResourceAsStream(resourcePath)) {
+            return MavenUtils.parsePom(stream);
+        }
     }
 
     private static Dependency dep(String groupId, String artifactId, String version, Scope scope) {

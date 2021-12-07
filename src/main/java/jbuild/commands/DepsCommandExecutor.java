@@ -100,7 +100,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         if (parentArtifact.isEmpty()) {
             return completedFuture(Either.left(pom));
         }
-        return fetchCommandExecutor.fetchArtifact(parentArtifact.get())
+        return fetchCommandExecutor.fetchArtifact(parentArtifact.get().pom())
                 .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors))
                 .thenComposeAsync(res -> res.map(
                         parentPom -> completedFuture(Either.left(pom.withParent(parentPom))),
