@@ -14,6 +14,7 @@ import jbuild.util.Describable;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -26,6 +27,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;
+import static jbuild.util.TextUtils.durationText;
 
 public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
@@ -141,8 +143,9 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
     private CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> handleResolved(
             ArtifactFileWriter fileWriter,
             ResolvedArtifact resolvedArtifact) {
+        var requestDuration = Duration.ofMillis(System.currentTimeMillis() - resolvedArtifact.requestTime);
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved from " +
-                resolvedArtifact.retriever.getDescription());
+                resolvedArtifact.retriever.getDescription() + " in " + durationText(requestDuration));
         return fileWriter.write(resolvedArtifact).thenApply(result -> result.map(file -> {
             log.verbosePrintln(() -> "Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
             return Either.left(resolvedArtifact);

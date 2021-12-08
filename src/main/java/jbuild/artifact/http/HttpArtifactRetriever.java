@@ -43,9 +43,11 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
         var request = HttpRequest.newBuilder(URI.create(baseUrl + "/" + requestPath)).build();
 
+        var requestTime = System.currentTimeMillis();
+
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).thenApply(response -> {
             if (response.statusCode() == 200) {
-                return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this));
+                return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this, requestTime));
             }
             return ArtifactResolution.failure(new HttpError(artifact, this, response));
         });

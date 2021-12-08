@@ -15,6 +15,7 @@ import jbuild.util.Executable;
 import jbuild.util.FileUtils;
 
 import java.io.File;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +34,7 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.CollectionUtils.sorted;
+import static jbuild.util.TextUtils.durationText;
 
 public class Main {
 
@@ -367,8 +369,8 @@ public class Main {
         System.exit(exitCode(cause));
     }
 
-    private static String time(long startTime) {
-        return (System.currentTimeMillis() - startTime) + "ms";
+    private static CharSequence time(long startTime) {
+        return durationText(Duration.ofMillis(System.currentTimeMillis() - startTime));
     }
 
     private static int exitCode(ErrorCause errorCause) {

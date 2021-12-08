@@ -14,6 +14,7 @@ import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +27,7 @@ import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
 import static jbuild.commands.FetchCommandExecutor.reportErrors;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;
+import static jbuild.util.TextUtils.durationText;
 
 public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
 
@@ -69,8 +71,9 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleResolved(
             ResolvedArtifact resolvedArtifact) {
+        var requestDuration = Duration.ofMillis(System.currentTimeMillis() - resolvedArtifact.requestTime);
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved from " +
-                resolvedArtifact.retriever.getDescription());
+                resolvedArtifact.retriever.getDescription() + " in " + durationText(requestDuration));
 
         log.verbosePrintln(() -> "Parsing POM of " + resolvedArtifact.artifact);
 

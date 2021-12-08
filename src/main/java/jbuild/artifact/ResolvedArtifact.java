@@ -4,18 +4,24 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Instant;
 
 public final class ResolvedArtifact {
     private byte[] contents;
     public final long contentLength;
     public final Artifact artifact;
     public final ArtifactRetriever<?> retriever;
+    public final long requestTime;
 
-    public ResolvedArtifact(byte[] contents, Artifact artifact, ArtifactRetriever<?> retriever) {
+    public ResolvedArtifact(byte[] contents,
+                            Artifact artifact,
+                            ArtifactRetriever<?> retriever,
+                            long requestTime) {
         this.contents = contents;
         this.contentLength = contents.length;
         this.artifact = artifact;
         this.retriever = retriever;
+        this.requestTime = requestTime;
     }
 
     @Override
@@ -24,6 +30,7 @@ public final class ResolvedArtifact {
                 "content-length=" + contentLength +
                 ", artifact=" + artifact +
                 ", retriever=" + retriever.getDescription() +
+                ", requestedAt=" + Instant.ofEpochMilli(requestTime) +
                 '}';
     }
 

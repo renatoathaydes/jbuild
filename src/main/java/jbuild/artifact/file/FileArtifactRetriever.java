@@ -45,10 +45,12 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
     public CompletionStage<ArtifactResolution<FileRetrievalError>> retrieve(Artifact artifact) {
         var path = MavenUtils.standardArtifactPath(artifact, true);
         var file = rootDir.resolve(Paths.get(path));
+        var requestTime = System.currentTimeMillis();
+
         if (file.toFile().isFile()) {
             // we do not handle files so long that their length won't fit into an int
             // because we wouldn't even be able to return an array if we did that.
-            return readAllBytes(file).thenApply(bytes -> completeWith(artifact, bytes));
+            return readAllBytes(file).thenApply(bytes -> completeWith(artifact, bytes, requestTime));
         } else {
             return CompletableFuture.completedFuture(
                     ArtifactResolution.failure(new FileRetrievalError(this, artifact,
@@ -56,7 +58,7 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
         }
     }
 
-    private ArtifactResolution<FileRetrievalError> completeWith(Artifact artifact, byte[] bytes) {
-        return ArtifactResolution.success(new ResolvedArtifact(bytes, artifact, this));
+    private ArtifactResolution<FileRetrievalError> completeWith(Artifact artifact, byte[] bytes, long requestTime) {
+        return ArtifactResolution.success(new ResolvedArtifact(bytes, artifact, this, requestTime));
     }
 }
