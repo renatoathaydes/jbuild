@@ -2,8 +2,8 @@ package jbuild.cli;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.file.ArtifactFileWriter;
-import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
+import jbuild.commands.MavenPomRetriever;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
@@ -148,7 +148,7 @@ public class Main {
         var pomByArtifact = new ConcurrentSkipListMap<Artifact, Optional<MavenPom>>(
                 comparing(Artifact::getCoordinates));
 
-        var depsCommandExecutor = DepsCommandExecutor.createDefault(log);
+        var depsCommandExecutor = MavenPomRetriever.createDefault(log);
 
         depsCommandExecutor.fetchPoms(artifacts).forEach((artifact, pomCompletion) -> {
             pomCompletion.whenComplete((ok, err) -> {

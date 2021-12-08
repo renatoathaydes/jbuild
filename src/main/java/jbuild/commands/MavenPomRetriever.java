@@ -29,19 +29,19 @@ import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.TextUtils.durationText;
 
-public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
+public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
 
     private final JBuildLog log;
     private final FetchCommandExecutor<Err> fetchCommandExecutor;
 
-    public DepsCommandExecutor(JBuildLog log,
-                               FetchCommandExecutor<Err> fetchCommandExecutor) {
+    public MavenPomRetriever(JBuildLog log,
+                             FetchCommandExecutor<Err> fetchCommandExecutor) {
         this.log = log;
         this.fetchCommandExecutor = fetchCommandExecutor;
     }
 
-    public static DepsCommandExecutor<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
-        return new DepsCommandExecutor<>(log, FetchCommandExecutor.createDefault(log));
+    public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
+        return new MavenPomRetriever<>(log, FetchCommandExecutor.createDefault(log));
     }
 
     public Map<Artifact, CompletionStage<Optional<MavenPom>>> fetchPoms(
