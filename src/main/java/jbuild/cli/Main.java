@@ -20,6 +20,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
@@ -139,18 +140,16 @@ public class Main {
 
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
-        var pomByArtifact = new ConcurrentSkipListMap<Artifact, MavenPom>(comparing(Artifact::getCoordinates));
+        var pomByArtifact = new ConcurrentSkipListMap<Artifact, Optional<MavenPom>>(
+                comparing(Artifact::getCoordinates));
 
         var depsCommandExecutor = DepsCommandExecutor.createDefault(log);
 
         depsCommandExecutor.fetchPoms(artifacts).forEach((artifact, pomCompletion) -> {
             pomCompletion.whenComplete((ok, err) -> {
                 try {
-                    if (ok.isPresent()) {
-                        pomByArtifact.put(artifact, ok.get());
-                    } else {
-                        reportErrors(anyError, artifact, false, err);
-                    }
+                    pomByArtifact.put(artifact, ok);
+                    reportErrors(anyError, artifact, ok.isEmpty(), err);
                 } finally {
                     latch.countDown();
                 }
@@ -160,13 +159,12 @@ public class Main {
         withErrorHandling(() -> {
             latch.await();
 
-            var errorCause = anyError.get();
-            if (errorCause != null) {
-                exitWithError("Could not fetch all Maven POMs successfully", errorCause, startTime);
-            }
+            pomByArtifact.forEach((artifact, maybePom) -> {
+                if (maybePom.isEmpty()) {
+                    return;
+                }
+                var pom = maybePom.get();
 
-            // FIXME should have optional POM here so we can fail the build when at least one is missing
-            pomByArtifact.forEach((artifact, pom) -> {
                 log.println("Dependencies of " + artifact.getCoordinates() + ":");
                 if (pom.getDependencies().isEmpty()) {
                     log.println("  * no dependencies");
@@ -187,6 +185,11 @@ public class Main {
                     }
                 }
             });
+
+            var errorCause = anyError.get();
+            if (errorCause != null) {
+                exitWithError("Could not fetch all Maven POMs successfully", errorCause, startTime);
+            }
         }, startTime);
     }
 
