@@ -19,7 +19,6 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -69,9 +68,12 @@ public class Main {
             "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0\n" +
             "\n" +
             "  * deps\n" +
-            "    List the direct dependencies of the given artifacts." +
+            "    List the dependencies of the given artifacts." +
             "      Usage:\n" +
-            "        jbuild deps <artifact...>\n" +
+            "        jbuild deps <options... | artifact...>\n" +
+            "      Options:\n" +
+            "        --transitive\n" +
+            "        -t        whether to list transitive dependencies.\n" +
             "      Example:\n" +
             "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
             "\n" +
@@ -133,7 +135,8 @@ public class Main {
     }
 
     private void listDeps(Options options, long startTime) {
-        var artifacts = parseArtifacts(startTime, options.commandArgs);
+        var depsOptions = DepsOptions.parse(options.commandArgs);
+        var artifacts = parseArtifacts(startTime, depsOptions.artifacts);
 
         if (artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
@@ -245,7 +248,8 @@ public class Main {
     }
 
     private void listVersions(Options options, long startTime) {
-        var artifacts = parseArtifacts(startTime, options.commandArgs);
+        var versionsOptions = VersionsOptions.parse(options.commandArgs);
+        var artifacts = parseArtifacts(startTime, versionsOptions.artifacts);
 
         if (artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
@@ -343,7 +347,7 @@ public class Main {
         log.println(() -> "Build passed in " + time(startTime) + "!");
     }
 
-    private Set<? extends Artifact> parseArtifacts(long startTime, List<String> coordinates) {
+    private Set<? extends Artifact> parseArtifacts(long startTime, Set<String> coordinates) {
         Set<Artifact> artifacts;
         try {
             artifacts = coordinates.stream()

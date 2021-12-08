@@ -2,10 +2,11 @@ package jbuild.cli;
 
 import jbuild.errors.JBuildException;
 
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableSet;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.isEither;
 
@@ -65,16 +66,17 @@ final class Options {
 }
 
 final class FetchOptions {
-    final List<String> artifacts;
+
+    final Set<String> artifacts;
     final String outDir;
 
-    public FetchOptions(List<String> artifacts, String outDir) {
+    public FetchOptions(Set<String> artifacts, String outDir) {
         this.artifacts = artifacts;
         this.outDir = outDir;
     }
 
     static FetchOptions parse(List<String> args) {
-        var artifacts = new ArrayList<String>();
+        var artifacts = new LinkedHashSet<String>();
         String outDir = null;
         var nextIsDir = false;
 
@@ -98,6 +100,64 @@ final class FetchOptions {
             }
         }
 
-        return new FetchOptions(unmodifiableList(artifacts), outDir == null ? "out" : outDir);
+        return new FetchOptions(unmodifiableSet(artifacts), outDir == null ? "out" : outDir);
     }
+
+}
+
+final class DepsOptions {
+
+    final Set<String> artifacts;
+    final boolean transitive;
+
+    public DepsOptions(Set<String> artifacts, boolean transitive) {
+        this.artifacts = artifacts;
+        this.transitive = transitive;
+    }
+
+    static DepsOptions parse(List<String> args) {
+        var artifacts = new LinkedHashSet<String>();
+        var transitive = false;
+
+        for (String arg : args) {
+            if (arg.startsWith("-")) {
+                if (isEither(arg, "-t", "--transitive")) {
+                    transitive = true;
+                } else {
+                    throw new JBuildException("invalid libs option: " + arg +
+                            "\nRun jbuild --help for usage.", USER_INPUT);
+                }
+            } else {
+                artifacts.add(arg);
+            }
+        }
+
+        return new DepsOptions(unmodifiableSet(artifacts), transitive);
+    }
+
+}
+
+final class VersionsOptions {
+
+    final Set<String> artifacts;
+
+    public VersionsOptions(Set<String> artifacts) {
+        this.artifacts = artifacts;
+    }
+
+    static VersionsOptions parse(List<String> args) {
+        var artifacts = new LinkedHashSet<String>();
+
+        for (String arg : args) {
+            if (arg.startsWith("-")) {
+                throw new JBuildException("invalid versions option: " + arg +
+                        "\nRun jbuild --help for usage.", USER_INPUT);
+            } else {
+                artifacts.add(arg);
+            }
+        }
+
+        return new VersionsOptions(unmodifiableSet(artifacts));
+    }
+
 }
