@@ -59,18 +59,24 @@ public final class MavenPom {
 
     public Set<Dependency> getDependencyManagement() {
         var deps = childNamed("dependencyManagement", project)
-                .map(dep -> getDependencies(dep, Map.of()))
+                .map(dep -> getDependencies(dep, null, Map.of()))
                 .orElse(Set.of());
 
         return union(parentPom == null ? Set.of() : parentPom.getDependencyManagement(), deps);
     }
 
     public Set<Dependency> getDependencies() {
-        var deps = getDependencies(project, getDependencyManagementMap());
+        var deps = getDependencies(project, null, getDependencyManagementMap());
         return union(parentPom == null ? Set.of() : parentPom.getDependencies(), deps);
     }
 
+    public Set<Dependency> getDependencies(Scope scope) {
+        var deps = getDependencies(project, scope, getDependencyManagementMap());
+        return union(parentPom == null ? Set.of() : parentPom.getDependencies(scope), deps);
+    }
+
     private Set<Dependency> getDependencies(Element parentElement,
+                                            Scope scope,
                                             Map<ArtifactKey, Dependency> dependencyManagement) {
         var depsNode = childNamed("dependencies", parentElement);
         if (depsNode.isEmpty()) {
@@ -80,9 +86,14 @@ public final class MavenPom {
         var deps = childrenNamed("dependency", depsNode.get());
         var props = getProperties();
 
-        return deps.stream()
-                .map(dep -> toDependency(dep, props, dependencyManagement))
-                .collect(toSet());
+        var depsStream = deps.stream()
+                .map(dep -> toDependency(dep, props, dependencyManagement));
+
+        if (scope != null) {
+            depsStream = depsStream.filter(dep -> scope.includes(dep.scope));
+        }
+
+        return depsStream.collect(toSet());
     }
 
     private Map<ArtifactKey, Dependency> getDependencyManagementMap() {
@@ -159,39 +170,6 @@ public final class MavenPom {
                     }
                     return result;
                 }).orElse(Map.of());
-    }
-
-    private static final class ArtifactKey {
-        private final String groupId;
-        private final String artifactId;
-
-        static ArtifactKey of(Dependency dependency) {
-            var a = dependency.artifact;
-            return new ArtifactKey(a.groupId, a.artifactId);
-        }
-
-        public ArtifactKey(String groupId, String artifactId) {
-            this.groupId = groupId;
-            this.artifactId = artifactId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-
-            ArtifactKey that = (ArtifactKey) o;
-
-            return groupId.equals(that.groupId) &&
-                    artifactId.equals(that.artifactId);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = groupId.hashCode();
-            result = 31 * result + artifactId.hashCode();
-            return result;
-        }
     }
 
 }

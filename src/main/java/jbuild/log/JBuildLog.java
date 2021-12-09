@@ -35,6 +35,10 @@ public final class JBuildLog {
         if (enabled) out.print(messageGetter.get());
     }
 
+    public void print(Throwable throwable) {
+        throwable.printStackTrace(out);
+    }
+
     public void verbosePrintln(CharSequence message) {
         if (verbose && enabled) out.println(message);
     }

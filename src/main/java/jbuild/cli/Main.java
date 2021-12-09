@@ -2,15 +2,13 @@ package jbuild.cli;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.file.ArtifactFileWriter;
+import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
-import jbuild.commands.MavenPomRetriever;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenMetadata;
-import jbuild.maven.MavenPom;
-import jbuild.maven.Scope;
 import jbuild.util.Executable;
 import jbuild.util.FileUtils;
 
@@ -27,12 +25,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
-import static jbuild.util.CollectionUtils.sorted;
+import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.TextUtils.durationText;
 
 public class Main {
@@ -143,57 +140,35 @@ public class Main {
             return;
         }
 
-        var latch = new CountDownLatch(artifacts.size());
-        var anyError = new AtomicReference<ErrorCause>();
-        var pomByArtifact = new ConcurrentSkipListMap<Artifact, Optional<MavenPom>>(
-                comparing(Artifact::getCoordinates));
+        var depsCommandExecutor = DepsCommandExecutor.createDefault(log);
 
-        var depsCommandExecutor = MavenPomRetriever.createDefault(log);
+        var completions = awaitValues(
+                depsCommandExecutor.fetchDependencyTree(artifacts, depsOptions.transitive));
 
-        depsCommandExecutor.fetchPoms(artifacts).forEach((artifact, pomCompletion) -> {
-            pomCompletion.whenComplete((ok, err) -> {
-                try {
-                    pomByArtifact.put(artifact, ok);
-                    reportErrors(anyError, artifact, ok.isEmpty(), err);
-                } finally {
-                    latch.countDown();
+        var latch = new CountDownLatch(1);
+
+        completions.whenComplete((ok, err) -> {
+            try {
+                log.verbosePrintln("Dependency tree resolution completed");
+                if (err == null) {
+                    var treeLogger = new DependencyTreeLogger(log);
+                    ok.forEach((dep, tree) -> tree.use(
+                            t -> t.ifPresent(treeLogger::log),
+                            this::reportError));
+                } else {
+                    reportError(err);
                 }
-            });
+            } finally {
+                latch.countDown();
+            }
         });
 
         withErrorHandling(() -> {
             latch.await();
 
-            pomByArtifact.forEach((artifact, maybePom) -> {
-                if (maybePom.isEmpty()) {
-                    return;
-                }
-                var pom = maybePom.get();
-
-                log.println("Dependencies of " + artifact.getCoordinates() + ":");
-                if (pom.getDependencies().isEmpty()) {
-                    log.println("  * no dependencies");
-                    return;
-                }
-
-                var groupedDeps = pom.getDependencies().stream()
-                        .collect(groupingBy(dep -> dep.scope));
-
-                // iterated sorted by scope declaration order
-                for (Scope scope : Scope.values()) {
-                    var deps = groupedDeps.get(scope);
-                    if (deps != null && !deps.isEmpty()) {
-                        log.println("  - scope " + scope);
-                        for (var dependency : sorted(deps, comparing(dep -> dep.artifact.getCoordinates()))) {
-                            log.println("    * " + dependency.artifact.getCoordinates());
-                        }
-                    }
-                }
-            });
-
             var errorCause = anyError.get();
             if (errorCause != null) {
-                exitWithError("Could not fetch all Maven POMs successfully", errorCause, startTime);
+                exitWithError("Could not fetch all Maven dependencies successfully", errorCause, startTime);
             }
         }, startTime);
     }
@@ -224,7 +199,7 @@ public class Main {
         FetchCommandExecutor.createDefault(log).fetchArtifacts(artifacts, fileWriter)
                 .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
                     try {
-                        reportErrors(anyError, artifact, ok.isEmpty(), err);
+                        reportErrors(anyError, artifact, ok, err);
                     } finally {
                         latch.countDown();
                     }
@@ -262,15 +237,14 @@ public class Main {
 
         new VersionsCommandExecutor(log).getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
                 eitherCompletionStage.whenComplete((completion, throwable) -> {
-                    if (throwable != null) {
-                        reportErrors(anyError, artifact, false, throwable);
-                        latch.countDown();
-                        return;
-                    }
                     try {
-                        completion.use(
-                                ok -> metadataByArtifact.put(artifact, ok),
-                                err -> reportErrors(anyError, artifact, false, err));
+                        if (throwable == null) {
+                            completion.use(
+                                    ok -> metadataByArtifact.put(artifact, ok),
+                                    err -> reportErrors(anyError, artifact, Optional.empty(), err));
+                        } else {
+                            reportErrors(anyError, artifact, Optional.empty(), throwable);
+                        }
                     } finally {
                         latch.countDown();
                     }
@@ -314,11 +288,15 @@ public class Main {
         }, startTime);
     }
 
+    private void reportError(Throwable err) {
+
+    }
+
     private void reportErrors(AtomicReference<ErrorCause> anyError,
                               Artifact artifact,
-                              boolean isUnknownError,
+                              Optional<?> result,
                               Throwable err) {
-        if (err != null || isUnknownError) {
+        if (err != null || result.isEmpty()) {
             anyError.set(ErrorCause.UNKNOWN);
 
             // exceptional completions are not reported by the executor, so we need to report here
