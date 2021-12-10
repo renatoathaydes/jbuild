@@ -22,6 +22,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Comparator.comparing;
@@ -145,30 +147,35 @@ public class Main {
         var completions = awaitValues(
                 depsCommandExecutor.fetchDependencyTree(artifacts, depsOptions.transitive));
 
-        var latch = new CountDownLatch(1);
+        var anyErrors = new LinkedBlockingDeque<Boolean>();
 
         completions.whenComplete((ok, err) -> {
             try {
                 log.verbosePrintln("Dependency tree resolution completed");
                 if (err == null) {
-                    var treeLogger = new DependencyTreeLogger(log);
+                    var treeLogger = new DependencyTreeLogger(log, depsOptions.transitive);
                     ok.forEach((dep, tree) -> tree.use(
                             t -> t.ifPresent(treeLogger::log),
                             this::reportError));
+                    anyErrors.offer(false);
                 } else {
                     reportError(err);
+                    anyErrors.offer(true);
                 }
+            } catch (Exception e) {
+                log.print(e);
+                anyErrors.offer(true);
             } finally {
-                latch.countDown();
+                anyErrors.offer(false);
             }
         });
 
         withErrorHandling(() -> {
-            latch.await();
-
-            var errorCause = anyError.get();
-            if (errorCause != null) {
-                exitWithError("Could not fetch all Maven dependencies successfully", errorCause, startTime);
+            var isError = anyErrors.poll(24, TimeUnit.HOURS);
+            if (isError == null) {
+                exitWithError("Could not fetch all Maven dependencies within timeout", ErrorCause.TIMEOUT, startTime);
+            } else if (isError) {
+                exitWithError("Could not fetch all Maven dependencies successfully", ErrorCause.ACTION_ERROR, startTime);
             }
         }, startTime);
     }

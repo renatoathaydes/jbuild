@@ -23,7 +23,7 @@ import java.util.concurrent.CompletionStage;
 
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 
-public class VersionsCommandExecutor {
+public final class VersionsCommandExecutor {
 
     private final JBuildLog log;
     private final HttpClient httpClient;
