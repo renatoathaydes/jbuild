@@ -6,7 +6,6 @@ import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenPom;
 import jbuild.maven.MavenUtils;
-import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
@@ -20,13 +19,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
 import static jbuild.commands.FetchCommandExecutor.reportErrors;
 import static jbuild.util.CollectionUtils.mapEntries;
-import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.TextUtils.durationText;
 
 public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
@@ -34,10 +34,13 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     private final JBuildLog log;
     private final FetchCommandExecutor<Err> fetchCommandExecutor;
 
+    private final Map<Artifact, CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>>> cache;
+
     public MavenPomRetriever(JBuildLog log,
                              FetchCommandExecutor<Err> fetchCommandExecutor) {
         this.log = log;
         this.fetchCommandExecutor = fetchCommandExecutor;
+        this.cache = new ConcurrentHashMap<>();
     }
 
     public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
@@ -47,26 +50,31 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     public Map<Artifact, CompletionStage<Optional<MavenPom>>> fetchPoms(
             Set<? extends Artifact> artifacts) {
         // first stage: run all retrievers and parse POMs, accumulating the results for each artifact
-        var fetchCompletions = fetchCommandExecutor.fetchArtifacts(
-                artifacts.stream()
-                        .map(Artifact::pom)
-                        .collect(toSet()),
-                (requestedArtifact, resolution) -> resolution.value.map(
-                        this::handleResolved,
-                        this::handleRetrievalError
-                ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res)));
-
-        // second stage: check that for each artifact, at least one retrieval was fully successful,
-        // otherwise group the errors
-        Map<Artifact, CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>>> errorCheckCompletions =
-                mapValues(fetchCompletions, completion ->
-                        completion.thenApply(CollectionUtils::foldEither));
+        var fetchCompletions = artifacts.stream()
+                .map(Artifact::pom)
+                .collect(toSet()).stream()
+                .collect(toMap(a -> a, this::fetchPom));
 
         // final stage: report all errors
-        return mapEntries(errorCheckCompletions, (artifact, c) -> c.thenApply((result) -> result.map(
+        return mapEntries(fetchCompletions, (artifact, c) -> c.thenApply((result) -> result.map(
                 Optional::of,
                 errors -> reportErrors(log, artifact, errors)
         )));
+    }
+
+    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> fetchPom(Artifact artifact) {
+        var fromCache = new AtomicBoolean(true);
+        var result = cache.computeIfAbsent(artifact, a -> {
+            fromCache.set(false);
+            return fetchCommandExecutor.fetchArtifact(a)
+                    .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors));
+        });
+
+        if (fromCache.get()) {
+            log.verbosePrintln(() -> artifact + " present in cache, will not resolve it again");
+        }
+
+        return result;
     }
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleResolved(
@@ -86,12 +94,6 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         }
     }
 
-    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleRetrievalError(
-            Describable error) {
-        log.verbosePrintln(error::getDescription);
-        return completedFuture(Either.right(NonEmptyCollection.of(error)));
-    }
-
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleRetrievalErrors(
             NonEmptyCollection<Describable> errors) {
         log.verbosePrintln(errors.first::getDescription);
@@ -103,8 +105,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         if (parentArtifact.isEmpty()) {
             return completedFuture(Either.left(pom));
         }
-        return fetchCommandExecutor.fetchArtifact(parentArtifact.get().pom())
-                .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors))
+        return fetchPom(parentArtifact.get().pom())
                 .thenComposeAsync(res -> res.map(
                         parentPom -> completedFuture(Either.left(pom.withParent(parentPom))),
                         this::handleRetrievalErrors));
