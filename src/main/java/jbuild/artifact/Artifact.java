@@ -4,16 +4,20 @@ import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.TextUtils.requireNonBlank;
 
 public class Artifact {
+
     public final String groupId;
     public final String artifactId;
     public final String version;
     public final String extension;
+
+    private final String coordinates;
 
     public Artifact(String groupId, String artifactId, String version, String extension) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
         this.extension = firstNonBlank(extension, "jar");
+        this.coordinates = groupId + ':' + artifactId + ':' + version;
     }
 
     public Artifact(String groupId, String artifactId, String version) {
@@ -72,7 +76,7 @@ public class Artifact {
     }
 
     public String getCoordinates() {
-        return groupId + ':' + artifactId + ':' + version;
+        return coordinates;
     }
 
     @Override

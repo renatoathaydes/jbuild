@@ -122,9 +122,9 @@ public final class MavenPom {
         var groupId = resolveProperty(properties, childNamed("groupId", element), () -> "");
         var artifactId = resolveProperty(properties, childNamed("artifactId", element), () -> "");
         var version = resolveProperty(properties, childNamed("version", element),
-                () -> defaultVersionOrFrom(dependencyManagement.get(new ArtifactKey(groupId, artifactId))));
+                () -> defaultVersionOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var scope = resolvePropertyScope(properties, childNamed("scope", element), () ->
-                defaultScopeOrFrom(dependencyManagement.get(new ArtifactKey(groupId, artifactId))));
+                defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
 
         return new Dependency(new Artifact(groupId, artifactId, version), scope);
     }
