@@ -99,6 +99,15 @@ public final class CollectionUtils {
         return result;
     }
 
+    public static <K, V> Map<K, V> union(Map<K, V> map1, Map<K, V> map2) {
+        if (map1.isEmpty()) return map2;
+        if (map2.isEmpty()) return map1;
+        var result = new HashMap<K, V>(map1.size() + map2.size());
+        result.putAll(map1);
+        result.putAll(map2);
+        return result;
+    }
+
     public static <K, A, B> Map<K, B> mapValues(Map<K, A> map, Function<A, B> transform) {
         var result = new HashMap<K, B>(map.size());
         for (var entry : map.entrySet()) {

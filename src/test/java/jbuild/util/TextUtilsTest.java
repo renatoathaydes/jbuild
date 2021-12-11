@@ -11,10 +11,15 @@ public class TextUtilsTest {
     @Test
     void findFirstNonBlank() {
         assertThat(TextUtils.firstNonBlank("", "foo")).isEqualTo("foo");
+        assertThat(TextUtils.firstNonBlank("", () -> "foo")).isEqualTo("foo");
         assertThat(TextUtils.firstNonBlank(null, "foo")).isEqualTo("foo");
+        assertThat(TextUtils.firstNonBlank(null, () -> "foo")).isEqualTo("foo");
         assertThat(TextUtils.firstNonBlank(null, "")).isEqualTo("");
-        assertThat(TextUtils.firstNonBlank(null, null)).isNull();
+        assertThat(TextUtils.firstNonBlank(null, () -> "")).isEqualTo("");
+        assertThat(TextUtils.firstNonBlank(null, (String) null)).isNull();
+        assertThat(TextUtils.firstNonBlank(null, () -> null)).isNull();
         assertThat(TextUtils.firstNonBlank("bar", "foo")).isEqualTo("bar");
+        assertThat(TextUtils.firstNonBlank("bar", () -> "foo")).isEqualTo("bar");
     }
 
     @Test

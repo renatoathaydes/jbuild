@@ -1,12 +1,20 @@
 package jbuild.util;
 
 import java.time.Duration;
+import java.util.function.Supplier;
 
 public final class TextUtils {
 
     public static String firstNonBlank(String a, String b) {
         if (a == null || a.isBlank()) {
             return b;
+        }
+        return a;
+    }
+
+    public static String firstNonBlank(String a, Supplier<String> b) {
+        if (a == null || a.isBlank()) {
+            return b.get();
         }
         return a;
     }

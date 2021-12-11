@@ -5,7 +5,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -13,24 +13,38 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static java.util.stream.Collectors.toUnmodifiableMap;
 import static jbuild.util.CollectionUtils.union;
+import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
 import static jbuild.util.XmlUtils.textOf;
 
 public final class MavenPom {
 
-    private final Element project;
-    private final MavenPom parentPom;
-
-    // only resolve properties if necessary
-    private Map<String, String> properties;
+    private final Artifact parentArtifact;
+    private final Artifact coordinates;
+    private final Map<String, String> properties;
+    private final Map<ArtifactKey, Dependency> dependencyManagement;
+    private final Set<Dependency> dependencies;
 
     private MavenPom(Element project, MavenPom parentPom) {
-        this.project = project;
-        this.parentPom = parentPom;
+        this.properties = resolveProperties(project);
+        this.parentArtifact = resolveParentArtifact(project, properties);
+        this.coordinates = resolveCoordinates(project, properties, parentArtifact);
+        this.dependencyManagement = resolveDependencyManagement(project, properties, parentPom);
+        this.dependencies = resolveDependencies(project, dependencyManagement, properties, parentPom);
+    }
+
+    private MavenPom(MavenPom pom, MavenPom parentPom) {
+        this.properties = union(pom.properties, parentPom.properties);
+        this.parentArtifact = parentPom.coordinates;
+        this.coordinates = pom.coordinates;
+        this.dependencyManagement = union(parentPom.dependencyManagement, pom.dependencyManagement);
+        this.dependencies = union(parentPom.dependencies, pom.dependencies)
+                .stream().map(dep -> refineDependency(dep, dependencyManagement))
+                .collect(toSet());
     }
 
     public MavenPom(Document doc) {
@@ -40,72 +54,32 @@ public final class MavenPom {
     }
 
     public MavenPom withParent(MavenPom parentPom) {
-        return new MavenPom(project, parentPom);
+        return new MavenPom(this, parentPom);
     }
 
     public Optional<Artifact> getParentArtifact() {
-        return childNamed("parent", project)
-                .map(a -> toDependency(a, getProperties(), Map.of()))
-                .map(d -> d.artifact);
+        return Optional.ofNullable(parentArtifact);
     }
 
     public Artifact getCoordinates() {
-        var artifact = toDependency(project, getProperties(), Map.of()).artifact;
-        if (artifact.groupId.isBlank() || artifact.version.isBlank()) {
-            return getParentArtifact().map(artifact::mergeWith).orElse(artifact);
-        }
-        return artifact;
+        return coordinates;
     }
 
-    public Set<Dependency> getDependencyManagement() {
-        var deps = childNamed("dependencyManagement", project)
-                .map(dep -> getDependencies(dep, null, Map.of()))
-                .orElse(Set.of());
-
-        return union(parentPom == null ? Set.of() : parentPom.getDependencyManagement(), deps);
+    public Map<ArtifactKey, Dependency> getDependencyManagement() {
+        return dependencyManagement;
     }
 
     public Set<Dependency> getDependencies() {
-        var deps = getDependencies(project, null, getDependencyManagementMap());
-        return union(parentPom == null ? Set.of() : parentPom.getDependencies(), deps);
+        return dependencies;
     }
 
     public Set<Dependency> getDependencies(Scope scope) {
-        var deps = getDependencies(project, scope, getDependencyManagementMap());
-        return union(parentPom == null ? Set.of() : parentPom.getDependencies(scope), deps);
-    }
-
-    private Set<Dependency> getDependencies(Element parentElement,
-                                            Scope scope,
-                                            Map<ArtifactKey, Dependency> dependencyManagement) {
-        var depsNode = childNamed("dependencies", parentElement);
-        if (depsNode.isEmpty()) {
-            return Set.of();
+        if (scope == null) {
+            return dependencies;
         }
-
-        var deps = childrenNamed("dependency", depsNode.get());
-        var props = getProperties();
-
-        var depsStream = deps.stream()
-                .map(dep -> toDependency(dep, props, dependencyManagement));
-
-        if (scope != null) {
-            depsStream = depsStream.filter(dep -> scope.includes(dep.scope));
-        }
-
-        return depsStream.collect(toSet());
-    }
-
-    private Map<ArtifactKey, Dependency> getDependencyManagementMap() {
-        return getDependencyManagement().stream()
-                .collect(toUnmodifiableMap(ArtifactKey::of, identity()));
-    }
-
-    private Map<String, String> getProperties() {
-        if (properties == null) {
-            properties = resolveProperties(project);
-        }
-        return properties;
+        return dependencies.stream()
+                .filter(dep -> scope.includes(dep.scope))
+                .collect(toSet());
     }
 
     @Override
@@ -114,6 +88,56 @@ public final class MavenPom {
                 getCoordinates() +
                 ", dependencies=" + getDependencies() +
                 '}';
+    }
+
+    private static Map<ArtifactKey, Dependency> resolveDependencyManagement(Element project,
+                                                                            Map<String, String> properties,
+                                                                            MavenPom parentPom) {
+        var deps = childNamed("dependencyManagement", project)
+                .map(dep -> resolveDependencies(dep, properties, Map.of())
+                        .stream().collect(toMap(ArtifactKey::of, identity())))
+                .orElse(Map.of());
+
+        return union(parentPom == null ? Map.of() : parentPom.getDependencyManagement(), deps);
+    }
+
+    private static Set<Dependency> resolveDependencies(
+            Element project,
+            Map<ArtifactKey, Dependency> dependencyManagement,
+            Map<String, String> properties,
+            MavenPom parentPom) {
+        var deps = resolveDependencies(project, properties, dependencyManagement);
+        return union(parentPom == null ? Set.of() : parentPom.getDependencies(), deps);
+    }
+
+    private static Set<Dependency> resolveDependencies(Element parentElement,
+                                                       Map<String, String> properties,
+                                                       Map<ArtifactKey, Dependency> dependencyManagement) {
+        var depsNode = childNamed("dependencies", parentElement);
+        if (depsNode.isEmpty()) {
+            return Set.of();
+        }
+
+        var deps = childrenNamed("dependency", depsNode.get());
+
+        return deps.stream()
+                .map(dep -> toDependency(dep, properties, dependencyManagement))
+                .collect(toSet());
+    }
+
+    private static Artifact resolveParentArtifact(Element project, Map<String, String> properties) {
+        return childNamed("parent", project)
+                .map(a -> toDependency(a, properties, Map.of()))
+                .map(d -> d.artifact)
+                .orElse(null);
+    }
+
+    private static Artifact resolveCoordinates(Element project, Map<String, String> properties, Artifact parentArtifact) {
+        var artifact = toDependency(project, properties, Map.of()).artifact;
+        if ((artifact.groupId.isBlank() || artifact.version.isBlank()) && parentArtifact != null) {
+            return artifact.mergeWith(parentArtifact);
+        }
+        return artifact;
     }
 
     private static Dependency toDependency(Element element,
@@ -125,6 +149,19 @@ public final class MavenPom {
                 () -> defaultVersionOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var scope = resolvePropertyScope(properties, childNamed("scope", element), () ->
                 defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+
+        return new Dependency(new Artifact(groupId, artifactId, version), scope);
+    }
+
+    private static Dependency refineDependency(Dependency dependency,
+                                               Map<ArtifactKey, Dependency> dependencyManagement) {
+        var groupId = dependency.artifact.groupId;
+        var artifactId = dependency.artifact.artifactId;
+        var version = firstNonBlank(dependency.artifact.version,
+                () -> defaultVersionOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+        var scope = dependency.scope != null
+                ? dependency.scope
+                : defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId)));
 
         return new Dependency(new Artifact(groupId, artifactId, version), scope);
     }
@@ -160,7 +197,7 @@ public final class MavenPom {
         return childNamed("properties", project)
                 .map(p -> {
                     var children = p.getChildNodes();
-                    Map<String, String> result = new HashMap<>(children.getLength());
+                    Map<String, String> result = new LinkedHashMap<>(children.getLength());
                     for (int i = 0; i < children.getLength(); i++) {
                         var child = children.item(i);
                         if (child instanceof Element) {
