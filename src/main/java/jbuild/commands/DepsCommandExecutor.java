@@ -11,6 +11,7 @@ import jbuild.util.Either;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -85,6 +86,12 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
     private DependencyTree createTree(Dependency dependency,
                                       MavenPom mavenPom,
                                       Collection<Either<Optional<DependencyTree>, Throwable>> children) {
+        if (children.isEmpty()) {
+            log.verbosePrintln(() -> "Artifact " + dependency.artifact.getCoordinates() +
+                    " does not have any dependencies");
+            return DependencyTree.resolved(dependency, mavenPom, List.of());
+        }
+
         var childrenNodes = new ArrayList<DependencyTree>(children.size());
         var coordinates = dependency.artifact.getCoordinates();
         var allOk = true;
@@ -108,7 +115,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         }
 
         if (allOk) {
-            log.verbosePrintln(() -> "All dependencies of " + coordinates +
+            log.verbosePrintln(() -> "All " + children.size() + " dependencies of " + coordinates +
                     " resolved successfully");
         } else {
             log.verbosePrintln(() -> "Not all dependencies of " + coordinates +
