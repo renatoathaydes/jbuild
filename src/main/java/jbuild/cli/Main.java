@@ -22,8 +22,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Comparator.comparing;
@@ -31,7 +29,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
-import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.TextUtils.durationText;
 
 public class Main {
@@ -142,40 +139,28 @@ public class Main {
             return;
         }
 
-        var depsCommandExecutor = DepsCommandExecutor.createDefault(log);
+        var latch = new CountDownLatch(artifacts.size());
+        var anyError = new AtomicReference<ErrorCause>();
+        var treeLogger = new DependencyTreeLogger(log, depsOptions.transitive);
 
-        var completions = awaitValues(
-                depsCommandExecutor.fetchDependencyTree(artifacts, depsOptions.transitive));
-
-        var anyErrors = new LinkedBlockingDeque<Boolean>();
-
-        completions.whenComplete((ok, err) -> {
-            try {
-                log.verbosePrintln("Dependency tree resolution completed");
-                if (err == null) {
-                    var treeLogger = new DependencyTreeLogger(log, depsOptions.transitive);
-                    ok.forEach((dep, tree) -> tree.use(
-                            t -> t.ifPresent(treeLogger::log),
-                            this::reportError));
-                    anyErrors.offer(false);
-                } else {
-                    reportError(err);
-                    anyErrors.offer(true);
-                }
-            } catch (Exception e) {
-                log.print(e);
-                anyErrors.offer(true);
-            } finally {
-                anyErrors.offer(false);
-            }
-        });
+        DepsCommandExecutor.createDefault(log).fetchDependencyTree(artifacts, depsOptions.transitive)
+                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
+                    try {
+                        reportErrors(anyError, artifact, ok, err);
+                        if (anyError.get() == null && ok.isPresent()) {
+                            treeLogger.log(ok.get());
+                        }
+                    } finally {
+                        latch.countDown();
+                    }
+                }));
 
         withErrorHandling(() -> {
-            var isError = anyErrors.poll(24, TimeUnit.HOURS);
-            if (isError == null) {
-                exitWithError("Could not fetch all Maven dependencies within timeout", ErrorCause.TIMEOUT, startTime);
-            } else if (isError) {
-                exitWithError("Could not fetch all Maven dependencies successfully", ErrorCause.ACTION_ERROR, startTime);
+            latch.await();
+
+            var errorCause = anyError.get();
+            if (errorCause != null) {
+                exitWithError("Could not fetch all Maven dependencies successfully", errorCause, startTime);
             }
         }, startTime);
     }
