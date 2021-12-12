@@ -14,9 +14,6 @@ import jbuild.util.FileUtils;
 
 import java.io.File;
 import java.time.Duration;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -31,7 +28,7 @@ import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.durationText;
 
-public class Main {
+public final class Main {
 
     static final String JBUILD_VERSION = "0.0";
 
@@ -127,7 +124,6 @@ public class Main {
                 exitWithError("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT, startTime);
         }
-
     }
 
     private void listDeps(Options options, long startTime) {
@@ -189,7 +185,7 @@ public class Main {
         var anyError = new AtomicReference<ErrorCause>();
 
         FetchCommandExecutor.createDefault(log).fetchArtifacts(artifacts, fileWriter)
-                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
+                .forEach((artifact, completion) -> completion.whenComplete((ok, err) -> {
                     try {
                         reportErrors(anyError, artifact, ok, err);
                     } finally {
@@ -228,14 +224,14 @@ public class Main {
         var metadataByArtifact = new ConcurrentSkipListMap<Artifact, MavenMetadata>(comparing(Artifact::getCoordinates));
 
         new VersionsCommandExecutor(log).getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
-                eitherCompletionStage.whenComplete((completion, throwable) -> {
+                eitherCompletionStage.whenComplete((completion, err) -> {
                     try {
-                        if (throwable == null) {
+                        if (err == null) {
                             completion.use(
                                     ok -> metadataByArtifact.put(artifact, ok),
-                                    err -> reportErrors(anyError, artifact, Optional.empty(), err));
+                                    er -> reportErrors(anyError, artifact, Optional.empty(), er));
                         } else {
-                            reportErrors(anyError, artifact, Optional.empty(), throwable);
+                            reportErrors(anyError, artifact, Optional.empty(), err);
                         }
                     } finally {
                         latch.countDown();
@@ -244,44 +240,15 @@ public class Main {
 
         withErrorHandling(() -> {
             latch.await();
-            metadataByArtifact.forEach((artifact, mavenMetadata) -> {
-                log.println("Versions of " + artifact.getCoordinates() + ":");
 
-                var latest = mavenMetadata.getLatestVersion();
-                var release = mavenMetadata.getReleaseVersion();
-                var versions = mavenMetadata.getVersions();
-
-                if (!latest.isBlank()) {
-                    log.println("  * Latest: " + latest);
-                }
-                if (!release.isBlank()) {
-                    log.println("  * Release: " + latest);
-                }
-
-                mavenMetadata.getLastUpdated().ifPresent(updated -> {
-                    log.println("  * Last updated: " + ZonedDateTime.ofInstant(updated, ZoneId.systemDefault())
-                            .format(DateTimeFormatter.RFC_1123_DATE_TIME));
-                });
-
-                if (versions.isEmpty()) {
-                    log.println("  * no versions available");
-                } else {
-                    log.println("  * All versions:");
-                    for (var version : versions) {
-                        log.println("    - " + version);
-                    }
-                }
-            });
+            var versionLogger = new VersionLogger(log);
+            metadataByArtifact.forEach(versionLogger::log);
 
             var errorCause = anyError.get();
             if (errorCause != null) {
                 exitWithError("Could not fetch all versions successfully", errorCause, startTime);
             }
         }, startTime);
-    }
-
-    private void reportError(Throwable err) {
-
     }
 
     private void reportErrors(AtomicReference<ErrorCause> anyError,
@@ -293,7 +260,7 @@ public class Main {
 
             // exceptional completions are not reported by the executor, so we need to report here
             if (err != null) {
-                log.print("An error occurred while processing " + artifact + ": ");
+                log.print(() -> "An error occurred while processing " + artifact.getCoordinates() + ": ");
                 if (err instanceof JBuildException) {
                     log.println(err.getMessage());
                     anyError.set(((JBuildException) err).getErrorCause());
@@ -301,7 +268,7 @@ public class Main {
                     log.println(err.toString());
                 }
             } else { // ok is empty: non-exceptional error
-                log.println("Failed to handle " + artifact);
+                log.println(() -> "Failed to handle " + artifact.getCoordinates());
             }
         }
     }
@@ -314,7 +281,7 @@ public class Main {
         } catch (Exception e) {
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
         }
-        log.println(() -> "Build passed in " + time(startTime) + "!");
+        log.println(() -> "JBuild success in " + time(startTime) + "!");
     }
 
     private Set<? extends Artifact> parseArtifacts(long startTime, Set<String> coordinates) {
@@ -338,8 +305,8 @@ public class Main {
     private void exitWithError(String message, ErrorCause cause, long startTime) {
         log.print("ERROR: ");
         log.println(message);
-        log.println(() -> "Build failed in " + time(startTime) +
-                "! [code=" + cause.name().toLowerCase(Locale.ROOT) + "]");
+        log.println(() -> "JBuild failed in " + time(startTime) +
+                "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
         System.exit(exitCode(cause));
     }
 
