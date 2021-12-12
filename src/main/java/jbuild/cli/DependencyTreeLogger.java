@@ -1,5 +1,6 @@
 package jbuild.cli;
 
+import jbuild.artifact.Artifact;
 import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
@@ -8,7 +9,9 @@ import jbuild.maven.Scope;
 import jbuild.util.NonEmptyCollection;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
@@ -47,7 +50,8 @@ final class DependencyTreeLogger {
             if (scopeDeps != null && !scopeDeps.isEmpty()) {
                 log.println("  - scope " + scope);
                 if (transitive) {
-                    logTree(scopeDeps, tree.dependencies, INDENT, scope);
+                    var visitedDeps = new HashSet<Artifact>();
+                    logTree(visitedDeps, scopeDeps, tree.dependencies, INDENT, scope);
                 } else {
                     logChildren(tree);
                 }
@@ -62,20 +66,27 @@ final class DependencyTreeLogger {
         }
     }
 
-    private void logTree(Collection<Dependency> scopeDeps, List<DependencyTree> children, String indent, Scope scope) {
+    private void logTree(Set<Artifact> visitedDeps, Collection<Dependency> scopeDeps, List<DependencyTree> children, String indent, Scope scope) {
         var childByKey = children.stream()
                 .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
                         NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
             log.print(() -> indent + "* " + dep.artifact.getCoordinates());
-            var nextBranch = childByKey.get(ArtifactKey.of(dep));
-            if (nextBranch == null) {
-                log.println(" (X)");
+
+            var isNew = visitedDeps.add(dep.artifact);
+
+            if (isNew) {
+                var nextBranch = childByKey.get(ArtifactKey.of(dep));
+                if (nextBranch == null) {
+                    log.println(" (X)");
+                } else {
+                    log.println("");
+                    var nextDeps = nextBranch.first.root.pom.getDependencies(scope);
+                    logTree(visitedDeps, nextDeps, nextBranch.first.dependencies, indent + INDENT, scope);
+                }
             } else {
-                log.println("");
-                var nextDeps = nextBranch.first.root.pom.getDependencies(scope);
-                logTree(nextDeps, nextBranch.first.dependencies, indent + INDENT, scope);
+                log.println(" (-)");
             }
         }
     }
