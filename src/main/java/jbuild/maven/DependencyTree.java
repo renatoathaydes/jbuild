@@ -28,7 +28,7 @@ public final class DependencyTree {
      * @return resolved tree of dependencies
      */
     public static DependencyTree resolved(Artifact artifact, MavenPom pom, List<DependencyTree> dependencies) {
-        return new DependencyTree(new ResolvedDependency(artifact, pom), dependencies);
+        return new DependencyTree(new ResolvedDependency(artifact.pom(), pom), dependencies);
     }
 
     /**
@@ -39,7 +39,7 @@ public final class DependencyTree {
      * @return single-node tree without resolved children
      */
     public static DependencyTree childless(Artifact artifact, MavenPom pom) {
-        return new DependencyTree(new ResolvedDependency(artifact, pom), List.of());
+        return new DependencyTree(new ResolvedDependency(artifact.pom(), pom), List.of());
     }
 
 }

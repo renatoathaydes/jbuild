@@ -17,4 +17,5 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    systemProperty('tests.repo.dir', file('src/test/resources/jbuild/commands/repo').absolutePath)
 }

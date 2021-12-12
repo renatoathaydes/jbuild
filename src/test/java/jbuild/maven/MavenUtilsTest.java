@@ -9,6 +9,8 @@ import java.util.Map;
 
 import static jbuild.maven.MavenAssertions.artifactCoordinates;
 import static jbuild.maven.MavenAssertions.dependencies;
+import static jbuild.maven.MavenHelper.dep;
+import static jbuild.maven.MavenHelper.readPom;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MavenUtilsTest {
@@ -103,20 +105,6 @@ public class MavenUtilsTest {
                 assertThat(MavenUtils.resolveProperty(example.value, example.properties))
                         .isEqualTo(example.expectedResolvedValue)
         );
-    }
-
-    private static MavenPom readPom(String resourcePath) throws Exception {
-        try (var stream = MavenUtilsTest.class.getResourceAsStream(resourcePath)) {
-            return MavenUtils.parsePom(stream);
-        }
-    }
-
-    private static Dependency dep(String groupId, String artifactId, String version, Scope scope) {
-        return new Dependency(new Artifact(groupId, artifactId, version), scope);
-    }
-
-    private static Dependency dep(String groupId, String artifactId, String version) {
-        return new Dependency(new Artifact(groupId, artifactId, version));
     }
 
 }

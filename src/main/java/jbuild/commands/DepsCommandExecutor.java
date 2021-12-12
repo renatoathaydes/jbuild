@@ -59,38 +59,36 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             MavenPom pom,
             Scope scope,
             boolean transitive) {
-        log.verbosePrintln(() -> "Fetching dependencies of " + artifact.getCoordinates() +
-                (scope == null ? " under all scopes" : " under scope " + scope));
-
         var children = pom.getDependencies(scope).stream()
-                .map(dependency -> fetch(chain, dependency, transitive))
+                .map(dependency -> {
+                    var newChain = append(chain, dependency);
+                    if (newChain.size() == chain.size()) {
+                        log.println(() -> "WARNING: Detected circular dependency chain: " +
+                                collectDependencyChain(chain, dependency));
+                    } else if (newChain.size() > MAX_TREE_DEPTH) {
+                        throw new IllegalStateException("Maximum dependency tree depth exceeded: " +
+                                collectDependencyChain(chain, dependency));
+                    } else if (transitive) {
+                        log.verbosePrintln(() -> "Fetching dependencies of " + artifact.getCoordinates() +
+                                (scope == null ? " under all scopes" : " under scope " + scope));
+
+                        return fetch(newChain, dependency);
+                    }
+                    return completedFuture(Optional.of(DependencyTree.childless(dependency.artifact, pom)));
+                })
                 .collect(toList());
 
-        return awaitValues(children).thenApply(c -> createTree(artifact, pom, c));
+        return awaitValues(children).thenApply(c -> createTree(artifact.pom(), pom, c));
     }
 
     private CompletionStage<Optional<DependencyTree>> fetch(
             Set<Dependency> chain,
-            Dependency dependency,
-            boolean transitive) {
-        return mavenPomRetriever.fetchPom(dependency.artifact).thenComposeAsync(child -> {
+            Dependency dependency) {
+        return mavenPomRetriever.fetchPom(dependency.artifact.pom()).thenComposeAsync(child -> {
             if (child.isEmpty()) return completedFuture(Optional.empty());
             var pom = child.get();
-
-            if (transitive) {
-                var newChain = append(chain, dependency);
-                if (newChain.size() == chain.size()) {
-                    log.println(() -> "WARNING: Detected circular dependency chain: " +
-                            collectDependencyChain(chain, dependency));
-                } else if (newChain.size() > MAX_TREE_DEPTH) {
-                    throw new IllegalStateException("Maximum dependency tree depth exceeded: " +
-                            collectDependencyChain(chain, dependency));
-                } else {
-                    return fetchChildren(chain, dependency.artifact, pom, dependency.scope, true)
-                            .thenApply(Optional::of);
-                }
-            }
-            return completedFuture(Optional.of(DependencyTree.childless(dependency.artifact, pom)));
+            return fetchChildren(chain, dependency.artifact, pom, dependency.scope, true)
+                    .thenApply(Optional::of);
         });
     }
 
