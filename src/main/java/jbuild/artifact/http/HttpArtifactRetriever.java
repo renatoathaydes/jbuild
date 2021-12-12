@@ -6,12 +6,16 @@ import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.HttpError;
 import jbuild.maven.MavenUtils;
+import jbuild.util.Either;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionStage;
+
+import static java.util.concurrent.CompletableFuture.completedStage;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
@@ -41,15 +45,26 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
     public CompletionStage<ArtifactResolution<HttpError>> retrieve(Artifact artifact) {
         var requestPath = MavenUtils.standardArtifactPath(artifact, false);
 
-        var request = HttpRequest.newBuilder(URI.create(baseUrl + "/" + requestPath)).build();
+        HttpRequest request;
+        try {
+            request = HttpRequest.newBuilder(new URI(baseUrl + "/" + requestPath)).build();
+        } catch (URISyntaxException e) {
+            return completedStage(ArtifactResolution.failure(
+                    new HttpError(artifact, this, Either.right(e))));
+        }
 
         var requestTime = System.currentTimeMillis();
 
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).thenApply(response -> {
-            if (response.statusCode() == 200) {
-                return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this, requestTime));
-            }
-            return ArtifactResolution.failure(new HttpError(artifact, this, response));
-        });
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                .handle((response, err) -> {
+                    if (err != null) {
+                        return ArtifactResolution.failure(
+                                new HttpError(artifact, this, Either.right(err)));
+                    }
+                    if (response.statusCode() == 200) {
+                        return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this, requestTime));
+                    }
+                    return ArtifactResolution.failure(new HttpError(artifact, this, Either.left(response)));
+                });
     }
 }
