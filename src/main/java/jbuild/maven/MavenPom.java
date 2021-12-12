@@ -199,7 +199,7 @@ public final class MavenPom {
                                                NonEmptyCollection<Dependency> dependencies) {
         if (dependencies == null) return "";
         for (var dependency : dependencies) {
-            if (scope == dependency.scope) {
+            if (scope.includes(dependency.scope)) {
                 return dependency.artifact.version;
             }
         }
