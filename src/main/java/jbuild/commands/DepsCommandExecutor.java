@@ -3,10 +3,10 @@ package jbuild.commands;
 import jbuild.artifact.Artifact;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
-import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.MavenPom;
+import jbuild.maven.Scope;
 import jbuild.util.Either;
 
 import java.util.ArrayList;
@@ -16,14 +16,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static jbuild.util.AsyncUtils.awaitValues;
+import static jbuild.util.CollectionUtils.append;
 import static jbuild.util.CollectionUtils.mapEntries;
 
 public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
+
+    private static final int MAX_TREE_DEPTH = 100;
 
     private final JBuildLog log;
     private final MavenPomRetriever<Err> mavenPomRetriever;
@@ -44,56 +48,69 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    return fetchChildren(new Dependency(artifact, null), pom.get(), transitive)
+                    return fetchChildren(Set.of(), artifact, pom.get(), null, transitive)
                             .thenApply(Optional::of);
                 }));
     }
 
     private CompletionStage<DependencyTree> fetchChildren(
-            Dependency dependency,
+            Set<Dependency> chain,
+            Artifact artifact,
             MavenPom pom,
+            Scope scope,
             boolean transitive) {
-        log.verbosePrintln(() -> "Fetching dependencies of " + dependency.artifact.getCoordinates() +
-                (dependency.scope == null ? " under all scopes" : " under scope " + dependency.scope));
+        log.verbosePrintln(() -> "Fetching dependencies of " + artifact.getCoordinates() +
+                (scope == null ? " under all scopes" : " under scope " + scope));
 
-        return awaitValues(fetchChildren(pom.getDependencies(dependency.scope), transitive))
-                .thenApply(completions ->
-                        createTree(dependency, pom, completions.values()));
+        var children = pom.getDependencies(scope).stream()
+                .map(dependency -> fetch(chain, dependency, transitive))
+                .collect(toList());
+
+        return awaitValues(children).thenApply(c -> createTree(artifact, pom, c));
     }
 
-    private Map<Artifact, CompletionStage<Optional<DependencyTree>>> fetchChildren(
-            Set<? extends Dependency> dependencies,
+    private CompletionStage<Optional<DependencyTree>> fetch(
+            Set<Dependency> chain,
+            Dependency dependency,
             boolean transitive) {
-        var depByArtifact = dependencies.stream()
-                .collect(toMap(d -> ArtifactKey.of(d.artifact), d -> d));
+        return mavenPomRetriever.fetchPom(dependency.artifact).thenComposeAsync(child -> {
+            if (child.isEmpty()) return completedFuture(Optional.empty());
+            var pom = child.get();
 
-        var artifacts = dependencies.stream().map(d -> d.artifact.pom()).collect(toSet());
-
-        if (artifacts.isEmpty()) {
-            return Map.of();
-        }
-
-        return mapEntries(mavenPomRetriever.fetchPoms(artifacts), (artifact, completionStage) ->
-                completionStage.thenComposeAsync(pom -> {
-                    if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    var dep = depByArtifact.get(ArtifactKey.of(artifact));
-                    return transitive
-                            ? fetchChildren(dep, pom.get(), true).thenApply(Optional::of)
-                            : completedFuture(Optional.of(DependencyTree.of(dep, pom.get())));
-                }));
+            if (transitive) {
+                var newChain = append(chain, dependency);
+                if (newChain.size() == chain.size()) {
+                    log.println(() -> "WARNING: Detected circular dependency chain: " +
+                            collectDependencyChain(chain, dependency));
+                } else if (newChain.size() > MAX_TREE_DEPTH) {
+                    throw new IllegalStateException("Maximum dependency tree depth exceeded: " +
+                            collectDependencyChain(chain, dependency));
+                } else {
+                    return fetchChildren(chain, dependency.artifact, pom, dependency.scope, true)
+                            .thenApply(Optional::of);
+                }
+            }
+            return completedFuture(Optional.of(DependencyTree.childless(dependency.artifact, pom)));
+        });
     }
 
-    private DependencyTree createTree(Dependency dependency,
+    private String collectDependencyChain(Set<Dependency> chain, Dependency dependency) {
+        return Stream.concat(chain.stream(), Stream.of(dependency))
+                .map(d -> d.artifact.getCoordinates())
+                .collect(joining(" -> "));
+    }
+
+    private DependencyTree createTree(Artifact artifact,
                                       MavenPom mavenPom,
                                       Collection<Either<Optional<DependencyTree>, Throwable>> children) {
         if (children.isEmpty()) {
-            log.verbosePrintln(() -> "Artifact " + dependency.artifact.getCoordinates() +
+            log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() +
                     " does not have any dependencies");
-            return DependencyTree.resolved(dependency, mavenPom, List.of());
+            return DependencyTree.resolved(artifact, mavenPom, List.of());
         }
 
         var childrenNodes = new ArrayList<DependencyTree>(children.size());
-        var coordinates = dependency.artifact.getCoordinates();
+        var coordinates = artifact.getCoordinates();
         var allOk = true;
 
         for (var child : children) {
@@ -124,7 +141,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
 
         // the children may be missing nodes, but we always return the tree anyway as it's easy to
         // match the POM dependencies against the resolved children to see what's missing.
-        return DependencyTree.resolved(dependency, mavenPom, childrenNodes);
+        return DependencyTree.resolved(artifact, mavenPom, childrenNodes);
     }
 
 }

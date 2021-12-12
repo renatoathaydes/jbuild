@@ -59,6 +59,19 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void canParseMavenPomUsingProjectPropertiesSyntaxInParentPom() throws Exception {
+        var pom = readPom("slf4j-simple.pom.xml");
+        var parent = readPom("slf4j-parent.pom.xml");
+
+        assertThat(pom.withParent(parent))
+                .has(dependencies(
+                        dep("org.slf4j", "slf4j-api", "1.7.32", Scope.COMPILE),
+                        dep("org.slf4j", "slf4j-api", "1.7.32", Scope.TEST),
+                        dep("junit", "junit", "4.12", Scope.TEST)
+                )).has(artifactCoordinates(new Artifact("org.slf4j", "slf4j-simple", "1.7.32")));
+    }
+
+    @Test
     void canParseMavenTimestamp() {
         assertThat(MavenUtils.parseMavenTimestamp("20210927195736"))
                 .isEqualTo(Instant.parse("2021-09-27T19:57:36.00Z"));

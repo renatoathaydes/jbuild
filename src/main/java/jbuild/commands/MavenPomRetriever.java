@@ -53,7 +53,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         var fetchCompletions = artifacts.stream()
                 .map(Artifact::pom)
                 .collect(toSet()).stream()
-                .collect(toMap(a -> a, this::fetchPom));
+                .collect(toMap(a -> a, this::fetch));
 
         // final stage: report all errors
         return mapEntries(fetchCompletions, (artifact, c) -> c.thenApply((result) -> result.map(
@@ -62,11 +62,17 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         )));
     }
 
-    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> fetchPom(Artifact artifact) {
+    public CompletionStage<Optional<MavenPom>> fetchPom(Artifact artifact) {
+        return fetch(artifact).thenApply(pom -> pom.map(
+                Optional::of,
+                errors -> reportErrors(log, artifact, errors)));
+    }
+
+    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> fetch(Artifact artifact) {
         var fromCache = new AtomicBoolean(true);
         var result = cache.computeIfAbsent(artifact, a -> {
             fromCache.set(false);
-            return fetchCommandExecutor.fetchArtifact(a)
+            return fetchCommandExecutor.fetchArtifact(a.pom())
                     .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors));
         });
 
@@ -80,7 +86,8 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleResolved(
             ResolvedArtifact resolvedArtifact) {
         var requestDuration = Duration.ofMillis(System.currentTimeMillis() - resolvedArtifact.requestTime);
-        log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved from " +
+        log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved (" +
+                resolvedArtifact.contentLength + " bytes) from " +
                 resolvedArtifact.retriever.getDescription() + " in " + durationText(requestDuration));
 
         log.verbosePrintln(() -> "Parsing POM of " + resolvedArtifact.artifact);
@@ -105,7 +112,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         if (parentArtifact.isEmpty()) {
             return completedFuture(Either.left(pom));
         }
-        return fetchPom(parentArtifact.get().pom())
+        return fetch(parentArtifact.get().pom())
                 .thenComposeAsync(res -> res.map(
                         parentPom -> completedFuture(Either.left(pom.withParent(parentPom))),
                         this::handleRetrievalErrors));

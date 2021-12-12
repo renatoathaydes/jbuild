@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -88,6 +89,13 @@ public final class CollectionUtils {
                 return delegate.next();
             }
         };
+    }
+
+    public static <T> Set<T> append(Set<T> list, T last) {
+        var copy = new LinkedHashSet<T>(list.size() + 1);
+        copy.addAll(list);
+        copy.add(last);
+        return copy;
     }
 
     public static <T> Set<T> union(Set<T> set1, Set<T> set2) {

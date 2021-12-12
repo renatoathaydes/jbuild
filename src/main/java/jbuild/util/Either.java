@@ -40,8 +40,9 @@ public final class Either<L, R> {
                     Consumer<R> withRight) {
         if (left != null) {
             withLeft.accept(left);
+        } else {
+            withRight.accept(right);
         }
-        withRight.accept(right);
     }
 
     public <T> Optional<Either<L, T>> combineRight(Either<L, R> other, BiFunction<R, R, T> combiner) {

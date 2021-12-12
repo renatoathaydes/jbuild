@@ -1,5 +1,7 @@
 package jbuild.maven;
 
+import jbuild.artifact.Artifact;
+
 import java.util.List;
 
 public final class DependencyTree {
@@ -20,24 +22,24 @@ public final class DependencyTree {
      * To know which children should be in the list of dependencies, use
      * {@link Dependency#}
      *
-     * @param dependency   the resolved dependency which is the root of the returned tree
+     * @param artifact     the root of the tree
      * @param pom          of the given dependency
      * @param dependencies the resolved child dependencies
      * @return resolved tree of dependencies
      */
-    public static DependencyTree resolved(Dependency dependency, MavenPom pom, List<DependencyTree> dependencies) {
-        return new DependencyTree(new ResolvedDependency(dependency, pom), dependencies);
+    public static DependencyTree resolved(Artifact artifact, MavenPom pom, List<DependencyTree> dependencies) {
+        return new DependencyTree(new ResolvedDependency(artifact, pom), dependencies);
     }
 
     /**
      * Create a non-resolved dependency tree (i.e. without resolved children).
      *
-     * @param dependency the resolved dependency which is the root of the returned tree
-     * @param pom        of the given dependency
+     * @param artifact the root of the tree
+     * @param pom      of the given dependency
      * @return single-node tree without resolved children
      */
-    public static DependencyTree of(Dependency dependency, MavenPom pom) {
-        return new DependencyTree(new ResolvedDependency(dependency, pom), List.of());
+    public static DependencyTree childless(Artifact artifact, MavenPom pom) {
+        return new DependencyTree(new ResolvedDependency(artifact, pom), List.of());
     }
 
 }

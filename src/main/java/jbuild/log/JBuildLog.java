@@ -7,7 +7,7 @@ public final class JBuildLog {
 
     private final PrintStream out;
     private final boolean verbose;
-    private boolean enabled = true;
+    private volatile boolean enabled = true;
 
     public JBuildLog(PrintStream out,
                      boolean verbose) {

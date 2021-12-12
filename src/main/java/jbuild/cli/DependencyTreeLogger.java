@@ -5,6 +5,7 @@ import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.Scope;
+import jbuild.util.NonEmptyCollection;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,7 +28,7 @@ final class DependencyTreeLogger {
     }
 
     public void log(DependencyTree tree) {
-        log.println("Dependencies of " + tree.root.dependency.artifact.getCoordinates() +
+        log.println("Dependencies of " + tree.root.artifact.getCoordinates() +
                 (transitive ? " (incl. transitive)" : "") + ":");
 
         var deps = tree.root.pom.getDependencies();
@@ -63,7 +64,8 @@ final class DependencyTreeLogger {
 
     private void logTree(Collection<Dependency> scopeDeps, List<DependencyTree> children, String indent, Scope scope) {
         var childByKey = children.stream()
-                .collect(toMap(c -> ArtifactKey.of(c.root.dependency), c -> c));
+                .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
+                        NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
             log.print(() -> indent + "* " + dep.artifact.getCoordinates());
@@ -72,8 +74,8 @@ final class DependencyTreeLogger {
                 log.println(" (X)");
             } else {
                 log.println("");
-                var nextDeps = nextBranch.root.pom.getDependencies(scope);
-                logTree(nextDeps, nextBranch.dependencies, indent + INDENT, scope);
+                var nextDeps = nextBranch.first.root.pom.getDependencies(scope);
+                logTree(nextDeps, nextBranch.first.dependencies, indent + INDENT, scope);
             }
         }
     }

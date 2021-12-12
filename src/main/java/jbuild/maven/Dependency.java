@@ -30,7 +30,7 @@ public final class Dependency {
     @Override
     public int hashCode() {
         int result = artifact.hashCode();
-        if (scope != null) result = 31 * result + scope.hashCode();
+        result = 31 * result + scope.hashCode();
         return result;
     }
 
