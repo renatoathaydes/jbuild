@@ -9,9 +9,14 @@ to manage other Java projects and dependencies themselves.
 
 - [x] fetch artifacts from file repositories.
 - [x] fetch artifacts from HTTP repositories.
-- [x] list direct and transitive dependencies of artifacts.
-- [x] list available versions of artifacts.  
-- [ ] check completeness of classpath given a Java entry-point.
+- [ ] fetch artifacts transitively.
+- [x] list direct dependencies of artifacts.
+- [x] list transitive dependencies of artifacts.
+- [x] list available versions of artifacts.
+- [ ] install artifacts in local file repository.
+- [ ] install artifacts in remote HTTP repository.
+- [ ] check completeness of classpath in general (all code included).
+- [ ] check completeness of classpath given a Java entry-point (exclude unused code).
 - [ ] check binary compatibility of artifacts included in the classpath.
 - [ ] automatically find compatible set of artifacts based on application needs.
 - [ ] compile and package Java applications.
