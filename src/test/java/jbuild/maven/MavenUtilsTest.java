@@ -74,6 +74,18 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void canParsePomHierarchyUsingMavenBOM() throws Exception {
+        var bom = readPom("bom/bom.pom.xml");
+        var parent = readPom("bom/parent.pom.xml");
+        var pom = readPom("bom/project1.pom.xml");
+
+        assertThat(pom.withParent(parent.withParent(bom)))
+                .has(dependencies(
+                        dep("log4j", "log4j", "1.2.12", Scope.COMPILE)
+                )).has(artifactCoordinates(new Artifact("com.test", "project1", "1.0.0")));
+    }
+
+    @Test
     void canParseMavenTimestamp() {
         assertThat(MavenUtils.parseMavenTimestamp("20210927195736"))
                 .isEqualTo(Instant.parse("2021-09-27T19:57:36.00Z"));

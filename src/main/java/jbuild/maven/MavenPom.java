@@ -40,8 +40,8 @@ public final class MavenPom {
 
     private MavenPom(MavenPom pom, MavenPom parentPom) {
         this.properties = union(parentPom.properties, pom.properties);
-        this.parentArtifact = parentPom.coordinates;
-        this.coordinates = pom.coordinates;
+        this.parentArtifact = resolveArtifact(parentPom.coordinates, properties);
+        this.coordinates = resolveArtifact(pom.coordinates, properties);
         this.dependencyManagement = union(parentPom.dependencyManagement, pom.dependencyManagement);
         this.dependencies = union(parentPom.dependencies, pom.dependencies)
                 .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
@@ -180,8 +180,20 @@ public final class MavenPom {
     }
 
     private static String resolveProperty(Map<String, String> properties,
+                                          Optional<? extends Node> element,
+                                          String defaultValue) {
+        return MavenUtils.resolveProperty(textOf(element, defaultValue), properties);
+    }
+
+    private static String resolveProperty(Map<String, String> properties,
                                           String value,
                                           Supplier<String> defaultValue) {
+        return MavenUtils.resolveProperty(firstNonBlank(value, defaultValue), properties);
+    }
+
+    private static String resolveProperty(Map<String, String> properties,
+                                          String value,
+                                          String defaultValue) {
         return MavenUtils.resolveProperty(firstNonBlank(value, defaultValue), properties);
     }
 
@@ -189,10 +201,18 @@ public final class MavenPom {
     private static Scope resolvePropertyScope(Map<String, String> properties,
                                               Optional<? extends Node> element,
                                               Supplier<Scope> defaultValue) {
-        var scopeText = resolveProperty(properties, element, () -> "");
+        var scopeText = resolveProperty(properties, element, "");
         return scopeText.isBlank()
                 ? defaultValue.get()
                 : Scope.valueOf(scopeText.toUpperCase(Locale.ROOT));
+    }
+
+    private static Artifact resolveArtifact(Artifact artifact,
+                                            Map<String, String> properties) {
+        return new Artifact(
+                resolveProperty(properties, artifact.groupId, artifact.groupId),
+                resolveProperty(properties, artifact.artifactId, artifact.artifactId),
+                resolveProperty(properties, artifact.version, artifact.version));
     }
 
     private static String defaultVersionOrFrom(Scope scope,
