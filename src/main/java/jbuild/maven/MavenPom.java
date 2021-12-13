@@ -23,6 +23,10 @@ import static jbuild.util.XmlUtils.textOf;
 
 public final class MavenPom {
 
+    private enum MergeMode {
+        PARENT, IMPORT
+    }
+
     private final Artifact parentArtifact;
     private final Artifact coordinates;
     private final Map<String, String> properties;
@@ -38,14 +42,28 @@ public final class MavenPom {
         properties.put("project.version", coordinates.version);
     }
 
-    private MavenPom(MavenPom pom, MavenPom parentPom) {
-        this.properties = union(parentPom.properties, pom.properties);
-        this.parentArtifact = resolveArtifact(parentPom.coordinates, properties);
-        this.coordinates = resolveArtifact(pom.coordinates, properties);
-        this.dependencyManagement = union(parentPom.dependencyManagement, pom.dependencyManagement);
-        this.dependencies = union(parentPom.dependencies, pom.dependencies)
-                .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
-                .collect(toSet());
+    private MavenPom(MavenPom pom, MavenPom other, MergeMode mode) {
+        switch (mode) {
+            case PARENT:
+                this.properties = union(other.properties, pom.properties);
+                this.parentArtifact = resolveArtifact(other.coordinates, properties);
+                this.coordinates = resolveArtifact(pom.coordinates, properties);
+                this.dependencyManagement = union(other.dependencyManagement, pom.dependencyManagement);
+                this.dependencies = union(other.dependencies, pom.dependencies)
+                        .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
+                        .collect(toSet());
+                break;
+            case IMPORT:
+            default:
+                this.properties = pom.properties;
+                this.parentArtifact = pom.parentArtifact;
+                this.coordinates = pom.coordinates;
+                this.dependencyManagement = union(pom.dependencyManagement, other.dependencyManagement);
+                this.dependencies = pom.dependencies
+                        .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
+                        .collect(toSet());
+        }
+
     }
 
     public MavenPom(Document doc) {
@@ -54,8 +72,29 @@ public final class MavenPom {
                 null);
     }
 
+    /**
+     * Create a new {@link MavenPom} with the given parent POM as the parent of this POM.
+     * <p>
+     * This method does not check whether this POM actually declares the given parent.
+     *
+     * @param parentPom another POM to use as this POM's parent
+     * @return this POM with the given parent POM
+     */
     public MavenPom withParent(MavenPom parentPom) {
-        return new MavenPom(this, parentPom);
+        return new MavenPom(this, parentPom, MergeMode.PARENT);
+    }
+
+    /**
+     * Create a new {@link MavenPom} that imports the given POM (i.e. merging this POM that the given POM's
+     * dependencyManagement section).
+     * <p>
+     * This method does not check whether this POM actually imports the given POM.
+     *
+     * @param importedPom another POM to import into this POM
+     * @return this POM after importing the given POM
+     */
+    public MavenPom importing(MavenPom importedPom) {
+        return new MavenPom(this, importedPom, MergeMode.IMPORT);
     }
 
     public Optional<Artifact> getParentArtifact() {

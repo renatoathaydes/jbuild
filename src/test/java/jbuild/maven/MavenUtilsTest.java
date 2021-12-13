@@ -77,12 +77,30 @@ public class MavenUtilsTest {
     void canParsePomHierarchyUsingMavenBOM() throws Exception {
         var bom = readPom("bom/bom.pom.xml");
         var parent = readPom("bom/parent.pom.xml");
-        var pom = readPom("bom/project1.pom.xml");
+        var pom1 = readPom("bom/project1.pom.xml");
+        var pom2 = readPom("bom/project2.pom.xml");
 
-        assertThat(pom.withParent(parent.withParent(bom)))
+        assertThat(pom1.withParent(parent.withParent(bom)))
                 .has(dependencies(
                         dep("log4j", "log4j", "1.2.12", Scope.COMPILE)
                 )).has(artifactCoordinates(new Artifact("com.test", "project1", "1.0.0")));
+
+        assertThat(pom2.withParent(parent.withParent(bom)))
+                .has(dependencies(
+                        dep("commons-logging", "commons-logging", "1.1.1", Scope.COMPILE)
+                )).has(artifactCoordinates(new Artifact("com.test", "project2", "1.0.0")));
+    }
+
+    @Test
+    void canParsePomUsingMavenBOM() throws Exception {
+        var bom = readPom("bom/bom.pom.xml");
+        var pom = readPom("bom/third-party.pom.xml");
+
+        assertThat(pom.importing(bom))
+                .has(dependencies(
+                        dep("com.test", "project1", "1.0.0", Scope.COMPILE),
+                        dep("com.test", "project2", "1.0.0", Scope.COMPILE)
+                )).has(artifactCoordinates(new Artifact("com.test", "use", "1.0.0")));
     }
 
     @Test
