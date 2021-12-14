@@ -31,7 +31,7 @@ Here's the list of Maven tags and concepts supported by JBuild:
 
 - [x] dependencies/dependency/[groupId, artifactId, version, scope]
 - [ ] dependencies/dependency/exclusions
-- [ ] optional dependencies
+- [x] optional dependencies
 - [x] dependencyManagement
 - [x] project properties
 - [x] evaluate property placeholders from properties tag 
