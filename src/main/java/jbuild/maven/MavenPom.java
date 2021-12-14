@@ -115,12 +115,14 @@ public final class MavenPom {
         return dependencies;
     }
 
-    public Set<Dependency> getDependencies(Scope scope) {
-        if (scope == null) {
+    public Set<Dependency> getDependencies(Scope scope, boolean includeOptionals) {
+        if (scope == null && includeOptionals) {
             return dependencies;
         }
+
         return dependencies.stream()
-                .filter(dep -> scope.includes(dep.scope))
+                .filter(dep -> (scope == null || scope.includes(dep.scope) &&
+                        (includeOptionals || !dep.optional)))
                 .collect(toSet());
     }
 

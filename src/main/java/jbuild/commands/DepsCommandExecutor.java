@@ -58,7 +58,8 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             MavenPom pom,
             Scope scope,
             boolean transitive) {
-        var dependencies = pom.getDependencies(scope);
+        var includeOptionals = chain.isEmpty();
+        var dependencies = pom.getDependencies(scope, includeOptionals);
         var maxTreeDepthExceeded = transitive && chain.size() + 1 > MAX_TREE_DEPTH;
 
         if (maxTreeDepthExceeded || dependencies.isEmpty()) {

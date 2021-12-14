@@ -48,31 +48,42 @@ final class DependencyTreeLogger {
         for (Scope scope : Scope.values()) {
             var scopeDeps = groupedDeps.get(scope);
             if (scopeDeps != null && !scopeDeps.isEmpty()) {
+                int dependencyCount;
                 log.println("  - scope " + scope);
                 if (transitive) {
                     var visitedDeps = new HashSet<Artifact>();
                     logTree(visitedDeps, scopeDeps, tree.dependencies, INDENT, scope);
+                    dependencyCount = visitedDeps.size();
                 } else {
-                    logChildren(tree);
+                    var children = tree.root.pom.getDependencies();
+                    logChildren(children);
+                    dependencyCount = children.size();
                 }
+                log.println(() -> "  " + dependencyCount + " " + scope +
+                        " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
         }
     }
 
-    private void logChildren(DependencyTree tree) {
-        var children = tree.root.pom.getDependencies();
+    private void logChildren(Set<Dependency> children) {
         for (var child : sorted(children, comparing(dep -> dep.artifact.getCoordinates()))) {
             log.println(INDENT + "* " + child.artifact.getCoordinates());
         }
     }
 
-    private void logTree(Set<Artifact> visitedDeps, Collection<Dependency> scopeDeps, List<DependencyTree> children, String indent, Scope scope) {
+    private void logTree(Set<Artifact> visitedDeps,
+                         Collection<Dependency> scopeDeps,
+                         List<DependencyTree> children,
+                         String indent,
+                         Scope scope) {
         var childByKey = children.stream()
                 .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
                         NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
-            log.print(() -> indent + "* " + dep.artifact.getCoordinates() + " [" + dep.scope + "]");
+            log.print(() -> indent + "* " + dep.artifact.getCoordinates() +
+                    " [" + dep.scope + "]" +
+                    (dep.optional ? "[optional]" : ""));
 
             var isNew = visitedDeps.add(dep.artifact);
 
@@ -82,8 +93,10 @@ final class DependencyTreeLogger {
                     log.println(" (X)");
                 } else {
                     log.println("");
-                    var nextDeps = nextBranch.first.root.pom.getDependencies(scope);
-                    logTree(visitedDeps, nextDeps, nextBranch.first.dependencies, indent + INDENT, scope);
+                    for (var next : nextBranch) {
+                        var nextDeps = next.root.pom.getDependencies(scope, false);
+                        logTree(visitedDeps, nextDeps, next.dependencies, indent + INDENT, scope);
+                    }
                 }
             } else {
                 log.println(" (-)");
