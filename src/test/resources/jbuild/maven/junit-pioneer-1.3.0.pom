@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.junit-pioneer</groupId>
+  <artifactId>junit-pioneer</artifactId>
+  <version>1.3.0</version>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>5.5.2</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-commons</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+  <name>junit-pioneer</name>
+  <packaging>jar</packaging>
+  <url>https://github.com/junit-pioneer/junit-pioneer</url>
+  <description>JUnit 5 Extension Pack</description>
+  <licenses>
+    <license>
+      <name>Eclipse Public License v2.0</name>
+      <url>http://www.eclipse.org/legal/epl-v20.html</url>
+    </license>
+  </licenses>
+  <scm>
+    <url>https://github.com/junit-pioneer/junit-pioneer.git</url>
+  </scm>
+  <issueManagement>
+    <url>https://github.com/junit-pioneer/junit-pioneer/issues</url>
+    <system>GitHub issues</system>
+  </issueManagement>
+  <ciManagement>
+    <url>https://github.com/junit-pioneer/junit-pioneer/actions</url>
+    <system>GitHub Actions</system>
+  </ciManagement>
+  <developers>
+    <developer>
+      <id>nicolaiparlog</id>
+      <name>Nicolai Parlog</name>
+      <roles>
+        <role>Core developer</role>
+      </roles>
+      <url>https://github.com/nicolaiparlog</url>
+    </developer>
+    <developer>
+      <id>smoyer64</id>
+      <name>Steve Moyer</name>
+      <roles>
+        <role>Core developer</role>
+      </roles>
+      <url>https://github.com/smoyer64</url>
+    </developer>
+    <developer>
+      <id>Bukama</id>
+      <name>Matthias Bünger</name>
+      <roles>
+        <role>Core developer</role>
+      </roles>
+      <url>https://github.com/Bukama</url>
+    </developer>
+    <developer>
+      <id>aepfli</id>
+      <name>Simon Schrottner</name>
+      <roles>
+        <role>Core developer</role>
+      </roles>
+      <url>https://github.com/aepfli</url>
+    </developer>
+    <developer>
+      <id>Michael1993</id>
+      <name>Mihály Verhás</name>
+      <roles>
+        <role>Core developer</role>
+      </roles>
+      <url>https://github.com/Michael1993</url>
+    </developer>
+  </developers>
+  <contributors>
+    <contributor>
+      <name>Nicolai Parlog</name>
+      <url>https://github.com/nipafx</url>
+    </contributor>
+    <contributor>
+      <name>Daniel Kraus</name>
+      <url>https://github.com/beatngu13</url>
+    </contributor>
+    <contributor>
+      <name>Marc Philipp</name>
+      <url>https://github.com/marcphilipp</url>
+    </contributor>
+    <contributor>
+      <name>Christian Stein</name>
+      <url>https://github.com/sormuras</url>
+    </contributor>
+    <contributor>
+      <name>Benedikt Ritter</name>
+      <url>https://github.com/britter</url>
+    </contributor>
+    <contributor>
+      <name>dependabot[bot]</name>
+      <url>https://github.com/dependabot[bot]</url>
+    </contributor>
+    <contributor>
+      <name>Hancho2009</name>
+      <url>https://github.com/Hancho2009</url>
+    </contributor>
+    <contributor>
+      <name>Dirk Wetzel</name>
+      <url>https://github.com/NPException</url>
+    </contributor>
+    <contributor>
+      <name>Allon Murienik</name>
+      <url>https://github.com/mureinik</url>
+    </contributor>
+    <contributor>
+      <name>sullis</name>
+      <url>https://github.com/sullis</url>
+    </contributor>
+    <contributor>
+      <name>hovinen</name>
+      <url>https://github.com/hovinen</url>
+    </contributor>
+    <contributor>
+      <name>Stefano Cordio</name>
+      <url>https://github.com/scordio</url>
+    </contributor>
+    <contributor>
+      <name>Nishant Vashisth</name>
+      <url>https://github.com/nishantvas</url>
+    </contributor>
+    <contributor>
+      <name>Ignat Simonenko</name>
+      <url>https://github.com/simonenkoi</url>
+    </contributor>
+    <contributor>
+      <name>David Walluck</name>
+      <url>https://github.com/dwalluck</url>
+    </contributor>
+    <contributor>
+      <name>Alex Panchenko</name>
+      <url>https://github.com/panchenko</url>
+    </contributor>
+  </contributors>
+</project>

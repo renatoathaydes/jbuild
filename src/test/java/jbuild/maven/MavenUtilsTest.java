@@ -137,6 +137,21 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void canParseJunitPioneerImportingJUnitBOM() throws Exception {
+        var junitPioneer = readPom("junit-pioneer-1.3.0.pom");
+        var junitBOM = readPom("junit-bom-5.7.1.pom");
+
+        var pom = junitPioneer.importing(junitBOM);
+
+        assertThat(pom).has(dependencies(
+                dep("org.junit.jupiter", "junit-jupiter-api", "5.7.1", Scope.RUNTIME),
+                dep("org.junit.jupiter", "junit-jupiter-params", "5.7.1", Scope.RUNTIME),
+                dep("org.junit.platform", "junit-platform-commons", "1.7.1", Scope.RUNTIME),
+                dep("org.junit.platform", "junit-platform-launcher", "1.7.1", Scope.RUNTIME)
+        )).has(artifactCoordinates(new Artifact("org.junit-pioneer", "junit-pioneer", "1.3.0")));
+    }
+
+    @Test
     void canParseMavenTimestamp() {
         assertThat(MavenUtils.parseMavenTimestamp("20210927195736"))
                 .isEqualTo(Instant.parse("2021-09-27T19:57:36.00Z"));

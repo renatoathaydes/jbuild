@@ -114,7 +114,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withParentIfNeeded(MavenPom pom) {
         var parentArtifact = pom.getParentArtifact();
         if (parentArtifact.isEmpty()) {
-            return completedFuture(Either.left(pom));
+            return withImportsIfNeeded(pom);
         }
 
         var parentPom = parentArtifact.get().pom();
