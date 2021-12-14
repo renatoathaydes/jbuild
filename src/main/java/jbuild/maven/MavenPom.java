@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.union;
@@ -34,12 +35,12 @@ public final class MavenPom {
     private final Set<Dependency> dependencies;
 
     private MavenPom(Element project, MavenPom parentPom) {
-        this.properties = resolveProperties(project, parentPom);
+        var properties = resolveProperties(project, parentPom);
         this.parentArtifact = resolveParentArtifact(project, properties);
         this.coordinates = resolveCoordinates(project, properties, parentArtifact);
+        this.properties = populateProjectPropertiesWith(coordinates, properties);
         this.dependencyManagement = resolveDependencyManagement(project, properties, parentPom);
         this.dependencies = resolveDependencies(project, dependencyManagement, properties, parentPom);
-        properties.put("project.version", coordinates.version);
     }
 
     private MavenPom(MavenPom pom, MavenPom other, MergeMode mode) {
@@ -121,6 +122,10 @@ public final class MavenPom {
         return dependencies.stream()
                 .filter(dep -> scope.includes(dep.scope))
                 .collect(toSet());
+    }
+
+    public Map<String, String> getProperties() {
+        return properties;
     }
 
     @Override
@@ -296,6 +301,14 @@ public final class MavenPom {
 
                     return result;
                 }).orElseGet(() -> new LinkedHashMap<>(1));
+    }
+
+    private static Map<String, String> populateProjectPropertiesWith(Artifact coordinates,
+                                                                     Map<String, String> properties) {
+        properties.put("project.groupId", coordinates.groupId);
+        properties.put("project.artifactId", coordinates.artifactId);
+        properties.put("project.version", coordinates.version);
+        return unmodifiableMap(properties);
     }
 
 }

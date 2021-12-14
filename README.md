@@ -35,7 +35,7 @@ Here's the list of Maven tags and concepts supported by JBuild:
 - [x] dependencyManagement
 - [x] project properties
 - [x] evaluate property placeholders from properties tag 
-- [ ] evaluate property placeholders from XML tags (version OK, artifactId, groupId)
+- [x] evaluate property placeholders from XML tags (version, artifactId, groupId)
 - [x] parent POM
 - [x] Maven BOM (dependencyManagement imports)
 
