@@ -128,6 +128,7 @@ public final class MavenPom {
         return "MavenPom{" +
                 getArtifact() +
                 ", dependencies=" + getDependencies() +
+                ", dependencyManagement=" + getDependencyManagement() +
                 '}';
     }
 

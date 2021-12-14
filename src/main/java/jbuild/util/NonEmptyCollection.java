@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.joining;
 import static jbuild.util.CollectionUtils.append;
 
 public final class NonEmptyCollection<T> implements Iterable<T> {
@@ -28,6 +29,13 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
         return Stream.iterate(iter.next(),
                 Objects::nonNull,
                 ignore -> iter.hasNext() ? iter.next() : null);
+    }
+
+    @Override
+    public String toString() {
+        return "NonEmptyCollection{" +
+                stream().map(Object::toString).collect(joining(", ")) +
+                '}';
     }
 
     public static <T> NonEmptyCollection<T> of(T item) {
