@@ -48,7 +48,8 @@ public final class MavenPom {
                 this.properties = union(other.properties, pom.properties);
                 this.parentArtifact = resolveArtifact(other.coordinates, properties);
                 this.coordinates = resolveArtifact(pom.coordinates, properties);
-                this.dependencyManagement = union(other.dependencyManagement, pom.dependencyManagement);
+                this.dependencyManagement = union(other.dependencyManagement,
+                        pom.dependencyManagement, NonEmptyCollection::of);
                 this.dependencies = union(other.dependencies, pom.dependencies)
                         .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
                         .collect(toSet());
@@ -58,12 +59,12 @@ public final class MavenPom {
                 this.properties = pom.properties;
                 this.parentArtifact = pom.parentArtifact;
                 this.coordinates = pom.coordinates;
-                this.dependencyManagement = union(pom.dependencyManagement, other.dependencyManagement);
+                this.dependencyManagement = union(pom.dependencyManagement,
+                        other.dependencyManagement, NonEmptyCollection::of);
                 this.dependencies = pom.dependencies
                         .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
                         .collect(toSet());
         }
-
     }
 
     public MavenPom(Document doc) {
@@ -101,7 +102,7 @@ public final class MavenPom {
         return Optional.ofNullable(parentArtifact);
     }
 
-    public Artifact getCoordinates() {
+    public Artifact getArtifact() {
         return coordinates;
     }
 
@@ -125,7 +126,7 @@ public final class MavenPom {
     @Override
     public String toString() {
         return "MavenPom{" +
-                getCoordinates() +
+                getArtifact() +
                 ", dependencies=" + getDependencies() +
                 '}';
     }
@@ -140,7 +141,9 @@ public final class MavenPom {
                                 NonEmptyCollection::of, NonEmptyCollection::of)))
                 .orElse(Map.of());
 
-        return union(parentPom == null ? Map.of() : parentPom.getDependencyManagement(), deps);
+        return parentPom == null
+                ? deps
+                : union(parentPom.getDependencyManagement(), deps, NonEmptyCollection::of);
     }
 
     private static Set<Dependency> resolveDependencies(

@@ -13,6 +13,7 @@ to manage other Java projects and dependencies themselves.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
+- [ ] list artifacts licenses.
 - [ ] install artifacts in local file repository.
 - [ ] install artifacts in remote HTTP repository.
 - [ ] check completeness of classpath in general (all code included).

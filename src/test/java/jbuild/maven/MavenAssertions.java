@@ -14,7 +14,7 @@ final class MavenAssertions {
     }
 
     static Condition<? super MavenPom> artifactCoordinates(Artifact artifact) {
-        return new Condition<>(pom -> pom.getCoordinates().equals(artifact),
+        return new Condition<>(pom -> pom.getArtifact().equals(artifact),
                 " coordinates %s", artifact);
     }
 

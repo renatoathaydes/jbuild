@@ -14,6 +14,7 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,9 +24,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.FetchCommandExecutor.reportErrors;
+import static jbuild.maven.MavenUtils.importsOf;
+import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.TextUtils.durationText;
 
@@ -97,7 +101,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         } catch (ParserConfigurationException | IOException | SAXException e) {
             return CompletableFuture.completedFuture(Either.right(
                     NonEmptyCollection.of(Describable.of("Unable to parse POM of " +
-                            resolvedArtifact.artifact + " due to: " + e))));
+                            resolvedArtifact.artifact + " due to " + e))));
         }
     }
 
@@ -112,10 +116,52 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         if (parentArtifact.isEmpty()) {
             return completedFuture(Either.left(pom));
         }
-        return fetch(parentArtifact.get().pom())
+
+        var parentPom = parentArtifact.get().pom();
+
+        log.verbosePrintln(() -> "Fetching parent POM of " + pom.getArtifact().getCoordinates() +
+                " - " + parentPom.getCoordinates());
+
+        return fetch(parentPom)
                 .thenComposeAsync(res -> res.map(
-                        parentPom -> completedFuture(Either.left(pom.withParent(parentPom))),
+                        parent -> withImportsIfNeeded(pom.withParent(parent)),
                         this::handleRetrievalErrors));
+    }
+
+    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withImportsIfNeeded(MavenPom pom) {
+        var imports = importsOf(pom);
+
+        if (imports.isEmpty()) {
+            return completedFuture(Either.left(pom));
+        }
+
+        log.verbosePrintln(() -> "Importing artifacts into " + pom.getArtifact().getCoordinates() +
+                " - " + imports.stream()
+                .map(Artifact::getCoordinates)
+                .collect(joining(", ")));
+
+        return awaitValues(fetchPoms(imports)).thenApply(res -> {
+            var errors = new ArrayList<Describable>(imports.size() / 2);
+            var resultPom = pom;
+            for (var item : res.values()) {
+                MavenPom imp = item.map(p -> p.orElse(null), err -> {
+                    errors.add(Describable.of("Error fetching Maven import from " +
+                            pom.getArtifact().getCoordinates() + " - " + err));
+                    return null;
+                });
+                if (imp == null) {
+                    errors.add(Describable.of("Unable to fetch Maven import from " +
+                            pom.getArtifact().getCoordinates()));
+                } else {
+                    resultPom = resultPom.importing(imp);
+                }
+            }
+            if (errors.isEmpty()) {
+                return Either.left(resultPom);
+            }
+            var firstError = errors.remove(0);
+            return Either.right(NonEmptyCollection.of(errors, firstError));
+        });
     }
 
 }

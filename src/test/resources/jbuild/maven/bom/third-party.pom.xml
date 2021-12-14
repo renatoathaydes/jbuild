@@ -25,6 +25,7 @@
         <dependency>
             <groupId>com.test</groupId>
             <artifactId>project2</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

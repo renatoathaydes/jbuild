@@ -6,11 +6,13 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static jbuild.maven.MavenAssertions.artifactCoordinates;
 import static jbuild.maven.MavenAssertions.dependencies;
 import static jbuild.maven.MavenHelper.dep;
 import static jbuild.maven.MavenHelper.readPom;
+import static jbuild.maven.MavenUtils.importsOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MavenUtilsTest {
@@ -92,6 +94,15 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void canFindImportsOfPom() throws Exception {
+        var commonsLang3 = readPom("commons-lang3-3.12.0.pom");
+        System.out.println("commonsLang3: " + commonsLang3);
+
+        assertThat(importsOf(commonsLang3))
+                .isEqualTo(Set.of(new Artifact("org.junit", "junit-bom", "5.7.1")));
+    }
+
+    @Test
     void canParsePomUsingMavenBOM() throws Exception {
         var bom = readPom("bom/bom.pom.xml");
         var pom = readPom("bom/third-party.pom.xml");
@@ -99,8 +110,30 @@ public class MavenUtilsTest {
         assertThat(pom.importing(bom))
                 .has(dependencies(
                         dep("com.test", "project1", "1.0.0", Scope.COMPILE),
-                        dep("com.test", "project2", "1.0.0", Scope.COMPILE)
+                        dep("com.test", "project2", "1.0.0", Scope.TEST)
                 )).has(artifactCoordinates(new Artifact("com.test", "use", "1.0.0")));
+    }
+
+    @Test
+    void canHandleFullPomHierarchyOfApacheCommonsLang3() throws Exception {
+        var commonsLang3 = readPom("commons-lang3-3.12.0.pom");
+        var commonsParent = readPom("commons-parent-52.pom");
+        var apache = readPom("apache-23.pom");
+        var junitBOM = readPom("junit-bom-5.7.1.pom");
+
+        var pom = commonsLang3
+                .withParent(commonsParent.withParent(apache))
+                .importing(junitBOM);
+
+        assertThat(pom).has(dependencies(
+                dep("org.junit.jupiter", "junit-jupiter", "5.7.1", Scope.TEST),
+                dep("org.junit-pioneer", "junit-pioneer", "1.3.0", Scope.TEST),
+                dep("org.hamcrest", "hamcrest", "2.2", Scope.TEST),
+                dep("org.easymock", "easymock", "4.2", Scope.TEST),
+                dep("org.openjdk.jmh", "jmh-core", "1.27", Scope.TEST),
+                dep("org.openjdk.jmh", "jmh-generator-annprocess", "1.27", Scope.TEST),
+                dep("com.google.code.findbugs", "jsr305", "3.0.2", Scope.TEST)
+        )).has(artifactCoordinates(new Artifact("org.apache.commons", "commons-lang3", "3.12.0")));
     }
 
     @Test

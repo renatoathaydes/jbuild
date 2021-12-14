@@ -69,7 +69,8 @@ public class DepsCommandExecutorTest {
         assertThat(tree.dependencies.get(0).dependencies.get(0).dependencies.get(0).dependencies).isEmpty();
 
         assertThat(bytesOut.toString(StandardCharsets.UTF_8))
-                .isEqualTo("WARNING: Detected circular dependency chain: com.athaydes:b:1.0 -> com.athaydes:a:1.0 -> com.athaydes:b:1.0\n");
+                .isEqualTo("WARNING: Detected circular dependency chain - " +
+                        "com.athaydes:b:1.0 -> com.athaydes:a:1.0 -> com.athaydes:b:1.0\n");
     }
 
     private static DepsCommandExecutor<FileRetrievalError> createDepsCommand(OutputStream bytesOut) {

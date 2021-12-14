@@ -10,6 +10,7 @@ import java.util.function.Function;
 
 import static java.util.Comparator.comparingInt;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class CollectionUtilsTest {
 
@@ -20,6 +21,33 @@ public class CollectionUtilsTest {
         assertThat(CollectionUtils.union(Set.of(), Set.of("bar"))).isEqualTo(Set.of("bar"));
         assertThat(CollectionUtils.union(Set.of("foo"), Set.of("bar"))).isEqualTo(Set.of("foo", "bar"));
         assertThat(CollectionUtils.union(Set.of("foo", "bar"), Set.of("bar", "foo"))).isEqualTo(Set.of("foo", "bar"));
+    }
+
+    @Test
+    void canComputeMapUnion() {
+        assertThat(CollectionUtils.union(Map.of(), Map.of())).isEmpty();
+        assertThat(CollectionUtils.union(Map.of("foo", 1), Map.of()))
+                .isEqualTo(Map.of("foo", 1));
+        assertThat(CollectionUtils.union(Map.of("foo", 1), Map.of("bar", 2)))
+                .isEqualTo(Map.of("foo", 1, "bar", 2));
+        assertThat(CollectionUtils.union(Map.of("foo", 1, "bar", 3), Map.of("bar", 2)))
+                .isEqualTo(Map.of("foo", 1, "bar", 2));
+        assertThat(CollectionUtils.union(Map.of("foo", 1, "bar", 3), Map.of("bar", 2, "zort", 4)))
+                .isEqualTo(Map.of("foo", 1, "bar", 2, "zort", 4));
+    }
+
+    @Test
+    void canComputeMapUnionCombiningValues() {
+        assertThat(CollectionUtils.union(Map.of(), Map.of(), (a, b) -> fail("should not call combiner"))).isEmpty();
+        assertThat(CollectionUtils.union(Map.of("foo", 1), Map.of(), Integer::sum))
+                .isEqualTo(Map.of("foo", 1));
+        assertThat(CollectionUtils.union(Map.of("foo", 1), Map.of("bar", 2), Integer::sum))
+                .isEqualTo(Map.of("foo", 1, "bar", 2));
+        assertThat(CollectionUtils.union(Map.of("foo", 1, "bar", 3), Map.of("bar", 2), Integer::sum))
+                .isEqualTo(Map.of("foo", 1, "bar", 5));
+        assertThat(CollectionUtils.union(Map.of("foo", 1, "bar", 3),
+                Map.of("bar", 2, "zort", 4, "foo", -4), Integer::sum))
+                .isEqualTo(Map.of("foo", -3, "bar", 5, "zort", 4));
     }
 
     @Test

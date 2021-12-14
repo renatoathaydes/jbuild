@@ -2,6 +2,8 @@ package jbuild.util;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import static jbuild.util.CollectionUtils.append;
 
@@ -21,6 +23,13 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
         return all.iterator();
     }
 
+    public Stream<T> stream() {
+        var iter = iterator();
+        return Stream.iterate(iter.next(),
+                Objects::nonNull,
+                ignore -> iter.hasNext() ? iter.next() : null);
+    }
+
     public static <T> NonEmptyCollection<T> of(T item) {
         return new NonEmptyCollection<>(item, List.of(item));
     }
@@ -34,7 +43,7 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
     }
 
     public static <T> NonEmptyCollection<T> of(NonEmptyCollection<T> head,
-                                               NonEmptyCollection<T> tail) {
+                                               Iterable<T> tail) {
         return new NonEmptyCollection<>(head.first, append(head, tail));
     }
 }

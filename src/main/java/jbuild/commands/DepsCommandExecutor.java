@@ -11,7 +11,6 @@ import jbuild.util.Either;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -59,18 +58,29 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             MavenPom pom,
             Scope scope,
             boolean transitive) {
-        var children = pom.getDependencies(scope).stream()
+        var dependencies = pom.getDependencies(scope);
+        var maxTreeDepthExceeded = transitive && chain.size() + 1 > MAX_TREE_DEPTH;
+
+        if (maxTreeDepthExceeded || dependencies.isEmpty()) {
+            if (maxTreeDepthExceeded) {
+                log.println(() -> "WARNING: Maximum dependency tree depth would be exceeded, " +
+                        "will not fetch dependencies of " + artifact.getCoordinates());
+            } else {
+                log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() +
+                        " does not have any dependencies");
+            }
+            return completedFuture(DependencyTree.childless(artifact.pom(), pom));
+        }
+
+        var children = dependencies.stream()
                 .map(dependency -> {
                     var newChain = append(chain, dependency);
                     if (newChain.size() == chain.size()) {
-                        log.println(() -> "WARNING: Detected circular dependency chain: " +
-                                collectDependencyChain(chain, dependency));
-                    } else if (newChain.size() > MAX_TREE_DEPTH) {
-                        throw new IllegalStateException("Maximum dependency tree depth exceeded: " +
+                        log.println(() -> "WARNING: Detected circular dependency chain - " +
                                 collectDependencyChain(chain, dependency));
                     } else if (transitive) {
-                        log.verbosePrintln(() -> "Fetching dependencies of " + artifact.getCoordinates() +
-                                (scope == null ? " under all scopes" : " under scope " + scope));
+                        log.verbosePrintln(() -> "Fetching dependency of " +
+                                artifact.getCoordinates() + " - " + dependency);
 
                         return fetch(newChain, dependency);
                     }
@@ -101,12 +111,6 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
     private DependencyTree createTree(Artifact artifact,
                                       MavenPom mavenPom,
                                       Collection<Either<Optional<DependencyTree>, Throwable>> children) {
-        if (children.isEmpty()) {
-            log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() +
-                    " does not have any dependencies");
-            return DependencyTree.resolved(artifact, mavenPom, List.of());
-        }
-
         var childrenNodes = new ArrayList<DependencyTree>(children.size());
         var coordinates = artifact.getCoordinates();
         var allOk = true;
@@ -123,7 +127,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
                 }
             }, err -> {
                 log.println(() -> "Unable to populate dependencies of " + coordinates +
-                        " due to: " + err);
+                        " due to " + err);
                 if (err != null) log.print(err);
                 return false;
             });

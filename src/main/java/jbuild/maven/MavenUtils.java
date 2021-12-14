@@ -1,6 +1,7 @@
 package jbuild.maven;
 
 import jbuild.artifact.Artifact;
+import jbuild.util.NonEmptyCollection;
 import org.xml.sax.SAXException;
 
 import javax.xml.XMLConstants;
@@ -15,6 +16,9 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+
+import static java.util.stream.Collectors.toSet;
 
 public final class MavenUtils {
 
@@ -73,5 +77,13 @@ public final class MavenUtils {
             return properties.getOrDefault(key, value);
         }
         return value;
+    }
+
+    public static Set<Artifact> importsOf(MavenPom pom) {
+        return pom.getDependencyManagement().values().stream()
+                .flatMap(NonEmptyCollection::stream)
+                .filter(it -> it.scope == Scope.IMPORT)
+                .map(it -> it.artifact)
+                .collect(toSet());
     }
 }
