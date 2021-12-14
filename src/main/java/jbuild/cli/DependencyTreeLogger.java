@@ -72,7 +72,7 @@ final class DependencyTreeLogger {
                         NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
-            log.print(() -> indent + "* " + dep.artifact.getCoordinates());
+            log.print(() -> indent + "* " + dep.artifact.getCoordinates() + " [" + dep.scope + "]");
 
             var isNew = visitedDeps.add(dep.artifact);
 
