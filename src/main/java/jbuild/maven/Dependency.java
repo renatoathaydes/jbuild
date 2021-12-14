@@ -6,14 +6,27 @@ public final class Dependency {
 
     public final Artifact artifact;
     public final Scope scope;
+    public final boolean optional;
 
-    public Dependency(Artifact artifact, Scope scope) {
+    // keep the original String value so we can resolve it if needed
+    final String optionalString;
+
+    public Dependency(Artifact artifact, Scope scope, boolean optional) {
         this.artifact = artifact;
         this.scope = scope;
+        this.optional = optional;
+        this.optionalString = Boolean.toString(optional);
+    }
+
+    Dependency(Artifact artifact, Scope scope, String optionalString) {
+        this.artifact = artifact;
+        this.scope = scope;
+        this.optional = "true".equals(optionalString);
+        this.optionalString = optionalString;
     }
 
     public Dependency(Artifact artifact) {
-        this(artifact, Scope.COMPILE);
+        this(artifact, Scope.COMPILE, false);
     }
 
     @Override
@@ -39,6 +52,7 @@ public final class Dependency {
         return "Dependency{" +
                 "artifact=" + artifact +
                 ", scope=" + scope +
+                ", optional=" + optional +
                 '}';
     }
 }

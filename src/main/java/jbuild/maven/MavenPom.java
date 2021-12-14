@@ -201,8 +201,9 @@ public final class MavenPom {
                 defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var version = resolveProperty(properties, childNamed("version", element),
                 () -> defaultVersionOrFrom(scope, dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+        var optional = resolveProperty(properties, childNamed("optional", element), () -> "false");
 
-        return new Dependency(new Artifact(groupId, artifactId, version), scope);
+        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional);
     }
 
     private static Dependency refineDependency(Dependency dependency,
@@ -217,7 +218,8 @@ public final class MavenPom {
                 : defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId)));
         var version = resolveProperty(properties, dependency.artifact.version,
                 () -> defaultVersionOrFrom(scope, dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
-        return new Dependency(new Artifact(groupId, artifactId, version), scope);
+        var optional = resolveProperty(properties, dependency.optionalString, "false");
+        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

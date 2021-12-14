@@ -165,6 +165,25 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void canParseOptionalDependencies() throws Exception {
+        var pom = readPom("optional/optional-deps.pom.xml");
+        var parent = readPom("optional/optional-parent.pom.xml");
+
+        assertThat(pom.withParent(parent))
+                .has(dependencies(
+                        dep("foo", "bar", "1", Scope.COMPILE, true),
+                        dep("goo", "ya", "4", Scope.COMPILE, true),
+                        dep("zort", "boo", "2")
+                ))
+                .has(dependencyManagement(
+                        dep("foo", "bar", "1"),
+                        dep("goo", "ya", "4")
+                ))
+                .has(artifactCoordinates(new Artifact("com.test", "optional-deps", "1.1")));
+
+    }
+
+    @Test
     void canParseMavenTimestamp() {
         assertThat(MavenUtils.parseMavenTimestamp("20210927195736"))
                 .isEqualTo(Instant.parse("2021-09-27T19:57:36.00Z"));
