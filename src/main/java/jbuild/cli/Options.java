@@ -1,9 +1,13 @@
 package jbuild.cli;
 
 import jbuild.errors.JBuildException;
+import jbuild.maven.Scope;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import static java.util.Collections.unmodifiableSet;
@@ -108,20 +112,42 @@ final class FetchOptions {
 final class DepsOptions {
 
     final Set<String> artifacts;
+    final EnumSet<Scope> scopes;
     final boolean transitive;
+    final boolean optional;
 
-    public DepsOptions(Set<String> artifacts, boolean transitive) {
+    DepsOptions(Set<String> artifacts,
+                EnumSet<Scope> scopes,
+                boolean transitive,
+                boolean optional) {
         this.artifacts = artifacts;
+        this.scopes = scopes;
         this.transitive = transitive;
+        this.optional = optional;
     }
 
     static DepsOptions parse(List<String> args) {
         var artifacts = new LinkedHashSet<String>();
+        var scopes = EnumSet.noneOf(Scope.class);
         var transitive = false;
+        var optional = false;
+        var expectScope = false;
 
         for (String arg : args) {
-            if (arg.startsWith("-")) {
-                if (isEither(arg, "-t", "--transitive")) {
+            if (expectScope) {
+                expectScope = false;
+                try {
+                    scopes.add(Scope.valueOf(arg.toUpperCase(Locale.ROOT)));
+                } catch (IllegalArgumentException e) {
+                    throw new JBuildException("invalid scope value: '" + arg +
+                            "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
+                }
+            } else if (arg.startsWith("-")) {
+                if (isEither(arg, "-s", "--scope")) {
+                    expectScope = true;
+                } else if (isEither(arg, "-O", "--optional")) {
+                    optional = true;
+                } else if (isEither(arg, "-t", "--transitive")) {
                     transitive = true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
@@ -132,7 +158,7 @@ final class DepsOptions {
             }
         }
 
-        return new DepsOptions(unmodifiableSet(artifacts), transitive);
+        return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional);
     }
 
 }

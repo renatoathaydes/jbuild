@@ -65,8 +65,13 @@ public final class Main {
             "      Usage:\n" +
             "        jbuild deps <options... | artifact...>\n" +
             "      Options:\n" +
+            "        --optional\n" +
+            "        -O        include optional dependencies.\n" +
+            "        --scope\n" +
+            "        -s        scope to include (can be passed more than once)." +
+            "                  All scopes are listed by default.\n" +
             "        --transitive\n" +
-            "        -t        whether to list transitive dependencies.\n" +
+            "        -t        include transitive dependencies.\n" +
             "      Example:\n" +
             "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
             "\n" +
@@ -139,7 +144,8 @@ public final class Main {
         var anyError = new AtomicReference<ErrorCause>();
         var treeLogger = new DependencyTreeLogger(log, depsOptions.transitive);
 
-        DepsCommandExecutor.createDefault(log).fetchDependencyTree(artifacts, depsOptions.transitive)
+        DepsCommandExecutor.createDefault(log).fetchDependencyTree(
+                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
                 .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
                     try {
                         reportErrors(anyError, artifact, ok, err);

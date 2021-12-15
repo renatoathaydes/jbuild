@@ -5,6 +5,7 @@ import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.errors.FileRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
+import jbuild.maven.Scope;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
 import org.assertj.core.api.Assertions;
@@ -15,6 +16,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +39,7 @@ public class DepsCommandExecutorTest {
 
         var result = depsExecutor.fetchDependencyTree(
                 Set.of(new Artifact("com.athaydes", "a", "1.0")),
-                true);
+                EnumSet.allOf(Scope.class), true, true);
 
         var queue = new LinkedBlockingDeque<Either<Map<Artifact, DependencyTree>, String>>(1);
         awaitValues(result).handle((ok, err) -> {

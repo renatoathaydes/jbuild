@@ -11,6 +11,7 @@ import jbuild.util.Either;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,7 +44,11 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
     }
 
     public Map<Artifact, CompletionStage<Optional<DependencyTree>>> fetchDependencyTree(
-            Set<? extends Artifact> artifacts, boolean transitive) {
+            Set<? extends Artifact> artifacts,
+            EnumSet<Scope> scopes,
+            boolean transitive,
+            boolean optional) {
+        // TODO use all args
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
