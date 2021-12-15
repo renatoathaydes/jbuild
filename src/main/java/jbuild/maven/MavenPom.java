@@ -179,6 +179,15 @@ public final class MavenPom {
                 .collect(toSet());
     }
 
+    private static Set<ArtifactKey> resolveDependencyExclusions(Element dependencyElement,
+                                                                Map<String, String> properties) {
+        return childNamed("exclusions", dependencyElement)
+                .map(exc -> childrenNamed("exclusion", exc).stream()
+                        .map(exclusion -> toArtifactKey(exclusion, properties))
+                        .collect(toSet()))
+                .orElse(Set.of());
+    }
+
     private static Artifact resolveParentArtifact(Element project, Map<String, String> properties) {
         return childNamed("parent", project)
                 .map(a -> toDependency(a, properties, Map.of()))
@@ -204,8 +213,9 @@ public final class MavenPom {
         var version = resolveProperty(properties, childNamed("version", element),
                 () -> defaultVersionOrFrom(scope, dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var optional = resolveProperty(properties, childNamed("optional", element), () -> "false");
+        var exclusions = resolveDependencyExclusions(element, properties);
 
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional);
+        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, exclusions);
     }
 
     private static Dependency refineDependency(Dependency dependency,
@@ -221,7 +231,24 @@ public final class MavenPom {
         var version = resolveProperty(properties, dependency.artifact.version,
                 () -> defaultVersionOrFrom(scope, dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var optional = resolveProperty(properties, dependency.optionalString, "false");
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional);
+        var exclusions = refineExclusions(dependency.exclusions, properties);
+        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, exclusions);
+    }
+
+    private static Set<ArtifactKey> refineExclusions(Set<ArtifactKey> exclusions,
+                                                     Map<String, String> properties) {
+        return exclusions.stream().map(exclusion -> {
+            var groupId = resolveProperty(properties, exclusion.groupId, exclusion.groupId);
+            var artifactId = resolveProperty(properties, exclusion.artifactId, exclusion.artifactId);
+            return ArtifactKey.of(groupId, artifactId);
+        }).collect(toSet());
+    }
+
+    private static ArtifactKey toArtifactKey(Element element,
+                                             Map<String, String> properties) {
+        var groupId = resolveProperty(properties, childNamed("groupId", element), () -> "");
+        var artifactId = resolveProperty(properties, childNamed("artifactId", element), () -> "");
+        return ArtifactKey.of(groupId, artifactId);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * An opaque key object that can be used to identify a particular {@link Artifact}
+ * A key object that can be used to identify a particular {@link Artifact}
  * unambiguously.
  * <p>
  * Notice that the version of an artifact is not part of its key, so different versions of the same artifact
@@ -14,8 +14,8 @@ import java.util.Map;
  */
 public final class ArtifactKey {
 
-    private final String groupId;
-    private final String artifactId;
+    public final String groupId;
+    public final String artifactId;
 
     private static final Map<String, Map<String, ArtifactKey>> keyCache = new HashMap<>();
 
