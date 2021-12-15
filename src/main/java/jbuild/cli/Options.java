@@ -158,6 +158,13 @@ final class DepsOptions {
             }
         }
 
+        if (expectScope) {
+            throw new JBuildException("expecting value for 'scope' option", USER_INPUT);
+        }
+
+        // if no scopes are included explicitly, use all
+        if (scopes.isEmpty()) scopes = EnumSet.allOf(Scope.class);
+
         return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional);
     }
 

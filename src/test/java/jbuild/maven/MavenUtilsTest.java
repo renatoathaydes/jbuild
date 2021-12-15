@@ -14,6 +14,7 @@ import static jbuild.maven.MavenAssertions.dependencyManagement;
 import static jbuild.maven.MavenHelper.dep;
 import static jbuild.maven.MavenHelper.readPom;
 import static jbuild.maven.MavenUtils.importsOf;
+import static jbuild.maven.Scope.COMPILE;
 import static jbuild.maven.Scope.TEST;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,9 +34,9 @@ public class MavenUtilsTest {
 
         assertThat(pom.withParent(parent))
                 .has(dependencies(
-                        dep("com.google.code.findbugs", "jsr305", "3.0.2", Scope.COMPILE),
-                        dep("com.athaydes.jbuild", "jbuild", "3.2.1", Scope.COMPILE),
-                        dep("com.athaydes", "jbuild-example", "1.2.3", Scope.COMPILE)))
+                        dep("com.google.code.findbugs", "jsr305", "3.0.2", COMPILE),
+                        dep("com.athaydes.jbuild", "jbuild", "3.2.1", COMPILE),
+                        dep("com.athaydes", "jbuild-example", "1.2.3", COMPILE)))
                 .has(artifactCoordinates(new Artifact("com.athaydes.test", "jbuild-child", "1.0")));
     }
 
@@ -59,7 +60,7 @@ public class MavenUtilsTest {
     void canParseMavenPomUsingProperties() throws Exception {
         assertThat(readPom("junit.pom.xml"))
                 .has(dependencies(
-                        dep("org.hamcrest", "hamcrest-core", "1.3", Scope.COMPILE),
+                        dep("org.hamcrest", "hamcrest-core", "1.3", COMPILE),
                         dep("org.hamcrest", "hamcrest-library", "1.3", TEST)
                 )).has(artifactCoordinates(new Artifact("junit", "junit", "4.13.2")));
     }
@@ -71,7 +72,7 @@ public class MavenUtilsTest {
 
         assertThat(pom.withParent(parent))
                 .has(dependencies(
-                        dep("org.slf4j", "slf4j-api", "1.7.32", Scope.COMPILE),
+                        dep("org.slf4j", "slf4j-api", "1.7.32", COMPILE),
                         dep("org.slf4j", "slf4j-api", "1.7.32", TEST),
                         dep("junit", "junit", "4.12", TEST)
                 )).has(artifactCoordinates(new Artifact("org.slf4j", "slf4j-simple", "1.7.32")));
@@ -86,12 +87,12 @@ public class MavenUtilsTest {
 
         assertThat(pom1.withParent(parent.withParent(bom)))
                 .has(dependencies(
-                        dep("log4j", "log4j", "1.2.12", Scope.COMPILE)
+                        dep("log4j", "log4j", "1.2.12", COMPILE)
                 )).has(artifactCoordinates(new Artifact("com.test", "project1", "1.0.0")));
 
         assertThat(pom2.withParent(parent.withParent(bom)))
                 .has(dependencies(
-                        dep("commons-logging", "commons-logging", "1.1.1", Scope.COMPILE)
+                        dep("commons-logging", "commons-logging", "1.1.1", COMPILE)
                 )).has(artifactCoordinates(new Artifact("com.test", "project2", "1.0.0")));
     }
 
@@ -111,7 +112,7 @@ public class MavenUtilsTest {
 
         assertThat(pom.importing(bom))
                 .has(dependencies(
-                        dep("com.test", "project1", "1.0.0", Scope.COMPILE),
+                        dep("com.test", "project1", "1.0.0", COMPILE),
                         dep("com.test", "project2", "1.0.0", TEST)
                 )).has(artifactCoordinates(new Artifact("com.test", "use", "1.0.0")));
     }
@@ -156,7 +157,6 @@ public class MavenUtilsTest {
                 dep("org.powermock", "powermock-api-mockito2", "2.0.0", TEST),
                 dep("junit", "junit", "", TEST), // WTF no version specified anywhere?!
                 dep("javax.measure", "jsr-275", "0.9.1", TEST)
-//                dep("javax.activation", "javax.activation-api", "1.2.0")
         )).has(artifactCoordinates(new Artifact("com.fasterxml.jackson.core", "jackson-databind", "2.12.4")));
     }
 
@@ -193,9 +193,9 @@ public class MavenUtilsTest {
 
         assertThat(pom.withParent(parent))
                 .has(dependencies(
-                        dep("foo", "bar", "1", Scope.COMPILE, true),
-                        dep("goo", "ya", "4", Scope.COMPILE, true),
-                        dep("zort", "boo", "2")
+                        dep("foo", "bar", "1", COMPILE, true),
+                        dep("goo", "ya", "4", COMPILE, true),
+                        dep("zort", "boo", "2", TEST)
                 ))
                 .has(dependencyManagement(
                         dep("foo", "bar", "1"),

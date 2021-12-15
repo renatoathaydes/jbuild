@@ -23,18 +23,27 @@ final class DependencyTreeLogger {
     private static final String INDENT = "    ";
 
     private final JBuildLog log;
-    private final boolean transitive;
+    private final DepsOptions options;
 
-    DependencyTreeLogger(JBuildLog log, boolean transitive) {
+    DependencyTreeLogger(JBuildLog log, DepsOptions options) {
         this.log = log;
-        this.transitive = transitive;
+        this.options = options;
     }
 
     public void log(DependencyTree tree) {
-        log.println("Dependencies of " + tree.root.artifact.getCoordinates() +
-                (transitive ? " (incl. transitive)" : "") + ":");
+        log.print("Dependencies of " + tree.root.artifact.getCoordinates());
 
-        var deps = tree.root.pom.getDependencies();
+        if (options.transitive && options.optional) {
+            log.println(" (incl. transitive, optionals):");
+        } else if (options.transitive) {
+            log.println(" (incl. transitive):");
+        } else if (options.optional) {
+            log.println(" (incl. optionals):");
+        } else {
+            log.println(":");
+        }
+
+        var deps = tree.root.pom.getDependencies(options.scopes, options.optional);
 
         if (deps.isEmpty()) {
             log.println("  * no dependencies");
@@ -44,18 +53,18 @@ final class DependencyTreeLogger {
         var groupedDeps = deps.stream()
                 .collect(groupingBy(dep -> dep.scope));
 
-        // iterated sorted by scope declaration order
-        for (Scope scope : Scope.values()) {
+        for (Scope scope : options.scopes) {
             var scopeDeps = groupedDeps.get(scope);
             if (scopeDeps != null && !scopeDeps.isEmpty()) {
                 int dependencyCount;
                 log.println("  - scope " + scope);
-                if (transitive) {
+                if (options.transitive) {
                     var visitedDeps = new HashSet<Artifact>();
                     logTree(visitedDeps, scopeDeps, tree.dependencies, INDENT, scope);
                     dependencyCount = visitedDeps.size();
                 } else {
-                    var children = tree.root.pom.getDependencies();
+                    var children = tree.root.pom
+                            .getDependencies(scope.transitiveScopes(), options.optional);
                     logChildren(children);
                     dependencyCount = children.size();
                 }
@@ -94,7 +103,8 @@ final class DependencyTreeLogger {
                 } else {
                     log.println("");
                     for (var next : nextBranch) {
-                        var nextDeps = next.root.pom.getDependencies(scope, false);
+                        var nextDeps = next.root.pom
+                                .getDependencies(scope.transitiveScopes(), options.optional);
                         logTree(visitedDeps, nextDeps, next.dependencies, indent + INDENT, scope);
                     }
                 }

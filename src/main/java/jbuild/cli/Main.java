@@ -142,7 +142,7 @@ public final class Main {
 
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
-        var treeLogger = new DependencyTreeLogger(log, depsOptions.transitive);
+        var treeLogger = new DependencyTreeLogger(log, depsOptions);
 
         DepsCommandExecutor.createDefault(log).fetchDependencyTree(
                         artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)

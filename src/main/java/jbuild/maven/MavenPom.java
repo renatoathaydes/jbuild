@@ -6,6 +6,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -115,13 +116,13 @@ public final class MavenPom {
         return dependencies;
     }
 
-    public Set<Dependency> getDependencies(Scope scope, boolean includeOptionals) {
-        if (scope == null && includeOptionals) {
+    public Set<Dependency> getDependencies(EnumSet<Scope> scopes, boolean includeOptionals) {
+        if (scopes.size() == Scope.values().length && includeOptionals) {
             return dependencies;
         }
 
         return dependencies.stream()
-                .filter(dep -> (scope == null || scope.includes(dep.scope) &&
+                .filter(dep -> (scopes.contains(dep.scope) &&
                         (includeOptionals || !dep.optional)))
                 .collect(toSet());
     }

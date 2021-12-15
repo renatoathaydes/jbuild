@@ -48,11 +48,10 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional) {
-        // TODO use all args
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    return fetchChildren(Set.of(), artifact, pom.get(), null, transitive)
+                    return fetchChildren(Set.of(), artifact, pom.get(), scopes, transitive, optional)
                             .thenApply(Optional::of);
                 }));
     }
@@ -61,10 +60,10 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             Set<Dependency> chain,
             Artifact artifact,
             MavenPom pom,
-            Scope scope,
-            boolean transitive) {
-        var includeOptionals = chain.isEmpty();
-        var dependencies = pom.getDependencies(scope, includeOptionals);
+            EnumSet<Scope> scopes,
+            boolean transitive,
+            boolean includeOptionals) {
+        var dependencies = pom.getDependencies(scopes, includeOptionals);
         var maxTreeDepthExceeded = transitive && chain.size() + 1 > MAX_TREE_DEPTH;
 
         if (maxTreeDepthExceeded || dependencies.isEmpty()) {
@@ -88,7 +87,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
                         log.verbosePrintln(() -> "Fetching dependency of " +
                                 artifact.getCoordinates() + " - " + dependency);
 
-                        return fetch(newChain, dependency);
+                        return fetch(newChain, dependency, includeOptionals);
                     }
                     return completedFuture(Optional.of(DependencyTree.childless(dependency.artifact, pom)));
                 })
@@ -99,12 +98,14 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
 
     private CompletionStage<Optional<DependencyTree>> fetch(
             Set<Dependency> chain,
-            Dependency dependency) {
+            Dependency dependency,
+            boolean includeOptionals) {
         return mavenPomRetriever.fetchPom(dependency.artifact.pom()).thenComposeAsync(child -> {
             if (child.isEmpty()) return completedFuture(Optional.empty());
             var pom = child.get();
-            return fetchChildren(chain, dependency.artifact, pom, dependency.scope, true)
-                    .thenApply(Optional::of);
+            return fetchChildren(chain, dependency.artifact, pom,
+                    dependency.scope.transitiveScopes(), true, includeOptionals
+            ).thenApply(Optional::of);
         });
     }
 
