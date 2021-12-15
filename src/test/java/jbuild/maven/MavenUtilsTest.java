@@ -184,6 +184,22 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void dependencyInheritsVersionAndScopeFromDependencyManagement() throws Exception {
+        var pom = readPom("collections-0.4.0.pom");
+        var parent = readPom("parent-0.4.0.pom");
+
+        assertThat(pom.withParent(parent))
+                .has(dependencies(
+                        dep("br.com.objectos", "assertion", "0.7.0", TEST)
+                ))
+                .has(dependencyManagement(
+                        dep("br.com.objectos", "assertion", "0.7.0", TEST)
+                ))
+                .has(artifactCoordinates(new Artifact("br.com.objectos.core", "collections", "0.4.0")));
+
+    }
+
+    @Test
     void canParseMavenTimestamp() {
         assertThat(MavenUtils.parseMavenTimestamp("20210927195736"))
                 .isEqualTo(Instant.parse("2021-09-27T19:57:36.00Z"));

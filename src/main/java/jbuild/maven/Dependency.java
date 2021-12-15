@@ -13,25 +13,36 @@ public final class Dependency {
 
     // keep the original String value so we can resolve it if needed
     final String optionalString;
+    final boolean explicitScope;
 
-    public Dependency(Artifact artifact, Scope scope, boolean optional, Set<ArtifactKey> exclusions) {
+    public Dependency(Artifact artifact,
+                      Scope scope,
+                      boolean optional,
+                      Set<ArtifactKey> exclusions,
+                      boolean explicitScope) {
         this.artifact = artifact;
         this.scope = scope;
         this.optional = optional;
         this.optionalString = Boolean.toString(optional);
         this.exclusions = exclusions;
+        this.explicitScope = explicitScope;
     }
 
-    Dependency(Artifact artifact, Scope scope, String optionalString, Set<ArtifactKey> exclusions) {
+    Dependency(Artifact artifact,
+               Scope scope,
+               String optionalString,
+               Set<ArtifactKey> exclusions,
+               boolean explicitScope) {
         this.artifact = artifact;
         this.scope = scope;
         this.optional = "true".equals(optionalString);
         this.optionalString = optionalString;
         this.exclusions = exclusions;
+        this.explicitScope = explicitScope;
     }
 
     public Dependency(Artifact artifact) {
-        this(artifact, Scope.COMPILE, false, Set.of());
+        this(artifact, Scope.COMPILE, false, Set.of(), false);
     }
 
     @Override

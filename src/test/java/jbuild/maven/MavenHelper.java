@@ -13,11 +13,11 @@ public class MavenHelper {
     }
 
     public static Dependency dep(String groupId, String artifactId, String version, Scope scope, boolean optional) {
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, Set.of());
+        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, Set.of(), true);
     }
 
     public static Dependency dep(String groupId, String artifactId, String version, Scope scope) {
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, false, Set.of());
+        return new Dependency(new Artifact(groupId, artifactId, version), scope, false, Set.of(), true);
     }
 
     public static Dependency dep(String groupId, String artifactId, String version) {

@@ -13,7 +13,7 @@ final class MavenAssertions {
     static Condition<? super MavenPom> dependencies(Dependency... dependencies) {
         var expectedArtifacts = Set.of(dependencies);
         return new Condition<>(pom -> pom.getDependencies().equals(expectedArtifacts),
-                " dependencies %s", expectedArtifacts);
+                "dependencies %s", expectedArtifacts);
     }
 
     static Condition<? super MavenPom> dependencyManagement(Dependency... dependencies) {

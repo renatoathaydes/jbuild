@@ -208,31 +208,37 @@ public final class MavenPom {
                                            Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement) {
         var groupId = resolveProperty(properties, childNamed("groupId", element), () -> "");
         var artifactId = resolveProperty(properties, childNamed("artifactId", element), () -> "");
-        var scope = resolvePropertyScope(properties, childNamed("scope", element), () ->
-                defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+        var scope = Optional.ofNullable(
+                resolvePropertyScope(properties, childNamed("scope", element), () ->
+                        defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId)))));
         var version = resolveProperty(properties, childNamed("version", element),
-                () -> defaultVersionOrFrom(scope, dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+                () -> defaultVersionOrFrom(scope.orElse(null),
+                        dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var optional = resolveProperty(properties, childNamed("optional", element), () -> "false");
         var exclusions = resolveDependencyExclusions(element, properties);
 
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, exclusions);
+        return new Dependency(new Artifact(groupId, artifactId, version),
+                scope.orElse(Scope.COMPILE), optional, exclusions, scope.isPresent());
     }
 
     private static Dependency refineDependency(Dependency dependency,
                                                Map<String, String> properties,
                                                Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement) {
-        var groupId = resolveProperty(properties, dependency.artifact.groupId,
-                () -> dependency.artifact.groupId);
-        var artifactId = resolveProperty(properties, dependency.artifact.artifactId,
-                () -> dependency.artifact.artifactId);
-        var scope = dependency.scope != null
+        // TODO check if dependency is fully resolved to save the work of creating new objects if possible
+        var groupId = resolveProperty(properties,
+                dependency.artifact.groupId, dependency.artifact.groupId);
+        var artifactId = resolveProperty(properties,
+                dependency.artifact.artifactId, dependency.artifact.artifactId);
+        var scope = Optional.ofNullable(dependency.explicitScope
                 ? dependency.scope
-                : defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId)));
+                : defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var version = resolveProperty(properties, dependency.artifact.version,
-                () -> defaultVersionOrFrom(scope, dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+                () -> defaultVersionOrFrom(scope.orElse(null),
+                        dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
         var optional = resolveProperty(properties, dependency.optionalString, "false");
         var exclusions = refineExclusions(dependency.exclusions, properties);
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, exclusions);
+        return new Dependency(new Artifact(groupId, artifactId, version),
+                scope.orElse(Scope.COMPILE), optional, exclusions, scope.isPresent());
     }
 
     private static Set<ArtifactKey> refineExclusions(Set<ArtifactKey> exclusions,
@@ -298,15 +304,23 @@ public final class MavenPom {
                                                NonEmptyCollection<Dependency> dependencies) {
         if (dependencies == null) return "";
         for (var dependency : dependencies) {
-            if (scope.includes(dependency.scope)) {
+            if (scope == null || scope == dependency.scope) {
                 return dependency.artifact.version;
+            }
+        }
+        // if the exact scope was not found, allow a scope that is included in the given scope
+        if (scope != null) {
+            for (var dependency : dependencies) {
+                if (scope.includes(dependency.scope)) {
+                    return dependency.artifact.version;
+                }
             }
         }
         return "";
     }
 
     private static Scope defaultScopeOrFrom(NonEmptyCollection<Dependency> dependencies) {
-        if (dependencies == null) return Scope.COMPILE;
+        if (dependencies == null) return null;
         return dependencies.first.scope;
     }
 
