@@ -72,11 +72,16 @@ public final class MavenUtils {
     }
 
     public static String resolveProperty(String value, Map<String, String> properties) {
-        if (value.startsWith("${") && value.endsWith("}")) {
-            var key = value.substring(2, value.length() - 1);
-            return properties.getOrDefault(key, value);
+        String result = value;
+        while (result.startsWith("${") && result.endsWith("}")) {
+            var key = result.substring(2, result.length() - 1);
+            if (properties.containsKey(key)) {
+                result = properties.get(key);
+            } else {
+                return result;
+            }
         }
-        return value;
+        return result;
     }
 
     public static Set<Artifact> importsOf(MavenPom pom) {

@@ -139,6 +139,28 @@ public class MavenUtilsTest {
     }
 
     @Test
+    void mavenPropertiesCanBeRecursivelyParsedUsingJacksonBindPom() throws Exception {
+        var dataBind = readPom("jackson-databind-2.12.4.pom");
+        var base = readPom("jackson-base-2.12.4.pom");
+        var bom = readPom("jackson-bom-2.12.4.pom");
+
+        var pom = dataBind
+                .withParent(base
+                        .withParent(bom));
+
+        assertThat(pom).has(dependencies(
+                dep("com.fasterxml.jackson.core", "jackson-annotations", "2.12.4"),
+                dep("com.fasterxml.jackson.core", "jackson-core", "2.12.4"),
+                dep("org.powermock", "powermock-core", "2.0.0", TEST),
+                dep("org.powermock", "powermock-module-junit4", "2.0.0", TEST),
+                dep("org.powermock", "powermock-api-mockito2", "2.0.0", TEST),
+                dep("junit", "junit", "", TEST), // WTF no version specified anywhere?!
+                dep("javax.measure", "jsr-275", "0.9.1", TEST)
+//                dep("javax.activation", "javax.activation-api", "1.2.0")
+        )).has(artifactCoordinates(new Artifact("com.fasterxml.jackson.core", "jackson-databind", "2.12.4")));
+    }
+
+    @Test
     void canParseJunitPioneerImportingJUnitBOM() throws Exception {
         var junitPioneer = readPom("junit-pioneer-1.3.0.pom");
         var junitBOM = readPom("junit-bom-5.7.1.pom");
@@ -226,6 +248,7 @@ public class MavenUtilsTest {
                 new Example("${bar", Map.of("foo", "no", "bar", "no"), "${bar"),
                 new Example("${bar}", Map.of("foo", "no", "bar", "zort"), "zort"),
                 new Example("${foo.bar}", Map.of("foo", "no", "bar", "zort", "foo.bar", "good"), "good"),
+                new Example("${${bar}}", Map.of("${bar}", "${foo}", "foo", "yes"), "yes"),
                 new Example("${bar}${foo}", Map.of("foo", "no", "bar", "zort"), "${bar}${foo}")
         ).forEach(example ->
                 assertThat(MavenUtils.resolveProperty(example.value, example.properties))
