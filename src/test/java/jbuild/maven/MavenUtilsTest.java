@@ -21,10 +21,66 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class MavenUtilsTest {
 
     @Test
+    void canApplyDependencyExclusions() {
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("a", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of())
+        ).isEqualTo(Set.of(dep("a", "b", "1"),
+                dep("a", "c", "1")));
+
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("a", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of(ArtifactKey.of("a", "b")))
+        ).isEqualTo(Set.of(dep("a", "c", "1")));
+
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("a", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of(ArtifactKey.of("a", "c")))
+        ).isEqualTo(Set.of(dep("a", "b", "1")));
+
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("a", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of(ArtifactKey.of("a", "b"), ArtifactKey.of("a", "c")))
+        ).isEmpty();
+
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("a", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of(ArtifactKey.of("*", "*")))
+        ).isEmpty();
+
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("a", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of(ArtifactKey.of("*", "b")))
+        ).isEqualTo(Set.of(dep("a", "c", "1")));
+
+        assertThat(MavenUtils.applyExclusions(
+                Set.of(dep("F", "b", "1"),
+                        dep("a", "c", "1")),
+                Set.of(ArtifactKey.of("a", "*")))
+        ).isEqualTo(Set.of(dep("F", "b", "1")));
+    }
+
+    @Test
     void canParseSimpleMavenPom() throws Exception {
         assertThat(readPom("javana.pom.xml"))
                 .has(dependencies(dep("junit", "junit", "4.12", TEST)))
                 .has(artifactCoordinates(new Artifact("com.athaydes.javanna", "javanna", "1.1")));
+    }
+
+    @Test
+    void canParseMavenPomWithExclusions() throws Exception {
+        assertThat(readPom("with-exclusions.pom.xml"))
+                .has(dependencies(
+                        dep("com.athaydes.jbuild", "jbuild", "3.2.1"),
+                        dep("group", "artifact", "1.0", COMPILE, false,
+                                Set.of(ArtifactKey.of("org.example", "bad")))))
+                .has(artifactCoordinates(new Artifact("com.jbuild", "with-exclusions", "1.1.1")));
     }
 
     @Test

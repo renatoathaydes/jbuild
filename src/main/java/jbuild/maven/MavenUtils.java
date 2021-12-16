@@ -38,6 +38,7 @@ public final class MavenUtils {
                         XMLConstants.FEATURE_SECURE_PROCESSING);
             }
         }
+
     }
 
     public static String standardArtifactPath(Artifact artifact, boolean usePlatformSeparator) {
@@ -47,6 +48,40 @@ public final class MavenUtils {
         return artifact.groupId.replace('.', sep) + sep +
                 artifact.artifactId + sep +
                 artifact.version + sep + fileName;
+    }
+
+    private static boolean matches(Dependency dependency, Set<ArtifactKey> exclusions) {
+        if (exclusions.contains(ArtifactKey.of(dependency))) return true;
+        for (var exclusion : exclusions) {
+            if ("*".equals(exclusion.groupId) && exclusion.artifactId.equals(dependency.artifact.artifactId)) {
+                return true;
+            }
+            if ("*".equals(exclusion.artifactId) && exclusion.groupId.equals(dependency.artifact.groupId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static Set<Dependency> applyExclusions(Set<Dependency> dependencies,
+                                                  Set<ArtifactKey> exclusions) {
+        if (exclusions.isEmpty()) return dependencies;
+        if (exclusions.contains(ArtifactKey.of("*", "*"))) return Set.of();
+
+        // try to avoid allocating a new Set as usually it won't be necessary
+        var requiresChanges = false;
+        for (var dependency : dependencies) {
+            if (matches(dependency, exclusions)) {
+                requiresChanges = true;
+                break;
+            }
+        }
+
+        if (!requiresChanges) return dependencies;
+
+        return dependencies.stream()
+                .filter(dep -> !matches(dep, exclusions))
+                .collect(toSet());
     }
 
     public static MavenPom parsePom(InputStream stream)

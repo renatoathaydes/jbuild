@@ -3,6 +3,7 @@ package jbuild.commands;
 import jbuild.artifact.Artifact;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
+import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.MavenPom;
@@ -21,6 +22,7 @@ import java.util.stream.Stream;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static jbuild.maven.MavenUtils.applyExclusions;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.append;
 import static jbuild.util.CollectionUtils.mapEntries;
@@ -51,7 +53,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    return fetchChildren(Set.of(), artifact, pom.get(), scopes, transitive, optional)
+                    return fetchChildren(Set.of(), artifact, pom.get(), scopes, transitive, optional, Set.of())
                             .thenApply(Optional::of);
                 }));
     }
@@ -62,8 +64,9 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             MavenPom pom,
             EnumSet<Scope> scopes,
             boolean transitive,
-            boolean includeOptionals) {
-        var dependencies = pom.getDependencies(scopes, includeOptionals);
+            boolean includeOptionals,
+            Set<ArtifactKey> exclusions) {
+        var dependencies = applyExclusions(pom.getDependencies(scopes, includeOptionals), exclusions);
         var maxTreeDepthExceeded = transitive && chain.size() + 1 > MAX_TREE_DEPTH;
 
         if (maxTreeDepthExceeded || dependencies.isEmpty()) {
@@ -104,7 +107,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             if (child.isEmpty()) return completedFuture(Optional.empty());
             var pom = child.get();
             return fetchChildren(chain, dependency.artifact, pom,
-                    dependency.scope.transitiveScopes(), true, includeOptionals
+                    dependency.scope.transitiveScopes(), true, includeOptionals, dependency.exclusions
             ).thenApply(Optional::of);
         });
     }
