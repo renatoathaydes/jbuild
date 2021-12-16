@@ -125,13 +125,10 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         for (var child : children) {
             allOk &= child.map(ok -> {
                 if (ok.isEmpty()) {
-                    log.println(() -> "Unable to populate dependencies of " + coordinates +
-                            ", not all artifacts could be successfully retrieved");
                     return false;
-                } else {
-                    childrenNodes.add(ok.get());
-                    return true;
                 }
+                childrenNodes.add(ok.get());
+                return true;
             }, err -> {
                 log.println(() -> "Unable to populate dependencies of " + coordinates +
                         " due to " + err);
