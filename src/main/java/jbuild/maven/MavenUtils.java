@@ -63,6 +63,8 @@ public final class MavenUtils {
         return false;
     }
 
+    // dependencyManagement currently does not support exclusions.
+    // See https://github.com/apache/maven/pull/295
     public static Set<Dependency> applyExclusions(Set<Dependency> dependencies,
                                                   Set<ArtifactKey> exclusions) {
         if (exclusions.isEmpty()) return dependencies;
