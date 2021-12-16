@@ -51,7 +51,7 @@ public final class Main {
             "Available commands:\n" +
             "\n" +
             "  * fetch\n" +
-            "    Fetches Maven artifacts from the local Maven repo or Maven Central." +
+            "    Fetches Maven artifacts from the local Maven repo or Maven Central.\n" +
             "      Usage:\n" +
             "        jbuild fetch <options... | artifact...>\n" +
             "      Options:\n" +
@@ -61,14 +61,14 @@ public final class Main {
             "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0\n" +
             "\n" +
             "  * deps\n" +
-            "    List the dependencies of the given artifacts." +
+            "    List the dependencies of the given artifacts.\n" +
             "      Usage:\n" +
             "        jbuild deps <options... | artifact...>\n" +
             "      Options:\n" +
             "        --optional\n" +
             "        -O        include optional dependencies.\n" +
             "        --scope\n" +
-            "        -s        scope to include (can be passed more than once)." +
+            "        -s        scope to include (can be passed more than once).\n" +
             "                  All scopes are listed by default.\n" +
             "        --transitive\n" +
             "        -t        include transitive dependencies.\n" +
@@ -76,7 +76,7 @@ public final class Main {
             "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
             "\n" +
             "  * versions\n" +
-            "    List the versions of the given artifacts that are available on Maven Central." +
+            "    List the versions of the given artifacts that are available on Maven Central.\n" +
             "      Usage:\n" +
             "        jbuild versions <artifact...>\n" +
             "      Example:\n" +
