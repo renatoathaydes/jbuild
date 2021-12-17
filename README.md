@@ -10,19 +10,22 @@ to manage other Java projects and dependencies themselves.
 
 - [x] fetch artifacts from file repositories.
 - [x] fetch artifacts from HTTP repositories.
-- [ ] fetch artifacts transitively.
+- [x] fetch artifacts transitively (install command).
+- [ ] fetch PGP signatures.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
 - [ ] list artifacts licenses.
 - [ ] accept local POM file as input for most commands.
-- [ ] install artifacts in local file repository.
+- [x] install artifacts in local file system (flat dir or Maven repo).
 - [ ] install artifacts in remote HTTP repository.
 - [ ] check completeness of classpath in general (all code included).
 - [ ] check completeness of classpath given a Java entry-point (exclude unused code).
 - [ ] check binary compatibility of artifacts included in the classpath.
 - [ ] detect version clashes in dependency tree.
 - [ ] automatically find compatible set of artifacts in dependency tree, based on application needs.
+- [ ] show full call hierarchy of jar/class/method.
+- [ ] find unused jars/classes/methods in a given compilation unit.
 - [ ] compile and package Java applications.
 
 ## Dependency Management
@@ -35,6 +38,8 @@ Here's the list of Maven tags and concepts supported by JBuild:
 - [x] dependencies/dependency/[groupId, artifactId, version, scope, optional]
 - [x] dependencies/dependency/exclusions
 - [x] dependencyManagement
+- [x] project coordinates/packaging/parent
+- [ ] project license
 - [x] project properties
 - [x] evaluate property placeholders from properties tag 
 - [x] evaluate property placeholders from XML tags (version, artifactId, groupId)
@@ -77,6 +82,27 @@ Available commands:
       Example:
         jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0
 
+  * install
+    Install Maven artifacts from the local Maven repo or Maven Central.
+    Unlike fetch, install downloads artifacts and their dependencies, and can write
+    them into a flat directory or in the format of a Maven repository.
+      Usage:
+        jbuild install <options... | artifact...>
+      Options:
+        --directory
+        -d        (flat) output directory.
+        --repository
+        -r        (Maven repository root) output directory.
+        --optional
+        -O        include optional dependencies.
+        --scope
+        -s        scope to include (can be passed more than once).
+                  The runtime scope is used by default.
+      Note:
+        The --directory and --repository options are mutually exclusive.
+        By default, the equivalent of '-d out/' is used.      Example:
+        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0
+
   * deps
     List the dependencies of the given artifacts.
       Usage:
@@ -91,6 +117,13 @@ Available commands:
         -t        include transitive dependencies.
       Example:
         jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2
+
+  * versions
+    List the versions of the given artifacts that are available on Maven Central.
+      Usage:
+        jbuild versions <artifact...>
+      Example:
+        jbuild versions junit:junit
 ```
 
 ## Java API
