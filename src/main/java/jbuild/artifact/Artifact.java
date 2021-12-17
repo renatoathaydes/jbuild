@@ -36,10 +36,18 @@ public class Artifact {
     }
 
     public Artifact pom() {
-        if ("pom".equals(extension)) {
+        return withExtension("pom");
+    }
+
+    public Artifact jar() {
+        return withExtension("jar");
+    }
+
+    public Artifact withExtension(String ext) {
+        if (ext.equals(extension)) {
             return this;
         }
-        return new Artifact(groupId, artifactId, version, "pom");
+        return new Artifact(groupId, artifactId, version, ext);
     }
 
     public static Artifact parseCoordinates(String artifact) {

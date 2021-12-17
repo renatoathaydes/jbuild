@@ -2,6 +2,7 @@ package jbuild.commands;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.file.FileArtifactRetriever;
+import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.errors.FileRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
@@ -80,7 +81,7 @@ public class DepsCommandExecutorTest {
         var log = new JBuildLog(out, false);
         var retrievers = new FileArtifactRetriever(Path.of(repoDir));
         var fetcher = new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers));
-        var pomRetriever = new MavenPomRetriever<>(log, fetcher);
+        var pomRetriever = new MavenPomRetriever<>(log, fetcher, new DefaultPomCreator());
         return new DepsCommandExecutor<>(log, pomRetriever);
     }
 
