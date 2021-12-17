@@ -23,14 +23,23 @@ import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
 import static jbuild.util.XmlUtils.textOf;
 
+/**
+ * Representation of a Maven POM.
+ * <p>
+ * Regardless of which constructor is used, this is an immutable object. All fields are populated eagerly.
+ */
 public final class MavenPom {
 
+    /**
+     * Strategy to use when "merging" two POMs.
+     */
     private enum MergeMode {
         PARENT, IMPORT
     }
 
     private final Artifact parentArtifact;
     private final Artifact coordinates;
+    private final String packaging;
     private final Map<String, String> properties;
     private final Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement;
     private final Set<Dependency> dependencies;
@@ -39,6 +48,7 @@ public final class MavenPom {
         var properties = resolveProperties(project, parentPom);
         this.parentArtifact = resolveParentArtifact(project, properties);
         this.coordinates = resolveCoordinates(project, properties, parentArtifact);
+        this.packaging = resolveProperty(properties, childNamed("packaging", project), "jar");
         this.properties = populateProjectPropertiesWith(coordinates, properties);
         this.dependencyManagement = resolveDependencyManagement(project, properties, parentPom);
         this.dependencies = resolveDependencies(project, dependencyManagement, properties, parentPom);
@@ -50,6 +60,7 @@ public final class MavenPom {
                 this.properties = union(other.properties, pom.properties);
                 this.parentArtifact = resolveArtifact(other.coordinates, properties);
                 this.coordinates = resolveArtifact(pom.coordinates, properties);
+                this.packaging = resolveProperty(properties, pom.packaging, "jar");
                 this.dependencyManagement = union(other.dependencyManagement,
                         pom.dependencyManagement, NonEmptyCollection::of);
                 this.dependencies = union(other.dependencies, pom.dependencies)
@@ -61,6 +72,7 @@ public final class MavenPom {
                 this.properties = pom.properties;
                 this.parentArtifact = pom.parentArtifact;
                 this.coordinates = pom.coordinates;
+                this.packaging = pom.packaging;
                 this.dependencyManagement = union(pom.dependencyManagement,
                         other.dependencyManagement, NonEmptyCollection::of);
                 this.dependencies = pom.dependencies
@@ -69,6 +81,11 @@ public final class MavenPom {
         }
     }
 
+    /**
+     * Create a POM from an XML {@link Document}.
+     *
+     * @param doc XML document
+     */
     public MavenPom(Document doc) {
         this(childNamed("project", doc).orElseThrow(() ->
                         new IllegalArgumentException("Not a POM XML document")),
@@ -100,22 +117,49 @@ public final class MavenPom {
         return new MavenPom(this, importedPom, MergeMode.IMPORT);
     }
 
+    /**
+     * @return the parent artifact declared by this POM.
+     */
     public Optional<Artifact> getParentArtifact() {
         return Optional.ofNullable(parentArtifact);
     }
 
+    /**
+     * @return the artifact coordinates of this POM.
+     */
     public Artifact getArtifact() {
         return coordinates;
     }
 
+    /**
+     * @return the packaging of this POM.
+     */
+    public String getPackaging() {
+        return packaging;
+    }
+
+    /**
+     * @return the dependency-management section of this POM.
+     */
     public Map<ArtifactKey, NonEmptyCollection<Dependency>> getDependencyManagement() {
         return dependencyManagement;
     }
 
+    /**
+     * @return the dependencies section of this POM.
+     */
     public Set<Dependency> getDependencies() {
         return dependencies;
     }
 
+    /**
+     * Filter the dependencies of this POM that are included in the given scopes,
+     * optionally including optional dependencies.
+     *
+     * @param scopes           to include
+     * @param includeOptionals whether to include optional dependencies
+     * @return dependencies matching the given parameters
+     */
     public Set<Dependency> getDependencies(EnumSet<Scope> scopes, boolean includeOptionals) {
         if (scopes.size() == Scope.values().length && includeOptionals) {
             return dependencies;
@@ -127,6 +171,9 @@ public final class MavenPom {
                 .collect(toSet());
     }
 
+    /**
+     * @return the properties of this POM
+     */
     public Map<String, String> getProperties() {
         return properties;
     }

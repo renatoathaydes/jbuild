@@ -128,4 +128,15 @@ public final class MavenUtils {
                 .map(it -> it.artifact)
                 .collect(toSet());
     }
+
+    public static String extensionOfPackaging(String packaging) {
+        switch (packaging) {
+            case "jar":
+            case "bundle":
+            case "maven-plugin":
+                return "jar";
+            default:
+                return packaging;
+        }
+    }
 }

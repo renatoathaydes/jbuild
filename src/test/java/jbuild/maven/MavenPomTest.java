@@ -69,4 +69,16 @@ public class MavenPomTest {
                 .get()
                 .isEqualTo(new Artifact("com.test", "optional-parent", "1.1"));
     }
+
+    @Test
+    void pomPackaging() throws Exception {
+        var pom = readPom("apache-23.pom");
+        assertThat(pom.getPackaging()).isEqualTo("pom");
+
+        pom = readPom("child.pom.xml"); // implicit packaging
+        assertThat(pom.getPackaging()).isEqualTo("jar");
+
+        pom = readPom("guava.pom.xml");
+        assertThat(pom.getPackaging()).isEqualTo("bundle");
+    }
 }
