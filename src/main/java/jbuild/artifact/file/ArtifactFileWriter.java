@@ -8,18 +8,28 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class ArtifactFileWriter implements AutoCloseable, Closeable {
+import static java.util.concurrent.CompletableFuture.completedStage;
 
-    private final File directory;
+public class ArtifactFileWriter implements AutoCloseable, Closeable {
+
+    public enum WriteMode {
+        FLAT_DIR,
+        MAVEN_REPOSITORY,
+    }
+
+    public final File directory;
+    private final WriteMode mode;
     private final ExecutorService writerExecutor;
 
-    public ArtifactFileWriter(File directory) {
+    public ArtifactFileWriter(File directory, WriteMode mode) {
         this.directory = directory;
+        this.mode = mode;
         this.writerExecutor = Executors.newSingleThreadExecutor((runnable) -> {
             var thread = new Thread(runnable, directory + "-output-writer");
             thread.setDaemon(true);
@@ -27,13 +37,22 @@ public final class ArtifactFileWriter implements AutoCloseable, Closeable {
         });
     }
 
-    public CompletionStage<Either<File, Describable>> write(ResolvedArtifact resolvedArtifact) {
+    public CompletionStage<Either<File, Describable>> write(ResolvedArtifact resolvedArtifact, boolean consume) {
         var completion = new CompletableFuture<Either<File, Describable>>();
-        var file = new File(directory, resolvedArtifact.artifact.toFileName());
+        var file = computeFileLocation(resolvedArtifact);
+        if (!file.getParentFile().isDirectory() && !file.getParentFile().mkdirs()) {
+            return completedStage(
+                    Either.right(Describable.of("unable to create directory at " + file.getParent())));
+        }
+
         writerExecutor.submit(() -> {
             try (var out = new FileOutputStream(file)) {
                 try {
-                    resolvedArtifact.consumeContents(out);
+                    if (consume) {
+                        resolvedArtifact.consumeContents(out);
+                    } else {
+                        out.write(resolvedArtifact.getContents());
+                    }
                     completion.complete(Either.left(file));
                 } catch (IOException e) {
                     completion.complete(Either.right(Describable.of(
@@ -47,6 +66,21 @@ public final class ArtifactFileWriter implements AutoCloseable, Closeable {
             }
         });
         return completion;
+    }
+
+    private File computeFileLocation(ResolvedArtifact resolvedArtifact) {
+        switch (mode) {
+            case FLAT_DIR:
+                return new File(directory, resolvedArtifact.artifact.toFileName());
+            case MAVEN_REPOSITORY:
+                var artifact = resolvedArtifact.artifact;
+                return Path.of(
+                        directory.getPath(), artifact.groupId, artifact.artifactId,
+                        artifact.version, artifact.toFileName()
+                ).toFile();
+            default:
+                throw new IllegalStateException("unknown enum variant: " + mode);
+        }
     }
 
     @Override
