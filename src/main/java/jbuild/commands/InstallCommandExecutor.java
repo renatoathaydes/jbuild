@@ -3,6 +3,7 @@ package jbuild.commands;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.file.ArtifactFileWriter;
+import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.MavenPom;
@@ -19,6 +20,7 @@ import java.util.concurrent.CompletionStage;
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.maven.MavenUtils.extensionOfPackaging;
 import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.AsyncUtils.awaitValues;
@@ -27,7 +29,6 @@ public final class InstallCommandExecutor {
 
     private final JBuildLog log;
     private final FetchCommandExecutor<?> fetchCommand;
-    private final DepsCommandExecutor<?> depsCommand;
     private final ArtifactFileWriter writer;
 
     public InstallCommandExecutor(JBuildLog log,
@@ -36,8 +37,6 @@ public final class InstallCommandExecutor {
         this.log = log;
         this.fetchCommand = fetchCommand;
         this.writer = writer;
-        var pomRetriever = new MavenPomRetriever<>(log, fetchCommand, new InstallPomCreator(writer));
-        this.depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
     }
 
     public static InstallCommandExecutor create(JBuildLog log,
@@ -51,6 +50,12 @@ public final class InstallCommandExecutor {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional) {
+
+        var pomRetriever = new MavenPomRetriever<>(log, fetchCommand,
+                // only write POMs if not using a flat dir output
+                writer.mode == FLAT_DIR ? new DefaultPomCreator() : new InstallPomCreator(writer));
+
+        var depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
         var expandedScopes = expandScopes(scopes);
 
         return awaitValues(
@@ -94,7 +99,7 @@ public final class InstallCommandExecutor {
                 .count());
     }
 
-    private static final class InstallPomCreator extends MavenPomRetriever.DefaultPomCreator {
+    private static final class InstallPomCreator extends DefaultPomCreator {
 
         private final ArtifactFileWriter writer;
 

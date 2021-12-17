@@ -24,7 +24,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
     }
 
     public final File directory;
-    private final WriteMode mode;
+    public final WriteMode mode;
     private final ExecutorService writerExecutor;
 
     public ArtifactFileWriter(File directory, WriteMode mode) {
