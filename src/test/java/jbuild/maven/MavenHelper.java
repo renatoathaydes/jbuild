@@ -12,6 +12,19 @@ public class MavenHelper {
         }
     }
 
+    public static Artifact artifact(String groupId,
+                                    String artifactId,
+                                    String version) {
+        return new Artifact(groupId, artifactId, version);
+    }
+
+    public static Artifact artifact(String groupId,
+                                    String artifactId,
+                                    String version,
+                                    String extension) {
+        return new Artifact(groupId, artifactId, version,extension);
+    }
+
     public static Dependency dep(String groupId,
                                  String artifactId,
                                  String version,

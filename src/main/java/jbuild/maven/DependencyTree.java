@@ -2,8 +2,16 @@ package jbuild.maven;
 
 import jbuild.artifact.Artifact;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * A tree of dependencies.
+ * <p>
+ * Each node in a tree is a {@link DependencyTree} itself. It consists of a root and its possibly empty children.
+ */
 public final class DependencyTree {
 
     public final ResolvedDependency root;
@@ -13,6 +21,28 @@ public final class DependencyTree {
                            List<DependencyTree> dependencies) {
         this.root = root;
         this.dependencies = dependencies;
+    }
+
+    /**
+     * @return a Set containing the flattened elements of this dependency tree. Notice that the tree may contain
+     * the same artifact with multiple versions as no version clash resolution is performed.
+     */
+    public Set<ResolvedDependency> toSet() {
+        var result = new HashSet<ResolvedDependency>();
+        visitArtifacts(this, result);
+        return result;
+    }
+
+    private static void visitArtifacts(DependencyTree node, Set<ResolvedDependency> result) {
+        var current = List.of(node);
+        while (!current.isEmpty()) {
+            for (var dependency : current) {
+                result.add(dependency.root);
+            }
+            current = current.stream()
+                    .flatMap(c -> c.dependencies.stream())
+                    .collect(Collectors.toList());
+        }
     }
 
     /**
@@ -41,5 +71,4 @@ public final class DependencyTree {
     public static DependencyTree childless(Artifact artifact, MavenPom pom) {
         return new DependencyTree(new ResolvedDependency(artifact.pom(), pom), List.of());
     }
-
 }
