@@ -4,6 +4,7 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
+import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
@@ -11,6 +12,7 @@ import jbuild.log.JBuildLog;
 import jbuild.maven.MavenMetadata;
 import jbuild.util.Executable;
 import jbuild.util.FileUtils;
+import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
 import java.time.Duration;
@@ -24,6 +26,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
+import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.durationText;
@@ -59,6 +63,28 @@ public final class Main {
             "        -d        output directory.\n" +
             "      Example:\n" +
             "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0\n" +
+            "\n" +
+            "  * install\n" +
+            "    Install Maven artifacts from the local Maven repo or Maven Central.\n" +
+            "    Unlike fetch, install downloads artifacts and their dependencies, and can write\n" +
+            "    them into a flat directory or in the format of a Maven repository.\n" +
+            "      Usage:\n" +
+            "        jbuild install <options... | artifact...>\n" +
+            "      Options:\n" +
+            "        --directory\n" +
+            "        -d        (flat) output directory.\n" +
+            "        --repository\n" +
+            "        -r        (Maven repository root) output directory.\n" +
+            "        --optional\n" +
+            "        -O        include optional dependencies.\n" +
+            "        --scope\n" +
+            "        -s        scope to include (can be passed more than once).\n" +
+            "                  The runtime scope is used by default.\n" +
+            "      Note:\n" +
+            "        The --directory and --repository options are mutually exclusive.\n" +
+            "        By default, the equivalent of '-d out/' is used." +
+            "      Example:\n" +
+            "        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0\n" +
             "\n" +
             "  * deps\n" +
             "    List the dependencies of the given artifacts.\n" +
@@ -122,6 +148,9 @@ public final class Main {
             case "deps":
                 listDeps(options, startTime);
                 break;
+            case "install":
+                installArtifacts(options, startTime);
+                break;
             case "versions":
                 listVersions(options, startTime);
                 break;
@@ -167,6 +196,53 @@ public final class Main {
         }, startTime);
     }
 
+    private void installArtifacts(Options options, long startTime) {
+        var installOptions = InstallOptions.parse(options.commandArgs);
+        var artifacts = parseArtifacts(startTime, installOptions.artifacts);
+
+        if (artifacts.isEmpty()) {
+            log.println("No artifacts were provided. Nothing to do.");
+            return;
+        }
+
+        var fileWriter = installOptions.outDir == null
+                ? new ArtifactFileWriter(new File(installOptions.repoDir), MAVEN_REPOSITORY)
+                : new ArtifactFileWriter(new File(installOptions.outDir), FLAT_DIR);
+
+        var latch = new CountDownLatch(artifacts.size());
+        var anyError = new AtomicReference<ErrorCause>();
+
+        InstallCommandExecutor.create(log, fileWriter).installDependencyTree(
+                artifacts, installOptions.scopes, true, installOptions.optional
+        ).whenComplete((successCount, err) -> {
+            try {
+                if (err == null) {
+                    var successes = successCount.map(ok -> ok, errors -> {
+                        reportErrors(anyError, errors);
+                        return -1L;
+                    });
+                    if (successes > 0) {
+                        log.println(() -> "Successfully installed " + successes +
+                                " artifact" + (successes == 1 ? "" : "s") + " at " + fileWriter.directory);
+                    }
+                } else {
+                    log.print(err);
+                }
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        withErrorHandling(() -> {
+            latch.await();
+
+            var errorCause = anyError.get();
+            if (errorCause != null) {
+                exitWithError("Could not install all artifacts successfully", errorCause, startTime);
+            }
+        }, startTime);
+    }
+
     private void fetchArtifacts(Options options, long startTime) {
         var fetchOptions = FetchOptions.parse(options.commandArgs);
 
@@ -186,7 +262,7 @@ public final class Main {
                     IO_WRITE);
         }
 
-        var fileWriter = new ArtifactFileWriter(outDir);
+        var fileWriter = new ArtifactFileWriter(outDir, FLAT_DIR);
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
 
@@ -276,6 +352,20 @@ public final class Main {
             } else { // ok is empty: non-exceptional error
                 log.println(() -> "Failed to handle " + artifact.getCoordinates());
             }
+        }
+    }
+
+    private void reportErrors(AtomicReference<ErrorCause> anyError, NonEmptyCollection<Throwable> errors) {
+        var errRefSet = false;
+        for (var error : errors) {
+            if (error instanceof JBuildException) {
+                anyError.set(((JBuildException) error).getErrorCause());
+                errRefSet = true;
+            }
+            log.print(error);
+        }
+        if (!errRefSet && anyError.get() == null) {
+            anyError.set(ErrorCause.UNKNOWN);
         }
     }
 

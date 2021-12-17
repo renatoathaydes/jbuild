@@ -170,6 +170,97 @@ final class DepsOptions {
 
 }
 
+final class InstallOptions {
+
+    final Set<String> artifacts;
+    final EnumSet<Scope> scopes;
+    final String outDir;
+    final String repoDir;
+    final boolean optional;
+
+    InstallOptions(Set<String> artifacts,
+                   EnumSet<Scope> scopes,
+                   String outDir,
+                   String repoDir,
+                   boolean optional) {
+        this.artifacts = artifacts;
+        this.scopes = scopes;
+        this.outDir = outDir;
+        this.repoDir = repoDir;
+        this.optional = optional;
+    }
+
+    static InstallOptions parse(List<String> args) {
+        var artifacts = new LinkedHashSet<String>();
+        var scopes = EnumSet.noneOf(Scope.class);
+        var optional = false;
+        String outDir = null, repoDir = null;
+        var expectScope = false;
+        var expectOutDir = false;
+        var expectRepoDir = false;
+
+        for (String arg : args) {
+            if (expectScope) {
+                expectScope = false;
+                try {
+                    scopes.add(Scope.valueOf(arg.toUpperCase(Locale.ROOT)));
+                } catch (IllegalArgumentException e) {
+                    throw new JBuildException("invalid scope value: '" + arg +
+                            "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
+                }
+            } else if (expectOutDir) {
+                expectOutDir = false;
+                if (outDir == null) {
+                    outDir = arg;
+                } else {
+                    throw new JBuildException("cannot provide output directory more than once" +
+                            "\nRun jbuild --help for usage.", USER_INPUT);
+                }
+            } else if (expectRepoDir) {
+                expectRepoDir = false;
+                if (repoDir == null) {
+                    repoDir = arg;
+                } else {
+                    throw new JBuildException("cannot provide repository directory more than once" +
+                            "\nRun jbuild --help for usage.", USER_INPUT);
+                }
+            } else if (arg.startsWith("-")) {
+                if (isEither(arg, "-s", "--scope")) {
+                    expectScope = true;
+                } else if (isEither(arg, "-O", "--optional")) {
+                    optional = true;
+                } else if (isEither(arg, "-d", "--directory")) {
+                    expectOutDir = true;
+                } else if (isEither(arg, "-r", "--repository")) {
+                    expectRepoDir = true;
+                } else {
+                    throw new JBuildException("invalid libs option: " + arg +
+                            "\nRun jbuild --help for usage.", USER_INPUT);
+                }
+            } else {
+                artifacts.add(arg);
+            }
+        }
+
+        if (expectScope || expectOutDir || expectRepoDir) {
+            var opt = expectScope ? "scope" : expectOutDir ? "directory" : "repository";
+            throw new JBuildException("expecting value for '" + opt + "' option", USER_INPUT);
+        }
+
+        // if no scopes are included explicitly, use runtime
+        if (scopes.isEmpty()) scopes = EnumSet.of(Scope.RUNTIME);
+
+        if (outDir == null && repoDir == null) outDir = "out";
+        if (outDir != null && repoDir != null) {
+            throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
+                    "\nRun jbuild --help for usage.", USER_INPUT);
+        }
+
+        return new InstallOptions(unmodifiableSet(artifacts), scopes, outDir, repoDir, optional);
+    }
+
+}
+
 final class VersionsOptions {
 
     final Set<String> artifacts;

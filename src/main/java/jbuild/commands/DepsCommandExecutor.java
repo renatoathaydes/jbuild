@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.artifact.Artifact;
+import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
@@ -23,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static jbuild.maven.MavenUtils.applyExclusions;
+import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.append;
 import static jbuild.util.CollectionUtils.mapEntries;
@@ -41,7 +43,9 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
     }
 
     public static DepsCommandExecutor<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
-        var mavenPomRetriever = new MavenPomRetriever<>(log, FetchCommandExecutor.createDefault(log));
+        var mavenPomRetriever = new MavenPomRetriever<>(log,
+                FetchCommandExecutor.createDefault(log),
+                new DefaultPomCreator());
         return new DepsCommandExecutor<>(log, mavenPomRetriever);
     }
 
@@ -50,10 +54,12 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional) {
+        var expandedScopes = expandScopes(scopes);
+
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    return fetchChildren(Set.of(), artifact, pom.get(), scopes, transitive, optional, Set.of())
+                    return fetchChildren(Set.of(), artifact, pom.get(), expandedScopes, transitive, optional, Set.of())
                             .thenApply(Optional::of);
                 }));
     }

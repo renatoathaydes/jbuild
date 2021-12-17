@@ -3,6 +3,7 @@ package jbuild.commands;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.ArtifactRetrievalError;
+import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenPom;
 import jbuild.maven.MavenUtils;
@@ -24,10 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.completedStage;
+import static java.util.concurrent.CompletableFuture.failedStage;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.FetchCommandExecutor.reportErrors;
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.importsOf;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapEntries;
@@ -37,18 +41,26 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
 
     private final JBuildLog log;
     private final FetchCommandExecutor<Err> fetchCommandExecutor;
+    private final PomCreator pomCreator;
 
     private final Map<Artifact, CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>>> cache;
 
     public MavenPomRetriever(JBuildLog log,
-                             FetchCommandExecutor<Err> fetchCommandExecutor) {
+                             FetchCommandExecutor<Err> fetchCommandExecutor,
+                             PomCreator pomCreator) {
         this.log = log;
         this.fetchCommandExecutor = fetchCommandExecutor;
+        this.pomCreator = pomCreator;
         this.cache = new ConcurrentHashMap<>();
     }
 
     public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
-        return new MavenPomRetriever<>(log, FetchCommandExecutor.createDefault(log));
+        return createDefault(log, new DefaultPomCreator());
+    }
+
+    public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log,
+                                                                                    PomCreator pomCreator) {
+        return new MavenPomRetriever<>(log, FetchCommandExecutor.createDefault(log), pomCreator);
     }
 
     public Map<Artifact, CompletionStage<Optional<MavenPom>>> fetchPoms(
@@ -97,11 +109,11 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         log.verbosePrintln(() -> "Parsing POM of " + resolvedArtifact.artifact);
 
         try {
-            return withParentIfNeeded(MavenUtils.parsePom(resolvedArtifact.consumeContents()));
-        } catch (ParserConfigurationException | IOException | SAXException e) {
+            return withParentIfNeeded(pomCreator.createPom(resolvedArtifact));
+        } catch (JBuildException e) {
             return CompletableFuture.completedFuture(Either.right(
                     NonEmptyCollection.of(Describable.of("Unable to parse POM of " +
-                            resolvedArtifact.artifact + " due to " + e))));
+                            resolvedArtifact.artifact + " due to " + e.getMessage()))));
         }
     }
 
@@ -111,21 +123,25 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         return completedFuture(Either.right(errors));
     }
 
-    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withParentIfNeeded(MavenPom pom) {
-        var parentArtifact = pom.getParentArtifact();
-        if (parentArtifact.isEmpty()) {
-            return withImportsIfNeeded(pom);
-        }
+    private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withParentIfNeeded(
+            CompletionStage<MavenPom> pomCompletion) {
+        return pomCompletion.thenCompose(pom -> {
+            var parentArtifact = pom.getParentArtifact();
+            if (parentArtifact.isEmpty()) {
+                return withImportsIfNeeded(pom);
+            }
 
-        var parentPom = parentArtifact.get().pom();
+            var parentPom = parentArtifact.get().pom();
 
-        log.verbosePrintln(() -> "Fetching parent POM of " + pom.getArtifact().getCoordinates() +
-                " - " + parentPom.getCoordinates());
+            log.verbosePrintln(() -> "Fetching parent POM of " + pom.getArtifact().getCoordinates() +
+                    " - " + parentPom.getCoordinates());
 
-        return fetch(parentPom)
-                .thenComposeAsync(res -> res.map(
-                        parent -> withImportsIfNeeded(pom.withParent(parent)),
-                        this::handleRetrievalErrors));
+            return fetch(parentPom)
+                    .thenComposeAsync(res -> res.map(
+                            parent -> withImportsIfNeeded(pom.withParent(parent)),
+                            this::handleRetrievalErrors));
+
+        });
     }
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withImportsIfNeeded(MavenPom pom) {
@@ -162,6 +178,22 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
             var firstError = errors.remove(0);
             return Either.right(NonEmptyCollection.of(errors, firstError));
         });
+    }
+
+    public interface PomCreator {
+        CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact);
+    }
+
+    static class DefaultPomCreator implements PomCreator {
+        @Override
+        public CompletionStage<MavenPom> createPom(ResolvedArtifact artifact) {
+            try {
+                return completedStage(MavenUtils.parsePom(artifact.consumeContents()));
+            } catch (ParserConfigurationException | IOException | SAXException e) {
+                return failedStage(new JBuildException(e.toString(), ACTION_ERROR));
+            }
+
+        }
     }
 
 }

@@ -45,6 +45,15 @@ public final class Either<L, R> {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public <T> Either<L, T> mapRight(Function<R, T> withRight) {
+        if (left != null) {
+            //noinspection unchecked
+            return (Either<L, T>) this;
+        }
+        return Either.right(withRight.apply(right));
+    }
+
     public <T> Optional<Either<L, T>> combineRight(Either<L, R> other, BiFunction<R, R, T> combiner) {
         if (right != null && other.right != null) {
             return Optional.of(right(combiner.apply(this.right, other.right)));
