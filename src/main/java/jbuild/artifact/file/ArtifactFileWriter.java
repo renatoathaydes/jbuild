@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
+import static jbuild.maven.MavenUtils.standardArtifactPath;
 
 public class ArtifactFileWriter implements AutoCloseable, Closeable {
 
@@ -75,8 +76,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
             case MAVEN_REPOSITORY:
                 var artifact = resolvedArtifact.artifact;
                 return Path.of(
-                        directory.getPath(), artifact.groupId, artifact.artifactId,
-                        artifact.version, artifact.toFileName()
+                        directory.getPath(), standardArtifactPath(artifact, true)
                 ).toFile();
             default:
                 throw new IllegalStateException("unknown enum variant: " + mode);
