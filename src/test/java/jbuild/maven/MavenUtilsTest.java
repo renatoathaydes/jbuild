@@ -11,6 +11,7 @@ import java.util.Set;
 import static jbuild.maven.MavenAssertions.artifactCoordinates;
 import static jbuild.maven.MavenAssertions.dependencies;
 import static jbuild.maven.MavenAssertions.dependencyManagement;
+import static jbuild.maven.MavenAssertions.licenses;
 import static jbuild.maven.MavenHelper.dep;
 import static jbuild.maven.MavenHelper.readPom;
 import static jbuild.maven.MavenUtils.importsOf;
@@ -260,6 +261,21 @@ public class MavenUtilsTest {
                 ))
                 .has(artifactCoordinates(new Artifact("com.test", "optional-deps", "1.1")));
 
+    }
+
+    @Test
+    void canParseLicenses() throws Exception {
+        var junit = readPom("junit.pom.xml");
+
+        assertThat(junit).has(licenses(new License(
+                "Eclipse Public License 1.0",
+                "http://www.eclipse.org/legal/epl-v10.html")));
+
+        var guavaParent = readPom("guava-parent.pom.xml");
+
+        assertThat(guavaParent).has(licenses(new License(
+                "Apache License, Version 2.0",
+                "http://www.apache.org/licenses/LICENSE-2.0.txt")));
     }
 
     @Test

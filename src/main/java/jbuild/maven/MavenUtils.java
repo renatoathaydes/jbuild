@@ -112,7 +112,7 @@ public final class MavenUtils {
     public static String resolveProperty(String value, Map<String, String> properties) {
         String result = value;
         var visitedProperties = new LinkedHashSet<String>(4);
-        while (result.startsWith("${") && result.endsWith("}")) {
+        while (isUnresolvedProperty(result)) {
             var key = result.substring(2, result.length() - 1);
             if (properties.containsKey(key)) {
                 var isNew = visitedProperties.add(key);
@@ -126,6 +126,14 @@ public final class MavenUtils {
             }
         }
         return result;
+    }
+
+    private static boolean isUnresolvedProperty(String value) {
+        return value.startsWith("${") && value.endsWith("}");
+    }
+
+    private static boolean isUnresolvedPropertyOrEmpty(String value) {
+        return isUnresolvedProperty(value) || value.isBlank();
     }
 
     public static Set<Artifact> importsOf(MavenPom pom) {
@@ -145,5 +153,19 @@ public final class MavenUtils {
             default:
                 return packaging;
         }
+    }
+
+    public static boolean isFullyResolved(License license) {
+        return !isUnresolvedPropertyOrEmpty(license.name) &&
+                !isUnresolvedPropertyOrEmpty(license.url);
+    }
+
+    public static boolean isFullyResolved(Dependency dependency) {
+        var artifact = dependency.artifact;
+        return !isUnresolvedPropertyOrEmpty(artifact.groupId) &&
+                !isUnresolvedPropertyOrEmpty(artifact.artifactId) &&
+                !isUnresolvedPropertyOrEmpty(artifact.version) &&
+                !isUnresolvedPropertyOrEmpty(artifact.extension) &&
+                !isUnresolvedPropertyOrEmpty(dependency.optionalString);
     }
 }

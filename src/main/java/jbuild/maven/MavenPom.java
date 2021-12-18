@@ -17,6 +17,7 @@ import java.util.function.Supplier;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.maven.MavenUtils.isFullyResolved;
 import static jbuild.util.CollectionUtils.union;
 import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.XmlUtils.childNamed;
@@ -43,6 +44,7 @@ public final class MavenPom {
     private final Map<String, String> properties;
     private final Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement;
     private final Set<Dependency> dependencies;
+    private final Set<License> licenses;
 
     private MavenPom(Element project, MavenPom parentPom) {
         var properties = resolveProperties(project, parentPom);
@@ -52,6 +54,7 @@ public final class MavenPom {
         this.properties = populateProjectPropertiesWith(coordinates, properties);
         this.dependencyManagement = resolveDependencyManagement(project, properties, parentPom);
         this.dependencies = resolveDependencies(project, dependencyManagement, properties, parentPom);
+        this.licenses = resolveLicenses(project, properties, parentPom);
     }
 
     private MavenPom(MavenPom pom, MavenPom other, MergeMode mode) {
@@ -66,6 +69,9 @@ public final class MavenPom {
                 this.dependencies = union(other.dependencies, pom.dependencies)
                         .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
                         .collect(toSet());
+                this.licenses = union(other.licenses, pom.licenses)
+                        .stream().map(license -> refineLicense(license, properties))
+                        .collect(toSet());
                 break;
             case IMPORT:
             default:
@@ -77,6 +83,9 @@ public final class MavenPom {
                         other.dependencyManagement, NonEmptyCollection::of);
                 this.dependencies = pom.dependencies
                         .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
+                        .collect(toSet());
+                this.licenses = pom.licenses
+                        .stream().map(license -> refineLicense(license, properties))
                         .collect(toSet());
         }
     }
@@ -172,7 +181,14 @@ public final class MavenPom {
     }
 
     /**
-     * @return the properties of this POM
+     * @return the licenses declared in this POM.
+     */
+    public Set<License> getLicenses() {
+        return licenses;
+    }
+
+    /**
+     * @return the properties of this POM.
      */
     public Map<String, String> getProperties() {
         return properties;
@@ -236,6 +252,25 @@ public final class MavenPom {
                 .orElse(Set.of());
     }
 
+    private static Set<License> resolveLicenses(
+            Element project,
+            Map<String, String> properties,
+            MavenPom parentPom) {
+        var licenses = resolveLicenses(project, properties);
+        return union(parentPom == null ? Set.of() : parentPom.getLicenses(), licenses);
+    }
+
+    private static Set<License> resolveLicenses(
+            Element project,
+            Map<String, String> properties) {
+        return childNamed("licenses", project).map(licenses ->
+                childrenNamed("license", licenses).stream()
+                        .map(license -> toLicense(license, properties))
+                        .collect(toSet())
+        ).orElse(Set.of());
+
+    }
+
     private static Artifact resolveParentArtifact(Element project, Map<String, String> properties) {
         return childNamed("parent", project)
                 .map(a -> toDependency(a, properties, Map.of()))
@@ -251,11 +286,28 @@ public final class MavenPom {
         return artifact;
     }
 
+    private static License toLicense(Element element,
+                                     Map<String, String> properties) {
+        var name = resolveProperty(properties, childNamed("name", element), "<unspecified>");
+        var url = resolveProperty(properties, childNamed("url", element), "<unspecified>");
+        return new License(name, url);
+    }
+
+    private static License refineLicense(License license,
+                                         Map<String, String> properties) {
+        if (isFullyResolved(license)) {
+            return license;
+        }
+        var name = resolveProperty(properties, license.name, license.name);
+        var url = resolveProperty(properties, license.url, license.url);
+        return new License(name, url);
+    }
+
     private static Dependency toDependency(Element element,
                                            Map<String, String> properties,
                                            Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement) {
-        var groupId = resolveProperty(properties, childNamed("groupId", element), () -> "");
-        var artifactId = resolveProperty(properties, childNamed("artifactId", element), () -> "");
+        var groupId = resolveProperty(properties, childNamed("groupId", element), "");
+        var artifactId = resolveProperty(properties, childNamed("artifactId", element), "");
         var scope = Optional.ofNullable(
                 resolvePropertyScope(properties, childNamed("scope", element), () ->
                         defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId)))));
@@ -272,7 +324,9 @@ public final class MavenPom {
     private static Dependency refineDependency(Dependency dependency,
                                                Map<String, String> properties,
                                                Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement) {
-        // TODO check if dependency is fully resolved to save the work of creating new objects if possible
+        if (isFullyResolved(dependency)) {
+            return dependency;
+        }
         var groupId = resolveProperty(properties,
                 dependency.artifact.groupId, dependency.artifact.groupId);
         var artifactId = resolveProperty(properties,

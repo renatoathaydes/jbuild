@@ -26,6 +26,12 @@ final class MavenAssertions {
                 "artifacts %s", expectedArtifacts);
     }
 
+    static Condition<? super MavenPom> licenses(License... licenses) {
+        var expectedLicenses = Set.of(licenses);
+        return new Condition<>(pom -> pom.getLicenses().equals(expectedLicenses),
+                "licenses %s", expectedLicenses);
+    }
+
     static Condition<? super MavenPom> dependencyManagement(Dependency... dependencies) {
         var expectedArtifacts = Set.of(dependencies);
         return new Condition<>(pom -> pom.getDependencyManagement()
