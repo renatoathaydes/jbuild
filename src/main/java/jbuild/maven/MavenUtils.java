@@ -149,6 +149,7 @@ public final class MavenUtils {
             case "jar":
             case "bundle":
             case "maven-plugin":
+            case "eclipse-plugin":
                 return "jar";
             default:
                 return packaging;
