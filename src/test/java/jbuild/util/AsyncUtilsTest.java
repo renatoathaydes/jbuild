@@ -3,11 +3,18 @@ package jbuild.util;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
+import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,6 +99,32 @@ public class AsyncUtilsTest {
                 result.get());
     }
 
+    @Test
+    void canRunChainOfAsyncActionsEvenWhenOneFails() {
+        var shouldThrow = new AtomicBoolean(true);
+
+        Supplier<String> futureHandler = () -> {
+            if (shouldThrow.get()) throw new EqualByMessageException("not ok");
+            return "no error";
+        };
+
+        BiFunction<String, Throwable, CompletionStage<Map<String, ?>>> secondAsyncAction = (ok, err) ->
+                completedStage(err != null ? Map.of("error", err.getCause()) : Map.of("ok", ok));
+
+        var asyncResult = AsyncUtils.handlingAsync(supplyAsync(futureHandler), secondAsyncAction);
+        var result = blockAndGetResult(asyncResult);
+
+        assertThat(result).isEqualTo(Map.of("error", new EqualByMessageException("not ok")));
+
+        // when the first action doesn't throw an error, the second action gets the ok result
+        shouldThrow.set(false);
+
+        asyncResult = AsyncUtils.handlingAsync(supplyAsync(futureHandler), secondAsyncAction);
+        result = blockAndGetResult(asyncResult);
+
+        assertThat(result).isEqualTo(Map.of("ok", "no error"));
+    }
+
     private static void delay(long time) {
         try {
             Thread.sleep(time);
@@ -112,6 +145,25 @@ public class AsyncUtilsTest {
         });
 
         assertThat(assertionMap).isEqualTo(expected);
+    }
+
+    private <T> T blockAndGetResult(CompletionStage<T> completion) {
+        var future = new CompletableFuture<T>();
+        completion.handle((ok, err) -> {
+            if (err != null) future.completeExceptionally(err);
+            else future.complete(ok);
+            return null;
+        });
+
+        T ok;
+        try {
+            ok = future.get(5, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+
+        if (ok == null) throw new RuntimeException("TIMEOUT");
+        return ok;
     }
 }
 

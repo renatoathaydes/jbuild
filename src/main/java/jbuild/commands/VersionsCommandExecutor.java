@@ -27,6 +27,7 @@ import java.util.concurrent.CompletionStage;
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.MAVEN_CENTRAL_URL;
+import static jbuild.util.AsyncUtils.handlingAsync;
 
 public final class VersionsCommandExecutor {
 
@@ -73,29 +74,33 @@ public final class VersionsCommandExecutor {
 
         var requestTime = System.currentTimeMillis();
 
-        // FIXME we should continue the async chain even if one of the requests throws an Exception
-        return httpClient.sendAsync(request,
+        return handlingAsync(httpClient.sendAsync(request,
                 HttpResponse.BodyHandlers.ofByteArray()
-        ).thenCompose(response -> {
+        ), (response, httpRequestError) -> {
             Throwable error = null;
-            if (response.statusCode() == 200) {
-                log.verbosePrintln(() -> artifact + " metadata retrieved successfully from " + requestUri +
-                        " in " + (System.currentTimeMillis() - requestTime) + " ms");
-                try {
-                    return completedStage(Either.left(MavenUtils.parseMavenMetadata(
-                            new ByteArrayInputStream(response.body()))));
-                } catch (ParserConfigurationException | IOException | SAXException e) {
-                    log.verbosePrintln(() -> "Problem parsing metadata for " + artifact + ": " + e);
-                    error = e;
+            if (httpRequestError == null) {
+                if (response.statusCode() == 200) {
+                    log.verbosePrintln(() -> artifact + " metadata retrieved successfully from " + requestUri +
+                            " in " + (System.currentTimeMillis() - requestTime) + " ms");
+                    try {
+                        return completedStage(Either.left(MavenUtils.parseMavenMetadata(
+                                new ByteArrayInputStream(response.body()))));
+                    } catch (ParserConfigurationException | IOException | SAXException e) {
+                        log.verbosePrintln(() -> "Problem parsing metadata for " + artifact + ": " + e);
+                        error = e;
+                    }
                 }
-            }
 
-            if (error == null) {
-                log.verbosePrintln(() -> "Unexpected server response for metadata of " +
-                        artifact + ": " + response.statusCode());
+                if (error == null) {
+                    log.verbosePrintln(() -> "Unexpected server response for metadata of " +
+                            artifact + ": " + response.statusCode());
 
-                error = new JBuildException("unexpected status code returned for metadata: " +
-                        response.statusCode(), ACTION_ERROR);
+                    error = new JBuildException("unexpected status code returned for metadata: " +
+                            response.statusCode(), ACTION_ERROR);
+                }
+            } else {
+                log.verbosePrintln(() -> "Problem requesting metadata for " + artifact + ": " + httpRequestError);
+                error = httpRequestError;
             }
 
             if (remainingRepos.hasNext()) {

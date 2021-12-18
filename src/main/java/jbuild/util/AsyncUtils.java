@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.BiFunction;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 
@@ -50,6 +51,22 @@ public final class AsyncUtils {
         }));
 
         return future;
+    }
+
+    public static <T, U> CompletionStage<U> handlingAsync(CompletableFuture<T> future,
+                                                          BiFunction<T, Throwable, CompletionStage<U>> handler) {
+        var result = new CompletableFuture<U>();
+        future.whenComplete((ok, error) -> {
+            var handledResult = handler.apply(ok, error);
+            handledResult.whenComplete((ok2, err2) -> {
+                if (err2 != null) {
+                    result.completeExceptionally(err2);
+                } else {
+                    result.complete(ok2);
+                }
+            });
+        });
+        return result;
     }
 
 }
