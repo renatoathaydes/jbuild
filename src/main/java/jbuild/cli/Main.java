@@ -129,10 +129,10 @@ public final class Main {
 
         log.verbosePrintln(() -> "Parsed CLI options in " + time(startTime));
 
-        run(options, startTime);
+        withErrorHandling(() -> run(options), startTime);
     }
 
-    private void run(Options options, long startTime) {
+    private void run(Options options) throws Exception {
         if (options.help) {
             log.println(USAGE);
             return;
@@ -144,31 +144,31 @@ public final class Main {
         }
 
         if (options.command.isBlank()) {
-            exitWithError("No command given to execute. Run jbuild --help for usage.", USER_INPUT, startTime);
+            throw new JBuildException("No command given to execute. Run jbuild --help for usage.", USER_INPUT);
         }
 
         switch (options.command) {
             case "fetch":
-                fetchArtifacts(options, startTime);
+                fetchArtifacts(options);
                 break;
             case "deps":
-                listDeps(options, startTime);
+                listDeps(options);
                 break;
             case "install":
-                installArtifacts(options, startTime);
+                installArtifacts(options);
                 break;
             case "versions":
-                listVersions(options, startTime);
+                listVersions(options);
                 break;
             default:
-                exitWithError("Unknown command: " + options.command +
-                        ". Run jbuild --help for usage.", USER_INPUT, startTime);
+                throw new JBuildException("Unknown command: " + options.command +
+                        ". Run jbuild --help for usage.", USER_INPUT);
         }
     }
 
-    private void listDeps(Options options, long startTime) {
+    private void listDeps(Options options) throws Exception {
         var depsOptions = DepsOptions.parse(options.commandArgs);
-        var artifacts = parseArtifacts(startTime, depsOptions.artifacts);
+        var artifacts = parseArtifacts(depsOptions.artifacts);
 
         if (artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
@@ -193,19 +193,17 @@ public final class Main {
                     }
                 }));
 
-        withErrorHandling(() -> {
-            latch.await();
+        latch.await();
 
-            var errorCause = anyError.get();
-            if (errorCause != null) {
-                exitWithError("Could not fetch all Maven dependencies successfully", errorCause, startTime);
-            }
-        }, startTime);
+        var errorCause = anyError.get();
+        if (errorCause != null) {
+            throw new JBuildException("Could not fetch all Maven dependencies successfully", errorCause);
+        }
     }
 
-    private void installArtifacts(Options options, long startTime) {
+    private void installArtifacts(Options options) throws Exception {
         var installOptions = InstallOptions.parse(options.commandArgs);
-        var artifacts = parseArtifacts(startTime, installOptions.artifacts);
+        var artifacts = parseArtifacts(installOptions.artifacts);
 
         if (artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
@@ -232,26 +230,28 @@ public final class Main {
                     if (successes > 0) {
                         log.println(() -> "Successfully installed " + successes +
                                 " artifact" + (successes == 1 ? "" : "s") + " at " + fileWriter.directory);
+                    } else {
+                        anyError.set(ErrorCause.ACTION_ERROR);
                     }
                 } else {
-                    log.print(err);
+                    anyError.set(err instanceof JBuildException
+                            ? ((JBuildException) err).getErrorCause()
+                            : ErrorCause.UNKNOWN);
                 }
             } finally {
                 latch.countDown();
             }
         });
 
-        withErrorHandling(() -> {
-            latch.await();
+        latch.await();
 
-            var errorCause = anyError.get();
-            if (errorCause != null) {
-                exitWithError("Could not install all artifacts successfully", errorCause, startTime);
-            }
-        }, startTime);
+        var errorCause = anyError.get();
+        if (errorCause != null) {
+            throw new JBuildException("Could not install all artifacts successfully", errorCause);
+        }
     }
 
-    private void fetchArtifacts(Options options, long startTime) {
+    private void fetchArtifacts(Options options) throws Exception {
         var fetchOptions = FetchOptions.parse(options.commandArgs);
 
         if (fetchOptions.artifacts.isEmpty()) {
@@ -259,7 +259,7 @@ public final class Main {
             return;
         }
 
-        var artifacts = parseArtifacts(startTime, fetchOptions.artifacts);
+        var artifacts = parseArtifacts(fetchOptions.artifacts);
 
         var outDir = new File(fetchOptions.outDir);
 
@@ -283,27 +283,25 @@ public final class Main {
                     }
                 }));
 
-        withErrorHandling(() -> {
-            try {
-                latch.await();
-            } finally {
-                fileWriter.close();
-            }
+        try {
+            latch.await();
+        } finally {
+            fileWriter.close();
+        }
 
-            var errorCause = anyError.get();
-            if (errorCause != null) {
-                exitWithError("Could not fetch all artifacts successfully", errorCause, startTime);
-            }
+        var errorCause = anyError.get();
+        if (errorCause != null) {
+            throw new JBuildException("Could not fetch all artifacts successfully", errorCause);
+        }
 
-            log.verbosePrintln(() -> (artifacts.size() > 1 ? "All " + artifacts.size() + " artifacts" : "Artifact") +
-                    " successfully downloaded to " + fetchOptions.outDir);
-        }, startTime);
+        log.verbosePrintln(() -> (artifacts.size() > 1 ? "All " + artifacts.size() + " artifacts" : "Artifact") +
+                " successfully downloaded to " + fetchOptions.outDir);
     }
 
-    private void listVersions(Options options, long startTime) {
+    private void listVersions(Options options) throws Exception {
         var commandExecutor = createVersionsCommandExecutor(options);
         var versionsOptions = VersionsOptions.parse(options.commandArgs);
-        var artifacts = parseArtifacts(startTime, versionsOptions.artifacts);
+        var artifacts = parseArtifacts(versionsOptions.artifacts);
 
         if (artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
@@ -329,17 +327,15 @@ public final class Main {
                     }
                 }));
 
-        withErrorHandling(() -> {
-            latch.await();
+        latch.await();
 
-            var versionLogger = new VersionLogger(log);
-            metadataByArtifact.forEach(versionLogger::log);
+        var versionLogger = new VersionLogger(log);
+        metadataByArtifact.forEach(versionLogger::log);
 
-            var errorCause = anyError.get();
-            if (errorCause != null) {
-                exitWithError("Could not fetch all versions successfully", errorCause, startTime);
-            }
-        }, startTime);
+        var errorCause = anyError.get();
+        if (errorCause != null) {
+            throw new JBuildException("Could not fetch all versions successfully", errorCause);
+        }
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {
@@ -430,15 +426,14 @@ public final class Main {
         log.println(() -> "JBuild success in " + time(startTime) + "!");
     }
 
-    private Set<? extends Artifact> parseArtifacts(long startTime, Set<String> coordinates) {
+    private Set<? extends Artifact> parseArtifacts(Set<String> coordinates) {
         Set<Artifact> artifacts;
         try {
             artifacts = coordinates.stream()
                     .map(Artifact::parseCoordinates)
                     .collect(toSet());
         } catch (IllegalArgumentException e) {
-            exitWithError(e.getMessage(), USER_INPUT, startTime);
-            throw new RuntimeException("unreachable");
+            throw new JBuildException(e.getMessage(), USER_INPUT);
         }
 
         log.verbosePrintln(() -> "Parsed artifacts coordinates:\n" + artifacts.stream()
