@@ -147,23 +147,24 @@ final class DepsOptions {
     final EnumSet<Scope> scopes;
     final boolean transitive;
     final boolean optional;
+    final boolean licenses;
 
     DepsOptions(Set<String> artifacts,
                 EnumSet<Scope> scopes,
                 boolean transitive,
-                boolean optional) {
+                boolean optional,
+                boolean licenses) {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.transitive = transitive;
         this.optional = optional;
+        this.licenses = licenses;
     }
 
     static DepsOptions parse(List<String> args) {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
-        var transitive = false;
-        var optional = false;
-        var expectScope = false;
+        boolean transitive = false, optional = false, licenses = false, expectScope = false;
 
         for (String arg : args) {
             if (expectScope) {
@@ -181,6 +182,8 @@ final class DepsOptions {
                     optional = true;
                 } else if (isEither(arg, "-t", "--transitive")) {
                     transitive = true;
+                } else if (isEither(arg, "-l", "--licenses")) {
+                    licenses=true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
                             "\nRun jbuild --help for usage.", USER_INPUT);
@@ -197,7 +200,7 @@ final class DepsOptions {
         // if no scopes are included explicitly, use all
         if (scopes.isEmpty()) scopes = EnumSet.allOf(Scope.class);
 
-        return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional);
+        return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional, licenses);
     }
 
 }

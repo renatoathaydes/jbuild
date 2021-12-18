@@ -16,7 +16,7 @@ to manage other Java projects and dependencies themselves.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
-- [ ] list artifacts licenses.
+- [x] list artifacts licenses.
 - [ ] accept local POM file as input for most commands.
 - [x] install artifacts in local file system (flat dir or Maven repo).
 - [ ] install artifacts in remote HTTP repository.
@@ -40,7 +40,7 @@ Here's the list of Maven tags and concepts supported by JBuild:
 - [x] dependencies/dependency/exclusions
 - [x] dependencyManagement
 - [x] project coordinates/packaging/parent
-- [ ] project license
+- [x] project license
 - [x] project properties
 - [x] evaluate property placeholders from properties tag 
 - [x] evaluate property placeholders from XML tags (version, artifactId, groupId)
@@ -111,6 +111,8 @@ Available commands:
       Usage:
         jbuild deps <options... | artifact...>
       Options:
+        --licenses
+        -l        show licenses of all artifacts (requires --transitive option).
         --optional
         -O        include optional dependencies.
         --scope

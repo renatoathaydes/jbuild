@@ -97,6 +97,8 @@ public final class Main {
             "      Usage:\n" +
             "        jbuild deps <options... | artifact...>\n" +
             "      Options:\n" +
+            "        --licenses\n" +
+            "        -l        show licenses of all artifacts (requires --transitive option).\n" +
             "        --optional\n" +
             "        -O        include optional dependencies.\n" +
             "        --scope\n" +
@@ -173,6 +175,11 @@ public final class Main {
         if (artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
             return;
+        }
+
+        if (depsOptions.licenses && !depsOptions.transitive) {
+            // we cannot fetch dependencies' POMs to see their licenses unless we fetch transitive dependencies
+            log.println(() -> "WARNING: to display dependencies licenses, you also need to use the -t/--transitive flag.");
         }
 
         var latch = new CountDownLatch(artifacts.size());
