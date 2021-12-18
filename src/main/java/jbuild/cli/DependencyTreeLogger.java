@@ -137,21 +137,32 @@ final class DependencyTreeLogger {
     private static String licenseString(License license) {
         switch (license.name) {
             case "The Apache License, Version 1.0":
+            case "Apache License, Version 1.0":
             case "Apache License 1.0":
+            case "ASF 1.0":
+            case "Apache 1":
+            case "Apache 1.0":
             case "Apache-1.0":
                 return "Apache-1.0";
             case "The Apache License, Version 1.1":
+            case "Apache License, Version 1.1":
             case "Apache License 1.1":
+            case "Apache 1.1":
+            case "ASF 1.1":
             case "Apache-1.1":
                 return "Apache-1.1";
             case "The Apache License, Version 2.0":
+            case "Apache License, Version 2.0":
             case "Apache License 2.0":
+            case "Apache 2.0":
+            case "ASF 2.0":
             case "Apache-2.0":
                 return "Apache-2.0";
             case "Do What The F*ck You Want To Public License":
             case "WTFPL":
                 return "WTFPL";
             case "The New BSD License":
+            case "New BSD License":
             case "BSD 2-Clause \"Simplified\" License":
             case "BSD-2-Clause":
                 return "BSD-2-Clause";
@@ -165,6 +176,15 @@ final class DependencyTreeLogger {
             case "Common Public License Version 1.0":
             case "CPL-1.0":
                 return "CPL-1.0";
+            case "Common Documentation License 1.0":
+            case "CLD-1.0":
+                return "CDL-1.0";
+            case "Common Development and Distribution License (CDDL) v1.0":
+            case "CDDL-1.0":
+                return "CDDL-1.0";
+            case "Common Development and Distribution License (CDDL) v1.1":
+            case "CDDL-1.1":
+                return "CDDL-1.1";
             case "GNU General Public License v1.0 only":
             case "GPL-1.0":
                 return "GPL-1.0";
