@@ -16,6 +16,7 @@ to manage other Java projects and dependencies themselves.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
+- [ ] detect version clashes in dependency tree.
 - [x] list artifacts licenses.
 - [ ] accept local POM file as input for most commands.
 - [x] install artifacts in local file system (flat dir or Maven repo).
@@ -23,7 +24,6 @@ to manage other Java projects and dependencies themselves.
 - [ ] check completeness of classpath in general (all code included).
 - [ ] check completeness of classpath given a Java entry-point (exclude unused code).
 - [ ] check binary compatibility of artifacts included in the classpath.
-- [ ] detect version clashes in dependency tree.
 - [ ] automatically find compatible set of artifacts in dependency tree, based on application needs.
 - [ ] show full call hierarchy of jar/class/method.
 - [ ] find unused jars/classes/methods in a given compilation unit.
@@ -42,6 +42,7 @@ Features that fully-fledged build tools like Maven and Gradle want to have, but 
   application that uses JBuild and other JVM libraries).
 * configuration files (though JBuild may allow passing a file with CLI options in the future).
 * anything not directly related to building Java or other JVM language projects.
+* IDE integration (though JBuild makes it easy for IDEs to _see_ the classpath).
 
 ## Dependency Management
 
