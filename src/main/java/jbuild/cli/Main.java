@@ -216,10 +216,11 @@ public final class Main {
                 ? new ArtifactFileWriter(new File(installOptions.repoDir), MAVEN_REPOSITORY)
                 : new ArtifactFileWriter(new File(installOptions.outDir), FLAT_DIR);
 
+        var installCommandExecutor = createInstallCommandExecutor(options, fileWriter);
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
 
-        InstallCommandExecutor.create(log, fileWriter).installDependencyTree(
+        installCommandExecutor.installDependencyTree(
                 artifacts, installOptions.scopes, true, installOptions.optional
         ).whenComplete((successCount, err) -> {
             try {
@@ -366,6 +367,17 @@ public final class Main {
         }
         return DepsCommandExecutor.create(log,
                 new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers)));
+    }
+
+    private InstallCommandExecutor createInstallCommandExecutor(Options options,
+                                                                ArtifactFileWriter writer) {
+        var retrievers = options.getRetrievers();
+        if (retrievers.isEmpty()) {
+            return InstallCommandExecutor.create(log, writer);
+        }
+        return new InstallCommandExecutor(log,
+                new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers)),
+                writer);
     }
 
     private void reportErrors(AtomicReference<ErrorCause> anyError,
