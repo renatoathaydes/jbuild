@@ -91,9 +91,10 @@ public final class CollectionUtils {
         };
     }
 
-    public static <T> Set<T> append(Set<T> list, T last) {
-        var copy = new LinkedHashSet<T>(list.size() + 1);
-        copy.addAll(list);
+    public static <T> Set<T> append(Set<T> set, T last) {
+        if (set.contains(last)) return set;
+        var copy = new LinkedHashSet<T>(set.size() + 1);
+        copy.addAll(set);
         copy.add(last);
         return copy;
     }
