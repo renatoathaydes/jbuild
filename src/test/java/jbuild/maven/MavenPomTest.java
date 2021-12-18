@@ -56,7 +56,10 @@ public class MavenPomTest {
                         "optionalYa", "true",
                         "project.groupId", "com.test",
                         "project.artifactId", "optional-deps",
-                        "project.version", "1.1"
+                        "project.version", "1.1",
+                        "project.parent.groupId", "com.test",
+                        "project.parent.artifactId", "optional-parent",
+                        "project.parent.version", "1.1"
                 ));
     }
 
