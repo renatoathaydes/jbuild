@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -110,9 +111,15 @@ public final class MavenUtils {
 
     public static String resolveProperty(String value, Map<String, String> properties) {
         String result = value;
+        var visitedProperties = new LinkedHashSet<String>(4);
         while (result.startsWith("${") && result.endsWith("}")) {
             var key = result.substring(2, result.length() - 1);
             if (properties.containsKey(key)) {
+                var isNew = visitedProperties.add(key);
+                if (!isNew) {
+                    throw new IllegalStateException("infinite loop detected resolving property: " +
+                            String.join(" -> ", visitedProperties) + " -> " + key);
+                }
                 result = properties.get(key);
             } else {
                 return result;

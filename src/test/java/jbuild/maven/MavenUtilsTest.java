@@ -17,6 +17,7 @@ import static jbuild.maven.MavenUtils.importsOf;
 import static jbuild.maven.Scope.COMPILE;
 import static jbuild.maven.Scope.TEST;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class MavenUtilsTest {
 
@@ -310,6 +311,24 @@ public class MavenUtilsTest {
                 assertThat(MavenUtils.resolveProperty(example.value, example.properties))
                         .isEqualTo(example.expectedResolvedValue)
         );
+    }
+
+    @Test
+    void canDetectInfiniteLoopInMavenProperties() {
+        assertThatThrownBy(() ->
+                MavenUtils.resolveProperty("${foo}", Map.of("foo", "${foo}"))
+        ).isInstanceOf(IllegalStateException.class)
+                .hasMessage("infinite loop detected resolving property: foo -> foo");
+
+        assertThatThrownBy(() ->
+                MavenUtils.resolveProperty("${foo}", Map.of(
+                        "foo", "${bar}",
+                        "bar", "${zort}",
+                        "zort", "${wat}",
+                        "wat", "${bar}"
+                ))
+        ).isInstanceOf(IllegalStateException.class)
+                .hasMessage("infinite loop detected resolving property: foo -> bar -> zort -> wat -> bar");
     }
 
 }
