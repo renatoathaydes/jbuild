@@ -55,18 +55,7 @@ public final class AsyncUtils {
 
     public static <T, U> CompletionStage<U> handlingAsync(CompletableFuture<T> future,
                                                           BiFunction<T, Throwable, CompletionStage<U>> handler) {
-        var result = new CompletableFuture<U>();
-        future.whenComplete((ok, error) -> {
-            var handledResult = handler.apply(ok, error);
-            handledResult.whenComplete((ok2, err2) -> {
-                if (err2 != null) {
-                    result.completeExceptionally(err2);
-                } else {
-                    result.complete(ok2);
-                }
-            });
-        });
-        return result;
+        return future.handle(handler).thenCompose(x -> x);
     }
 
 }
