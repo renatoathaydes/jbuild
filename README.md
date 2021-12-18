@@ -2,7 +2,7 @@
 
 JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management.
 
-It consists of a simple CLI, so it can be used as a very handy CLI utility,
+It consists of a simple CLI, so it can be used as a very handy command-line utility,
 but can also be used as a Java library, allowing JVM applications
 to manage other Java projects and dependencies themselves.
 
@@ -28,11 +28,25 @@ to manage other Java projects and dependencies themselves.
 - [ ] show full call hierarchy of jar/class/method.
 - [ ] find unused jars/classes/methods in a given compilation unit.
 - [ ] compile and package Java applications.
+- [ ] execute JUnit tests.
+
+## Non-features
+
+JBuild does not aim to replace Gradle or Maven, but to complement them by giving Java developers a simpler and faster
+alternative for certain tasks, specially dependency management (both module- and code-level dependencies).
+
+Features that fully-fledged build tools like Maven and Gradle want to have, but JBuild doesn't:
+
+* general task management (e.g. Gradle tasks or Maven phases).
+* plugins (JBuild can be used as a library - you don't need a JBuild plugin when you can have your own build 
+  application that uses JBuild and other JVM libraries).
+* configuration files (though JBuild may allow passing a file with CLI options in the future).
+* anything not directly related to building Java or other JVM language projects.
 
 ## Dependency Management
 
 JBuild currently supports a sub-set of Maven, just enough to make sure dependency resolution works
-as accurately as Maven.
+as accurately as with Maven.
 
 Here's the list of Maven tags and concepts supported by JBuild:
 
