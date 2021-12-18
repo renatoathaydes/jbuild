@@ -9,27 +9,26 @@ import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionStage;
 
-import static java.util.concurrent.CompletableFuture.completedStage;
+import static jbuild.maven.MavenUtils.standardArtifactPath;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
-    private final String baseUrl;
+    private final URI baseUrl;
     private final HttpClient httpClient;
 
-    public HttpArtifactRetriever(String baseUrl,
+    public HttpArtifactRetriever(URI baseUrl,
                                  HttpClient httpClient) {
         this.baseUrl = baseUrl;
         this.httpClient = httpClient;
     }
 
     public HttpArtifactRetriever(String baseUrl) {
-        this(baseUrl, DefaultHttpClient.get());
+        this(URI.create(baseUrl), DefaultHttpClient.get());
     }
 
     public HttpArtifactRetriever() {
@@ -43,15 +42,8 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
     @Override
     public CompletionStage<ArtifactResolution<HttpError>> retrieve(Artifact artifact) {
-        var requestPath = MavenUtils.standardArtifactPath(artifact, false);
-
-        HttpRequest request;
-        try {
-            request = HttpRequest.newBuilder(new URI(baseUrl + "/" + requestPath)).build();
-        } catch (URISyntaxException e) {
-            return completedStage(ArtifactResolution.failure(
-                    new HttpError(artifact, this, Either.right(e))));
-        }
+        var requestPath = URI.create(standardArtifactPath(artifact, false));
+        var request = HttpRequest.newBuilder(baseUrl.resolve(requestPath)).build();
 
         var requestTime = System.currentTimeMillis();
 

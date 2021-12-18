@@ -1,8 +1,13 @@
 package jbuild.cli;
 
+import jbuild.artifact.ArtifactRetriever;
+import jbuild.artifact.file.FileArtifactRetriever;
+import jbuild.artifact.http.HttpArtifactRetriever;
+import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.maven.Scope;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -12,6 +17,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import static java.util.Collections.unmodifiableSet;
+import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.isEither;
 
@@ -36,6 +42,16 @@ final class Options {
         this.command = command;
         this.repositories = repositories;
         this.commandArgs = commandArgs;
+    }
+
+    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers() {
+        return repositories.stream()
+                .map(address -> {
+                    if (address.startsWith("http://") || address.startsWith("https://")) {
+                        return new HttpArtifactRetriever(address);
+                    }
+                    return new FileArtifactRetriever(Paths.get(address));
+                }).collect(toList());
     }
 
     static Options parse(String[] args) {

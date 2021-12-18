@@ -22,7 +22,7 @@ import static java.util.stream.Collectors.toSet;
 
 public final class MavenUtils {
 
-    public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2";
+    public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2/";
 
     private enum XmlSingletons {
         INSTANCE;

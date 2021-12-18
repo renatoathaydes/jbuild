@@ -42,9 +42,18 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         this.mavenPomRetriever = mavenPomRetriever;
     }
 
-    public static DepsCommandExecutor<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
+    public static DepsCommandExecutor<ArtifactRetrievalError> create(JBuildLog log) {
         var mavenPomRetriever = new MavenPomRetriever<>(log,
                 FetchCommandExecutor.createDefault(log),
+                new DefaultPomCreator());
+        return new DepsCommandExecutor<>(log, mavenPomRetriever);
+    }
+
+    public static <E extends ArtifactRetrievalError> DepsCommandExecutor<E> create(
+            JBuildLog log,
+            FetchCommandExecutor<E> fetchCommandExecutor) {
+        var mavenPomRetriever = new MavenPomRetriever<>(log,
+                fetchCommandExecutor,
                 new DefaultPomCreator());
         return new DepsCommandExecutor<>(log, mavenPomRetriever);
     }

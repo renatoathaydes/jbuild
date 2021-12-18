@@ -44,8 +44,7 @@ public final class VersionsCommandExecutor {
     }
 
     public VersionsCommandExecutor(JBuildLog log) {
-        // append a '/' because when URI#resolve is called it removes the last path part of the base URL
-        this(log, NonEmptyCollection.of(URI.create(MAVEN_CENTRAL_URL + "/")), DefaultHttpClient.get());
+        this(log, NonEmptyCollection.of(URI.create(MAVEN_CENTRAL_URL)), DefaultHttpClient.get());
     }
 
     public Map<Artifact, CompletionStage<Either<MavenMetadata, NonEmptyCollection<Throwable>>>> getVersions(

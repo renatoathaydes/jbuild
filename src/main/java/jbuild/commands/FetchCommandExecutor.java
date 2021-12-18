@@ -40,7 +40,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
         this.retrievers = retrievers;
     }
 
-    public static FetchCommandExecutor<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
+    public static FetchCommandExecutor<ArtifactRetrievalError> createDefault(JBuildLog log) {
         return new FetchCommandExecutor<>(log, NonEmptyCollection.of(
                 NonEmptyCollection.of(new FileArtifactRetriever()),
                 new HttpArtifactRetriever()));

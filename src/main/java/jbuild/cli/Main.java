@@ -7,6 +7,7 @@ import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
+import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
@@ -177,8 +178,9 @@ public final class Main {
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
         var treeLogger = new DependencyTreeLogger(log, depsOptions);
+        var depsCommandExecutor = createDepsCommandExecutor(options);
 
-        DepsCommandExecutor.createDefault(log).fetchDependencyTree(
+        depsCommandExecutor.fetchDependencyTree(
                         artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
                 .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
                     try {
@@ -355,6 +357,15 @@ public final class Main {
                 }).collect(Collectors.toList());
 
         return new VersionsCommandExecutor(log, NonEmptyCollection.of(baseUris), DefaultHttpClient.get());
+    }
+
+    private DepsCommandExecutor<ArtifactRetrievalError> createDepsCommandExecutor(Options options) {
+        var retrievers = options.getRetrievers();
+        if (retrievers.isEmpty()) {
+            return DepsCommandExecutor.create(log);
+        }
+        return DepsCommandExecutor.create(log,
+                new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers)));
     }
 
     private void reportErrors(AtomicReference<ErrorCause> anyError,
