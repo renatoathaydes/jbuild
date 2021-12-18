@@ -6,6 +6,7 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 public class NonEmptyCollectionTest {
 
@@ -28,6 +29,17 @@ public class NonEmptyCollectionTest {
 
         assertThat(NonEmptyCollection.of(List.of(2, 3), 4))
                 .containsExactly(2, 3, 4);
+    }
+
+    @Test
+    void canCreateFromList() {
+        assertThat(NonEmptyCollection.of(List.of(1)))
+                .containsExactly(1);
+
+        assertThat(NonEmptyCollection.of(List.of(2, 3)))
+                .containsExactly(2, 3);
+
+        assertThatIllegalArgumentException().isThrownBy(() -> NonEmptyCollection.of(List.of()));
     }
 
     @Test

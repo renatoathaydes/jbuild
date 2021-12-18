@@ -54,4 +54,11 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
                                                Iterable<T> tail) {
         return new NonEmptyCollection<>(head.first, append(head, tail));
     }
+
+    public static <T> NonEmptyCollection<T> of(List<T> list) {
+        if (list.isEmpty()) {
+            throw new IllegalArgumentException("empty list");
+        }
+        return new NonEmptyCollection<>(list.get(0), list);
+    }
 }
