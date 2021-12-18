@@ -19,21 +19,21 @@ import static java.util.concurrent.CompletableFuture.completedStage;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
-    private final HttpClient httpClient;
     private final String baseUrl;
+    private final HttpClient httpClient;
 
-    public HttpArtifactRetriever(HttpClient httpClient,
-                                 String baseUrl) {
-        this.httpClient = httpClient;
+    public HttpArtifactRetriever(String baseUrl,
+                                 HttpClient httpClient) {
         this.baseUrl = baseUrl;
+        this.httpClient = httpClient;
     }
 
-    public HttpArtifactRetriever(HttpClient httpClient) {
-        this(httpClient, MavenUtils.MAVEN_CENTRAL_URL);
+    public HttpArtifactRetriever(String baseUrl) {
+        this(baseUrl, DefaultHttpClient.get());
     }
 
     public HttpArtifactRetriever() {
-        this(DefaultHttpClient.get());
+        this(MavenUtils.MAVEN_CENTRAL_URL);
     }
 
     @Override

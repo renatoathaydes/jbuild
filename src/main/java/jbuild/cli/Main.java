@@ -2,6 +2,7 @@ package jbuild.cli;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.file.ArtifactFileWriter;
+import jbuild.artifact.http.DefaultHttpClient;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
@@ -15,6 +16,7 @@ import jbuild.util.FileUtils;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
@@ -295,6 +298,7 @@ public final class Main {
     }
 
     private void listVersions(Options options, long startTime) {
+        var commandExecutor = createVersionsCommandExecutor(options);
         var versionsOptions = VersionsOptions.parse(options.commandArgs);
         var artifacts = parseArtifacts(startTime, versionsOptions.artifacts);
 
@@ -307,13 +311,13 @@ public final class Main {
         var anyError = new AtomicReference<ErrorCause>();
         var metadataByArtifact = new ConcurrentSkipListMap<Artifact, MavenMetadata>(comparing(Artifact::getCoordinates));
 
-        new VersionsCommandExecutor(log).getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
+        commandExecutor.getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
                 eitherCompletionStage.whenComplete((completion, err) -> {
                     try {
                         if (err == null) {
                             completion.use(
                                     ok -> metadataByArtifact.put(artifact, ok),
-                                    er -> reportErrors(anyError, artifact, Optional.empty(), er));
+                                    errors -> reportErrors(anyError, errors));
                         } else {
                             reportErrors(anyError, artifact, Optional.empty(), err);
                         }
@@ -333,6 +337,24 @@ public final class Main {
                 exitWithError("Could not fetch all versions successfully", errorCause, startTime);
             }
         }, startTime);
+    }
+
+    private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {
+        if (options.repositories.isEmpty()) {
+            return new VersionsCommandExecutor(log);
+        }
+
+        var baseUris = options.repositories.stream()
+                .map(repo -> {
+                    if (repo.startsWith("http://") || repo.startsWith("https://")) {
+                        return URI.create(repo);
+                    } else {
+                        throw new JBuildException("the versions command only accepts HTTP(S) URIs, " +
+                                "invalid repository value: " + repo, USER_INPUT);
+                    }
+                }).collect(Collectors.toList());
+
+        return new VersionsCommandExecutor(log, NonEmptyCollection.of(baseUris), DefaultHttpClient.get());
     }
 
     private void reportErrors(AtomicReference<ErrorCause> anyError,
@@ -359,12 +381,15 @@ public final class Main {
 
     private void reportErrors(AtomicReference<ErrorCause> anyError, NonEmptyCollection<Throwable> errors) {
         var errRefSet = false;
+        log.println("The following errors have occurred:");
         for (var error : errors) {
             if (error instanceof JBuildException) {
                 anyError.set(((JBuildException) error).getErrorCause());
                 errRefSet = true;
+                log.println(() -> "  * " + error.getMessage());
+            } else {
+                log.println(() -> "  * " + error);
             }
-            log.print(error);
         }
         if (!errRefSet && anyError.get() == null) {
             anyError.set(ErrorCause.UNKNOWN);
