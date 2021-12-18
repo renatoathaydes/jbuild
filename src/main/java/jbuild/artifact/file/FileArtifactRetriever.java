@@ -10,9 +10,9 @@ import jbuild.maven.MavenUtils;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static jbuild.util.FileUtils.readAllBytes;
 
 public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalError> {
@@ -50,15 +50,21 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
         if (file.toFile().isFile()) {
             // we do not handle files so long that their length won't fit into an int
             // because we wouldn't even be able to return an array if we did that.
-            return readAllBytes(file).thenApply(bytes -> completeWith(artifact, bytes, requestTime));
+            return readAllBytes(file).handle((bytes, err) ->
+                    err != null
+                            ? completeWith(artifact, err)
+                            : completeWith(artifact, bytes, requestTime));
         } else {
-            return CompletableFuture.completedFuture(
-                    ArtifactResolution.failure(new FileRetrievalError(this, artifact,
-                            new FileNotFoundException(file.toString()))));
+            return completedFuture(completeWith(artifact, new FileNotFoundException(file.toString())));
         }
     }
 
     private ArtifactResolution<FileRetrievalError> completeWith(Artifact artifact, byte[] bytes, long requestTime) {
         return ArtifactResolution.success(new ResolvedArtifact(bytes, artifact, this, requestTime));
     }
+
+    private ArtifactResolution<FileRetrievalError> completeWith(Artifact artifact, Throwable error) {
+        return ArtifactResolution.failure(new FileRetrievalError(this, artifact, error));
+    }
+
 }
