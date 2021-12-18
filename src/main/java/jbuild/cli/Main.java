@@ -243,7 +243,11 @@ public final class Main {
             }
         });
 
-        latch.await();
+        try {
+            latch.await();
+        } finally {
+            fileWriter.close();
+        }
 
         var errorCause = anyError.get();
         if (errorCause != null) {
