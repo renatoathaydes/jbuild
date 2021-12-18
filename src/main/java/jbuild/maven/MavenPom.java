@@ -51,7 +51,7 @@ public final class MavenPom {
         this.parentArtifact = resolveParentArtifact(project, properties);
         this.coordinates = resolveCoordinates(project, properties, parentArtifact);
         this.packaging = resolveProperty(properties, childNamed("packaging", project), "jar");
-        this.properties = populateProjectPropertiesWith(coordinates, properties);
+        this.properties = populateProjectPropertiesWith(coordinates, parentArtifact, properties);
         this.dependencyManagement = resolveDependencyManagement(project, properties, parentPom);
         this.dependencies = resolveDependencies(project, dependencyManagement, properties, parentPom);
         this.licenses = resolveLicenses(project, properties, parentPom);
@@ -451,10 +451,16 @@ public final class MavenPom {
     }
 
     private static Map<String, String> populateProjectPropertiesWith(Artifact coordinates,
+                                                                     Artifact parentArtifact,
                                                                      Map<String, String> properties) {
         properties.put("project.groupId", coordinates.groupId);
         properties.put("project.artifactId", coordinates.artifactId);
         properties.put("project.version", coordinates.version);
+        if (parentArtifact != null) {
+            properties.put("project.parent.groupId", parentArtifact.groupId);
+            properties.put("project.parent.artifactId", parentArtifact.artifactId);
+            properties.put("project.parent.version", parentArtifact.version);
+        }
         return unmodifiableMap(properties);
     }
 
