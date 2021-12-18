@@ -9,11 +9,13 @@ import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionStage;
 
+import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
@@ -42,7 +44,13 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
     @Override
     public CompletionStage<ArtifactResolution<HttpError>> retrieve(Artifact artifact) {
-        var requestPath = URI.create(standardArtifactPath(artifact, false));
+        URI requestPath;
+        try {
+            requestPath = new URI(standardArtifactPath(artifact, false));
+        } catch (URISyntaxException e) {
+            return completedStage(ArtifactResolution.failure(new HttpError(artifact, this, Either.right(e))));
+        }
+
         var request = HttpRequest.newBuilder(baseUrl.resolve(requestPath)).build();
 
         var requestTime = System.currentTimeMillis();
