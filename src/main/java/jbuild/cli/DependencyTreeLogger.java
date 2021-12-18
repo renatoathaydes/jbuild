@@ -65,7 +65,7 @@ final class DependencyTreeLogger {
                 } else {
                     var children = tree.root.pom
                             .getDependencies(scope.transitiveScopes(), options.optional);
-                    logChildren(children);
+                    logChildren(scopeDeps);
                     dependencyCount = children.size();
                 }
                 log.println(() -> "  " + dependencyCount + " " + scope +
@@ -74,7 +74,7 @@ final class DependencyTreeLogger {
         }
     }
 
-    private void logChildren(Set<Dependency> children) {
+    private void logChildren(Collection<Dependency> children) {
         for (var child : sorted(children, comparing(dep -> dep.artifact.getCoordinates()))) {
             log.println(INDENT + "* " + child.artifact.getCoordinates());
         }
