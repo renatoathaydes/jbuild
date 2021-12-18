@@ -45,6 +45,8 @@ public final class Main {
             "Usage:\n" +
             "    jbuild <root-option> <cmd> <cmd-args...> \n" +
             "Options:\n" +
+            "    --repository\n" +
+            "     -r       Maven repository to use (file location or HTTP URL)" +
             "    --verbose\n" +
             "    -V        log verbose output.\n" +
             "    --version\n" +

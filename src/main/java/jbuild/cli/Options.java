@@ -3,6 +3,7 @@ package jbuild.cli;
 import jbuild.errors.JBuildException;
 import jbuild.maven.Scope;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -20,31 +21,42 @@ final class Options {
     final boolean help;
     final boolean version;
     final String command;
+    final List<String> repositories;
     final List<String> commandArgs;
 
     Options(boolean verbose,
             boolean help,
             boolean version,
             String command,
+            List<String> repositories,
             List<String> commandArgs) {
         this.verbose = verbose;
         this.help = help;
         this.version = version;
         this.command = command;
+        this.repositories = repositories;
         this.commandArgs = commandArgs;
     }
 
     static Options parse(String[] args) {
         boolean verbose = false, help = false, version = false;
         String command = "";
-        int i = 0;
+        var repositories = new ArrayList<String>(4);
+
+        var expectingRepository = false;
+        int i;
 
         for (i = 0; i < args.length; i++) {
             String arg = args[i];
-            if (!arg.startsWith("-")) {
+            if (expectingRepository) {
+                expectingRepository = false;
+                repositories.add(arg);
+            } else if (!arg.startsWith("-")) {
                 command = arg;
                 i++;
                 break;
+            } else if (isEither(arg, "-r", "--repository")) {
+                expectingRepository = true;
             } else if (isEither(arg, "-V", "--verbose")) {
                 verbose = true;
             } else if (isEither(arg, "-v", "--version")) {
@@ -56,6 +68,10 @@ final class Options {
             }
         }
 
+        if (expectingRepository) {
+            throw new JBuildException("expecting value for 'repository' option", USER_INPUT);
+        }
+
         String[] commandArgs;
         if (i < args.length) {
             commandArgs = new String[args.length - i];
@@ -64,7 +80,7 @@ final class Options {
             commandArgs = new String[0];
         }
 
-        return new Options(verbose, help, version, command, List.of(commandArgs));
+        return new Options(verbose, help, version, command, repositories, List.of(commandArgs));
     }
 
 }

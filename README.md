@@ -11,6 +11,7 @@ to manage other Java projects and dependencies themselves.
 - [x] fetch artifacts from file repositories.
 - [x] fetch artifacts from HTTP repositories.
 - [x] fetch artifacts transitively (install command).
+- [ ] specify file and HTTP repositories locations.
 - [ ] fetch PGP signatures.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
