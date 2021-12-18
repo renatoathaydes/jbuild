@@ -59,6 +59,8 @@ final class DependencyTreeLogger {
         var groupedDeps = deps.stream()
                 .collect(groupingBy(dep -> dep.scope));
 
+        var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
+
         for (Scope scope : options.scopes) {
             var scopeDeps = groupedDeps.get(scope);
             if (scopeDeps != null && !scopeDeps.isEmpty()) {
@@ -66,7 +68,7 @@ final class DependencyTreeLogger {
                 log.println("  - scope " + scope);
                 if (options.transitive) {
                     var visitedDeps = new HashSet<Artifact>();
-                    logTree(visitedDeps, scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), INDENT, scope);
+                    logTree(visitedDeps, scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), allLicenses, INDENT, scope);
                     dependencyCount = visitedDeps.size();
                 } else {
                     logChildren(scopeDeps);
@@ -75,6 +77,10 @@ final class DependencyTreeLogger {
                 log.println(() -> "  " + dependencyCount + " " + scope +
                         " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
+        }
+
+        if (allLicenses != null && !allLicenses.isEmpty()) {
+            logLicenses(allLicenses);
         }
     }
 
@@ -87,7 +93,8 @@ final class DependencyTreeLogger {
     private void logTree(Set<Artifact> visitedDeps,
                          Collection<Dependency> scopeDeps,
                          List<DependencyTree> children,
-                         Set<License> licenses,
+                         Set<License> pomLicenses,
+                         Set<License> allLicenses,
                          String indent,
                          Scope scope) {
         var childByKey = children.stream()
@@ -104,8 +111,9 @@ final class DependencyTreeLogger {
                 if (nextBranch == null) {
                     log.println(" (X)");
                 } else {
-                    if (options.licenses && !licenses.isEmpty()) {
-                        log.println(() -> displayLicenses(licenses));
+                    if (options.licenses && !pomLicenses.isEmpty()) {
+                        allLicenses.addAll(pomLicenses);
+                        log.println(() -> displayLicenses(pomLicenses));
                     } else {
                         log.println("");
                     }
@@ -113,13 +121,21 @@ final class DependencyTreeLogger {
                         var nextDeps = next.root.pom
                                 .getDependencies(scope.transitiveScopes(), options.optional);
                         logTree(visitedDeps, nextDeps, next.dependencies,
-                                next.root.pom.getLicenses(), indent + INDENT, scope);
+                                next.root.pom.getLicenses(), allLicenses, indent + INDENT, scope);
                     }
                 }
             } else {
                 log.println(" (-)");
             }
         }
+    }
+
+    private void logLicenses(Set<License> allLicenses) {
+        log.println("All licenses listed (see https://spdx.org/licenses/ for more information):");
+        allLicenses.stream()
+                .map(DependencyTreeLogger::licenseString)
+                .sorted()
+                .forEach(license -> log.println("  * " + license));
     }
 
     private String displayLicenses(Set<License> licenses) {
@@ -154,6 +170,7 @@ final class DependencyTreeLogger {
             case "The Apache License, Version 2.0":
             case "Apache License, Version 2.0":
             case "Apache License 2.0":
+            case "Apache 2":
             case "Apache 2.0":
             case "ASF 2.0":
             case "Apache-2.0":
