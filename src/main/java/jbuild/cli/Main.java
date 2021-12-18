@@ -48,9 +48,9 @@ public final class Main {
             "\n" +
             "Usage:\n" +
             "    jbuild <root-option> <cmd> <cmd-args...> \n" +
-            "Options:\n" +
+            "Root Options:\n" +
             "    --repository\n" +
-            "     -r       Maven repository to use (file location or HTTP URL)" +
+            "     -r       Maven repository to use to locate artifacts (file location or HTTP URL).\n" +
             "    --verbose\n" +
             "    -V        log verbose output.\n" +
             "    --version\n" +
@@ -428,6 +428,7 @@ public final class Main {
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
         }
         log.println(() -> "JBuild success in " + time(startTime) + "!");
+        System.exit(0);
     }
 
     private Set<? extends Artifact> parseArtifacts(Set<String> coordinates) {

@@ -11,7 +11,7 @@ to manage other Java projects and dependencies themselves.
 - [x] fetch artifacts from file repositories.
 - [x] fetch artifacts from HTTP repositories.
 - [x] fetch artifacts transitively (install command).
-- [ ] specify file and HTTP repositories locations.
+- [x] specify file and HTTP repositories locations.
 - [ ] fetch PGP signatures.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
@@ -63,7 +63,9 @@ This is work in progress!
 
 Usage:
     jbuild <root-option> <cmd> <cmd-args...> 
-Options:
+Root Options:
+    --repository
+     -r       Maven repository to use to locate artifacts (file location or HTTP URL).
     --verbose
     -V        log verbose output.
     --version
