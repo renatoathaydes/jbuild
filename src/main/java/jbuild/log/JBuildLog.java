@@ -19,6 +19,10 @@ public final class JBuildLog {
         this.enabled = enabled;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     public void println(CharSequence message) {
         if (enabled) out.println(message);
     }

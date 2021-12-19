@@ -16,7 +16,7 @@ to manage other Java projects and dependencies themselves.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
-- [ ] detect version clashes in dependency tree.
+- [x] detect version clashes in dependency tree.
 - [x] list artifacts licenses.
 - [ ] accept local POM file as input for most commands.
 - [x] install artifacts in local file system (flat dir or Maven repo).

@@ -9,9 +9,12 @@ import jbuild.maven.License;
 import jbuild.maven.Scope;
 import jbuild.util.NonEmptyCollection;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Comparator.comparing;
@@ -67,9 +70,10 @@ final class DependencyTreeLogger {
                 int dependencyCount;
                 log.println("  - scope " + scope);
                 if (options.transitive) {
-                    var visitedDeps = new HashSet<Artifact>();
-                    logTree(visitedDeps, scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), allLicenses, INDENT, scope);
-                    dependencyCount = visitedDeps.size();
+                    var chain = new DependencyChain(log);
+                    logTree(chain, scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), allLicenses, INDENT, scope);
+                    dependencyCount = chain.size();
+                    chain.logConflicts();
                 } else {
                     logChildren(scopeDeps);
                     dependencyCount = scopeDeps.size();
@@ -90,7 +94,7 @@ final class DependencyTreeLogger {
         }
     }
 
-    private void logTree(Set<Artifact> visitedDeps,
+    private void logTree(DependencyChain chain,
                          Collection<Dependency> scopeDeps,
                          List<DependencyTree> children,
                          Set<License> pomLicenses,
@@ -104,7 +108,7 @@ final class DependencyTreeLogger {
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
             log.print(() -> displayDependency(indent, dep));
 
-            var isNew = visitedDeps.add(dep.artifact);
+            var isNew = !chain.contains(dep);
 
             if (isNew) {
                 var nextBranch = childByKey.get(ArtifactKey.of(dep));
@@ -118,10 +122,12 @@ final class DependencyTreeLogger {
                         log.println("");
                     }
                     for (var next : nextBranch) {
+                        chain.add(next);
                         var nextDeps = next.root.pom
                                 .getDependencies(scope.transitiveScopes(), options.optional);
-                        logTree(visitedDeps, nextDeps, next.dependencies,
+                        logTree(chain, nextDeps, next.dependencies,
                                 next.root.pom.getLicenses(), allLicenses, indent + INDENT, scope);
+                        chain.remove(next);
                     }
                 }
             } else {
@@ -252,6 +258,77 @@ final class DependencyTreeLogger {
                 return "EPL-2.0";
             default:
                 return "name=" + license.name + ", url=" + license.url;
+        }
+    }
+
+    private static final class VersionsEntry {
+        final Map<String, List<String>> chainsByVersion = new HashMap<>(2);
+    }
+
+    private static final class DependencyChain {
+
+        private final JBuildLog log;
+        private int size;
+        final List<Artifact> chain = new ArrayList<>();
+        final Map<ArtifactKey, VersionsEntry> chainByArtifactKey = new HashMap<>();
+
+        public DependencyChain(JBuildLog log) {
+            this.log = log;
+        }
+
+        void add(DependencyTree node) {
+            var artifact = node.root.artifact;
+            chain.add(artifact);
+            var byVersion = chainByArtifactKey.computeIfAbsent(
+                    ArtifactKey.of(artifact),
+                    (ignore) -> new VersionsEntry()
+            ).chainsByVersion.computeIfAbsent(
+                    artifact.version,
+                    (ignore) -> new ArrayList<>(2)
+            );
+            // only count if artifact is unique
+            if (byVersion.isEmpty()) size++;
+            byVersion.add(chainString(chain));
+        }
+
+        void remove(DependencyTree node) {
+            var removed = chain.remove(chain.size() - 1);
+            if (!node.root.artifact.equals(removed)) {
+                throw new IllegalStateException("Cannot remove node if not last in chain");
+            }
+        }
+
+        int size() {
+            return size;
+        }
+
+        private static String chainString(List<Artifact> chain) {
+            return chain.stream()
+                    .map(Artifact::getCoordinates)
+                    .collect(joining(" -> "));
+        }
+
+        boolean contains(Dependency dependency) {
+            var chain = chainByArtifactKey.get(ArtifactKey.of(dependency));
+            return chain != null && chain.chainsByVersion.containsKey(dependency.artifact.version);
+        }
+
+        void logConflicts() {
+            if (!log.isEnabled()) return;
+
+            chainByArtifactKey.forEach((key, entry) -> {
+                var byVersion = entry.chainsByVersion;
+                if (byVersion.size() > 1) {
+                    log.println("  The artifact " +
+                            key.groupId + ":" + key.artifactId +
+                            " is required with more than one version:");
+                    byVersion.forEach((version, chains) -> {
+                        for (String chain : chains) {
+                            log.println("    * " + version + " (" + chain + ")");
+                        }
+                    });
+                }
+            });
         }
     }
 }
