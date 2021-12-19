@@ -5,7 +5,7 @@ import java.util.function.Supplier;
 
 public final class JBuildLog {
 
-    private final PrintStream out;
+    public final PrintStream out;
     private final boolean verbose;
     private volatile boolean enabled = true;
 

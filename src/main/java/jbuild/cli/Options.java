@@ -183,7 +183,7 @@ final class DepsOptions {
                 } else if (isEither(arg, "-t", "--transitive")) {
                     transitive = true;
                 } else if (isEither(arg, "-l", "--licenses")) {
-                    licenses=true;
+                    licenses = true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
                             "\nRun jbuild --help for usage.", USER_INPUT);
@@ -294,6 +294,41 @@ final class InstallOptions {
         return new InstallOptions(unmodifiableSet(artifacts), scopes, outDir, repoDir, optional);
     }
 
+}
+
+final class FixOptions {
+
+    final String inputDir;
+    final boolean interactive;
+
+    public FixOptions(String inputDir, boolean interactive) {
+        this.inputDir = inputDir;
+        this.interactive = interactive;
+    }
+
+    static FixOptions parse(List<String> args) {
+        String inputDir = null;
+        var interactive = true;
+
+        for (var arg : args) {
+            if (arg.startsWith("-")) {
+                if (isEither(arg, "-y", "--yes")) {
+                    interactive = false;
+                } else {
+                    throw new JBuildException("invalid fix option: " + arg +
+                            "\nRun jbuild --help for usage.", USER_INPUT);
+                }
+            } else {
+                if (inputDir != null) {
+                    throw new JBuildException("cannot provide more than one input directory for fix command" +
+                            "\nRun jbuild --help for usage.", USER_INPUT);
+                }
+                inputDir = arg;
+            }
+        }
+
+        return new FixOptions(inputDir, interactive);
+    }
 }
 
 final class VersionsOptions {

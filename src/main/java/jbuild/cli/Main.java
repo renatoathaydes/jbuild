@@ -5,6 +5,7 @@ import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.artifact.http.DefaultHttpClient;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
+import jbuild.commands.FixCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
@@ -159,6 +160,9 @@ public final class Main {
             case "install":
                 installArtifacts(options);
                 break;
+            case "fix":
+                fix(options);
+                break;
             case "versions":
                 listVersions(options);
                 break;
@@ -166,6 +170,14 @@ public final class Main {
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
         }
+    }
+
+    private void fix(Options options) {
+        var fixOptions = FixOptions.parse(options.commandArgs);
+
+        var commandExecutor = new FixCommandExecutor(log);
+
+        commandExecutor.run(fixOptions.inputDir, fixOptions.interactive);
     }
 
     private void listDeps(Options options) throws Exception {
