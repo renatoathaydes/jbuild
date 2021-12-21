@@ -1,15 +1,14 @@
 package jbuild.commands;
 
 import jbuild.errors.JBuildException;
+import jbuild.java.JavapOutputParser;
+import jbuild.java.Tools;
+import jbuild.java.code.Code;
 import jbuild.log.JBuildLog;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.PrintStream;
 import java.util.List;
-import java.util.spi.ToolProvider;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
@@ -17,19 +16,13 @@ import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 public final class FixCommandExecutor {
 
     private final JBuildLog log;
-    private final ToolProvider javap;
-    private final ToolProvider jar;
+    private final Tools.Javap javap;
+    private final Tools.Jar jar;
 
     public FixCommandExecutor(JBuildLog log) {
         this.log = log;
-        this.javap = lookupTool("javap");
-        this.jar = lookupTool("jar");
-    }
-
-    private ToolProvider lookupTool(String tool) {
-        return ToolProvider.findFirst(tool)
-                .orElseThrow(() -> new JBuildException(tool + " is not available in this JVM, cannot run fix command.\n" +
-                        "Consider using a full JDK installation to run jbuild.", ACTION_ERROR));
+        this.javap = Tools.Javap.create();
+        this.jar = Tools.Jar.create();
     }
 
     public void run(String inputDir, boolean interactive) {
@@ -54,13 +47,10 @@ public final class FixCommandExecutor {
     }
 
     private List<String> getClassesIn(File jarFile) {
-        var out = new ByteArrayOutputStream(4096);
-        var err = new ByteArrayOutputStream(4096);
+        var result = jar.listContents(jarFile.getAbsolutePath());
+        checkToolSuccessful("jar", result);
 
-        var code = jar.run(new PrintStream(out), new PrintStream(err), "tf", jarFile.getAbsolutePath());
-        checkToolSuccessful("jar", code, err);
-
-        return out.toString(UTF_8).lines()
+        return result.stdout.lines()
                 .filter(line -> line.endsWith(".class"))
                 .filter(line -> !line.equals("module-info.class"))
                 .map(line -> line.replace(File.separatorChar, '.')
@@ -69,29 +59,31 @@ public final class FixCommandExecutor {
     }
 
     private void processClass(File jar, String className) {
-        var out = new ByteArrayOutputStream(4096);
-        var err = new ByteArrayOutputStream(4096);
+        var result = javap.run(jar.getAbsolutePath(), className);
+        checkToolSuccessful("javap", result);
 
-        int code = javap.run(new PrintStream(out), new PrintStream(err), "-c", "-classpath", jar.getAbsolutePath(), className);
-        checkToolSuccessful("javap", code, err);
+        var javapOutputParser = new JavapOutputParser(log);
 
-        processJavapOutput(className, out.toString(UTF_8).lines().collect(toList()));
+        var classDef = javapOutputParser.processJavapOutput(className, result.stdout.lines().iterator());
+
+        log.println("Class " + classDef.className + " has methods:");
+        classDef.methods.forEach((method, c) -> {
+            log.println("  - name=" + method.name + ", type=" + method.type);
+            for (Code code1 : c) {
+                code1.use(
+                        field -> log.println("    Field name=" + field.name + ", type=" + field.type),
+                        m -> log.println("    Method name=" + m.name + ", type=" + m.type),
+                        cls -> log.println("    Class name=" + cls.name));
+            }
+        });
     }
 
-    private void processJavapOutput(String className, List<String> lines) {
-        // TODO parse javap output to collect class dependencies on other classes
-        if (lines.isEmpty()) {
-            log.println("EMPTY " + className);
-        } else {
-            log.println(className + ": " + lines.get(0));
-        }
-    }
-
-    private void checkToolSuccessful(String tool, int exitCode, ByteArrayOutputStream err) {
-        if (exitCode != 0) {
-            log.println("ERROR: " + tool + " exited with code " + exitCode);
+    private void checkToolSuccessful(String tool, Tools.ToolRunResult result) {
+        if (result.exitCode != 0) {
+            log.println("ERROR: " + tool + " exited with code " + result.exitCode);
             throw new JBuildException("unexpected error when executing " + tool +
-                    ". Tool output:\n" + err.toString(UTF_8), ACTION_ERROR);
+                    ". Tool output:\n" + result.stderr, ACTION_ERROR);
         }
     }
+
 }

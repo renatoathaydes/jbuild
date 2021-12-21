@@ -28,4 +28,11 @@ public final class MethodDefinition {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "MethodDefinition{" +
+                "name='" + name + '\'' +
+                ", type='" + type + '\'' +
+                '}';
+    }
 }

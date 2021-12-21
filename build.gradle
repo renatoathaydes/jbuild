@@ -9,6 +9,17 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    myTestClasses {
+        java {}
+    }
+}
+
+task myTestJar(type: Jar) {
+    archiveFileName = 'my-tests.jar'
+    from sourceSets.myTestClasses.output
+}
+
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testImplementation 'org.assertj:assertj-core:3.21.0'
@@ -16,6 +27,8 @@ dependencies {
 }
 
 test {
+    dependsOn('myTestJar')
     useJUnitPlatform()
     systemProperty('tests.repo.dir', file('src/test/resources/jbuild/commands/repo').absolutePath)
+    systemProperty('tests.my-test-classes.jar', "$buildDir/libs/my-tests.jar")
 }
