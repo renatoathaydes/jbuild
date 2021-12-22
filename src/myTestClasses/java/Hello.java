@@ -1,6 +1,5 @@
 public class Hello {
 
-    // TODO should include this in the test
     public static final String CONST = "";
 
     public final boolean isOk = true;

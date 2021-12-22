@@ -44,6 +44,14 @@ public abstract class Code {
             result = 31 * result + type.hashCode();
             return result;
         }
+
+        @Override
+        public String toString() {
+            return "Field{" +
+                    "name='" + name + '\'' +
+                    ", type='" + type + '\'' +
+                    '}';
+        }
     }
 
     public static final class Method extends Code {
@@ -83,6 +91,15 @@ public abstract class Code {
             result = 31 * result + type.hashCode();
             return result;
         }
+
+        @Override
+        public String toString() {
+            return "Method{" +
+                    "className='" + className + '\'' +
+                    ", name='" + name + '\'' +
+                    ", type='" + type + '\'' +
+                    '}';
+        }
     }
 
     public static final class ClassRef extends Code {
@@ -112,6 +129,13 @@ public abstract class Code {
         @Override
         public int hashCode() {
             return name.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return "ClassRef{" +
+                    "name='" + name + '\'' +
+                    '}';
         }
     }
 

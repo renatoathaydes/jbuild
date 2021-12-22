@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -26,6 +25,7 @@ public final class JavapOutputParser {
     public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<MethodDefinition, List<Code>>();
+        var fields = new HashMap<String, Code.Field>();
         var expectingCode = false;
         while (lines.hasNext()) {
             var line = lines.next();
@@ -41,13 +41,21 @@ public final class JavapOutputParser {
                     methods.put(method, code);
                 }
             } else if (line.startsWith("    descriptor: ")) {
-                name = extractMethodName(prevLine); // descriptor always appears after the definition's name
-                type = line.substring("    descriptor: ".length());
-                expectingCode = true; // after the descriptor, comes the code
+                if (prevLine.contains("(")) { // method
+                    name = extractMethodName(prevLine); // descriptor always appears after the definition's name
+                    if (name == null) continue;
+                    type = line.substring("    descriptor: ".length());
+                    expectingCode = true; // after the descriptor, comes the code
+                } else { // field
+                    name = extractFieldName(prevLine);
+                    if (name == null) continue;
+                    type = line.substring("    descriptor: ".length());
+                    fields.put(name, new Code.Field(name, type));
+                }
             }
             prevLine = line;
         }
-        return new ClassDefinition(className, Map.of(), methods);
+        return new ClassDefinition(className, fields, methods);
     }
 
     public List<Code> processCode(Iterator<String> lines) {
@@ -106,9 +114,18 @@ public final class JavapOutputParser {
         var nameStart = line.lastIndexOf(' ', argsStart - 1);
         if (nameStart < 0 || argsStart < 0) {
             log.println(() -> "WARNING: unable to find method name on line '" + line + "'");
-            return line;
+            return null;
         }
         return line.substring(nameStart + 1, argsStart);
+    }
+
+    private String extractFieldName(String line) {
+        var lastSpaceIndex = line.lastIndexOf(' ');
+        if (lastSpaceIndex < 0 || !line.endsWith(";")) {
+            log.println(() -> "WARNING: unable to find field name on line '" + line + "'");
+            return null;
+        }
+        return line.substring(lastSpaceIndex + 1, line.length() - 1);
     }
 
 }
