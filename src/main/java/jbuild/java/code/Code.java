@@ -12,10 +12,13 @@ public abstract class Code {
                              Consumer<Code.ClassRef> classRef);
 
     public static final class Field extends Code {
+
+        public final String className;
         public final String name;
         public final String type;
 
-        public Field(String name, String type) {
+        public Field(String className, String name, String type) {
+            this.className = className;
             this.name = name;
             this.type = type;
         }
@@ -34,13 +37,15 @@ public abstract class Code {
 
             Field field = (Field) o;
 
+            if (!className.equals(field.className)) return false;
             if (!name.equals(field.name)) return false;
             return type.equals(field.type);
         }
 
         @Override
         public int hashCode() {
-            int result = name.hashCode();
+            int result = className.hashCode();
+            result = 31 * result + name.hashCode();
             result = 31 * result + type.hashCode();
             return result;
         }
@@ -48,7 +53,8 @@ public abstract class Code {
         @Override
         public String toString() {
             return "Field{" +
-                    "name='" + name + '\'' +
+                    "className='" + className + '\'' +
+                    ", name='" + name + '\'' +
                     ", type='" + type + '\'' +
                     '}';
         }

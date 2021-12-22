@@ -1,6 +1,7 @@
 package jbuild.java;
 
 import jbuild.java.code.Code;
+import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
@@ -26,27 +27,68 @@ public class JavapOutputParserTest {
 
         assertThat(result.className).isEqualTo("Hello");
 
-        assertThat(result.fields.keySet()).isEqualTo(Set.of("isOk", "CONST"));
-        assertThat(result.fields.get("isOk")).isEqualTo(new Code.Field("isOk", "Z"));
-        assertThat(result.fields.get("CONST")).isEqualTo(new Code.Field("CONST", "Ljava/lang/String;"));
+        assertThat(result.fields).isEqualTo(Set.of(
+                new FieldDefinition("isOk", "Z"),
+                new FieldDefinition("CONST", "Ljava/lang/String;"),
+                new FieldDefinition("aFloat", "F"),
+                new FieldDefinition("protectedInt", "I")
+        ));
 
         assertThat(result.methods.keySet())
                 .isEqualTo(Set.of(
                         new MethodDefinition("Hello", "(Ljava/lang/String;)V"),
                         new MethodDefinition("foo", "()Z"),
+                        new MethodDefinition("theFloat", "(FJ)F"),
                         new MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
         assertThat(result.methods.get(new MethodDefinition("Hello", "(Ljava/lang/String;)V")))
                 .isEqualTo(List.of(
-                        new Code.Method("java/lang/Object", "\"<init>\"", "()V"),
-                        new Code.Field("isOk", "Z"),
-                        new Code.Field("message", "Ljava/lang/String;")));
+                        new Code.Method("java/lang/Object", "\"<init>\"", "()V")));
 
         assertThat(result.methods.get(new MethodDefinition("foo", "()Z")))
                 .isEqualTo(List.of());
 
+        assertThat(result.methods.get(new MethodDefinition("theFloat", "(FJ)F")))
+                .isEqualTo(List.of());
+
         assertThat(result.methods.get(new MethodDefinition("getMessage", "()Ljava/lang/String;")))
-                .isEqualTo(List.of(new Code.Field("message", "Ljava/lang/String;")));
+                .isEqualTo(List.of());
+    }
+
+    @Test
+    void canParseClassWithStaticBlockAndStaticMethods() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var result = parser.processJavapOutput("foo.Bar",
+                javap(myClassesJar, "foo.Bar"));
+
+        assertThat(result.className).isEqualTo("foo.Bar");
+
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methods.keySet()).isEqualTo(Set.of(new MethodDefinition("foo.Bar", "()V")));
+        assertThat(result.methods.get(new MethodDefinition("foo.Bar", "()V"))).isEqualTo(
+                List.of(new Code.Method("java/lang/Object", "\"<init>\"", "()V")));
+
+        result = parser.processJavapOutput("foo.Zort",
+                javap(myClassesJar, "foo.Zort"));
+
+        assertThat(result.className).isEqualTo("foo.Zort");
+
+        assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("bar", "Lfoo/Bar;")));
+
+        assertThat(result.methods.keySet()).isEqualTo(Set.of(
+                new MethodDefinition("static{}", "()V"),
+                new MethodDefinition("getBar", "(Lfoo/Bar;)Lfoo/Bar;"),
+                new MethodDefinition("createBar", "()Lfoo/Bar;"),
+                new MethodDefinition("foo.Zort", "()V")
+        ));
+        assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
+                .isEqualTo(List.of(
+                        new Code.ClassRef("foo/Bar"),
+                        new Code.Method("foo/Bar", "\"<init>\"", "()V"),
+                        new Code.Field("java/lang/System", "out", "Ljava/io/PrintStream;"),
+                        new Code.Method("java/io/PrintStream", "println", "(Ljava/lang/Object;)V")
+                ));
     }
 
     private Iterator<String> javap(String jar, String className) {

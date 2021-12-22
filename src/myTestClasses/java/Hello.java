@@ -4,6 +4,8 @@ public class Hello {
 
     public final boolean isOk = true;
     private final String message;
+    float aFloat;
+    protected int protectedInt;
 
     public Hello(String message) {
         this.message = message;
@@ -15,5 +17,13 @@ public class Hello {
 
     public boolean foo() {
         return isOk;
+    }
+
+    float theFloat(float a, long b) {
+        return aFloat + a * ((float) b);
+    }
+
+    private void notIncluded() {
+
     }
 }

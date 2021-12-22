@@ -2,12 +2,14 @@ package jbuild.java;
 
 import jbuild.java.code.ClassDefinition;
 import jbuild.java.code.Code;
+import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -25,7 +27,7 @@ public final class JavapOutputParser {
     public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<MethodDefinition, List<Code>>();
-        var fields = new HashMap<String, Code.Field>();
+        var fields = new LinkedHashSet<FieldDefinition>();
         var expectingCode = false;
         while (lines.hasNext()) {
             var line = lines.next();
@@ -41,7 +43,11 @@ public final class JavapOutputParser {
                     methods.put(method, code);
                 }
             } else if (line.startsWith("    descriptor: ")) {
-                if (prevLine.contains("(")) { // method
+                if (prevLine.equals("  static {};")) { // static block
+                    name = "static{}";
+                    type = "()V";
+                    expectingCode = true;
+                } else if (prevLine.contains("(")) { // method
                     name = extractMethodName(prevLine); // descriptor always appears after the definition's name
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
@@ -50,7 +56,7 @@ public final class JavapOutputParser {
                     name = extractFieldName(prevLine);
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
-                    fields.put(name, new Code.Field(name, type));
+                    fields.add(new FieldDefinition(name, type));
                 }
             }
             prevLine = line;
@@ -106,7 +112,11 @@ public final class JavapOutputParser {
     private Optional<Code.Field> parseField(String field) {
         var parts = field.split(":", 2);
         if (parts.length != 2) return Optional.empty();
-        return Optional.of(new Code.Field(parts[0], parts[1]));
+        var nameParts = parts[0].split("\\.", 2);
+        if (nameParts.length != 2) { // own field, we don't care about it
+            return Optional.empty();
+        }
+        return Optional.of(new Code.Field(nameParts[0], nameParts[1], parts[1]));
     }
 
     private String extractMethodName(String line) {
