@@ -79,6 +79,42 @@ public class JavapOutputParserTest {
                 ));
     }
 
+    @Test
+    void canParseBasicEnum() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var result = parser.processJavapOutput("foo.SomeEnum",
+                javap(myClassesJar, "foo.SomeEnum"));
+
+        assertThat(result.className).isEqualTo("foo.SomeEnum");
+
+        assertThat(result.fields).isEqualTo(Set.of(
+                new FieldDefinition("SOMETHING", "Lfoo/SomeEnum;"),
+                new FieldDefinition("NOTHING", "Lfoo/SomeEnum;"))
+        );
+
+        assertThat(result.methods.keySet()).isEqualTo(Set.of(
+                new MethodDefinition("values", "()[Lfoo/SomeEnum;"),
+                new MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),
+                new MethodDefinition("static{}", "()V")));
+
+        assertThat(result.methods.get(new MethodDefinition("values", "()[Lfoo/SomeEnum;")))
+                .isEqualTo(Set.of(
+                        new Code.Method("\"[Lfoo/SomeEnum;\"", "clone", "()Ljava/lang/Object;"),
+                        new Code.ClassRef("\"[Lfoo/SomeEnum;\"")
+                ));
+
+        assertThat(result.methods.get(new MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;")))
+                .isEqualTo(Set.of(
+                        new Code.ClassRef("foo/SomeEnum")
+                ));
+
+        assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
+                .isEqualTo(Set.of(
+                        new Code.ClassRef("foo/SomeEnum")
+                ));
+    }
+
     private Iterator<String> javap(String jar, String className) {
         var result = Tools.Javap.create().run(jar, className);
         assertProcessWasSuccessful(result);
