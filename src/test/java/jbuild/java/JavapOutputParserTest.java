@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,17 +40,10 @@ public class JavapOutputParserTest {
                         new MethodDefinition("theFloat", "(FJ)F"),
                         new MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
-        assertThat(result.methods.get(new MethodDefinition("Hello", "(Ljava/lang/String;)V")))
-                .isEmpty();
-
-        assertThat(result.methods.get(new MethodDefinition("foo", "()Z")))
-                .isEqualTo(List.of());
-
-        assertThat(result.methods.get(new MethodDefinition("theFloat", "(FJ)F")))
-                .isEqualTo(List.of());
-
-        assertThat(result.methods.get(new MethodDefinition("getMessage", "()Ljava/lang/String;")))
-                .isEqualTo(List.of());
+        assertThat(result.methods.get(new MethodDefinition("Hello", "(Ljava/lang/String;)V"))).isEmpty();
+        assertThat(result.methods.get(new MethodDefinition("foo", "()Z"))).isEmpty();
+        assertThat(result.methods.get(new MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
+        assertThat(result.methods.get(new MethodDefinition("getMessage", "()Ljava/lang/String;"))).isEmpty();
     }
 
     @Test
@@ -81,7 +73,7 @@ public class JavapOutputParserTest {
                 new MethodDefinition("foo.Zort", "()V")
         ));
         assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
-                .isEqualTo(List.of(
+                .isEqualTo(Set.of(
                         new Code.ClassRef("foo/Bar"),
                         new Code.Method("foo/Bar", "\"<init>\"", "()V")
                 ));

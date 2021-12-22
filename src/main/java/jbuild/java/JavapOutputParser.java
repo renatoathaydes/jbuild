@@ -6,12 +6,11 @@ import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class JavapOutputParser {
@@ -26,7 +25,7 @@ public final class JavapOutputParser {
 
     public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
         String prevLine = null, name = "", type = "";
-        var methods = new HashMap<MethodDefinition, List<Code>>();
+        var methods = new HashMap<MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<FieldDefinition>();
         var expectingCode = false;
         while (lines.hasNext()) {
@@ -64,8 +63,8 @@ public final class JavapOutputParser {
         return new ClassDefinition(className, fields, methods);
     }
 
-    public List<Code> processCode(Iterator<String> lines) {
-        var result = new ArrayList<Code>();
+    public Set<Code> processCode(Iterator<String> lines) {
+        var result = new LinkedHashSet<Code>();
         while (lines.hasNext()) {
             var line = lines.next();
             if (line.isEmpty()) { // this ends the code section
