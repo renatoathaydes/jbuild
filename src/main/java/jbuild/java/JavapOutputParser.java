@@ -98,14 +98,17 @@ public final class JavapOutputParser {
     }
 
     private Optional<Code.ClassRef> parseClass(String classDef) {
+        // ignore java APIs, we only check cross-lib refs
+        if (classDef.startsWith("java/")) return Optional.empty();
         return Optional.of(new Code.ClassRef(classDef));
     }
 
     private Optional<Code.Method> parseMethod(String method) {
         var parts1 = method.split("\\.", 2);
-        if (parts1.length != 2) return Optional.empty();
+        if (parts1.length != 2) return Optional.empty(); // unexpected, maybe WARNING?
         var parts2 = parts1[1].split(":");
-        if (parts2.length != 2) return Optional.empty();
+        if (parts2.length != 2) return Optional.empty(); // unexpected, maybe WARNING?
+        if (parts1[0].startsWith("java/")) return Optional.empty(); // ignore java APIs, we only check cross-lib refs
         return Optional.of(new Code.Method(parts1[0], parts2[0], parts2[1]));
     }
 
@@ -113,7 +116,8 @@ public final class JavapOutputParser {
         var parts = field.split(":", 2);
         if (parts.length != 2) return Optional.empty();
         var nameParts = parts[0].split("\\.", 2);
-        if (nameParts.length != 2) { // own field, we don't care about it
+        if (nameParts.length != 2 // own field, we don't care about it
+                || nameParts[0].startsWith("java/")) { // Java API, we also don't care about it
             return Optional.empty();
         }
         return Optional.of(new Code.Field(nameParts[0], nameParts[1], parts[1]));

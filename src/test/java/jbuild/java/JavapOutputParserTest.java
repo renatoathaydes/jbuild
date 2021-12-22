@@ -42,8 +42,7 @@ public class JavapOutputParserTest {
                         new MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
         assertThat(result.methods.get(new MethodDefinition("Hello", "(Ljava/lang/String;)V")))
-                .isEqualTo(List.of(
-                        new Code.Method("java/lang/Object", "\"<init>\"", "()V")));
+                .isEmpty();
 
         assertThat(result.methods.get(new MethodDefinition("foo", "()Z")))
                 .isEqualTo(List.of());
@@ -66,8 +65,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.fields).isEmpty();
         assertThat(result.methods.keySet()).isEqualTo(Set.of(new MethodDefinition("foo.Bar", "()V")));
-        assertThat(result.methods.get(new MethodDefinition("foo.Bar", "()V"))).isEqualTo(
-                List.of(new Code.Method("java/lang/Object", "\"<init>\"", "()V")));
+        assertThat(result.methods.get(new MethodDefinition("foo.Bar", "()V"))).isEmpty();
 
         result = parser.processJavapOutput("foo.Zort",
                 javap(myClassesJar, "foo.Zort"));
@@ -85,9 +83,7 @@ public class JavapOutputParserTest {
         assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
                 .isEqualTo(List.of(
                         new Code.ClassRef("foo/Bar"),
-                        new Code.Method("foo/Bar", "\"<init>\"", "()V"),
-                        new Code.Field("java/lang/System", "out", "Ljava/io/PrintStream;"),
-                        new Code.Method("java/io/PrintStream", "println", "(Ljava/lang/Object;)V")
+                        new Code.Method("foo/Bar", "\"<init>\"", "()V")
                 ));
     }
 
