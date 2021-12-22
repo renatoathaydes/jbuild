@@ -70,10 +70,7 @@ public final class FixCommandExecutor {
         classDef.methods.forEach((method, c) -> {
             log.println("  - name=" + method.name + ", type=" + method.type);
             for (Code code1 : c) {
-                code1.use(
-                        field -> log.println("    Field name=" + field.name + ", type=" + field.type),
-                        m -> log.println("    Method name=" + m.name + ", type=" + m.type),
-                        cls -> log.println("    Class name=" + cls.name));
+                log.println("      " + code1);
             }
         });
     }
