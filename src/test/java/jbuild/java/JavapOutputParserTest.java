@@ -24,7 +24,7 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("Hello",
                 javap(myClassesJar, "Hello"));
 
-        assertThat(result.className).isEqualTo("Hello");
+        assertThat(result.className).isEqualTo("LHello;");
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("isOk", "Z"),
@@ -53,16 +53,16 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("foo.Bar",
                 javap(myClassesJar, "foo.Bar"));
 
-        assertThat(result.className).isEqualTo("foo.Bar");
+        assertThat(result.className).isEqualTo("Lfoo/Bar;");
 
         assertThat(result.fields).isEmpty();
-        assertThat(result.methods.keySet()).isEqualTo(Set.of(new MethodDefinition("foo.Bar", "()V")));
-        assertThat(result.methods.get(new MethodDefinition("foo.Bar", "()V"))).isEmpty();
+        assertThat(result.methods.keySet()).isEqualTo(Set.of(new MethodDefinition("Lfoo/Bar;", "()V")));
+        assertThat(result.methods.get(new MethodDefinition("Lfoo/Bar;", "()V"))).isEmpty();
 
         result = parser.processJavapOutput("foo.Zort",
                 javap(myClassesJar, "foo.Zort"));
 
-        assertThat(result.className).isEqualTo("foo.Zort");
+        assertThat(result.className).isEqualTo("Lfoo/Zort;");
 
         assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("bar", "Lfoo/Bar;")));
 
@@ -70,12 +70,12 @@ public class JavapOutputParserTest {
                 new MethodDefinition("static{}", "()V"),
                 new MethodDefinition("getBar", "(Lfoo/Bar;)Lfoo/Bar;"),
                 new MethodDefinition("createBar", "()Lfoo/Bar;"),
-                new MethodDefinition("foo.Zort", "()V")
+                new MethodDefinition("Lfoo/Zort;", "()V")
         ));
         assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
                 .isEqualTo(Set.of(
-                        new Code.ClassRef("foo/Bar"),
-                        new Code.Method("foo/Bar", "\"<init>\"", "()V")
+                        new Code.ClassRef("Lfoo/Bar;"),
+                        new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")
                 ));
     }
 
@@ -86,7 +86,7 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("foo.SomeEnum",
                 javap(myClassesJar, "foo.SomeEnum"));
 
-        assertThat(result.className).isEqualTo("foo.SomeEnum");
+        assertThat(result.className).isEqualTo("Lfoo/SomeEnum;");
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("SOMETHING", "Lfoo/SomeEnum;"),
@@ -99,20 +99,13 @@ public class JavapOutputParserTest {
                 new MethodDefinition("static{}", "()V")));
 
         assertThat(result.methods.get(new MethodDefinition("values", "()[Lfoo/SomeEnum;")))
-                .isEqualTo(Set.of(
-                        new Code.Method("\"[Lfoo/SomeEnum;\"", "clone", "()Ljava/lang/Object;"),
-                        new Code.ClassRef("\"[Lfoo/SomeEnum;\"")
-                ));
+                .isEmpty();
 
         assertThat(result.methods.get(new MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;")))
-                .isEqualTo(Set.of(
-                        new Code.ClassRef("foo/SomeEnum")
-                ));
+                .isEmpty();
 
         assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
-                .isEqualTo(Set.of(
-                        new Code.ClassRef("foo/SomeEnum")
-                ));
+                .isEmpty();
     }
 
     private Iterator<String> javap(String jar, String className) {

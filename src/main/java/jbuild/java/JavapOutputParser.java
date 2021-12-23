@@ -25,6 +25,7 @@ public final class JavapOutputParser {
 
     public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
         String prevLine = null, name = "", type = "";
+        String typeName = classNameToTypeName(className);
         var methods = new HashMap<MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<FieldDefinition>();
         var expectingCode = false;
@@ -38,7 +39,7 @@ public final class JavapOutputParser {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
                     var method = new MethodDefinition(name, type);
-                    var code = processCode(lines);
+                    var code = processCode(lines, typeName);
                     methods.put(method, code);
                 }
             } else if (line.startsWith("    descriptor: ")) {
@@ -60,10 +61,10 @@ public final class JavapOutputParser {
             }
             prevLine = line;
         }
-        return new ClassDefinition(className, fields, methods);
+        return new ClassDefinition(typeName, fields, methods);
     }
 
-    public Set<Code> processCode(Iterator<String> lines) {
+    public Set<Code> processCode(Iterator<String> lines, String typeName) {
         var result = new LinkedHashSet<Code>();
         while (lines.hasNext()) {
             var line = lines.next();
@@ -73,53 +74,58 @@ public final class JavapOutputParser {
             var match = CODE_LINE.matcher(line);
             if (match.matches()) {
                 var parts = match.group(1).split("\\s");
-                handleCommentParts(parts).ifPresent(result::add);
+                handleCommentParts(parts, typeName).ifPresent(result::add);
             }
         }
         return result;
     }
 
-    private Optional<? extends Code> handleCommentParts(String[] parts) {
+    private Optional<? extends Code> handleCommentParts(String[] parts, String typeName) {
         if (parts.length == 2) {
             switch (parts[0]) {
                 case "String":
                     break;
                 case "Method":
                 case "InterfaceMethod":
-                    return parseMethod(parts[1]);
+                    return parseMethod(parts[1], typeName);
                 case "class":
-                    return parseClass(parts[1]);
+                    return parseClass(parts[1], typeName);
                 case "Field":
-                    return parseField(parts[1]);
+                    return parseField(parts[1], typeName);
             }
         }
         return Optional.empty();
     }
 
-    private Optional<Code.ClassRef> parseClass(String classDef) {
-        // ignore java APIs, we only check cross-lib refs
-        if (classDef.startsWith("java/")) return Optional.empty();
-        return Optional.of(new Code.ClassRef(classDef));
+    private Optional<Code.ClassRef> parseClass(String classDef,
+                                               String typeName) {
+        var type = classNameToTypeName(classDef);
+        if (shouldIgnoreClass(type, typeName)) return Optional.empty();
+        return Optional.of(new Code.ClassRef(type));
     }
 
-    private Optional<Code.Method> parseMethod(String method) {
+    private Optional<Code.Method> parseMethod(String method,
+                                              String typeName) {
         var parts1 = method.split("\\.", 2);
         if (parts1.length != 2) return Optional.empty(); // unexpected, maybe WARNING?
         var parts2 = parts1[1].split(":");
         if (parts2.length != 2) return Optional.empty(); // unexpected, maybe WARNING?
-        if (parts1[0].startsWith("java/")) return Optional.empty(); // ignore java APIs, we only check cross-lib refs
-        return Optional.of(new Code.Method(parts1[0], parts2[0], parts2[1]));
+        var type = classNameToTypeName(parts1[0]);
+        if (shouldIgnoreClass(type, typeName)) return Optional.empty();
+        return Optional.of(new Code.Method(type, parts2[0], parts2[1]));
     }
 
-    private Optional<Code.Field> parseField(String field) {
+    private Optional<Code.Field> parseField(String field,
+                                            String typeName) {
         var parts = field.split(":", 2);
         if (parts.length != 2) return Optional.empty();
         var nameParts = parts[0].split("\\.", 2);
+        var type = classNameToTypeName(nameParts[0]);
         if (nameParts.length != 2 // own field, we don't care about it
-                || nameParts[0].startsWith("java/")) { // Java API, we also don't care about it
+                || shouldIgnoreClass(type, typeName)) {
             return Optional.empty();
         }
-        return Optional.of(new Code.Field(nameParts[0], nameParts[1], parts[1]));
+        return Optional.of(new Code.Field(type, nameParts[1], parts[1]));
     }
 
     private String extractMethodName(String line) {
@@ -129,7 +135,9 @@ public final class JavapOutputParser {
             log.println(() -> "WARNING: unable to find method name on line '" + line + "'");
             return null;
         }
-        return line.substring(nameStart + 1, argsStart);
+        // methods are actually often constructors, so we need to convert their names to type names
+        var name = line.substring(nameStart + 1, argsStart);
+        return name.contains(".") ? classNameToTypeName(name) : name;
     }
 
     private String extractFieldName(String line) {
@@ -139,6 +147,38 @@ public final class JavapOutputParser {
             return null;
         }
         return line.substring(lastSpaceIndex + 1, line.length() - 1);
+    }
+
+    /**
+     * Ignore the given type if it's a Java API or the own class being parsed.
+     * <p>
+     * That's because we are only interested in collecting cross-library references.
+     *
+     * @param type      a type reference
+     * @param className name of the current class being parsed
+     * @return true if this type should be ignored for the purposes of this library, false otherwise
+     */
+    private static boolean shouldIgnoreClass(String type, String className) {
+        type = cleanArrayTypeName(type);
+        return type.startsWith("Ljava/") || type.equals(className);
+    }
+
+    private static String cleanArrayTypeName(String type) {
+        if (type.startsWith("\"[") && type.endsWith(";\"")) {
+            var index = type.lastIndexOf('[');
+            return type.substring(index + 1, type.length() - 1);
+        }
+        return type;
+    }
+
+    private static String classNameToTypeName(String className) {
+        // array type reference, leave it as it is
+        if (className.startsWith("\"")
+                // avoid converting already converted type names
+                || (className.startsWith("L") && className.endsWith(";"))
+        ) return className;
+
+        return "L" + className.replaceAll("\\.", "/") + ";";
     }
 
 }
