@@ -26,7 +26,7 @@ public class FunctionalCode {
                     }
                     return false;
                 }).map(SomeEnum::toString)
-                .peek(log::debug) // FIXME missed ref
+                .peek(log::debug)
                 .collect(Collectors.toList());
     }
 

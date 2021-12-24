@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 public final class JavapOutputParser {
 
     private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:.*\\s//\\s([A-Za-z].+)");
+    private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
 
     private final JBuildLog log;
 
@@ -24,8 +25,40 @@ public final class JavapOutputParser {
     }
 
     public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
-        String prevLine = null, name = "", type = "";
         String typeName = classNameToTypeName(className);
+        Set<Code.Method> methodHandles = null;
+        while (lines.hasNext()) {
+            var line = lines.next();
+            if (line.equals("Constant pool:")) {
+                methodHandles = parseConstantPool(typeName, lines);
+                break;
+            }
+        }
+        if (methodHandles == null) throw new IllegalStateException("Constant pool not found for class " + className);
+        return processClassMethods(typeName, methodHandles, lines);
+    }
+
+    private Set<Code.Method> parseConstantPool(String typeName, Iterator<String> lines) {
+        Set<Code.Method> methodHandles = new LinkedHashSet<>(4);
+        while (lines.hasNext()) {
+            var line = lines.next();
+            var match = METHOD_HANDLE_LINE.matcher(line);
+            if (match.matches()) {
+                var method = extractMethodHandle(typeName, match.group(1));
+                if (method != null) methodHandles.add(method);
+            }
+            if (line.equals("{")) {
+                return methodHandles;
+            }
+        }
+        log.println(() -> "WARNING: reached the end of the class file without finishing the constant pool section");
+        return methodHandles;
+    }
+
+    public ClassDefinition processClassMethods(String typeName,
+                                               Set<Code.Method> methodHandles,
+                                               Iterator<String> lines) {
+        String prevLine = null, name = "", type = "";
         var methods = new HashMap<MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<FieldDefinition>();
         boolean expectingCode = false, expectingFlags = false;
@@ -64,7 +97,7 @@ public final class JavapOutputParser {
             }
             prevLine = line;
         }
-        return new ClassDefinition(typeName, fields, methods);
+        return new ClassDefinition(typeName, fields, methodHandles, methods);
     }
 
     public Set<Code> processCode(Iterator<String> lines, String typeName) {
@@ -141,6 +174,31 @@ public final class JavapOutputParser {
         // methods are actually often constructors, so we need to convert their names to type names
         var name = line.substring(nameStart + 1, argsStart);
         return name.contains(".") ? classNameToTypeName(name) : name;
+    }
+
+    private Code.Method extractMethodHandle(String typeName, String line) {
+        int classStart, nameStart, typeStart;
+        classStart = line.lastIndexOf(' ');
+        if (classStart > 0) {
+            classStart++;
+            nameStart = line.indexOf(".", classStart);
+            if (nameStart > 0) {
+                nameStart++;
+                typeStart = line.indexOf(':', nameStart);
+                if (typeStart > 0) {
+                    typeStart++;
+                    var type = classNameToTypeName(line.substring(classStart, nameStart - 1));
+                    if (shouldIgnoreClass(type, typeName)) return null;
+                    return new Code.Method(
+                            type,
+                            line.substring(nameStart, typeStart - 1),
+                            line.substring(typeStart));
+                }
+            }
+        }
+
+        log.println(() -> "WARNING: unable to find method handle on line '" + line + "'");
+        return null;
     }
 
     private String extractFieldName(String line) {

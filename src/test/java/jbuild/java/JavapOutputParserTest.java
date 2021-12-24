@@ -34,6 +34,8 @@ public class JavapOutputParserTest {
                 new FieldDefinition("protectedInt", "I")
         ));
 
+        assertThat(result.methodHandles).isEmpty();
+
         assertThat(result.methods.keySet())
                 .isEqualTo(Set.of(
                         new MethodDefinition("Hello", "(Ljava/lang/String;)V"),
@@ -59,6 +61,7 @@ public class JavapOutputParserTest {
         assertThat(result.className).isEqualTo("Lfoo/Bar;");
 
         assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).isEqualTo(Set.of(new MethodDefinition("Lfoo/Bar;", "()V")));
         assertThat(result.methods.get(new MethodDefinition("Lfoo/Bar;", "()V"))).isEmpty();
 
@@ -97,6 +100,8 @@ public class JavapOutputParserTest {
                 new FieldDefinition("NOTHING", "Lfoo/SomeEnum;"))
         );
 
+        assertThat(result.methodHandles).isEmpty();
+
         assertThat(result.methods.keySet()).isEqualTo(Set.of(
                 new MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V"),
                 new MethodDefinition("values", "()[Lfoo/SomeEnum;"),
@@ -126,6 +131,10 @@ public class JavapOutputParserTest {
         assertThat(result.className).isEqualTo("Lfoo/FunctionalCode;");
         assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("log", "Lfoo/ExampleLogger;")));
 
+        assertThat(result.methodHandles).isEqualTo(Set.of(
+                new Code.Method("Lfoo/ExampleLogger;", "debug", "(Ljava/lang/String;)V")
+        ));
+
         assertThat(result.methods.keySet()).isEqualTo(Set.of(
                 new MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;"),
                 new MethodDefinition("lambda$filter$1", "(Lfoo/SomeEnum;)Z"),
@@ -136,13 +145,13 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.get(new MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;")))
                 .isEqualTo(Set.of(
-                        new Code.Field("Lfoo/Zort;","bar", "Lfoo/Bar;"),
-                        new Code.Method("Lfoo/Zort;","createBar", "()Lfoo/Bar;")
+                        new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;"),
+                        new Code.Method("Lfoo/Zort;", "createBar", "()Lfoo/Bar;")
                 ));
 
         assertThat(result.methods.get(new MethodDefinition("lambda$filter$1", "(Lfoo/SomeEnum;)Z")))
                 .isEqualTo(Set.of(
-                        new Code.Field("Lfoo/SomeEnum;","SOMETHING", "Lfoo/SomeEnum;"),
+                        new Code.Field("Lfoo/SomeEnum;", "SOMETHING", "Lfoo/SomeEnum;"),
                         new Code.Method("Lfoo/ExampleLogger;", "info", "(Ljava/lang/String;)V")
                 ));
 
