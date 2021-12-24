@@ -41,13 +41,13 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.keySet())
                 .isEqualTo(Set.of(
-                        new MethodDefinition("Hello", "(Ljava/lang/String;)V"),
+                        new MethodDefinition("LHello;", "(Ljava/lang/String;)V"),
                         new MethodDefinition("foo", "()Z"),
                         new MethodDefinition("aPrivateMethod", "()V"),
                         new MethodDefinition("theFloat", "(FJ)F"),
                         new MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
-        assertThat(result.methods.get(new MethodDefinition("Hello", "(Ljava/lang/String;)V"))).isEmpty();
+        assertThat(result.methods.get(new MethodDefinition("LHello;", "(Ljava/lang/String;)V"))).isEmpty();
         assertThat(result.methods.get(new MethodDefinition("foo", "()Z"))).isEmpty();
         assertThat(result.methods.get(new MethodDefinition("aPrivateMethod", "()V"))).isEmpty();
         assertThat(result.methods.get(new MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
@@ -193,7 +193,7 @@ public class JavapOutputParserTest {
 
         // make sure contents of each class didn't mix up
         assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
-                .isEqualTo(Set.of("Hello", "getMessage", "foo", "theFloat", "aPrivateMethod"));
+                .isEqualTo(Set.of("LHello;", "getMessage", "foo", "theFloat", "aPrivateMethod"));
         assertThat(funCode.methods.keySet().stream().map(it -> it.name).collect(toSet()))
                 .isEqualTo(Set.of("Lfoo/FunctionalCode;", "countLengths", "filter", "logLengthsStats",
                         "lambda$filter$1", "lambda$countLengths$0"));

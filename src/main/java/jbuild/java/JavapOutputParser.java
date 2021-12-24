@@ -118,7 +118,7 @@ public final class JavapOutputParser {
                     type = "()V";
                     expectingFlags = true;
                 } else if (prevLine.contains("(")) { // method
-                    name = extractMethodName(prevLine); // descriptor always appears after the definition's name
+                    name = extractMethodName(prevLine, typeName); // descriptor always appears after the definition's name
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
                     expectingFlags = true; // after the descriptor, comes the flags then code
@@ -198,16 +198,20 @@ public final class JavapOutputParser {
         return Optional.of(new Code.Field(type, nameParts[1], parts[1]));
     }
 
-    private String extractMethodName(String line) {
+    private String extractMethodName(String line, String typeName) {
         var argsStart = line.indexOf('(');
         var nameStart = line.lastIndexOf(' ', argsStart - 1);
         if (nameStart < 0 || argsStart < 0) {
             log.println(() -> "WARNING: unable to find method name on line '" + line + "'");
             return null;
         }
-        // methods are actually often constructors, so we need to convert their names to type names
+        // methods are actually often constructors, so we need to try convert their names to type names
         var name = line.substring(nameStart + 1, argsStart);
-        return name.contains(".") ? classNameToTypeName(name) : name;
+        var methodAsTypeName= classNameToTypeName(name);
+        if (typeName.equals(methodAsTypeName)) {
+            return typeName;
+        }
+        return name;
     }
 
     private Code.Method extractMethodHandle(String typeName, String line) {
