@@ -28,6 +28,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("isOk", "Z"),
+                new FieldDefinition("message", "Ljava/lang/String;"),
                 new FieldDefinition("CONST", "Ljava/lang/String;"),
                 new FieldDefinition("aFloat", "F"),
                 new FieldDefinition("protectedInt", "I")
@@ -37,11 +38,13 @@ public class JavapOutputParserTest {
                 .isEqualTo(Set.of(
                         new MethodDefinition("Hello", "(Ljava/lang/String;)V"),
                         new MethodDefinition("foo", "()Z"),
+                        new MethodDefinition("aPrivateMethod", "()V"),
                         new MethodDefinition("theFloat", "(FJ)F"),
                         new MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
         assertThat(result.methods.get(new MethodDefinition("Hello", "(Ljava/lang/String;)V"))).isEmpty();
         assertThat(result.methods.get(new MethodDefinition("foo", "()Z"))).isEmpty();
+        assertThat(result.methods.get(new MethodDefinition("aPrivateMethod", "()V"))).isEmpty();
         assertThat(result.methods.get(new MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
         assertThat(result.methods.get(new MethodDefinition("getMessage", "()Ljava/lang/String;"))).isEmpty();
     }
@@ -89,14 +92,19 @@ public class JavapOutputParserTest {
         assertThat(result.className).isEqualTo("Lfoo/SomeEnum;");
 
         assertThat(result.fields).isEqualTo(Set.of(
+                new FieldDefinition("$VALUES", "[Lfoo/SomeEnum;"),
                 new FieldDefinition("SOMETHING", "Lfoo/SomeEnum;"),
                 new FieldDefinition("NOTHING", "Lfoo/SomeEnum;"))
         );
 
         assertThat(result.methods.keySet()).isEqualTo(Set.of(
+                new MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V"),
                 new MethodDefinition("values", "()[Lfoo/SomeEnum;"),
                 new MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),
                 new MethodDefinition("static{}", "()V")));
+
+        assertThat(result.methods.get(new MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V")))
+                .isEmpty();
 
         assertThat(result.methods.get(new MethodDefinition("values", "()[Lfoo/SomeEnum;")))
                 .isEmpty();
@@ -106,6 +114,52 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
                 .isEmpty();
+    }
+
+    @Test
+    void canParseFunctionalCode() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var result = parser.processJavapOutput("foo.FunctionalCode",
+                javap(myClassesJar, "foo.FunctionalCode"));
+
+        assertThat(result.className).isEqualTo("Lfoo/FunctionalCode;");
+        assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("log", "Lfoo/ExampleLogger;")));
+
+        assertThat(result.methods.keySet()).isEqualTo(Set.of(
+                new MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;"),
+                new MethodDefinition("lambda$filter$1", "(Lfoo/SomeEnum;)Z"),
+                new MethodDefinition("filter", "(Ljava/util/List;)Ljava/util/List;"),
+                new MethodDefinition("logLengthsStats", "(Ljava/util/List;)V"),
+                new MethodDefinition("countLengths", "(Ljava/util/List;)Ljava/util/IntSummaryStatistics;"),
+                new MethodDefinition("Lfoo/FunctionalCode;", "(Lfoo/ExampleLogger;)V")));
+
+        assertThat(result.methods.get(new MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;")))
+                .isEqualTo(Set.of(
+                        new Code.Field("Lfoo/Zort;","bar", "Lfoo/Bar;"),
+                        new Code.Method("Lfoo/Zort;","createBar", "()Lfoo/Bar;")
+                ));
+
+        assertThat(result.methods.get(new MethodDefinition("lambda$filter$1", "(Lfoo/SomeEnum;)Z")))
+                .isEqualTo(Set.of(
+                        new Code.Field("Lfoo/SomeEnum;","SOMETHING", "Lfoo/SomeEnum;"),
+                        new Code.Method("Lfoo/ExampleLogger;", "info", "(Ljava/lang/String;)V")
+                ));
+
+        assertThat(result.methods.get(new MethodDefinition("filter", "(Ljava/util/List;)Ljava/util/List;")))
+                .isEmpty();
+
+        assertThat(result.methods.get(new MethodDefinition("logLengthsStats", "(Ljava/util/List;)V")))
+                .isEqualTo(Set.of(
+                        new Code.Method("Lfoo/ExampleLogger;", "info", "(Ljava/lang/String;)V")
+                ));
+
+        assertThat(result.methods.get(new MethodDefinition("countLengths", "(Ljava/util/List;)Ljava/util/IntSummaryStatistics;")))
+                .isEmpty();
+
+        assertThat(result.methods.get(new MethodDefinition("Lfoo/FunctionalCode;", "(Lfoo/ExampleLogger;)V")))
+                .isEmpty();
+
     }
 
     private Iterator<String> javap(String jar, String className) {

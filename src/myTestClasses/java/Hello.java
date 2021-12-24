@@ -23,7 +23,7 @@ public class Hello {
         return aFloat + a * ((float) b);
     }
 
-    private void notIncluded() {
+    private void aPrivateMethod() {
 
     }
 }
