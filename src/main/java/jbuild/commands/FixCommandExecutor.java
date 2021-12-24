@@ -3,11 +3,11 @@ package jbuild.commands;
 import jbuild.errors.JBuildException;
 import jbuild.java.JavapOutputParser;
 import jbuild.java.Tools;
+import jbuild.java.code.ClassDefinition;
 import jbuild.java.code.Code;
 import jbuild.log.JBuildLog;
 
 import java.io.File;
-import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
@@ -40,13 +40,11 @@ public final class FixCommandExecutor {
 
         for (var file : files) {
             var classes = getClassesIn(file);
-            for (var clazz : classes) {
-                processClass(file, clazz);
-            }
+            processClasses(file, classes);
         }
     }
 
-    private List<String> getClassesIn(File jarFile) {
+    private String[] getClassesIn(File jarFile) {
         var result = jar.listContents(jarFile.getAbsolutePath());
         checkToolSuccessful("jar", result);
 
@@ -55,24 +53,27 @@ public final class FixCommandExecutor {
                 .filter(line -> !line.equals("module-info.class"))
                 .map(line -> line.replace(File.separatorChar, '.')
                         .substring(0, line.length() - ".class".length()))
-                .collect(toList());
+                .collect(toList())
+                .toArray(String[]::new);
     }
 
-    private void processClass(File jar, String className) {
-        var result = javap.run(jar.getAbsolutePath(), className);
+    private void processClasses(File jar, String... classNames) {
+        var result = javap.run(jar.getAbsolutePath(), classNames);
         checkToolSuccessful("javap", result);
 
         var javapOutputParser = new JavapOutputParser(log);
 
-        var classDef = javapOutputParser.processJavapOutput(className, result.stdout.lines().iterator());
+        var classDefs = javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
 
-        log.println("Class " + classDef.className + " has methods:");
-        classDef.methods.forEach((method, c) -> {
-            log.println("  - name=" + method.name + ", type=" + method.type);
-            for (Code code1 : c) {
-                log.println("      " + code1);
-            }
-        });
+        for (ClassDefinition classDef : classDefs) {
+            log.println("Class " + classDef.className + " has methods:");
+            classDef.methods.forEach((method, c) -> {
+                log.println("  - name=" + method.name + ", type=" + method.type);
+                for (Code code1 : c) {
+                    log.println("      " + code1);
+                }
+            });
+        }
     }
 
     private void checkToolSuccessful(String tool, Tools.ToolRunResult result) {

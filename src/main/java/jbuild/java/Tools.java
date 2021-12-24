@@ -48,10 +48,22 @@ public abstract class Tools {
             super(tool);
         }
 
-        public ToolRunResult run(String jarPath, String className) {
-            var exitCode = tool.run(new PrintStream(out), new PrintStream(err),
-                    "-v", "-s", "-c", "-p", "-classpath", jarPath, className);
+        public ToolRunResult run(String jarPath, String... classNames) {
+            var args = collectArgs(jarPath, classNames);
+            var exitCode = tool.run(new PrintStream(out), new PrintStream(err), args);
             return new ToolRunResult(exitCode, consumeOutput(out), consumeOutput(err));
+        }
+
+        private static String[] collectArgs(String jarPath, String... classNames) {
+            var result = new String[classNames.length + 6];
+            result[0] = "-v";
+            result[1] = "-s";
+            result[2] = "-c";
+            result[3] = "-p";
+            result[4] = "-classpath";
+            result[5] = jarPath;
+            System.arraycopy(classNames, 0, result, 6, classNames.length);
+            return result;
         }
 
     }

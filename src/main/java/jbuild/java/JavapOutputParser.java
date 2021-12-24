@@ -6,22 +6,52 @@ import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class JavapOutputParser {
 
+    private static final Pattern CLASS_NAME_LINE = Pattern.compile("((public|private|protected|final)\\s)*" +
+            "(class|interface|enum)\\s([a-zA-Z_$.0-9]+)(\\s.*)?");
+
     private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:.*\\s//\\s([A-Za-z].+)");
+
     private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
 
     private final JBuildLog log;
 
     public JavapOutputParser(JBuildLog log) {
         this.log = log;
+    }
+
+    public List<ClassDefinition> processJavapOutput(Iterator<String> lines) {
+        var result = new ArrayList<ClassDefinition>();
+        var waitingForClassLine = false;
+        while (lines.hasNext()) {
+            var line = lines.next();
+            if (waitingForClassLine) {
+                var match = CLASS_NAME_LINE.matcher(line);
+                if (match.matches()) {
+                    var className = match.group(4);
+                    var classDef = processJavapOutput(className, lines);
+                    result.add(classDef);
+                    waitingForClassLine = false;
+                } else if (!line.startsWith(" ")) {
+                    log.println("WARNING: did not find class name after Classfile section started. " +
+                            "Ignoring class from line '" + line + "'");
+                    waitingForClassLine = false;
+                }
+            } else if (line.startsWith("Classfile jar:")) {
+                waitingForClassLine = true;
+            }
+        }
+        return result;
     }
 
     public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
@@ -67,6 +97,9 @@ public final class JavapOutputParser {
             if (prevLine == null) {
                 prevLine = line;
                 continue;
+            }
+            if (line.equals("}")) {
+                break;
             }
             if (expectingFlags) {
                 expectingFlags = false;
