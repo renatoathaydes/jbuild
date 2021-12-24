@@ -50,7 +50,7 @@ public abstract class Tools {
 
         public ToolRunResult run(String jarPath, String className) {
             var exitCode = tool.run(new PrintStream(out), new PrintStream(err),
-                    "-s", "-c", "-p", "-classpath", jarPath, className);
+                    "-v", "-s", "-c", "-p", "-classpath", jarPath, className);
             return new ToolRunResult(exitCode, consumeOutput(out), consumeOutput(err));
         }
 

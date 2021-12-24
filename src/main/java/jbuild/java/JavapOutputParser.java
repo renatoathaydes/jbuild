@@ -28,14 +28,17 @@ public final class JavapOutputParser {
         String typeName = classNameToTypeName(className);
         var methods = new HashMap<MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<FieldDefinition>();
-        var expectingCode = false;
+        boolean expectingCode = false, expectingFlags = false;
         while (lines.hasNext()) {
             var line = lines.next();
             if (prevLine == null) {
                 prevLine = line;
                 continue;
             }
-            if (expectingCode) {
+            if (expectingFlags) {
+                expectingFlags = false;
+                expectingCode = true;
+            } else if (expectingCode) {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
                     var method = new MethodDefinition(name, type);
@@ -46,12 +49,12 @@ public final class JavapOutputParser {
                 if (prevLine.equals("  static {};")) { // static block
                     name = "static{}";
                     type = "()V";
-                    expectingCode = true;
+                    expectingFlags = true;
                 } else if (prevLine.contains("(")) { // method
                     name = extractMethodName(prevLine); // descriptor always appears after the definition's name
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
-                    expectingCode = true; // after the descriptor, comes the code
+                    expectingFlags = true; // after the descriptor, comes the flags then code
                 } else { // field
                     name = extractFieldName(prevLine);
                     if (name == null) continue;
