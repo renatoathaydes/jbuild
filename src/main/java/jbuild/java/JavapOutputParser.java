@@ -98,7 +98,8 @@ public final class JavapOutputParser {
                 prevLine = line;
                 continue;
             }
-            if (line.equals("}")) {
+            if (line.equals("}") // normal end of class
+                    || line.startsWith("SourceFile: \"")) { // the code section might end with '}', so the next line will be this
                 break;
             }
             if (expectingFlags) {
@@ -137,7 +138,7 @@ public final class JavapOutputParser {
         var result = new LinkedHashSet<Code>();
         while (lines.hasNext()) {
             var line = lines.next();
-            if (line.isEmpty()) { // this ends the code section
+            if (line.isEmpty() || line.equals("}")) { // this ends the code section
                 break;
             }
             var match = CODE_LINE.matcher(line);

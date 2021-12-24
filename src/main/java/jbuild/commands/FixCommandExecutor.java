@@ -31,16 +31,16 @@ public final class FixCommandExecutor {
             throw new JBuildException("not a directory: " + inputDir, USER_INPUT);
         }
 
-        var files = dir.listFiles(name -> name.getName().endsWith(".jar"));
+        var jarFiles = dir.listFiles(name -> name.getName().endsWith(".jar"));
 
-        if (files == null || files.length == 0) {
+        if (jarFiles == null || jarFiles.length == 0) {
             log.println("No jar files found at " + inputDir + ", nothing to do.");
             return;
         }
 
-        for (var file : files) {
-            var classes = getClassesIn(file);
-            processClasses(file, classes);
+        for (var jar : jarFiles) {
+            var classes = getClassesIn(jar);
+            processClasses(jar, classes);
         }
     }
 

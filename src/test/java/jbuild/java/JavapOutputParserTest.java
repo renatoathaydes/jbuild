@@ -9,8 +9,11 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JavapOutputParserTest {
@@ -171,8 +174,35 @@ public class JavapOutputParserTest {
 
     }
 
-    private Iterator<String> javap(String jar, String className) {
-        var result = Tools.Javap.create().run(jar, className);
+    @Test
+    void canParseMultipleClassesAtOnce() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var result = parser.processJavapOutput(
+                javap(myClassesJar, "Hello", "foo.FunctionalCode", "foo.Bar"));
+
+        assertThat(result.stream().map(c -> c.className).collect(toList()))
+                .isEqualTo(List.of("LHello;", "Lfoo/FunctionalCode;", "Lfoo/Bar;"));
+
+        var hello = result.stream().filter(it -> it.className.equals("LHello;"))
+                .findFirst().orElseThrow();
+        var funCode = result.stream().filter(it -> it.className.equals("Lfoo/FunctionalCode;"))
+                .findFirst().orElseThrow();
+        var bar = result.stream().filter(it -> it.className.equals("Lfoo/Bar;"))
+                .findFirst().orElseThrow();
+
+        // make sure contents of each class didn't mix up
+        assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
+                .isEqualTo(Set.of("Hello", "getMessage", "foo", "theFloat", "aPrivateMethod"));
+        assertThat(funCode.methods.keySet().stream().map(it -> it.name).collect(toSet()))
+                .isEqualTo(Set.of("Lfoo/FunctionalCode;", "countLengths", "filter", "logLengthsStats",
+                        "lambda$filter$1", "lambda$countLengths$0"));
+        assertThat(bar.methods.keySet().stream().map(it -> it.name).collect(toSet()))
+                .isEqualTo(Set.of("Lfoo/Bar;"));
+    }
+
+    private Iterator<String> javap(String jar, String... classNames) {
+        var result = Tools.Javap.create().run(jar, classNames);
         assertProcessWasSuccessful(result);
         return result.stdout.lines().iterator();
     }
