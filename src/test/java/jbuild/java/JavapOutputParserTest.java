@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class JavapOutputParserTest {
 
-    private static final String myClassesJar = System.getProperty("tests.my-test-classes.jar");
+    static final String myClassesJar = System.getProperty("tests.my-test-classes.jar");
 
     @Test
     void canParseBasicClass() {
@@ -27,7 +27,7 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("Hello",
                 javap(myClassesJar, "Hello"));
 
-        assertThat(result.className).isEqualTo("LHello;");
+        assertThat(result.typeName).isEqualTo("LHello;");
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("isOk", "Z"),
@@ -61,7 +61,7 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("foo.Bar",
                 javap(myClassesJar, "foo.Bar"));
 
-        assertThat(result.className).isEqualTo("Lfoo/Bar;");
+        assertThat(result.typeName).isEqualTo("Lfoo/Bar;");
 
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
@@ -71,7 +71,7 @@ public class JavapOutputParserTest {
         result = parser.processJavapOutput("foo.Zort",
                 javap(myClassesJar, "foo.Zort"));
 
-        assertThat(result.className).isEqualTo("Lfoo/Zort;");
+        assertThat(result.typeName).isEqualTo("Lfoo/Zort;");
 
         assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("bar", "Lfoo/Bar;")));
 
@@ -83,7 +83,7 @@ public class JavapOutputParserTest {
         ));
         assertThat(result.methods.get(new MethodDefinition("static{}", "()V")))
                 .isEqualTo(Set.of(
-                        new Code.ClassRef("Lfoo/Bar;"),
+                        new Code.Type("Lfoo/Bar;"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")
                 ));
     }
@@ -95,7 +95,7 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("foo.SomeEnum",
                 javap(myClassesJar, "foo.SomeEnum"));
 
-        assertThat(result.className).isEqualTo("Lfoo/SomeEnum;");
+        assertThat(result.typeName).isEqualTo("Lfoo/SomeEnum;");
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("$VALUES", "[Lfoo/SomeEnum;"),
@@ -131,7 +131,7 @@ public class JavapOutputParserTest {
         var result = parser.processJavapOutput("foo.FunctionalCode",
                 javap(myClassesJar, "foo.FunctionalCode"));
 
-        assertThat(result.className).isEqualTo("Lfoo/FunctionalCode;");
+        assertThat(result.typeName).isEqualTo("Lfoo/FunctionalCode;");
         assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("log", "Lfoo/ExampleLogger;")));
 
         assertThat(result.methodHandles).isEqualTo(Set.of(
@@ -179,16 +179,17 @@ public class JavapOutputParserTest {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
         var result = parser.processJavapOutput(
-                javap(myClassesJar, "Hello", "foo.FunctionalCode", "foo.Bar"));
+                javap(myClassesJar, "Hello", "foo.FunctionalCode", "foo.Bar")
+        ).values();
 
-        assertThat(result.stream().map(c -> c.className).collect(toList()))
+        assertThat(result.stream().map(c -> c.typeName).collect(toList()))
                 .isEqualTo(List.of("LHello;", "Lfoo/FunctionalCode;", "Lfoo/Bar;"));
 
-        var hello = result.stream().filter(it -> it.className.equals("LHello;"))
+        var hello = result.stream().filter(it -> it.typeName.equals("LHello;"))
                 .findFirst().orElseThrow();
-        var funCode = result.stream().filter(it -> it.className.equals("Lfoo/FunctionalCode;"))
+        var funCode = result.stream().filter(it -> it.typeName.equals("Lfoo/FunctionalCode;"))
                 .findFirst().orElseThrow();
-        var bar = result.stream().filter(it -> it.className.equals("Lfoo/Bar;"))
+        var bar = result.stream().filter(it -> it.typeName.equals("Lfoo/Bar;"))
                 .findFirst().orElseThrow();
 
         // make sure contents of each class didn't mix up

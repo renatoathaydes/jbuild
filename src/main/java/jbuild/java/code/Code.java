@@ -4,21 +4,23 @@ import java.util.function.Consumer;
 
 public abstract class Code {
 
-    private Code() {
+    public final String typeName;
+
+    private Code(String typeName) {
+        this.typeName = typeName;
     }
 
     public abstract void use(Consumer<Code.Field> field,
                              Consumer<Code.Method> method,
-                             Consumer<Code.ClassRef> classRef);
+                             Consumer<Type> type);
 
     public static final class Field extends Code {
 
-        public final String className;
         public final String name;
         public final String type;
 
-        public Field(String className, String name, String type) {
-            this.className = className;
+        public Field(String typeName, String name, String type) {
+            super(typeName);
             this.name = name;
             this.type = type;
         }
@@ -26,7 +28,7 @@ public abstract class Code {
         @Override
         public void use(Consumer<Field> field,
                         Consumer<Method> method,
-                        Consumer<ClassRef> classRef) {
+                        Consumer<Type> type) {
             field.accept(this);
         }
 
@@ -37,14 +39,14 @@ public abstract class Code {
 
             Field field = (Field) o;
 
-            if (!className.equals(field.className)) return false;
+            if (!typeName.equals(field.typeName)) return false;
             if (!name.equals(field.name)) return false;
             return type.equals(field.type);
         }
 
         @Override
         public int hashCode() {
-            int result = className.hashCode();
+            int result = typeName.hashCode();
             result = 31 * result + name.hashCode();
             result = 31 * result + type.hashCode();
             return result;
@@ -53,7 +55,7 @@ public abstract class Code {
         @Override
         public String toString() {
             return "Field{" +
-                    "className='" + className + '\'' +
+                    "typeName='" + typeName + '\'' +
                     ", name='" + name + '\'' +
                     ", type='" + type + '\'' +
                     '}';
@@ -61,12 +63,12 @@ public abstract class Code {
     }
 
     public static final class Method extends Code {
-        public final String className;
+
         public final String name;
         public final String type;
 
-        public Method(String className, String name, String type) {
-            this.className = className;
+        public Method(String typeName, String name, String type) {
+            super(typeName);
             this.name = name;
             this.type = type;
         }
@@ -74,7 +76,7 @@ public abstract class Code {
         @Override
         public void use(Consumer<Field> field,
                         Consumer<Method> method,
-                        Consumer<ClassRef> classRef) {
+                        Consumer<Type> type) {
             method.accept(this);
         }
 
@@ -85,14 +87,14 @@ public abstract class Code {
 
             Method method = (Method) o;
 
-            if (!className.equals(method.className)) return false;
+            if (!typeName.equals(method.typeName)) return false;
             if (!name.equals(method.name)) return false;
             return type.equals(method.type);
         }
 
         @Override
         public int hashCode() {
-            int result = className.hashCode();
+            int result = typeName.hashCode();
             result = 31 * result + name.hashCode();
             result = 31 * result + type.hashCode();
             return result;
@@ -101,25 +103,24 @@ public abstract class Code {
         @Override
         public String toString() {
             return "Method{" +
-                    "className='" + className + '\'' +
+                    "typeName='" + typeName + '\'' +
                     ", name='" + name + '\'' +
                     ", type='" + type + '\'' +
                     '}';
         }
     }
 
-    public static final class ClassRef extends Code {
-        public final String name;
+    public static final class Type extends Code {
 
-        public ClassRef(String name) {
-            this.name = name;
+        public Type(String typeName) {
+            super(typeName);
         }
 
         @Override
         public void use(Consumer<Field> field,
                         Consumer<Method> method,
-                        Consumer<ClassRef> classRef) {
-            classRef.accept(this);
+                        Consumer<Type> type) {
+            type.accept(this);
         }
 
         @Override
@@ -127,20 +128,20 @@ public abstract class Code {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
 
-            ClassRef classRef = (ClassRef) o;
+            Type type = (Type) o;
 
-            return name.equals(classRef.name);
+            return typeName.equals(type.typeName);
         }
 
         @Override
         public int hashCode() {
-            return name.hashCode();
+            return typeName.hashCode();
         }
 
         @Override
         public String toString() {
-            return "ClassRef{" +
-                    "name='" + name + '\'' +
+            return "Type{" +
+                    "name='" + typeName + '\'' +
                     '}';
         }
     }

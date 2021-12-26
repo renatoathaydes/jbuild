@@ -1,13 +1,17 @@
 package jbuild.commands;
 
 import jbuild.errors.JBuildException;
+import jbuild.java.ClassGraph;
+import jbuild.java.CodeReference;
 import jbuild.java.JavapOutputParser;
 import jbuild.java.Tools;
-import jbuild.java.code.ClassDefinition;
 import jbuild.java.code.Code;
+import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
@@ -26,6 +30,11 @@ public final class FixCommandExecutor {
     }
 
     public void run(String inputDir, boolean interactive) {
+        var classesByJar = parseClassDefinitionsInJars(inputDir);
+        showInconsistencies(classesByJar);
+    }
+
+    public ClassGraph parseClassDefinitionsInJars(String inputDir) {
         var dir = new File(inputDir);
         if (!dir.isDirectory()) {
             throw new JBuildException("not a directory: " + inputDir, USER_INPUT);
@@ -35,13 +44,37 @@ public final class FixCommandExecutor {
 
         if (jarFiles == null || jarFiles.length == 0) {
             log.println("No jar files found at " + inputDir + ", nothing to do.");
-            return;
+            return new ClassGraph(Map.of());
         }
 
+        return parseClassDefinitionsInJars(jarFiles);
+    }
+
+    public ClassGraph parseClassDefinitionsInJars(File... jarFiles) {
+
+        var classesByJar = new HashMap<String, Map<String, TypeDefinition>>(jarFiles.length);
         for (var jar : jarFiles) {
             var classes = getClassesIn(jar);
-            processClasses(jar, classes);
+            classesByJar.put(jar.getPath(), processClasses(jar, classes));
         }
+        return new ClassGraph(classesByJar);
+    }
+
+    private void showInconsistencies(ClassGraph classGraph) {
+        classGraph.getJarsByType().entrySet().stream()
+                .filter(e -> e.getValue().size() > 1)
+                .forEach(entry -> {
+                    var type = entry.getKey();
+//                    log.println("Found " + type + " in jars: " + entry.getValue());
+                    log.println("All references to type: " + type);
+                    var code = new Code.Type(type);
+                    var refs = classGraph.referencesTo(code);
+                    for (CodeReference ref : refs) {
+                        log.println("  * from " + ref.jar + "!" + ref.type + "::" + ref.getMethod()
+                                .map(m -> m.name + m.type)
+                                .orElse("?"));
+                    }
+                });
     }
 
     private String[] getClassesIn(File jarFile) {
@@ -57,23 +90,11 @@ public final class FixCommandExecutor {
                 .toArray(String[]::new);
     }
 
-    private void processClasses(File jar, String... classNames) {
+    private Map<String, TypeDefinition> processClasses(File jar, String... classNames) {
         var result = javap.run(jar.getAbsolutePath(), classNames);
         checkToolSuccessful("javap", result);
-
         var javapOutputParser = new JavapOutputParser(log);
-
-        var classDefs = javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
-
-        for (ClassDefinition classDef : classDefs) {
-            log.println("Class " + classDef.className + " has methods:");
-            classDef.methods.forEach((method, c) -> {
-                log.println("  - name=" + method.name + ", type=" + method.type);
-                for (Code code1 : c) {
-                    log.println("      " + code1);
-                }
-            });
-        }
+        return javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
     }
 
     private void checkToolSuccessful(String tool, Tools.ToolRunResult result) {

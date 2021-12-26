@@ -10,7 +10,7 @@ public class Zort {
         return new Bar();
     }
 
-    Bar bar;
+    public Bar bar;
 
     public static Bar getBar(Bar bar) {
         return bar;

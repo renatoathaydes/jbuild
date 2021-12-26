@@ -13,11 +13,20 @@ sourceSets {
     myTestClasses {
         java {}
     }
+    otherTestClasses {
+        java {}
+        compileClasspath += sourceSets.myTestClasses.output
+    }
 }
 
 task myTestJar(type: Jar) {
     archiveFileName = 'my-tests.jar'
     from sourceSets.myTestClasses.output
+}
+
+task otherTestJar(type: Jar) {
+    archiveFileName = 'other-tests.jar'
+    from sourceSets.otherTestClasses.output
 }
 
 dependencies {
@@ -27,8 +36,9 @@ dependencies {
 }
 
 test {
-    dependsOn('myTestJar')
+    dependsOn('myTestJar', 'otherTestJar')
     useJUnitPlatform()
     systemProperty('tests.repo.dir', file('src/test/resources/jbuild/commands/repo').absolutePath)
     systemProperty('tests.my-test-classes.jar', "$buildDir/libs/my-tests.jar")
+    systemProperty('tests.other-test-classes.jar', "$buildDir/libs/other-tests.jar")
 }

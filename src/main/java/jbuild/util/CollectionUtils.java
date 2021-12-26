@@ -13,6 +13,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class CollectionUtils {
 
@@ -137,6 +139,14 @@ public final class CollectionUtils {
         return result;
     }
 
+    public static <T> Set<T> difference(Set<T> set, Collection<T> exclusions) {
+        if (exclusions.isEmpty()) return set;
+        var exc = exclusions instanceof Set<?> ? ((Set<T>) exclusions) : new HashSet<>(exclusions);
+        return set.stream()
+                .filter(item -> !exc.contains(item))
+                .collect(Collectors.toSet());
+    }
+
     public static <K, A, B> Map<K, B> mapValues(Map<K, A> map, Function<A, B> transform) {
         var result = new HashMap<K, B>(map.size());
         for (var entry : map.entrySet()) {
@@ -186,5 +196,9 @@ public final class CollectionUtils {
         var mutable = new ArrayList<>(collection);
         mutable.sort(comparator);
         return mutable;
+    }
+
+    public static <T> Stream<T> streamOfOptional(Optional<T> opt) {
+        return opt.isEmpty() ? Stream.of() : Stream.of(opt.get());
     }
 }

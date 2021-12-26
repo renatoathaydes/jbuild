@@ -1,24 +1,24 @@
 package jbuild.java;
 
-import jbuild.java.code.ClassDefinition;
 import jbuild.java.code.Code;
 import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
+import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class JavapOutputParser {
 
-    private static final Pattern CLASS_NAME_LINE = Pattern.compile("((public|private|protected|final)\\s)*" +
-            "(class|interface|enum)\\s([a-zA-Z_$.0-9]+)(\\s.*)?");
+    private static final Pattern CLASS_NAME_LINE = Pattern.compile("((public|private|protected|abstract|final)\\s)*" +
+            "(class|interface|enum)\\s([a-zA-Z_$.0-9]+).*");
 
     private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:.*\\s//\\s([A-Za-z].+)");
 
@@ -30,8 +30,9 @@ public final class JavapOutputParser {
         this.log = log;
     }
 
-    public List<ClassDefinition> processJavapOutput(Iterator<String> lines) {
-        var result = new ArrayList<ClassDefinition>();
+    // FIXME missing references to types in method signatures when parameters are not used
+    public Map<String, TypeDefinition> processJavapOutput(Iterator<String> lines) {
+        var result = new LinkedHashMap<String, TypeDefinition>();
         var waitingForClassLine = false;
         while (lines.hasNext()) {
             var line = lines.next();
@@ -39,8 +40,8 @@ public final class JavapOutputParser {
                 var match = CLASS_NAME_LINE.matcher(line);
                 if (match.matches()) {
                     var className = match.group(4);
-                    var classDef = processJavapOutput(className, lines);
-                    result.add(classDef);
+                    var typeDef = processJavapOutput(className, lines);
+                    result.put(typeDef.typeName, typeDef);
                     waitingForClassLine = false;
                 } else if (!line.startsWith(" ")) {
                     log.println("WARNING: did not find class name after Classfile section started. " +
@@ -54,7 +55,7 @@ public final class JavapOutputParser {
         return result;
     }
 
-    public ClassDefinition processJavapOutput(String className, Iterator<String> lines) {
+    public TypeDefinition processJavapOutput(String className, Iterator<String> lines) {
         String typeName = classNameToTypeName(className);
         Set<Code.Method> methodHandles = null;
         while (lines.hasNext()) {
@@ -85,9 +86,9 @@ public final class JavapOutputParser {
         return methodHandles;
     }
 
-    public ClassDefinition processClassMethods(String typeName,
-                                               Set<Code.Method> methodHandles,
-                                               Iterator<String> lines) {
+    public TypeDefinition processClassMethods(String typeName,
+                                              Set<Code.Method> methodHandles,
+                                              Iterator<String> lines) {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<FieldDefinition>();
@@ -131,7 +132,7 @@ public final class JavapOutputParser {
             }
             prevLine = line;
         }
-        return new ClassDefinition(typeName, fields, methodHandles, methods);
+        return new TypeDefinition(typeName, fields, methodHandles, methods);
     }
 
     public Set<Code> processCode(Iterator<String> lines, String typeName) {
@@ -167,11 +168,11 @@ public final class JavapOutputParser {
         return Optional.empty();
     }
 
-    private Optional<Code.ClassRef> parseClass(String classDef,
-                                               String typeName) {
+    private Optional<Code.Type> parseClass(String classDef,
+                                           String typeName) {
         var type = classNameToTypeName(classDef);
         if (shouldIgnoreClass(type, typeName)) return Optional.empty();
-        return Optional.of(new Code.ClassRef(type));
+        return Optional.of(new Code.Type(type));
     }
 
     private Optional<Code.Method> parseMethod(String method,
@@ -207,7 +208,7 @@ public final class JavapOutputParser {
         }
         // methods are actually often constructors, so we need to try convert their names to type names
         var name = line.substring(nameStart + 1, argsStart);
-        var methodAsTypeName= classNameToTypeName(name);
+        var methodAsTypeName = classNameToTypeName(name);
         if (typeName.equals(methodAsTypeName)) {
             return typeName;
         }
