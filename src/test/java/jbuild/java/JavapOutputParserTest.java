@@ -24,10 +24,12 @@ public class JavapOutputParserTest {
     void canParseBasicClass() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var result = parser.processJavapOutput("Hello",
-                javap(myClassesJar, "Hello"));
+        var types = parser.processJavapOutput(javap(myClassesJar, "Hello"));
+        var result = types.get("LHello;");
 
         assertThat(result.typeName).isEqualTo("LHello;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.getExtendedType()).isNotPresent();
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("isOk", "Z"),
@@ -58,20 +60,24 @@ public class JavapOutputParserTest {
     void canParseClassWithStaticBlockAndStaticMethods() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var result = parser.processJavapOutput("foo.Bar",
-                javap(myClassesJar, "foo.Bar"));
+        var types = parser.processJavapOutput(javap(myClassesJar, "foo.Bar"));
+        var result = types.get("Lfoo/Bar;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/Bar;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.getExtendedType()).isNotPresent();
 
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).isEqualTo(Set.of(new MethodDefinition("Lfoo/Bar;", "()V")));
         assertThat(result.methods.get(new MethodDefinition("Lfoo/Bar;", "()V"))).isEmpty();
 
-        result = parser.processJavapOutput("foo.Zort",
-                javap(myClassesJar, "foo.Zort"));
+        types = parser.processJavapOutput(javap(myClassesJar, "foo.Zort"));
+        result = types.get("Lfoo/Zort;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/Zort;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.getExtendedType()).isNotPresent();
 
         assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("bar", "Lfoo/Bar;")));
 
@@ -92,10 +98,13 @@ public class JavapOutputParserTest {
     void canParseBasicEnum() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var result = parser.processJavapOutput("foo.SomeEnum",
-                javap(myClassesJar, "foo.SomeEnum"));
+        var types = parser.processJavapOutput(javap(myClassesJar, "foo.SomeEnum"));
+        var result = types.get("Lfoo/SomeEnum;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/SomeEnum;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.getExtendedType()).isPresent()
+                .get().isEqualTo("Ljava/lang/Enum<foo/SomeEnum>;");
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new FieldDefinition("$VALUES", "[Lfoo/SomeEnum;"),
@@ -128,10 +137,13 @@ public class JavapOutputParserTest {
     void canParseFunctionalCode() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var result = parser.processJavapOutput("foo.FunctionalCode",
-                javap(myClassesJar, "foo.FunctionalCode"));
+        var types = parser.processJavapOutput(javap(myClassesJar, "foo.FunctionalCode"));
+        var result = types.get("Lfoo/FunctionalCode;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/FunctionalCode;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.getExtendedType()).isNotPresent();
+
         assertThat(result.fields).isEqualTo(Set.of(new FieldDefinition("log", "Lfoo/ExampleLogger;")));
 
         assertThat(result.methodHandles).isEqualTo(Set.of(
@@ -197,8 +209,12 @@ public class JavapOutputParserTest {
         // make sure contents of each class didn't mix up
         assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
                 .isEqualTo(Set.of("LHello;", "getMessage", "foo", "theFloat", "aPrivateMethod"));
+        assertThat(hello.implementedInterfaces).isEmpty();
+        assertThat(hello.getExtendedType()).isNotPresent();
 
         assertThat(emptyInterface.fields).isEmpty();
+        assertThat(emptyInterface.implementedInterfaces).isEmpty();
+        assertThat(emptyInterface.getExtendedType()).isNotPresent();
         assertThat(emptyInterface.methods).isEmpty();
         assertThat(emptyInterface.methodHandles).isEmpty();
 

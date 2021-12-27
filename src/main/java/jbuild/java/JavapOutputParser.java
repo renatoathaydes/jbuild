@@ -49,7 +49,9 @@ public final class JavapOutputParser {
                 var match = CLASS_NAME_LINE.matcher(line);
                 if (match.matches()) {
                     var className = match.group(4);
-                    var typeDef = processJavapOutput(className, lines, parseImplements(match.group(6)));
+                    var typeDef = processJavapOutput(className, lines,
+                            parseExtends(match.group(5)),
+                            parseImplements(match.group(6)));
                     result.put(typeDef.typeName, typeDef);
                     waitingForClassLine = false;
                 } else if (!line.startsWith(" ")) {
@@ -65,12 +67,8 @@ public final class JavapOutputParser {
     }
 
     public TypeDefinition processJavapOutput(String className,
-                                             Iterator<String> lines) {
-        return processJavapOutput(className, lines, Set.of());
-    }
-
-    public TypeDefinition processJavapOutput(String className,
                                              Iterator<String> lines,
+                                             String extended,
                                              Set<String> interfaces) {
         String typeName = classNameToTypeName(className);
         Set<Code.Method> methodHandles = null;
@@ -82,10 +80,16 @@ public final class JavapOutputParser {
             }
         }
         if (methodHandles == null) throw new IllegalStateException("Constant pool not found for class " + className);
-        return processClassMethods(typeName, methodHandles, lines, interfaces);
+        return processClassMethods(typeName, methodHandles, lines, extended, interfaces);
     }
 
-    private Set<String> parseImplements(String group) {
+    private static String parseExtends(String group) {
+        if (group == null) return null;
+        assert group.startsWith(" extends ");
+        return classNameToTypeName(group.substring(" extends ".length()));
+    }
+
+    private static Set<String> parseImplements(String group) {
         if (group == null) return Set.of();
         assert group.startsWith(" implements ");
         return Stream.of(group.substring(" implements ".length()).split(","))
@@ -113,6 +117,7 @@ public final class JavapOutputParser {
     private TypeDefinition processClassMethods(String typeName,
                                                Set<Code.Method> methodHandles,
                                                Iterator<String> lines,
+                                               String extended,
                                                Set<String> interfaces) {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<MethodDefinition, Set<Code>>();
@@ -157,7 +162,7 @@ public final class JavapOutputParser {
             }
             prevLine = line;
         }
-        return new TypeDefinition(typeName, interfaces, fields, methodHandles, methods);
+        return new TypeDefinition(typeName, extended, interfaces, fields, methodHandles, methods);
     }
 
     public Set<Code> processCode(Iterator<String> lines, String typeName) {
