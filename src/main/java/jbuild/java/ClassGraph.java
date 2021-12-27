@@ -109,7 +109,7 @@ public final class ClassGraph {
     }
 
     private Stream<CodeReference> refs(String jarFrom, TypeDefinition typeFrom, Code to) {
-        var fromMethodsAndHandles = Stream.concat(
+        var results = Stream.concat(
                 typeFrom.methodHandles.stream()
                         .filter(to::equals)
                         .map(code -> new CodeReference(jarFrom, typeFrom.typeName, null, to)),
@@ -119,23 +119,29 @@ public final class ClassGraph {
                                 .findAny()
                                 .map(code -> new CodeReference(jarFrom, typeFrom.typeName, entry.getKey(), to)))));
 
-        // find references to a type in the type signature of the methods, even when the type is not used
+        // find references to a type in fields and type signature of methods, even when they are not used
         if (to instanceof Code.Type) {
-            var fromMethodSignatures = typeFrom.methods.keySet().stream()
-                    .filter(method -> method.getReturnType().equals(to.typeName) ||
-                            method.getParameterTypes().contains(to.typeName))
-                    .map(method -> new CodeReference(jarFrom, typeFrom.typeName, method, to));
+            results = Stream.concat(
+                    results,
+                    typeFrom.methods.keySet().stream()
+                            .filter(method -> method.getReturnType().equals(to.typeName) ||
+                                    method.getParameterTypes().contains(to.typeName))
+                            .map(method -> new CodeReference(jarFrom, typeFrom.typeName, method, to)));
+
+            results = Stream.concat(
+                    results,
+                    typeFrom.fields.stream()
+                            .filter(field -> field.type.equals(to.typeName))
+                            .map(field -> new CodeReference(jarFrom, typeFrom.typeName, field, to)));
 
             if (typeFrom.implementedInterfaces.contains(to.typeName)) {
-                return Stream.concat(
-                        Stream.of(new CodeReference(jarFrom, typeFrom.typeName, null, to)),
-                        Stream.concat(fromMethodsAndHandles, fromMethodSignatures));
+                results = Stream.concat(
+                        results,
+                        Stream.of(new CodeReference(jarFrom, typeFrom.typeName, null, to)));
             }
-
-            return Stream.concat(fromMethodsAndHandles, fromMethodSignatures);
         }
 
-        return fromMethodsAndHandles;
+        return results;
     }
 
     private static Map<String, List<String>> computeJarsByType(Map<String, Map<String, TypeDefinition>> classesByJar) {

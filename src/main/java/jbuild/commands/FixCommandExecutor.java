@@ -70,7 +70,7 @@ public final class FixCommandExecutor {
                     var code = new Code.Type(type);
                     var refs = classGraph.referencesTo(code);
                     for (CodeReference ref : refs) {
-                        log.println("  * from " + ref.jar + "!" + ref.type + "::" + ref.getMethod()
+                        log.println("  * from " + ref.jar + "!" + ref.type + "::" + ref.getDefinition()
                                 .map(m -> m.name + m.type)
                                 .orElse("?"));
                     }

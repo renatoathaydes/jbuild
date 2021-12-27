@@ -4,18 +4,15 @@ import java.util.List;
 
 import static jbuild.util.JavaTypeUtils.parseTypes;
 
-public final class MethodDefinition {
+public final class MethodDefinition extends Definition {
 
-    public final String name;
-    public final String type;
 
     // cache return type and parameter types on first usage
     private String returnType;
     private List<String> parameterTypes;
 
     public MethodDefinition(String name, String type) {
-        this.name = name;
-        this.type = type;
+        super(name, type);
     }
 
     public boolean isConstructor() {

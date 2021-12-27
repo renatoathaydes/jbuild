@@ -1,7 +1,7 @@
 package jbuild.java;
 
 import jbuild.java.code.Code;
-import jbuild.java.code.MethodDefinition;
+import jbuild.java.code.Definition;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -11,20 +11,20 @@ public final class CodeReference {
     public final String jar;
     public final String type;
     public final Code to;
-    private final MethodDefinition method;
+    private final Definition definition;
 
     public CodeReference(String jar,
                          String type,
-                         MethodDefinition method,
+                         Definition definition,
                          Code to) {
         this.jar = jar;
         this.type = type;
-        this.method = method;
+        this.definition = definition;
         this.to = to;
     }
 
-    public Optional<MethodDefinition> getMethod() {
-        return Optional.ofNullable(method);
+    public Optional<? extends Definition> getDefinition() {
+        return Optional.ofNullable(definition);
     }
 
     @Override
@@ -37,7 +37,7 @@ public final class CodeReference {
         if (!jar.equals(that.jar)) return false;
         if (!type.equals(that.type)) return false;
         if (!to.equals(that.to)) return false;
-        return Objects.equals(method, that.method);
+        return Objects.equals(definition, that.definition);
     }
 
     @Override
@@ -45,7 +45,7 @@ public final class CodeReference {
         int result = jar.hashCode();
         result = 31 * result + type.hashCode();
         result = 31 * result + to.hashCode();
-        result = 31 * result + (method != null ? method.hashCode() : 0);
+        result = 31 * result + (definition != null ? definition.hashCode() : 0);
         return result;
     }
 
@@ -54,7 +54,7 @@ public final class CodeReference {
         return "CodeReference{" +
                 "jar='" + jar + '\'' +
                 ", type=" + type +
-                ", method=" + method +
+                ", from=" + definition +
                 ", to=" + to +
                 '}';
     }

@@ -2,6 +2,7 @@ package jbuild.java;
 
 import jbuild.commands.FixCommandExecutor;
 import jbuild.java.code.Code;
+import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
@@ -82,6 +83,17 @@ public class ClassGraphTest {
                         new MethodDefinition("doNothing", "([Lfoo/FunctionalCode;)V"), to),
                 new CodeReference(otherClassesJar, "Lother/UsesArrayOfFunctionalCode;",
                         new MethodDefinition("makesArray", "()[Ljava/lang/Object;"), to)));
+    }
+
+    @Test
+    void canFindReferencesToTypeViaUnusedField() {
+        var to = new Code.Type("Lfoo/Something;");
+
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+                new CodeReference(otherClassesJar, "Lother/HasSomething;",
+                        new FieldDefinition("something", "Lfoo/Something;"), to),
+                new CodeReference(otherClassesJar, "Lother/HasSomething;",
+                        new FieldDefinition("mySomething", "Lfoo/Something;"), to)));
     }
 
     @Test
