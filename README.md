@@ -79,6 +79,7 @@ Currently implemented detections:
 - [x] references to a Java type via extension (`implements` and `extends`).
 - [x] references to a field.
 - [x] references to a method by direct invocation.
+- [x] references to a super-type method by virtual invocation.
 - [x] references to a method via `MethodHandle` (used a lot with the stream API).
 - [ ] indirect type references via generics (if the type is actually used, it's detected by the other features).
 

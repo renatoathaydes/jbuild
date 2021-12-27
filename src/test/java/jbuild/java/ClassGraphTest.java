@@ -93,7 +93,12 @@ public class ClassGraphTest {
                 new CodeReference(otherClassesJar, "Lother/HasSomething;",
                         new FieldDefinition("something", "Lfoo/Something;"), to),
                 new CodeReference(otherClassesJar, "Lother/HasSomething;",
-                        new FieldDefinition("mySomething", "Lfoo/Something;"), to)));
+                        new FieldDefinition("mySomething", "Lfoo/Something;"), to),
+                new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
+                        new MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"), to),
+                new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
+                        new MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"),
+                        new Code.Method("Lfoo/Something;", "some", "()Ljava/lang/String;"))));
     }
 
     @Test
@@ -142,6 +147,12 @@ public class ClassGraphTest {
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
                         new MethodDefinition("callSuperOf", "(Lfoo/SomethingSpecific;)Ljava/lang/String;"), to)));
+
+        to = new Code.Method("Lfoo/Something;", "some", "()Ljava/lang/String;");
+
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+                new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
+                        new MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"), to)));
     }
 
     @Test
