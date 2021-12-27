@@ -25,4 +25,14 @@ public class JavaTypeUtilsTest {
         assertThat(JavaTypeUtils.parseTypes("ZLjava/lang/String;ILjava/util/List;Z"))
                 .isEqualTo(List.of("Z", "Ljava/lang/String;", "I", "Ljava/util/List;", "Z"));
     }
+
+    @Test
+    void canParseArrayType() {
+        assertThat(JavaTypeUtils.parseTypes("[Lfoo/Bar;"))
+                .isEqualTo(List.of("Lfoo/Bar;"));
+        assertThat(JavaTypeUtils.parseTypes("[I"))
+                .isEqualTo(List.of("I"));
+        assertThat(JavaTypeUtils.parseTypes("[[[Lfoo/Bar;[[[I"))
+                .isEqualTo(List.of("Lfoo/Bar;", "I"));
+    }
 }

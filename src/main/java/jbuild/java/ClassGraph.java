@@ -90,13 +90,6 @@ public final class ClassGraph {
                             referencesToCode(new Code.Method(type.typeName, methodName, method.type)));
                 }
             }
-
-            for (var methodHandle : type.methodHandles) {
-                var isNew = visitedDefinitions.add(methodHandle);
-                if (isNew) {
-                    result = Stream.concat(result, referencesToCode(methodHandle));
-                }
-            }
         }
 
         return result.collect(toSet());

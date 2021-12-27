@@ -72,7 +72,10 @@ JBuild can detect dependencies between Java types in a given classpath.
 
 Currently implemented detections:
 
-- [x] direct references to a Java type (class, interface, enum).
+- [x] direct references to a Java class.
+- [x] direct references to a Java interface.
+- [ ] direct references to a Java enum.
+- [x] direct references to a Java type via array.
 - [x] references to a Java type via extension (`implements` and `extends`).
 - [x] references to a field.
 - [x] references to a method by direct invocation.

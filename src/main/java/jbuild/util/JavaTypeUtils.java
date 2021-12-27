@@ -7,8 +7,21 @@ import java.util.List;
 
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 
-public class JavaTypeUtils {
+/**
+ * Utility class to help handle Java types.
+ */
+public final class JavaTypeUtils {
 
+    /**
+     * Parse a list of types from a type descriptor.
+     * <p>
+     * This method is intended to be used to find reference to types, hence it drops array components from type
+     * descriptors, i.e. if a type is referred to as an array like {@code [Ljava/lang/Object;}, this method will
+     * return the plain type {@code Ljava/lang/Object;}.
+     *
+     * @param typeDef type definition
+     * @return the plain types included in the type definition
+     */
     public static List<String> parseTypes(String typeDef) {
         if (typeDef.startsWith("(")) {
             typeDef = typeDef.substring(1);
@@ -37,6 +50,11 @@ public class JavaTypeUtils {
                 case 'V':
                 case 'Z': {
                     result.add(Character.toString(chars[index]));
+                    index++;
+                    break;
+                }
+                case '[': {
+                    // array types are ignored
                     index++;
                     break;
                 }

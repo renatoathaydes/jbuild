@@ -5,6 +5,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -70,6 +71,27 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/ImplementsEmptyInterface;", null, to)));
+    }
+
+    @Test
+    void canFindReferencesToTypeViaArray() {
+        var to = new Code.Type("Lfoo/FunctionalCode;");
+
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+                new CodeReference(otherClassesJar, "Lother/UsesArrayOfFunctionalCode;",
+                        new MethodDefinition("doNothing", "([Lfoo/FunctionalCode;)V"), to),
+                new CodeReference(otherClassesJar, "Lother/UsesArrayOfFunctionalCode;",
+                        new MethodDefinition("makesArray", "()[Ljava/lang/Object;"), to)));
+    }
+
+    @Test
+    @Disabled("not implemented yet, needs to handle synthetic class generated for enum")
+    void canFindReferencesToEnums() {
+        var to = new Code.Type("Lfoo/SomeEnum;");
+
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+                new CodeReference(otherClassesJar, "Lother/UsesEnum;",
+                        new MethodDefinition("checkEnum", "()V"), to)));
     }
 
     @Test
