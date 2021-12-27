@@ -30,19 +30,28 @@ public class ClassGraphTest {
     void canFindReferencesToType() {
         var to = new Code.Type("Lfoo/Bar;");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesBar;",
                         new MethodDefinition("foo", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/UsesBar;",
+                        new MethodDefinition("foo", "()V"),
+                        new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
                         new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
+                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
+                        new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
                         new MethodDefinition("b", "(Lfoo/Bar;)V"), to),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                        new MethodDefinition("c", "(I)Lfoo/Bar;"), to)));
+                        new MethodDefinition("c", "(I)Lfoo/Bar;"), to),
+                new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
+                        new MethodDefinition("Lother/ExtendsBar;", "()V"),
+                        new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"))));
 
         to = new Code.Type("Lfoo/Zort;");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
                         new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
                         new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;")),
@@ -59,7 +68,7 @@ public class ClassGraphTest {
     void canFindReferencesToTypeViaImplements() {
         var to = new Code.Type("Lfoo/EmptyInterface;");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/ImplementsEmptyInterface;", null, to)));
     }
 
@@ -67,15 +76,17 @@ public class ClassGraphTest {
     void canFindReferencesToMethod() {
         var to = new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesBar;",
                         new MethodDefinition("foo", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
+                        new MethodDefinition("Lother/ExtendsBar;", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
                         new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
 
         to = new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
                         new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
 
@@ -85,7 +96,7 @@ public class ClassGraphTest {
     void canFindReferencesToField() {
         var to = new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
                         new MethodDefinition("z", "(Lfoo/Zort;)V"), to)));
     }
@@ -94,7 +105,7 @@ public class ClassGraphTest {
     void canFindReferencesToMethodHandle() {
         var to = new Code.Method("Lfoo/ExampleLogger;", "debug", "(Ljava/lang/String;)V");
 
-        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesMethodHandleFromExampleLogger;",
                         // the method definition where this is used is not currently known as it's from the constant table
                         null, to)));

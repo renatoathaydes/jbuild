@@ -18,6 +18,11 @@ public final class MethodDefinition {
         this.type = type;
     }
 
+    public boolean isConstructor() {
+        // the only method that has the syntax of a reference type is a constructor
+        return name.startsWith("L") && name.endsWith(";");
+    }
+
     public String getReturnType() {
         if (returnType == null) {
             var paramsCloseIndex = type.indexOf(')');

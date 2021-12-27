@@ -54,8 +54,8 @@ public final class CodeReference {
         return "CodeReference{" +
                 "jar='" + jar + '\'' +
                 ", type=" + type +
-                ", to=" + to +
                 ", method=" + method +
+                ", to=" + to +
                 '}';
     }
 }

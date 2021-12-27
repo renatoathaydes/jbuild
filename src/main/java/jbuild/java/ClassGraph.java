@@ -84,8 +84,10 @@ public final class ClassGraph {
             for (var method : type.methods.keySet()) {
                 var isNew = visitedDefinitions.add(method);
                 if (isNew) {
+                    // references to constructors are via the "<init>" name, not the type name
+                    var methodName = method.isConstructor() ? "\"<init>\"" : method.name;
                     result = Stream.concat(result,
-                            referencesToCode(new Code.Method(type.typeName, method.name, method.type)));
+                            referencesToCode(new Code.Method(type.typeName, methodName, method.type)));
                 }
             }
 
