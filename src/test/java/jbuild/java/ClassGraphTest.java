@@ -56,6 +56,14 @@ public class ClassGraphTest {
     }
 
     @Test
+    void canFindReferencesToTypeViaImplements() {
+        var to = new Code.Type("Lfoo/EmptyInterface;");
+
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/ImplementsEmptyInterface;", null, to)));
+    }
+
+    @Test
     void canFindReferencesToMethod() {
         var to = new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V");
 

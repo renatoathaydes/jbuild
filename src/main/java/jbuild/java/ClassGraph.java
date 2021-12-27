@@ -131,6 +131,12 @@ public final class ClassGraph {
                             method.getParameterTypes().contains(to.typeName))
                     .map(method -> new CodeReference(jarFrom, typeFrom.typeName, method, to));
 
+            if (typeFrom.implementedInterfaces.contains(to.typeName)) {
+                return Stream.concat(
+                        Stream.of(new CodeReference(jarFrom, typeFrom.typeName, null, to)),
+                        Stream.concat(fromMethodsAndHandles, fromMethodSignatures));
+            }
+
             return Stream.concat(fromMethodsAndHandles, fromMethodSignatures);
         }
 

@@ -14,12 +14,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class JavapOutputParser {
 
-    private static final Pattern CLASS_NAME_LINE = Pattern.compile("((public|private|protected|abstract|final)\\s)*" +
-            "(class|interface|enum)\\s([a-zA-Z_$.0-9]+).*");
+    private static final String TYPE_NAME_REGEX = "a-zA-Z_$.0-9<>";
 
+    // example:
+    // public class other.ImplementsEmptyInterface implements foo.EmptyInterface,java.lang.Runnable {
+    private static final Pattern CLASS_NAME_LINE = Pattern.compile("((public|private|protected|abstract|final)\\s)*" +
+            "(class|interface|enum)\\s([" + TYPE_NAME_REGEX + "]+)" +
+            "(\\sextends\\s[" + TYPE_NAME_REGEX + "]+)?" +
+            "(\\simplements\\s[" + TYPE_NAME_REGEX + ",]+)?");
+
+    // example:
+    //       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
     private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:.*\\s//\\s([A-Za-z].+)");
 
     private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
@@ -39,7 +49,7 @@ public final class JavapOutputParser {
                 var match = CLASS_NAME_LINE.matcher(line);
                 if (match.matches()) {
                     var className = match.group(4);
-                    var typeDef = processJavapOutput(className, lines);
+                    var typeDef = processJavapOutput(className, lines, parseImplements(match.group(6)));
                     result.put(typeDef.typeName, typeDef);
                     waitingForClassLine = false;
                 } else if (!line.startsWith(" ")) {
@@ -54,7 +64,14 @@ public final class JavapOutputParser {
         return result;
     }
 
-    public TypeDefinition processJavapOutput(String className, Iterator<String> lines) {
+    public TypeDefinition processJavapOutput(String className,
+                                             Iterator<String> lines) {
+        return processJavapOutput(className, lines, Set.of());
+    }
+
+    public TypeDefinition processJavapOutput(String className,
+                                             Iterator<String> lines,
+                                             Set<String> interfaces) {
         String typeName = classNameToTypeName(className);
         Set<Code.Method> methodHandles = null;
         while (lines.hasNext()) {
@@ -65,7 +82,15 @@ public final class JavapOutputParser {
             }
         }
         if (methodHandles == null) throw new IllegalStateException("Constant pool not found for class " + className);
-        return processClassMethods(typeName, methodHandles, lines);
+        return processClassMethods(typeName, methodHandles, lines, interfaces);
+    }
+
+    private Set<String> parseImplements(String group) {
+        if (group == null) return Set.of();
+        assert group.startsWith(" implements ");
+        return Stream.of(group.substring(" implements ".length()).split(","))
+                .map(JavapOutputParser::classNameToTypeName)
+                .collect(Collectors.toSet());
     }
 
     private Set<Code.Method> parseConstantPool(String typeName, Iterator<String> lines) {
@@ -85,9 +110,10 @@ public final class JavapOutputParser {
         return methodHandles;
     }
 
-    public TypeDefinition processClassMethods(String typeName,
-                                              Set<Code.Method> methodHandles,
-                                              Iterator<String> lines) {
+    private TypeDefinition processClassMethods(String typeName,
+                                               Set<Code.Method> methodHandles,
+                                               Iterator<String> lines,
+                                               Set<String> interfaces) {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<FieldDefinition>();
@@ -131,7 +157,7 @@ public final class JavapOutputParser {
             }
             prevLine = line;
         }
-        return new TypeDefinition(typeName, fields, methodHandles, methods);
+        return new TypeDefinition(typeName, interfaces, fields, methodHandles, methods);
     }
 
     public Set<Code> processCode(Iterator<String> lines, String typeName) {
