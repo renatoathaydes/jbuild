@@ -134,6 +134,23 @@ public class JavapOutputParserTest {
     }
 
     @Test
+    void canParseClassExtendingAnother() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(myClassesJar, "foo.SomethingSpecific"));
+        var result = types.get("Lfoo/SomethingSpecific;");
+
+        assertThat(result.typeName).isEqualTo("Lfoo/SomethingSpecific;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.getExtendedType()).isPresent()
+                .get().isEqualTo("Lfoo/Something;");
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).isEqualTo(Set.of(
+                new MethodDefinition("Lfoo/SomethingSpecific;", "()V")));
+    }
+
+    @Test
     void canParseFunctionalCode() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));

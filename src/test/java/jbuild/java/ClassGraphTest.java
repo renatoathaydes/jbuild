@@ -127,6 +127,15 @@ public class ClassGraphTest {
     }
 
     @Test
+    void canFindReferenceToVirtualMethod() {
+        var to = new Code.Method("Lfoo/SomethingSpecific;", "some", "()Ljava/lang/String;");
+
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+                new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
+                        new MethodDefinition("callSuperOf", "(Lfoo/SomethingSpecific;)Ljava/lang/String;"), to)));
+    }
+
+    @Test
     void canFindReferencesToField() {
         var to = new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;");
 

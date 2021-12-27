@@ -6,7 +6,6 @@ import static jbuild.util.JavaTypeUtils.parseTypes;
 
 public final class MethodDefinition extends Definition {
 
-
     // cache return type and parameter types on first usage
     private String returnType;
     private List<String> parameterTypes;
