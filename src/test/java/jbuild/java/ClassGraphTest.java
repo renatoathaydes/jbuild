@@ -30,39 +30,46 @@ public class ClassGraphTest {
     void canFindReferencesToType() {
         var to = new Code.Type("Lfoo/Bar;");
 
-        assertThat(classGraph.referencesTo(to))
-                .isEqualTo(Set.of(new CodeReference(otherClassesJar, "Lother/UsesBar;",
-                                new MethodDefinition("foo", "()V"), to),
-                        new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                                new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/UsesBar;",
+                        new MethodDefinition("foo", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
+                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
+                        new MethodDefinition("b", "(Lfoo/Bar;)V"), to),
+                new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
+                        new MethodDefinition("c", "(I)Lfoo/Bar;"), to)));
 
         to = new Code.Type("Lfoo/Zort;");
 
-        assertThat(classGraph.referencesTo(to))
-                .isEqualTo(Set.of(new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                                new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
-                                new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;")),
-                        new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                                new MethodDefinition("z", "(Lfoo/Zort;)V"),
-                                new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;"))));
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
+                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
+                        new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;")),
+                // Zort is referred to both in the type signature of "z" and in the body when it reads a field from Zort
+                new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
+                        new MethodDefinition("z", "(Lfoo/Zort;)V"),
+                        to),
+                new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
+                        new MethodDefinition("z", "(Lfoo/Zort;)V"),
+                        new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;"))));
     }
 
     @Test
     void canFindReferencesToMethod() {
         var to = new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V");
 
-        assertThat(classGraph.referencesTo(to))
-                .isEqualTo(Set.of(new CodeReference(otherClassesJar, "Lother/UsesBar;",
-                                new MethodDefinition("foo", "()V"), to),
-                        new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                                new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/UsesBar;",
+                        new MethodDefinition("foo", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
+                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
 
         to = new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;");
 
-        assertThat(classGraph.referencesTo(to))
-                .isEqualTo(Set.of(
-                        new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                                new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
+                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
 
     }
 
@@ -70,8 +77,8 @@ public class ClassGraphTest {
     void canFindReferencesToField() {
         var to = new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;");
 
-        assertThat(classGraph.referencesTo(to))
-                .isEqualTo(Set.of(new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
                         new MethodDefinition("z", "(Lfoo/Zort;)V"), to)));
 
     }

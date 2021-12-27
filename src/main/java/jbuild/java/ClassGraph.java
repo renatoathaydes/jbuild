@@ -50,8 +50,11 @@ public final class ClassGraph {
         var selfJars = jarsByType.get(code.typeName);
 
         var visitedDefinitions = new HashSet<>();
+
+        // start with the direct references to the type
         var result = referencesToCode(code);
 
+        // now find all indirect references to the type via its methods and fields
         for (String selfJar : selfJars) {
             var type = classesByJar.get(selfJar).get(code.typeName);
 
@@ -88,7 +91,7 @@ public final class ClassGraph {
     }
 
     private Stream<CodeReference> refs(String jarFrom, TypeDefinition typeFrom, Code to) {
-        return Stream.concat(
+        var fromMethodsAndHandles = Stream.concat(
                 typeFrom.methodHandles.stream()
                         .filter(to::equals)
                         .map(code -> new CodeReference(jarFrom, typeFrom.typeName, null, to)),
@@ -97,6 +100,18 @@ public final class ClassGraph {
                                 .filter(to::equals)
                                 .findAny()
                                 .map(code -> new CodeReference(jarFrom, typeFrom.typeName, entry.getKey(), to)))));
+
+        // find references to a type in the type signature of the methods, even when the type is not used
+        if (to instanceof Code.Type) {
+            var fromMethodSignatures = typeFrom.methods.keySet().stream()
+                    .filter(method -> method.getReturnType().equals(to.typeName) ||
+                            method.getParameterTypes().contains(to.typeName))
+                    .map(method -> new CodeReference(jarFrom, typeFrom.typeName, method, to));
+
+            return Stream.concat(fromMethodsAndHandles, fromMethodSignatures);
+        }
+
+        return fromMethodsAndHandles;
     }
 
     private static Map<String, List<String>> computeJarsByType(Map<String, Map<String, TypeDefinition>> classesByJar) {
