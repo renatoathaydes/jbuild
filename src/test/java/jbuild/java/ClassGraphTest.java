@@ -6,7 +6,6 @@ import jbuild.java.code.FieldDefinition;
 import jbuild.java.code.MethodDefinition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -14,6 +13,7 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.Set;
 
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ClassGraphTest {
@@ -97,13 +97,22 @@ public class ClassGraphTest {
     }
 
     @Test
-    @Disabled("not implemented yet, needs to handle synthetic class generated for enum")
     void canFindReferencesToEnums() {
         var to = new Code.Type("Lfoo/SomeEnum;");
 
-        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+        var allRefs = classGraph.referencesTo(to);
+
+        // remove the synthetic class javac generates for some reason
+        var result = allRefs.stream()
+                .filter(ref -> !ref.type.endsWith("UsesEnum$1;"))
+                .collect(toSet());
+
+        assertThat(result).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesEnum;",
-                        new MethodDefinition("checkEnum", "()V"), to)));
+                        new FieldDefinition("someEnum", "Lfoo/SomeEnum;"), to),
+                new CodeReference(otherClassesJar, "Lother/UsesEnum;",
+                        new MethodDefinition("checkEnum", "()V"),
+                        new Code.Method("Lfoo/SomeEnum;", "ordinal", "()I"))));
     }
 
     @Test

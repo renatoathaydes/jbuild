@@ -118,7 +118,10 @@ public class JavapOutputParserTest {
                 new MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V"),
                 new MethodDefinition("values", "()[Lfoo/SomeEnum;"),
                 new MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),
-                new MethodDefinition("static{}", "()V")));
+                new MethodDefinition("static{}", "()V"),
+                // these two methods are inherited from Enum, but special-cased so we can find references to them
+                new MethodDefinition("ordinal", "()I"),
+                new MethodDefinition("name", "()Ljava/lang/String;")));
 
         assertThat(result.methods.get(new MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V")))
                 .isEmpty();

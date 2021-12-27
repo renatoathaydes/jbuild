@@ -162,7 +162,11 @@ public final class JavapOutputParser {
             }
             prevLine = line;
         }
-        return new TypeDefinition(typeName, extended, interfaces, fields, methodHandles, methods);
+
+        var isEnum = extended != null && extended.startsWith("Ljava/lang/Enum<");
+
+        return new TypeDefinition(typeName, extended, interfaces, fields, methodHandles,
+                isEnum ? addEnumMethods(methods) : methods);
     }
 
     public Set<Code> processCode(Iterator<String> lines, String typeName) {
@@ -179,6 +183,13 @@ public final class JavapOutputParser {
             }
         }
         return result;
+    }
+
+    // special-case enum methods as it's not currently possible to find parent classes' methods yet
+    private Map<MethodDefinition, Set<Code>> addEnumMethods(Map<MethodDefinition, Set<Code>> methods) {
+        methods.put(new MethodDefinition("ordinal", "()I"), Set.of());
+        methods.put(new MethodDefinition("name", "()Ljava/lang/String;"), Set.of());
+        return methods;
     }
 
     private Optional<? extends Code> handleCommentParts(String[] parts, String typeName) {

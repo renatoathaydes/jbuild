@@ -74,7 +74,7 @@ Currently implemented detections:
 
 - [x] direct references to a Java class.
 - [x] direct references to a Java interface.
-- [ ] direct references to a Java enum.
+- [x] direct references to a Java enum.
 - [x] direct references to a Java type via array.
 - [x] references to a Java type via extension (`implements` and `extends`).
 - [x] references to a field.
