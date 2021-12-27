@@ -2,16 +2,17 @@ package jbuild.commands;
 
 import jbuild.errors.JBuildException;
 import jbuild.java.ClassGraph;
-import jbuild.java.CodeReference;
 import jbuild.java.JavapOutputParser;
 import jbuild.java.Tools;
 import jbuild.java.code.Code;
+import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
@@ -61,20 +62,39 @@ public final class FixCommandExecutor {
     }
 
     private void showInconsistencies(ClassGraph classGraph) {
-        classGraph.getJarsByType().entrySet().stream()
-                .filter(e -> e.getValue().size() > 1)
-                .forEach(entry -> {
-                    var type = entry.getKey();
-//                    log.println("Found " + type + " in jars: " + entry.getValue());
-                    log.println("All references to type: " + type);
-                    var code = new Code.Type(type);
-                    var refs = classGraph.referencesTo(code);
-                    for (CodeReference ref : refs) {
-                        log.println("  * from " + ref.jar + "!" + ref.type + "::" + ref.getDefinition()
-                                .map(m -> m.name + m.type)
-                                .orElse("?"));
+        var jarsWithDuplicatedTypes = classGraph.getJarsByType().values().stream()
+                .filter(jars -> jars.size() > 1)
+                .collect(Collectors.toSet());
+
+        if (jarsWithDuplicatedTypes.isEmpty()) {
+            log.println("No conflicts found in the jars");
+        } else {
+            log.println("The following jars appear to conflict: " + jarsWithDuplicatedTypes);
+
+            for (var jarsWithDuplicatedType : jarsWithDuplicatedTypes) {
+                for (var jar : jarsWithDuplicatedType) {
+                    var jarOk = true;
+                    typesByJarLoop:
+                    for (var entry : classGraph.getTypesByJar().get(jar).entrySet()) {
+                        var name = entry.getKey();
+                        var type = entry.getValue();
+                        for (var ref : classGraph.referencesTo(new Code.Type(name))) {
+                            var ok = ref.to.match(t -> true,
+                                    f -> classGraph.refExists(jar, type, new Definition.MethodDefinition(f.name, f.type)),
+                                    m -> classGraph.refExists(jar, type, new Definition.MethodDefinition(m.name, m.type)));
+                            if (!ok) {
+                                log.println("Cannot find\n  " + ref + "\n   to " + type + "\n  in " + jar + "\n... this jar is not ok");
+                                jarOk = false;
+                                break typesByJarLoop;
+                            }
+                        }
                     }
-                });
+                    if (jarOk) {
+                        log.println("This jar is fine to use: " + jar);
+                    }
+                }
+            }
+        }
     }
 
     private String[] getClassesIn(File jarFile) {

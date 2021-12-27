@@ -444,6 +444,7 @@ public final class Main {
         } catch (JBuildException e) {
             exitWithError(e.getMessage(), e.getErrorCause(), startTime);
         } catch (Exception e) {
+            e.printStackTrace(log.out);
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
         }
         log.println(() -> "JBuild success in " + time(startTime) + "!");

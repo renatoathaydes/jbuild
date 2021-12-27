@@ -1,6 +1,6 @@
 package jbuild.java.code;
 
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 public abstract class Code {
 
@@ -10,9 +10,9 @@ public abstract class Code {
         this.typeName = typeName;
     }
 
-    public abstract void use(Consumer<Code.Field> field,
-                             Consumer<Code.Method> method,
-                             Consumer<Type> type);
+    public abstract <T> T match(Function<Type, T> type,
+                                Function<Field, T> field,
+                                Function<Method, T> method);
 
     public static final class Field extends Code {
 
@@ -26,10 +26,10 @@ public abstract class Code {
         }
 
         @Override
-        public void use(Consumer<Field> field,
-                        Consumer<Method> method,
-                        Consumer<Type> type) {
-            field.accept(this);
+        public <T> T match(Function<Type, T> type,
+                           Function<Field, T> field,
+                           Function<Method, T> method) {
+            return field.apply(this);
         }
 
         @Override
@@ -74,10 +74,10 @@ public abstract class Code {
         }
 
         @Override
-        public void use(Consumer<Field> field,
-                        Consumer<Method> method,
-                        Consumer<Type> type) {
-            method.accept(this);
+        public <T> T match(Function<Type, T> type,
+                           Function<Field, T> field,
+                           Function<Method, T> method) {
+            return method.apply(this);
         }
 
         @Override
@@ -117,10 +117,10 @@ public abstract class Code {
         }
 
         @Override
-        public void use(Consumer<Field> field,
-                        Consumer<Method> method,
-                        Consumer<Type> type) {
-            type.accept(this);
+        public <T> T match(Function<Type, T> type,
+                           Function<Field, T> field,
+                           Function<Method, T> method) {
+            return type.apply(this);
         }
 
         @Override

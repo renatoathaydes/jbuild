@@ -6,11 +6,26 @@ import jbuild.java.code.Definition;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * A reference from a certain type to another type or component of another type.
+ */
 public final class CodeReference {
 
+    /**
+     * The jar in which the code reference is found.
+     */
     public final String jar;
+
+    /**
+     * The type in which the reference comes from.
+     */
     public final String type;
+
+    /**
+     * The exact {@link Code} this reference points to.
+     */
     public final Code to;
+
     private final Definition definition;
 
     public CodeReference(String jar,
@@ -23,6 +38,10 @@ public final class CodeReference {
         this.to = to;
     }
 
+    /**
+     * @return the optional definition this reference originates from. It may not be known because it originates
+     * from a synthetic method, for example.
+     */
     public Optional<? extends Definition> getDefinition() {
         return Optional.ofNullable(definition);
     }

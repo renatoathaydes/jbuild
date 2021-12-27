@@ -1,6 +1,7 @@
 package jbuild.java;
 
 import jbuild.java.code.Code;
+import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.util.CollectionUtils;
 
@@ -18,16 +19,26 @@ import static jbuild.util.CollectionUtils.streamOfOptional;
 
 public final class ClassGraph {
 
-    private final Map<String, Map<String, TypeDefinition>> classesByJar;
+    private final Map<String, Map<String, TypeDefinition>> typesByJar;
     private final Map<String, List<String>> jarsByType;
 
-    public ClassGraph(Map<String, Map<String, TypeDefinition>> classesByJar) {
-        this.classesByJar = classesByJar;
-        this.jarsByType = computeJarsByType(classesByJar);
+    public ClassGraph(Map<String, Map<String, TypeDefinition>> typesByJar) {
+        this.typesByJar = typesByJar;
+        this.jarsByType = computeJarsByType(typesByJar);
     }
 
+    /**
+     * @return a Map from all types in this graph to the jar(s) in which they can be found.
+     */
     public Map<String, List<String>> getJarsByType() {
         return jarsByType;
+    }
+
+    /**
+     * @return a Map from all jars in this graph to the types which they contain, indexed by name.
+     */
+    public Map<String, Map<String, TypeDefinition>> getTypesByJar() {
+        return typesByJar;
     }
 
     /**
@@ -71,7 +82,7 @@ public final class ClassGraph {
 
         // now find all indirect references to the type via its methods and fields
         for (var selfJar : selfJars) {
-            var type = classesByJar.get(selfJar).get(code.typeName);
+            var type = typesByJar.get(selfJar).get(code.typeName);
 
             for (var field : type.fields) {
                 var isNew = visitedDefinitions.add(field);
@@ -95,16 +106,49 @@ public final class ClassGraph {
         return result.collect(toSet());
     }
 
+    /**
+     * Check if a certain reference to a definition on the given type, in the given jar, exists.
+     *
+     * @param jar        where the type is located
+     * @param type       the type where the definition might exist
+     * @param definition a definition being referenced from elsewhere
+     * @return true if the definition exists in the type
+     */
+    public boolean refExists(String jar, TypeDefinition type, Definition definition) {
+        var result = definition.match(
+                type.fields::contains,
+                type.methods::containsKey);
+        if (result) return true;
+
+        var parentType = type.getExtendedType().orElse(null);
+        if (parentType != null) {
+            var jars = jarsByType.get(parentType);
+            if (jars == null) return false;
+            if (jars.contains(jar)) { // prefer to find parent type on the same jar
+                var t = typesByJar.get(jar).get(parentType);
+                return refExists(jar, t, definition);
+            } else {
+                for (var currentJar : jars) {
+                    var t = typesByJar.get(currentJar).get(parentType);
+                    if (refExists(currentJar, t, definition)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     private Stream<CodeReference> referencesToCode(Code code) {
         var selfJars = jarsByType.get(code.typeName);
         if (selfJars == null || selfJars.isEmpty()) return Stream.of();
-        var otherJars = CollectionUtils.difference(classesByJar.keySet(), selfJars);
+        var otherJars = CollectionUtils.difference(typesByJar.keySet(), selfJars);
         return otherJars.stream()
                 .flatMap(jar -> refs(jar, code));
     }
 
     private Stream<CodeReference> refs(String jarFrom, Code to) {
-        return classesByJar.get(jarFrom).values().stream()
+        return typesByJar.get(jarFrom).values().stream()
                 .flatMap(type -> refs(jarFrom, type, to));
     }
 

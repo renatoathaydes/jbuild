@@ -1,8 +1,7 @@
 package jbuild.java;
 
 import jbuild.java.code.Code;
-import jbuild.java.code.FieldDefinition;
-import jbuild.java.code.MethodDefinition;
+import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
@@ -120,8 +119,8 @@ public final class JavapOutputParser {
                                                String extended,
                                                Set<String> interfaces) {
         String prevLine = null, name = "", type = "";
-        var methods = new HashMap<MethodDefinition, Set<Code>>();
-        var fields = new LinkedHashSet<FieldDefinition>();
+        var methods = new HashMap<Definition.MethodDefinition, Set<Code>>();
+        var fields = new LinkedHashSet<Definition.FieldDefinition>();
         boolean expectingCode = false, expectingFlags = false;
         while (lines.hasNext()) {
             var line = lines.next();
@@ -139,7 +138,7 @@ public final class JavapOutputParser {
             } else if (expectingCode) {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
-                    var method = new MethodDefinition(name, type);
+                    var method = new Definition.MethodDefinition(name, type);
                     var code = processCode(lines, typeName);
                     methods.put(method, code);
                 }
@@ -157,7 +156,7 @@ public final class JavapOutputParser {
                     name = extractFieldName(prevLine);
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
-                    fields.add(new FieldDefinition(name, type));
+                    fields.add(new Definition.FieldDefinition(name, type));
                 }
             }
             prevLine = line;
@@ -186,9 +185,9 @@ public final class JavapOutputParser {
     }
 
     // special-case enum methods as it's not currently possible to find parent classes' methods yet
-    private Map<MethodDefinition, Set<Code>> addEnumMethods(Map<MethodDefinition, Set<Code>> methods) {
-        methods.put(new MethodDefinition("ordinal", "()I"), Set.of());
-        methods.put(new MethodDefinition("name", "()Ljava/lang/String;"), Set.of());
+    private Map<Definition.MethodDefinition, Set<Code>> addEnumMethods(Map<Definition.MethodDefinition, Set<Code>> methods) {
+        methods.put(new Definition.MethodDefinition("ordinal", "()I"), Set.of());
+        methods.put(new Definition.MethodDefinition("name", "()Ljava/lang/String;"), Set.of());
         return methods;
     }
 

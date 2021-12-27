@@ -10,18 +10,18 @@ public final class TypeDefinition {
 
     public final Set<String> implementedInterfaces;
     public final String typeName;
-    public final Set<FieldDefinition> fields;
+    public final Set<Definition.FieldDefinition> fields;
     // method handles are "special" in that they don't show up directly in the bytecode where they are used,
     // but are only referenced from the constant table (see the "FunctionalCode" test class' "peek(log::debug)" ref).
     public final Set<Code.Method> methodHandles;
-    public final Map<MethodDefinition, Set<Code>> methods;
+    public final Map<Definition.MethodDefinition, Set<Code>> methods;
 
     public TypeDefinition(String typeName,
                           String extended,
                           Set<String> implementedInterfaces,
-                          Set<FieldDefinition> fields,
+                          Set<Definition.FieldDefinition> fields,
                           Set<Code.Method> methodHandles,
-                          Map<MethodDefinition, Set<Code>> methods) {
+                          Map<Definition.MethodDefinition, Set<Code>> methods) {
         this.typeName = typeName;
         this.extended = extended;
         this.implementedInterfaces = implementedInterfaces;
@@ -37,7 +37,12 @@ public final class TypeDefinition {
     @Override
     public String toString() {
         return "TypeDefinition{" +
-                "typeName='" + typeName + '\'' +
+                "extended='" + extended + '\'' +
+                ", implementedInterfaces=" + implementedInterfaces +
+                ", typeName='" + typeName + '\'' +
+                ", fields=" + fields +
+                ", methodHandles=" + methodHandles +
+                ", methods=" + methods +
                 '}';
     }
 }

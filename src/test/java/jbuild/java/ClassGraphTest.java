@@ -2,8 +2,7 @@ package jbuild.java;
 
 import jbuild.commands.FixCommandExecutor;
 import jbuild.java.code.Code;
-import jbuild.java.code.FieldDefinition;
-import jbuild.java.code.MethodDefinition;
+import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,35 +33,35 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesBar;",
-                        new MethodDefinition("foo", "()V"), to),
+                        new Definition.MethodDefinition("foo", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/UsesBar;",
-                        new MethodDefinition("foo", "()V"),
+                        new Definition.MethodDefinition("foo", "()V"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to),
+                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
+                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                        new MethodDefinition("b", "(Lfoo/Bar;)V"), to),
+                        new Definition.MethodDefinition("b", "(Lfoo/Bar;)V"), to),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                        new MethodDefinition("c", "(I)Lfoo/Bar;"), to),
+                        new Definition.MethodDefinition("c", "(I)Lfoo/Bar;"), to),
                 new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
-                        new MethodDefinition("Lother/ExtendsBar;", "()V"),
+                        new Definition.MethodDefinition("Lother/ExtendsBar;", "()V"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"))));
 
         to = new Code.Type("Lfoo/Zort;");
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
+                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
                         new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;")),
                 // Zort is referred to both in the type signature of "z" and in the body when it reads a field from Zort
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                        new MethodDefinition("z", "(Lfoo/Zort;)V"),
+                        new Definition.MethodDefinition("z", "(Lfoo/Zort;)V"),
                         to),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                        new MethodDefinition("z", "(Lfoo/Zort;)V"),
+                        new Definition.MethodDefinition("z", "(Lfoo/Zort;)V"),
                         new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;"))));
     }
 
@@ -80,9 +79,9 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesArrayOfFunctionalCode;",
-                        new MethodDefinition("doNothing", "([Lfoo/FunctionalCode;)V"), to),
+                        new Definition.MethodDefinition("doNothing", "([Lfoo/FunctionalCode;)V"), to),
                 new CodeReference(otherClassesJar, "Lother/UsesArrayOfFunctionalCode;",
-                        new MethodDefinition("makesArray", "()[Ljava/lang/Object;"), to)));
+                        new Definition.MethodDefinition("makesArray", "()[Ljava/lang/Object;"), to)));
     }
 
     @Test
@@ -91,13 +90,13 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/HasSomething;",
-                        new FieldDefinition("something", "Lfoo/Something;"), to),
+                        new Definition.FieldDefinition("something", "Lfoo/Something;"), to),
                 new CodeReference(otherClassesJar, "Lother/HasSomething;",
-                        new FieldDefinition("mySomething", "Lfoo/Something;"), to),
+                        new Definition.FieldDefinition("mySomething", "Lfoo/Something;"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
-                        new MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"), to),
+                        new Definition.MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
-                        new MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"),
+                        new Definition.MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"),
                         new Code.Method("Lfoo/Something;", "some", "()Ljava/lang/String;"))));
     }
 
@@ -114,9 +113,9 @@ public class ClassGraphTest {
 
         assertThat(result).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesEnum;",
-                        new FieldDefinition("someEnum", "Lfoo/SomeEnum;"), to),
+                        new Definition.FieldDefinition("someEnum", "Lfoo/SomeEnum;"), to),
                 new CodeReference(otherClassesJar, "Lother/UsesEnum;",
-                        new MethodDefinition("checkEnum", "()V"),
+                        new Definition.MethodDefinition("checkEnum", "()V"),
                         new Code.Method("Lfoo/SomeEnum;", "ordinal", "()I"))));
     }
 
@@ -126,17 +125,17 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/UsesBar;",
-                        new MethodDefinition("foo", "()V"), to),
+                        new Definition.MethodDefinition("foo", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
-                        new MethodDefinition("Lother/ExtendsBar;", "()V"), to),
+                        new Definition.MethodDefinition("Lother/ExtendsBar;", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
 
         to = new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;");
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
 
     }
 
@@ -146,13 +145,13 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
-                        new MethodDefinition("callSuperOf", "(Lfoo/SomethingSpecific;)Ljava/lang/String;"), to)));
+                        new Definition.MethodDefinition("callSuperOf", "(Lfoo/SomethingSpecific;)Ljava/lang/String;"), to)));
 
         to = new Code.Method("Lfoo/Something;", "some", "()Ljava/lang/String;");
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsSuperMethod;",
-                        new MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"), to)));
+                        new Definition.MethodDefinition("call", "(Lfoo/Something;)Ljava/lang/String;"), to)));
     }
 
     @Test
@@ -161,7 +160,7 @@ public class ClassGraphTest {
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
-                        new MethodDefinition("z", "(Lfoo/Zort;)V"), to)));
+                        new Definition.MethodDefinition("z", "(Lfoo/Zort;)V"), to)));
     }
 
     @Test
@@ -172,5 +171,35 @@ public class ClassGraphTest {
                 new CodeReference(otherClassesJar, "Lother/UsesMethodHandleFromExampleLogger;",
                         // the method definition where this is used is not currently known as it's from the constant table
                         null, to)));
+    }
+
+    @Test
+    void canFindOutIfReferenceToMethodExists() {
+        var bar = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Bar;");
+
+        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, bar,
+                new Definition.MethodDefinition("Lfoo/Bar;", "()V"))
+        ).isTrue();
+
+        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, bar,
+                new Definition.MethodDefinition("not", "()V"))
+        ).isFalse();
+    }
+
+    @Test
+    void canFindOutIfReferenceToFieldExists() {
+        var fields = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Fields;");
+        System.out.println(fields);
+        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, fields,
+                new Definition.FieldDefinition("aString", "Ljava/lang/String;"))
+        ).isTrue();
+
+        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, fields,
+                new Definition.FieldDefinition("aBoolean", "Z"))
+        ).isTrue();
+
+        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, fields,
+                new Definition.FieldDefinition("aChar", "C"))
+        ).isFalse();
     }
 }
