@@ -18,7 +18,6 @@ to manage other Java projects and dependencies themselves.
 - [x] list available versions of artifacts.
 - [x] detect version clashes in dependency tree.
 - [x] list artifacts licenses.
-- [ ] accept local POM file as input for most commands.
 - [x] install artifacts in local file system (flat dir or Maven repo).
 - [ ] install artifacts in remote HTTP repository.
 - [ ] check completeness of classpath in general (all code included).
@@ -66,6 +65,19 @@ Here's the list of Maven tags and concepts supported by JBuild:
   not related to dependency resolution (which are needed by JBuild to resolve Java artifacts),
   are not expected to be added to JBuild. For example, Maven profiles and system dependencies will
   probably never be supported by JBuild.
+
+## Code-level dependencies
+
+JBuild can detect dependencies between Java types in a given classpath.
+
+Currently implemented detections:
+
+- [x] direct references to a Java type (class, interface, enum).
+- [ ] references to a Java type via extension (`implements` and `extends`).
+- [x] references to a field.
+- [x] references to a method by direct invocation.
+- [x] references to a method via `MethodHandle` (used a lot with the stream API).
+- [ ] indirect type references via generics (if the type is actually used, it's detected by the other features).
 
 ## CLI
 
