@@ -1,13 +1,45 @@
 package jbuild.java.code;
 
+import java.util.List;
+
+import static jbuild.util.JavaTypeUtils.parseTypes;
+
 public final class MethodDefinition {
 
     public final String name;
     public final String type;
 
+    // cache return type and parameter types on first usage
+    private String returnType;
+    private List<String> parameterTypes;
+
     public MethodDefinition(String name, String type) {
         this.name = name;
         this.type = type;
+    }
+
+    public String getReturnType() {
+        if (returnType == null) {
+            var paramsCloseIndex = type.indexOf(')');
+            if (paramsCloseIndex < 0 || paramsCloseIndex + 1 >= type.length()) {
+                returnType = "V";
+            } else {
+                returnType = type.substring(paramsCloseIndex + 1);
+            }
+        }
+        return returnType;
+    }
+
+    public List<String> getParameterTypes() {
+        if (parameterTypes == null) {
+            var paramsCloseIndex = type.indexOf(')');
+            if (paramsCloseIndex < 0) {
+                parameterTypes = List.of();
+            } else {
+                parameterTypes = parseTypes(type.substring(0, paramsCloseIndex));
+            }
+        }
+        return parameterTypes;
     }
 
     @Override

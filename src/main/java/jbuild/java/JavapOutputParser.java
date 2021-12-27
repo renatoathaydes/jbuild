@@ -30,7 +30,6 @@ public final class JavapOutputParser {
         this.log = log;
     }
 
-    // FIXME missing references to types in method signatures when parameters are not used
     public Map<String, TypeDefinition> processJavapOutput(Iterator<String> lines) {
         var result = new LinkedHashMap<String, TypeDefinition>();
         var waitingForClassLine = false;
