@@ -179,13 +179,15 @@ public class JavapOutputParserTest {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
         var result = parser.processJavapOutput(
-                javap(myClassesJar, "Hello", "foo.FunctionalCode", "foo.Bar")
+                javap(myClassesJar, "Hello", "foo.EmptyInterface", "foo.FunctionalCode", "foo.Bar")
         ).values();
 
         assertThat(result.stream().map(c -> c.typeName).collect(toList()))
-                .isEqualTo(List.of("LHello;", "Lfoo/FunctionalCode;", "Lfoo/Bar;"));
+                .isEqualTo(List.of("LHello;", "Lfoo/EmptyInterface;", "Lfoo/FunctionalCode;", "Lfoo/Bar;"));
 
         var hello = result.stream().filter(it -> it.typeName.equals("LHello;"))
+                .findFirst().orElseThrow();
+        var emptyInterface = result.stream().filter(it -> it.typeName.equals("Lfoo/EmptyInterface;"))
                 .findFirst().orElseThrow();
         var funCode = result.stream().filter(it -> it.typeName.equals("Lfoo/FunctionalCode;"))
                 .findFirst().orElseThrow();
@@ -195,9 +197,15 @@ public class JavapOutputParserTest {
         // make sure contents of each class didn't mix up
         assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
                 .isEqualTo(Set.of("LHello;", "getMessage", "foo", "theFloat", "aPrivateMethod"));
+
+        assertThat(emptyInterface.fields).isEmpty();
+        assertThat(emptyInterface.methods).isEmpty();
+        assertThat(emptyInterface.methodHandles).isEmpty();
+
         assertThat(funCode.methods.keySet().stream().map(it -> it.name).collect(toSet()))
                 .isEqualTo(Set.of("Lfoo/FunctionalCode;", "countLengths", "filter", "logLengthsStats",
                         "lambda$filter$1", "lambda$countLengths$0"));
+
         assertThat(bar.methods.keySet().stream().map(it -> it.name).collect(toSet()))
                 .isEqualTo(Set.of("Lfoo/Bar;"));
     }
