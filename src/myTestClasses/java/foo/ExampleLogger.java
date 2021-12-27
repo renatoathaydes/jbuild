@@ -9,7 +9,7 @@ public class ExampleLogger {
         this.out = out;
     }
 
-    void debug(String arg) {
+    public void debug(String arg) {
         out.println("DEBUG: " + arg);
     }
 

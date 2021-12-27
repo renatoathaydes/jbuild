@@ -80,6 +80,15 @@ public class ClassGraphTest {
         assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
                         new MethodDefinition("z", "(Lfoo/Zort;)V"), to)));
+    }
 
+    @Test
+    void canFindReferencesToMethodHandle() {
+        var to = new Code.Method("Lfoo/ExampleLogger;", "debug", "(Ljava/lang/String;)V");
+
+        assertThat(classGraph.referencesTo(to)).isEqualTo(Set.of(
+                new CodeReference(otherClassesJar, "Lother/UsesMethodHandleFromExampleLogger;",
+                        // the method definition where this is used is not currently known as it's from the constant table
+                        null, to)));
     }
 }

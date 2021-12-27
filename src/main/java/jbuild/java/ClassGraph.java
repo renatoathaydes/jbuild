@@ -31,7 +31,7 @@ public final class ClassGraph {
     }
 
     /**
-     * Get direct references to a {@link Code} value from jars other than the ones where this code is defined.
+     * Get direct references to a {@link Code.Method} value from jars other than the ones where this code is defined.
      *
      * @param code value
      * @return direct references to the code, excluding references from the same jar where the code is defined
@@ -41,13 +41,28 @@ public final class ClassGraph {
                 .collect(toSet());
     }
 
+    /**
+     * Get direct references to a {@link Code.Field} value from jars other than the ones where this code is defined.
+     *
+     * @param code value
+     * @return direct references to the code, excluding references from the same jar where the code is defined
+     */
     public Set<CodeReference> referencesTo(Code.Field code) {
         return referencesToCode(code)
                 .collect(toSet());
     }
 
+    /**
+     * Get all references to a {@link Code.Type} value from jars other than the ones where this code is defined.
+     * <p>
+     * References to the type's methods and fields are also included in the result.
+     *
+     * @param code value
+     * @return references to the code, excluding references from the same jar where the code is defined
+     */
     public Set<CodeReference> referencesTo(Code.Type code) {
         var selfJars = jarsByType.get(code.typeName);
+        if (selfJars == null || selfJars.isEmpty()) return Set.of();
 
         var visitedDefinitions = new HashSet<>();
 
@@ -55,7 +70,7 @@ public final class ClassGraph {
         var result = referencesToCode(code);
 
         // now find all indirect references to the type via its methods and fields
-        for (String selfJar : selfJars) {
+        for (var selfJar : selfJars) {
             var type = classesByJar.get(selfJar).get(code.typeName);
 
             for (var field : type.fields) {
@@ -73,6 +88,13 @@ public final class ClassGraph {
                             referencesToCode(new Code.Method(type.typeName, method.name, method.type)));
                 }
             }
+
+            for (var methodHandle : type.methodHandles) {
+                var isNew = visitedDefinitions.add(methodHandle);
+                if (isNew) {
+                    result = Stream.concat(result, referencesToCode(methodHandle));
+                }
+            }
         }
 
         return result.collect(toSet());
@@ -80,6 +102,7 @@ public final class ClassGraph {
 
     private Stream<CodeReference> referencesToCode(Code code) {
         var selfJars = jarsByType.get(code.typeName);
+        if (selfJars == null || selfJars.isEmpty()) return Stream.of();
         var otherJars = CollectionUtils.difference(classesByJar.keySet(), selfJars);
         return otherJars.stream()
                 .flatMap(jar -> refs(jar, code));
