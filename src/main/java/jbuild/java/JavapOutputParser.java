@@ -4,6 +4,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
+import jbuild.util.JavaTypeUtils;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -15,6 +16,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 
 public final class JavapOutputParser {
 
@@ -92,7 +95,7 @@ public final class JavapOutputParser {
         if (group == null) return Set.of();
         assert group.startsWith(" implements ");
         return Stream.of(group.substring(" implements ".length()).split(","))
-                .map(JavapOutputParser::classNameToTypeName)
+                .map(JavaTypeUtils::classNameToTypeName)
                 .collect(Collectors.toSet());
     }
 
@@ -309,16 +312,6 @@ public final class JavapOutputParser {
             return type.substring(index + 1, type.length() - 1);
         }
         return type;
-    }
-
-    private static String classNameToTypeName(String className) {
-        // array type reference, leave it as it is
-        if (className.startsWith("\"")
-                // avoid converting already converted type names
-                || (className.startsWith("L") && className.endsWith(";"))
-        ) return className;
-
-        return "L" + className.replaceAll("\\.", "/") + ";";
     }
 
 }

@@ -10,29 +10,29 @@ public class JavaTypeUtilsTest {
 
     @Test
     void canParseTypeParameters() {
-        assertThat(JavaTypeUtils.parseTypes("(Lfoo/Bar;)"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("(Lfoo/Bar;)"))
                 .isEqualTo(List.of("Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseTypes("(Lfoo/Bar;"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("(Lfoo/Bar;"))
                 .isEqualTo(List.of("Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseTypes("(BLfoo/Bar;"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("(BLfoo/Bar;"))
                 .isEqualTo(List.of("B", "Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseTypes("(Lfoo/Bar;I"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("(Lfoo/Bar;I"))
                 .isEqualTo(List.of("Lfoo/Bar;", "I"));
-        assertThat(JavaTypeUtils.parseTypes("(Lfoo/Bar;Ljava/lang/String;"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("(Lfoo/Bar;Ljava/lang/String;"))
                 .isEqualTo(List.of("Lfoo/Bar;", "Ljava/lang/String;"));
-        assertThat(JavaTypeUtils.parseTypes("(Lfoo/Bar;IBCDFIJSZ"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("(Lfoo/Bar;IBCDFIJSZ"))
                 .isEqualTo(List.of("Lfoo/Bar;", "I", "B", "C", "D", "F", "I", "J", "S", "Z"));
-        assertThat(JavaTypeUtils.parseTypes("ZLjava/lang/String;ILjava/util/List;Z"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("ZLjava/lang/String;ILjava/util/List;Z"))
                 .isEqualTo(List.of("Z", "Ljava/lang/String;", "I", "Ljava/util/List;", "Z"));
     }
 
     @Test
     void canParseArrayType() {
-        assertThat(JavaTypeUtils.parseTypes("[Lfoo/Bar;"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[Lfoo/Bar;"))
                 .isEqualTo(List.of("Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseTypes("[I"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[I"))
                 .isEqualTo(List.of("I"));
-        assertThat(JavaTypeUtils.parseTypes("[[[Lfoo/Bar;[[[I"))
+        assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[[[Lfoo/Bar;[[[I"))
                 .isEqualTo(List.of("Lfoo/Bar;", "I"));
     }
 }

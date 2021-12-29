@@ -3,7 +3,7 @@ package jbuild.java.code;
 import java.util.List;
 import java.util.function.Function;
 
-import static jbuild.util.JavaTypeUtils.parseTypes;
+import static jbuild.util.JavaTypeUtils.parseMethodArgumentsTypes;
 
 public abstract class Definition {
 
@@ -96,7 +96,7 @@ public abstract class Definition {
                 if (paramsCloseIndex < 0) {
                     parameterTypes = List.of();
                 } else {
-                    parameterTypes = parseTypes(type.substring(0, paramsCloseIndex));
+                    parameterTypes = parseMethodArgumentsTypes(type.substring(0, paramsCloseIndex));
                 }
             }
             return parameterTypes;

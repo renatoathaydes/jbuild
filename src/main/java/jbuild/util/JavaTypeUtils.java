@@ -13,7 +13,25 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 public final class JavaTypeUtils {
 
     /**
-     * Parse a list of types from a type descriptor.
+     * Convert a class name in the Java language conventional syntax into a JVM internal type name.
+     * <p>
+     * Note: JBuild uses the JVM internal type names for all types.
+     *
+     * @param className Java language type name
+     * @return JVM internal class name
+     */
+    public static String classNameToTypeName(String className) {
+        // array type reference, leave it as it is
+        if (className.startsWith("\"")
+                // avoid converting already converted type names
+                || (className.startsWith("L") && className.endsWith(";"))
+        ) return className;
+
+        return "L" + className.replaceAll("\\.", "/") + ";";
+    }
+
+    /**
+     * Parse a list of types from a method argument list type descriptor.
      * <p>
      * This method is intended to be used to find reference to types, hence it drops array components from type
      * descriptors, i.e. if a type is referred to as an array like {@code [Ljava/lang/Object;}, this method will
@@ -22,17 +40,17 @@ public final class JavaTypeUtils {
      * @param typeDef type definition
      * @return the plain types included in the type definition
      */
-    public static List<String> parseTypes(String typeDef) {
+    public static List<String> parseMethodArgumentsTypes(String typeDef) {
         if (typeDef.startsWith("(")) {
             typeDef = typeDef.substring(1);
         }
         if (typeDef.endsWith(")")) {
             typeDef = typeDef.substring(0, typeDef.length() - 1);
         }
-        return parseTypes(typeDef.toCharArray());
+        return parseTypeList(typeDef.toCharArray());
     }
 
-    private static List<String> parseTypes(char[] chars) {
+    private static List<String> parseTypeList(char[] chars) {
         int index = 0;
         var result = new ArrayList<String>(4);
 
