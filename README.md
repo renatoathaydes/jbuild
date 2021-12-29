@@ -1,6 +1,7 @@
 # JBuild
 
-JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management.
+JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management
+and application, as opposed to libraries, classpath verification.
 
 It consists of a simple CLI, so it can be used as a very handy command-line utility,
 but can also be used as a Java library, allowing JVM applications
@@ -12,14 +13,13 @@ to manage other Java projects and dependencies themselves.
 - [x] fetch artifacts from HTTP repositories.
 - [x] fetch artifacts transitively (install command).
 - [x] specify file and HTTP repositories locations.
-- [ ] fetch PGP signatures.
+- [ ] fetch and check PGP signatures.
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
 - [x] detect version clashes in dependency tree.
 - [x] list artifacts licenses.
 - [x] install artifacts in local file system (flat dir or Maven repo).
-- [ ] install artifacts in remote HTTP repository.
 - [ ] check completeness of classpath in general (all code included).
 - [ ] check completeness of classpath given a Java entry-point (exclude unused code).
 - [ ] check binary compatibility of artifacts included in the classpath.
@@ -32,7 +32,9 @@ to manage other Java projects and dependencies themselves.
 ## Non-features
 
 JBuild does not aim to replace Gradle or Maven, but to complement them by giving Java developers a simpler and faster
-alternative for certain tasks, specially dependency management (both module- and code-level dependencies).
+alternative for certain tasks, specially dependency management (both module- and code-level dependencies)
+and classpath verification (something which can only be done when the full classpath is known, typically when
+deploying a full application).
 
 Features that fully-fledged build tools like Maven and Gradle want to have, but JBuild doesn't:
 
@@ -40,7 +42,7 @@ Features that fully-fledged build tools like Maven and Gradle want to have, but 
 * plugins (JBuild can be used as a library - you don't need a JBuild plugin when you can have your own build 
   application that uses JBuild and other JVM libraries).
 * configuration files (though JBuild may allow passing a file with CLI options in the future).
-* anything not directly related to building Java or other JVM language projects.
+* anything not directly related to building Java or other JVM language applications.
 * IDE integration (though JBuild makes it easy for IDEs to _see_ the classpath).
 
 ## Dependency Management
@@ -81,7 +83,7 @@ Currently implemented detections:
 - [x] references to a method by direct invocation.
 - [x] references to a super-type method by virtual invocation.
 - [x] references to a method via `MethodHandle` (used a lot with the stream API).
-- [ ] indirect type references via generics (if the type is actually used, it's detected by the other features).
+- [ ] indirect type references via generics (if the type is actually used, it's detected by the other detections).
 
 ## CLI
 
