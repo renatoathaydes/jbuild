@@ -102,8 +102,8 @@ public final class FixCommandExecutor {
         checkToolSuccessful("jar", result);
 
         return result.stdout.lines()
-                .filter(line -> line.endsWith(".class"))
-                .filter(line -> !line.equals("module-info.class"))
+                .filter(line -> line.endsWith(".class") &&
+                        !line.endsWith("-info.class"))
                 .map(line -> line.replace(File.separatorChar, '.')
                         .substring(0, line.length() - ".class".length()))
                 .collect(toList())
