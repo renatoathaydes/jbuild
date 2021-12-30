@@ -3,7 +3,6 @@ package jbuild.java.code;
 import jbuild.java.JavaType;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
@@ -32,12 +31,6 @@ public final class TypeDefinition {
         this.implementedInterfaces = type.interfaces.stream()
                 .map(bound -> bound.name)
                 .collect(toSet());
-    }
-
-    public Optional<String> getExtendedType() {
-        return type.superType.equals(JavaType.OBJECT)
-                ? Optional.empty()
-                : Optional.ofNullable(type.superType.name);
     }
 
     @Override

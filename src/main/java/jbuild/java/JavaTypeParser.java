@@ -2,6 +2,7 @@ package jbuild.java;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import static java.lang.Character.isAlphabetic;
@@ -21,7 +22,7 @@ import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 public final class JavaTypeParser {
 
     private static final Set<String> MODIFIERS = Set.of("private", "public", "protected", "abstract", "final");
-    private static final Set<String> TYPE_KIND = Set.of("class", "interface", "enum");
+    private static final Set<String> TYPE_KIND = Set.of("class", "interface");
 
     private int index;
     private String line;
@@ -45,7 +46,8 @@ public final class JavaTypeParser {
 
     private JavaType parseType() {
         String name = null;
-        JavaType.TypeBound superType = JavaType.OBJECT;
+        JavaType.Kind kind = null;
+        List<JavaType.TypeBound> superTypes = List.of();
         List<JavaType.TypeParam> typeParameters = List.of();
         List<JavaType.TypeBound> interfaces = List.of();
 
@@ -61,15 +63,24 @@ public final class JavaTypeParser {
                 continue;
             }
             if (TYPE_KIND.contains(word)) {
+                kind = JavaType.Kind.valueOf(word.toUpperCase(Locale.ROOT));
                 var spec = nextTypeBound();
                 if (spec == null) return null;
                 name = spec.name;
                 typeParameters = spec.params;
                 if (expectNext(" extends ")) {
-                    var bound = nextTypeBound();
-                    if (bound == null) return null;
-                    if (!bound.equals(JavaType.OBJECT)) {
-                        superType = bound;
+                    if (kind == JavaType.Kind.INTERFACE) {
+                        interfaces = parseBounds(true);
+                        if (interfaces == null) return null;
+                    } else {
+                        var bound = nextTypeBound();
+                        if (bound == null) return null;
+                        if (!bound.equals(JavaType.OBJECT)) {
+                            superTypes = List.of(bound);
+                        }
+                    }
+                    if (superTypes.stream().anyMatch(t -> t.name.equals("Ljava/lang/Enum;"))) {
+                        kind = JavaType.Kind.ENUM;
                     }
                 }
                 break;
@@ -84,7 +95,8 @@ public final class JavaTypeParser {
             return null;
         }
 
-        if (expectNext(" implements ") || expectNext("implements ")) {
+        if (kind != JavaType.Kind.INTERFACE &&
+                (expectNext(" implements ") || expectNext("implements "))) {
             interfaces = parseBounds(true);
             if (interfaces == null) {
                 return null;
@@ -96,7 +108,7 @@ public final class JavaTypeParser {
             return null;
         }
 
-        return new JavaType(name, superType, typeParameters, interfaces);
+        return new JavaType(name, kind, superTypes, typeParameters, interfaces);
     }
 
     private JavaType.TypeBound nextTypeBound() {

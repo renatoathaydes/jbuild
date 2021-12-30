@@ -139,10 +139,8 @@ public final class JavapOutputParser {
             prevLine = line;
         }
 
-        var isEnum = javaType.superType.name.equals("Ljava/lang/Enum;");
-
         return new TypeDefinition(javaType, fields, methodHandles,
-                isEnum ? addEnumMethods(methods) : methods);
+                javaType.kind == JavaType.Kind.ENUM ? addEnumMethods(methods) : methods);
     }
 
     public Set<Code> processCode(Iterator<String> lines, String typeName) {

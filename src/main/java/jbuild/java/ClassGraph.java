@@ -110,26 +110,26 @@ public final class ClassGraph {
      * Check if a certain reference to a definition on the given type, in the given jar, exists.
      *
      * @param jar        where the type is located
-     * @param type       the type where the definition might exist
+     * @param typeDef    the type where the definition might exist
      * @param definition a definition being referenced from elsewhere
      * @return true if the definition exists in the type
      */
-    public boolean refExists(String jar, TypeDefinition type, Definition definition) {
+    public boolean refExists(String jar, TypeDefinition typeDef, Definition definition) {
         var result = definition.match(
-                type.fields::contains,
-                type.methods::containsKey);
+                typeDef.fields::contains,
+                typeDef.methods::containsKey);
         if (result) return true;
 
-        var parentType = type.getExtendedType().orElse(null);
-        if (parentType != null) {
-            var jars = jarsByType.get(parentType);
+        for (var parentType : typeDef.type.getParentTypes()) {
+            var typeName = parentType.name;
+            var jars = jarsByType.get(typeName);
             if (jars == null) return false;
             if (jars.contains(jar)) { // prefer to find parent type on the same jar
-                var t = typesByJar.get(jar).get(parentType);
+                var t = typesByJar.get(jar).get(typeName);
                 return refExists(jar, t, definition);
             } else {
                 for (var currentJar : jars) {
-                    var t = typesByJar.get(currentJar).get(parentType);
+                    var t = typesByJar.get(currentJar).get(typeName);
                     if (refExists(currentJar, t, definition)) {
                         return true;
                     }

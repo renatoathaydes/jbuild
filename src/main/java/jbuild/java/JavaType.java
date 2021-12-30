@@ -2,23 +2,36 @@ package jbuild.java;
 
 import java.util.List;
 
+import static jbuild.util.CollectionUtils.append;
+
 public final class JavaType {
+
+    public enum Kind {
+        CLASS, ENUM, INTERFACE,
+    }
 
     public static final TypeBound OBJECT = new TypeBound("Ljava/lang/Object;", List.of());
 
     public String name;
-    public TypeBound superType;
+    public Kind kind;
+    public List<TypeBound> superTypes;
     public List<TypeParam> typeParameters;
     public List<TypeBound> interfaces;
 
     public JavaType(String name,
-                    TypeBound superType,
+                    Kind kind,
+                    List<TypeBound> superTypes,
                     List<TypeParam> typeParameters,
                     List<TypeBound> interfaces) {
         this.name = name;
-        this.superType = superType;
+        this.kind = kind;
+        this.superTypes = superTypes;
         this.typeParameters = typeParameters;
         this.interfaces = interfaces;
+    }
+
+    public Iterable<TypeBound> getParentTypes() {
+        return append(superTypes, interfaces);
     }
 
     @Override
@@ -29,7 +42,7 @@ public final class JavaType {
         JavaType javaType = (JavaType) o;
 
         if (!name.equals(javaType.name)) return false;
-        if (!superType.equals(javaType.superType)) return false;
+        if (!superTypes.equals(javaType.superTypes)) return false;
         if (!typeParameters.equals(javaType.typeParameters)) return false;
         return interfaces.equals(javaType.interfaces);
     }
@@ -37,7 +50,7 @@ public final class JavaType {
     @Override
     public int hashCode() {
         int result = name.hashCode();
-        result = 31 * result + superType.hashCode();
+        result = 31 * result + superTypes.hashCode();
         result = 31 * result + typeParameters.hashCode();
         result = 31 * result + interfaces.hashCode();
         return result;
@@ -47,7 +60,7 @@ public final class JavaType {
     public String toString() {
         return "JavaType{" +
                 "name='" + name + '\'' +
-                ", superType=" + superType +
+                ", superTypes=" + superTypes +
                 ", typeParams=" + typeParameters +
                 ", interfaces=" + interfaces +
                 '}';

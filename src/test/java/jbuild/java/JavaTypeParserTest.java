@@ -16,7 +16,25 @@ public class JavaTypeParserTest {
         var type = parser.parse("class Hello");
 
         assertThat(type)
-                .isEqualTo(new JavaType("LHello;", JavaType.OBJECT, List.of(), List.of()));
+                .isEqualTo(new JavaType("LHello;", JavaType.Kind.CLASS, List.of(), List.of(), List.of()));
+    }
+
+    @Test
+    void canParseBasicInterface() {
+        var type = parser.parse("interface Super");
+
+        assertThat(type)
+                .isEqualTo(new JavaType("LSuper;", JavaType.Kind.INTERFACE, List.of(), List.of(), List.of()));
+    }
+
+    @Test
+    void canParseBasicEnum() {
+        var type = parser.parse("public final class foo.SomeEnum extends java.lang.Enum<foo.SomeEnum>");
+
+        assertThat(type)
+                .isEqualTo(new JavaType("Lfoo/SomeEnum;", JavaType.Kind.ENUM,
+                        List.of(typeBound("Ljava/lang/Enum;", typeParam("Lfoo/SomeEnum;"))),
+                        List.of(), List.of()));
     }
 
     @Test
@@ -24,8 +42,21 @@ public class JavaTypeParserTest {
         var type = parser.parse("public class foo.SomethingSpecific extends foo.Something");
 
         assertThat(type)
-                .isEqualTo(new JavaType("Lfoo/SomethingSpecific;",
-                        typeBound("Lfoo/Something;"), List.of(), List.of()));
+                .isEqualTo(new JavaType("Lfoo/SomethingSpecific;", JavaType.Kind.CLASS,
+                        List.of(typeBound("Lfoo/Something;")), List.of(), List.of()));
+    }
+
+    @Test
+    void canParseInterfaceExtendingOthers() {
+        var type = parser.parse("public interface foo.MultiInterface" +
+                " extends java.lang.Runnable,java.io.Closeable,java.lang.AutoCloseable");
+
+        assertThat(type)
+                .isEqualTo(new JavaType("Lfoo/MultiInterface;", JavaType.Kind.INTERFACE,
+                        List.of(), List.of(),
+                        List.of(typeBound("Ljava/lang/Runnable;"),
+                                typeBound("Ljava/io/Closeable;"),
+                                typeBound("Ljava/lang/AutoCloseable;"))));
     }
 
     @Test
@@ -33,8 +64,8 @@ public class JavaTypeParserTest {
         var type = parser.parse("class generics.BasicGenerics<T extends java.lang.Object> extends java.lang.Object");
 
         assertThat(type)
-                .isEqualTo(new JavaType("Lgenerics/BasicGenerics;",
-                        JavaType.OBJECT,
+                .isEqualTo(new JavaType("Lgenerics/BasicGenerics;", JavaType.Kind.CLASS,
+                        List.of(),
                         List.of(typeParam("T")),
                         List.of()));
     }
@@ -44,8 +75,8 @@ public class JavaTypeParserTest {
         var type = parser.parse("class Generics<T extends BaseA>");
 
         assertThat(type)
-                .isEqualTo(new JavaType("LGenerics;",
-                        JavaType.OBJECT,
+                .isEqualTo(new JavaType("LGenerics;", JavaType.Kind.CLASS,
+                        List.of(),
                         List.of(typeParam("T", typeBound("LBaseA;"))),
                         List.of()));
     }
@@ -56,8 +87,8 @@ public class JavaTypeParserTest {
                 " implements foo.EmptyInterface,java.lang.Runnable");
 
         assertThat(type)
-                .isEqualTo(new JavaType("Lother/ImplementsEmptyInterface;",
-                        JavaType.OBJECT,
+                .isEqualTo(new JavaType("Lother/ImplementsEmptyInterface;", JavaType.Kind.CLASS,
+                        List.of(),
                         List.of(),
                         List.of(typeBound("Lfoo/EmptyInterface;"), typeBound("Ljava/lang/Runnable;"))));
     }
@@ -69,8 +100,8 @@ public class JavaTypeParserTest {
                 "& foo.EmptyInterface>");
 
         assertThat(type)
-                .isEqualTo(new JavaType("LGenerics;",
-                        JavaType.OBJECT,
+                .isEqualTo(new JavaType("LGenerics;", JavaType.Kind.CLASS,
+                        List.of(),
                         List.of(typeParam("T",
                                 typeBound("LOther;", typeParam("?", typeBound("Lgenerics/BaseA;"))),
                                 typeBound("Lfoo/EmptyInterface;"))),
@@ -82,8 +113,8 @@ public class JavaTypeParserTest {
         var type = parser.parse("class Generics<T extends Generic<? extends bar.Foo>>");
 
         assertThat(type)
-                .isEqualTo(new JavaType("LGenerics;",
-                        JavaType.OBJECT,
+                .isEqualTo(new JavaType("LGenerics;", JavaType.Kind.CLASS,
+                        List.of(),
                         List.of(typeParam("T",
                                 typeBound("LGeneric;",
                                         typeParam("?", typeBound("Lbar/Foo;"))))),
@@ -100,8 +131,8 @@ public class JavaTypeParserTest {
                 "extends java.lang.Object");
 
         assertThat(type)
-                .isEqualTo(new JavaType("Lgenerics/ManyGenerics;",
-                        JavaType.OBJECT,
+                .isEqualTo(new JavaType("Lgenerics/ManyGenerics;", JavaType.Kind.CLASS,
+                        List.of(),
                         List.of(typeParam("A"), typeParam("B"),
                                 typeParam("C"), typeParam("D")),
                         List.of()));
@@ -117,9 +148,9 @@ public class JavaTypeParserTest {
                 " java.util.function.Function<java.lang.String, generics.Generics<generics.Base>>");
 
         assertThat(type)
-                .isEqualTo(new JavaType("Lgenerics/X;",
-                        typeBound("Lgenerics/Generics;",
-                                typeParam("Lgenerics/Base;")),
+                .isEqualTo(new JavaType("Lgenerics/X;", JavaType.Kind.CLASS,
+                        List.of(typeBound("Lgenerics/Generics;",
+                                typeParam("Lgenerics/Base;"))),
                         List.of(typeParam("T",
                                 typeBound("Lgenerics/Generics;",
                                         typeParam("?", typeBound("Lgenerics/BaseA;"))),
@@ -164,7 +195,9 @@ public class JavaTypeParserTest {
                 new Example("class Foo extends Bar implements Zort extends Boo",
                         "unexpected input following type at index 38"),
                 new Example("class Foo123 implements Abc$123, DEF!",
-                        "unexpected input following type at index 36")
+                        "unexpected input following type at index 36"),
+                new Example("interface Inter implements A",
+                        "unexpected input following type at index 16")
         );
 
         // parser throws Exceptions on errors

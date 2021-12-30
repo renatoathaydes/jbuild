@@ -28,7 +28,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.typeName).isEqualTo("LHello;");
         assertThat(result.implementedInterfaces).isEmpty();
-        assertThat(result.getExtendedType()).isNotPresent();
+        assertThat(result.type.getParentTypes()).isEmpty();
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new Definition.FieldDefinition("isOk", "Z"),
@@ -64,7 +64,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.typeName).isEqualTo("Lfoo/Bar;");
         assertThat(result.implementedInterfaces).isEmpty();
-        assertThat(result.getExtendedType()).isNotPresent();
+        assertThat(result.type.getParentTypes()).isEmpty();
 
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
@@ -76,7 +76,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.typeName).isEqualTo("Lfoo/Zort;");
         assertThat(result.implementedInterfaces).isEmpty();
-        assertThat(result.getExtendedType()).isNotPresent();
+        assertThat(result.type.getParentTypes()).isEmpty();
 
         assertThat(result.fields).isEqualTo(Set.of(new Definition.FieldDefinition("bar", "Lfoo/Bar;")));
 
@@ -102,8 +102,10 @@ public class JavapOutputParserTest {
 
         assertThat(result.typeName).isEqualTo("Lfoo/SomeEnum;");
         assertThat(result.implementedInterfaces).isEmpty();
-        assertThat(result.getExtendedType()).isPresent()
-                .get().isEqualTo("Ljava/lang/Enum;");
+        assertThat(result.type.superTypes)
+                .isEqualTo(List.of(new JavaType.TypeBound("Ljava/lang/Enum;",
+                        List.of(new JavaType.TypeParam("Lfoo/SomeEnum;", List.of(), List.of())))));
+        assertThat(result.type.interfaces).isEmpty();
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new Definition.FieldDefinition("$VALUES", "[Lfoo/SomeEnum;"),
@@ -144,8 +146,9 @@ public class JavapOutputParserTest {
 
         assertThat(result.typeName).isEqualTo("Lfoo/SomethingSpecific;");
         assertThat(result.implementedInterfaces).isEmpty();
-        assertThat(result.getExtendedType()).isPresent()
-                .get().isEqualTo("Lfoo/Something;");
+        assertThat(result.type.superTypes)
+                .isEqualTo(List.of(new JavaType.TypeBound("Lfoo/Something;", List.of())));
+        assertThat(result.type.interfaces).isEmpty();
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).isEqualTo(Set.of(
@@ -161,7 +164,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.typeName).isEqualTo("Lfoo/FunctionalCode;");
         assertThat(result.implementedInterfaces).isEmpty();
-        assertThat(result.getExtendedType()).isNotPresent();
+        assertThat(result.type.getParentTypes()).isEmpty();
 
         assertThat(result.fields).isEqualTo(Set.of(new Definition.FieldDefinition("log", "Lfoo/ExampleLogger;")));
 
@@ -229,11 +232,11 @@ public class JavapOutputParserTest {
         assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
                 .isEqualTo(Set.of("LHello;", "getMessage", "foo", "theFloat", "aPrivateMethod"));
         assertThat(hello.implementedInterfaces).isEmpty();
-        assertThat(hello.getExtendedType()).isNotPresent();
+        assertThat(hello.type.getParentTypes()).isEmpty();
 
         assertThat(emptyInterface.fields).isEmpty();
         assertThat(emptyInterface.implementedInterfaces).isEmpty();
-        assertThat(emptyInterface.getExtendedType()).isNotPresent();
+        assertThat(emptyInterface.type.getParentTypes()).isEmpty();
         assertThat(emptyInterface.methods).isEmpty();
         assertThat(emptyInterface.methodHandles).isEmpty();
 
