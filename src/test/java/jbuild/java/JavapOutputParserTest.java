@@ -103,7 +103,7 @@ public class JavapOutputParserTest {
         assertThat(result.typeName).isEqualTo("Lfoo/SomeEnum;");
         assertThat(result.implementedInterfaces).isEmpty();
         assertThat(result.getExtendedType()).isPresent()
-                .get().isEqualTo("Ljava/lang/Enum<foo/SomeEnum>;");
+                .get().isEqualTo("Ljava/lang/Enum;");
 
         assertThat(result.fields).isEqualTo(Set.of(
                 new Definition.FieldDefinition("$VALUES", "[Lfoo/SomeEnum;"),
@@ -113,7 +113,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.methodHandles).isEmpty();
 
-        assertThat(result.methods.keySet()).isEqualTo(Set.of(
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V"),
                 new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;"),
                 new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),

@@ -4,7 +4,6 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
-import jbuild.util.JavaTypeUtils;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,21 +13,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 
 public final class JavapOutputParser {
-
-    private static final String TYPE_NAME_REGEX = "a-zA-Z_$.0-9<>";
-
-    // example:
-    // public class other.ImplementsEmptyInterface implements foo.EmptyInterface,java.lang.Runnable {
-    private static final Pattern CLASS_NAME_LINE = Pattern.compile("((public|private|protected|abstract|final)\\s)*" +
-            "(class|interface|enum)\\s([" + TYPE_NAME_REGEX + "]+)" +
-            "(\\sextends\\s[" + TYPE_NAME_REGEX + "]+)?" +
-            "(\\simplements\\s[" + TYPE_NAME_REGEX + ",]+)?");
 
     // example:
     //       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
@@ -37,9 +25,16 @@ public final class JavapOutputParser {
     private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
 
     private final JBuildLog log;
+    private final JavaTypeParser typeParser;
 
     public JavapOutputParser(JBuildLog log) {
+        this(log, new JavaTypeParser(false));
+    }
+
+    public JavapOutputParser(JBuildLog log,
+                             JavaTypeParser typeParser) {
         this.log = log;
+        this.typeParser = typeParser;
     }
 
     public Map<String, TypeDefinition> processJavapOutput(Iterator<String> lines) {
@@ -48,12 +43,9 @@ public final class JavapOutputParser {
         while (lines.hasNext()) {
             var line = lines.next();
             if (waitingForClassLine) {
-                var match = CLASS_NAME_LINE.matcher(line);
-                if (match.matches()) {
-                    var className = match.group(4);
-                    var typeDef = processJavapOutput(className, lines,
-                            parseExtends(match.group(5)),
-                            parseImplements(match.group(6)));
+                var type = typeParser.parse(line);
+                if (type != null) {
+                    var typeDef = processJavapOutput(type, lines);
                     result.put(typeDef.typeName, typeDef);
                     waitingForClassLine = false;
                 } else if (!line.startsWith(" ")) {
@@ -68,35 +60,19 @@ public final class JavapOutputParser {
         return result;
     }
 
-    public TypeDefinition processJavapOutput(String className,
-                                             Iterator<String> lines,
-                                             String extended,
-                                             Set<String> interfaces) {
-        String typeName = classNameToTypeName(className);
+    public TypeDefinition processJavapOutput(JavaType javaType,
+                                             Iterator<String> lines) {
         Set<Code.Method> methodHandles = null;
         while (lines.hasNext()) {
             var line = lines.next();
             if (line.equals("Constant pool:")) {
-                methodHandles = parseConstantPool(typeName, lines);
+                methodHandles = parseConstantPool(javaType.name, lines);
                 break;
             }
         }
-        if (methodHandles == null) throw new IllegalStateException("Constant pool not found for class " + className);
-        return processClassMethods(typeName, methodHandles, lines, extended, interfaces);
-    }
-
-    private static String parseExtends(String group) {
-        if (group == null) return null;
-        assert group.startsWith(" extends ");
-        return classNameToTypeName(group.substring(" extends ".length()));
-    }
-
-    private static Set<String> parseImplements(String group) {
-        if (group == null) return Set.of();
-        assert group.startsWith(" implements ");
-        return Stream.of(group.substring(" implements ".length()).split(","))
-                .map(JavaTypeUtils::classNameToTypeName)
-                .collect(Collectors.toSet());
+        if (methodHandles == null)
+            throw new IllegalStateException("Constant pool not found for class " + javaType.name);
+        return processClassMethods(javaType, methodHandles, lines);
     }
 
     private Set<Code.Method> parseConstantPool(String typeName, Iterator<String> lines) {
@@ -116,11 +92,9 @@ public final class JavapOutputParser {
         return methodHandles;
     }
 
-    private TypeDefinition processClassMethods(String typeName,
+    private TypeDefinition processClassMethods(JavaType javaType,
                                                Set<Code.Method> methodHandles,
-                                               Iterator<String> lines,
-                                               String extended,
-                                               Set<String> interfaces) {
+                                               Iterator<String> lines) {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<Definition.MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<Definition.FieldDefinition>();
@@ -142,7 +116,7 @@ public final class JavapOutputParser {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
                     var method = new Definition.MethodDefinition(name, type);
-                    var code = processCode(lines, typeName);
+                    var code = processCode(lines, javaType.name);
                     methods.put(method, code);
                 }
             } else if (line.startsWith("    descriptor: ")) {
@@ -151,7 +125,7 @@ public final class JavapOutputParser {
                     type = "()V";
                     expectingFlags = true;
                 } else if (prevLine.contains("(")) { // method
-                    name = extractMethodName(prevLine, typeName); // descriptor always appears after the definition's name
+                    name = extractMethodName(prevLine, javaType.name); // descriptor always appears after the definition's name
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
                     expectingFlags = true; // after the descriptor, comes the flags then code
@@ -165,9 +139,9 @@ public final class JavapOutputParser {
             prevLine = line;
         }
 
-        var isEnum = extended != null && extended.startsWith("Ljava/lang/Enum<");
+        var isEnum = javaType.superType.name.equals("Ljava/lang/Enum;");
 
-        return new TypeDefinition(typeName, extended, interfaces, fields, methodHandles,
+        return new TypeDefinition(javaType, fields, methodHandles,
                 isEnum ? addEnumMethods(methods) : methods);
     }
 
