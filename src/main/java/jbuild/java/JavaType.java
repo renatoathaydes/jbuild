@@ -56,11 +56,14 @@ public final class JavaType {
     public static final class TypeParam {
         public final String name;
         public final List<TypeBound> bounds;
+        public final List<TypeParam> params;
 
         public TypeParam(String name,
-                         List<TypeBound> bounds) {
+                         List<TypeBound> bounds,
+                         List<TypeParam> params) {
             this.name = name;
             this.bounds = bounds;
+            this.params = params;
         }
 
         @Override
@@ -68,16 +71,18 @@ public final class JavaType {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
 
-            TypeParam typeSpec = (TypeParam) o;
+            TypeParam typeParam = (TypeParam) o;
 
-            if (!name.equals(typeSpec.name)) return false;
-            return bounds.equals(typeSpec.bounds);
+            if (!name.equals(typeParam.name)) return false;
+            if (!bounds.equals(typeParam.bounds)) return false;
+            return params.equals(typeParam.params);
         }
 
         @Override
         public int hashCode() {
             int result = name.hashCode();
             result = 31 * result + bounds.hashCode();
+            result = 31 * result + params.hashCode();
             return result;
         }
 
@@ -86,6 +91,7 @@ public final class JavaType {
             return "TypeParam{" +
                     "name='" + name + '\'' +
                     ", bounds=" + bounds +
+                    ", params=" + params +
                     '}';
         }
     }

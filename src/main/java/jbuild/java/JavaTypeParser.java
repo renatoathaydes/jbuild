@@ -14,9 +14,9 @@ import static jbuild.util.JavaTypeUtils.classNameToTypeName;
  * This class helps {@link JavapOutputParser} to find types in the javap tool's output.
  * <p>
  * Because it is in the "hot path" when parsing javap output, this class was designed to be fast when given lots
- * of invalid lines to parse... for this reason, instead of throwing Exceptions or returning errors, it will simply
- * return null as soon as it finds out that a particular line is not a valid type identifier line. That means that
- * this should not be used as a general purpose parser as it won't give the reason why it failed to parse a line at all.
+ * of invalid lines to parse... for this reason, instead of throwing Exceptions or returning errors, when created with
+ * {@code throwOnError} set to {@code false}, it will simply
+ * return {@code null} as soon as it finds out that a particular line is not a valid type identifier line.
  */
 public final class JavaTypeParser {
 
@@ -25,6 +25,17 @@ public final class JavaTypeParser {
 
     private int index;
     private String line;
+
+    private final boolean throwOnError;
+
+    /**
+     * Create a new {@link JavapOutputParser}.
+     *
+     * @param throwOnError whether to throw an Exception on errors, or return null silently.
+     */
+    public JavaTypeParser(boolean throwOnError) {
+        this.throwOnError = throwOnError;
+    }
 
     public JavaType parse(String line) {
         this.line = line;
@@ -41,6 +52,8 @@ public final class JavaTypeParser {
         while (index >= 0 && index < line.length()) {
             var word = nextWord(false);
             if (word.isEmpty() || index >= line.length() || currentChar() != ' ') {
+                if (throwOnError) throw new RuntimeException("expected word followed by space but got '" +
+                        word + currentChar() + "'");
                 return null;
             }
             index++; // go past the space
@@ -58,22 +71,28 @@ public final class JavaTypeParser {
                     if (!bound.equals(JavaType.OBJECT)) {
                         superType = bound;
                     }
-                } else if (index < line.length()) {
-                    System.out.println("expected extends or param, got " + currentChar());
-                    return null;
                 }
                 break;
             } else {
+                if (throwOnError) throw new RuntimeException("expected a type kind or modifier but got '" + word + "'");
                 return null;
             }
         }
 
-        if (name == null) return null;
+        if (name == null || name.isBlank()) {
+            if (throwOnError) throw new RuntimeException("no type name found");
+            return null;
+        }
 
-        if (expectNext(" implements ")) {
-            interfaces = parseBounds();
-        } else if (index < line.length()) {
-            System.out.println("did not finish parsing all line: " + line.substring(index));
+        if (expectNext(" implements ") || expectNext("implements ")) {
+            interfaces = parseBounds(true);
+            if (interfaces == null) {
+                return null;
+            }
+        }
+        if (index < line.length()) {
+            if (throwOnError)
+                throw new RuntimeException("unexpected input following type at index " + index);
             return null;
         }
 
@@ -86,20 +105,16 @@ public final class JavaTypeParser {
 
         var word = nextWord(false);
         if (word.isEmpty()) {
-            System.out.println("Got empty word");
+            if (throwOnError) throw new RuntimeException("expected type bound but got '" + currentChar() + "'");
             return null;
         }
 
         name = classNameToTypeName(word);
 
-        System.out.println("Got type name: " + name);
-
         char c = currentChar();
         if (c == '<') {
             index++;
-            System.out.println("parsing type parameters");
             params = parseParams();
-            System.out.println("Params: " + params);
             if (params == null) return null;
         }
         return new JavaType.TypeBound(name, params);
@@ -107,21 +122,28 @@ public final class JavaTypeParser {
 
     private JavaType.TypeParam nextTypeParam() {
         List<JavaType.TypeBound> bounds = List.of();
+        List<JavaType.TypeParam> params = List.of();
 
         var name = nextWord(true);
         if (name.isEmpty()) {
-            System.out.println("Got empty word");
+            if (throwOnError) throw new RuntimeException("expected type parameter but got '" + currentChar() + "'");
             return null;
         }
 
-        System.out.println("Got type param: " + name);
-
-        if (expectNext(" extends ")) {
-            bounds = parseBounds();
-            if (bounds == null) return null;
+        if (currentChar() == '<') {
+            index++;
+            params = parseParams();
+            if (params == null) return null;
         }
 
-        return new JavaType.TypeParam(name, bounds);
+        if (expectNext(" extends ")) {
+            bounds = parseBounds(false);
+            if (bounds == null) return null;
+        } else {
+            name = classNameToTypeName(name);
+        }
+
+        return new JavaType.TypeParam(name, bounds, params);
     }
 
     private List<JavaType.TypeParam> parseParams() {
@@ -137,11 +159,13 @@ public final class JavaTypeParser {
             index++;
             return params;
         }
-        System.out.println("Unexpected char after params: " + currentChar());
+        if (throwOnError) throw new RuntimeException("expected type parameters to end with '>' but got '" +
+                currentChar() + "'");
+
         return null;
     }
 
-    private List<JavaType.TypeBound> parseBounds() {
+    private List<JavaType.TypeBound> parseBounds(boolean isInterfaces) {
         var bounds = new ArrayList<JavaType.TypeBound>(2);
         var keepGoing = true;
         while (keepGoing) {
@@ -150,7 +174,12 @@ public final class JavaTypeParser {
             if (!JavaType.OBJECT.equals(bound)) {
                 bounds.add(bound);
             }
-            keepGoing = expectNext(" & ");
+            if (isInterfaces) {
+                keepGoing = expectNext(",");
+                expectNext(" "); // optional whitespace sometimes emitted by javap
+            } else {
+                keepGoing = expectNext(" & ");
+            }
         }
         return bounds;
     }
