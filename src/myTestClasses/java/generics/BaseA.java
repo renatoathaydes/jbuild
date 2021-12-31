@@ -1,7 +1,7 @@
 package generics;
 
 public class BaseA extends Base {
-    boolean aBoolean() {
+    public boolean aBoolean() {
         return true;
     }
 }

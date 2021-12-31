@@ -1,7 +1,7 @@
 package generics;
 
 public class Base {
-    String string() {
+    public String string() {
         return "Base";
     }
 }

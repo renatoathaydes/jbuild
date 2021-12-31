@@ -10,7 +10,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -153,7 +152,8 @@ public final class JavapOutputParser {
             var match = CODE_LINE.matcher(line);
             if (match.matches()) {
                 var parts = match.group(1).split("\\s");
-                handleCommentParts(parts, typeName).ifPresent(result::add);
+                var code = handleCommentParts(parts, typeName);
+                if (code != null) result.add(code);
             }
         }
         return result;
@@ -166,7 +166,7 @@ public final class JavapOutputParser {
         return methods;
     }
 
-    private Optional<? extends Code> handleCommentParts(String[] parts, String typeName) {
+    private Code handleCommentParts(String[] parts, String typeName) {
         if (parts.length == 2) {
             switch (parts[0]) {
                 case "String":
@@ -180,38 +180,38 @@ public final class JavapOutputParser {
                     return parseField(parts[1], typeName);
             }
         }
-        return Optional.empty();
+        return null;
     }
 
-    private Optional<Code.Type> parseClass(String classDef,
-                                           String typeName) {
+    private Code.Type parseClass(String classDef,
+                                 String typeName) {
         var type = classNameToTypeName(classDef);
-        if (shouldIgnoreClass(type, typeName)) return Optional.empty();
-        return Optional.of(new Code.Type(type));
+        if (shouldIgnoreClass(type, typeName)) return null;
+        return new Code.Type(type);
     }
 
-    private Optional<Code.Method> parseMethod(String method,
-                                              String typeName) {
+    private Code.Method parseMethod(String method,
+                                    String typeName) {
         var parts1 = method.split("\\.", 2);
-        if (parts1.length != 2) return Optional.empty(); // unexpected, maybe WARNING?
+        if (parts1.length != 2) return null; // unexpected, maybe WARNING?
         var parts2 = parts1[1].split(":");
-        if (parts2.length != 2) return Optional.empty(); // unexpected, maybe WARNING?
+        if (parts2.length != 2) return null; // unexpected, maybe WARNING?
         var type = classNameToTypeName(parts1[0]);
-        if (shouldIgnoreClass(type, typeName)) return Optional.empty();
-        return Optional.of(new Code.Method(type, parts2[0], parts2[1]));
+        if (shouldIgnoreClass(type, typeName)) return null;
+        return new Code.Method(type, parts2[0], parts2[1]);
     }
 
-    private Optional<Code.Field> parseField(String field,
-                                            String typeName) {
+    private Code.Field parseField(String field,
+                                  String typeName) {
         var parts = field.split(":", 2);
-        if (parts.length != 2) return Optional.empty();
+        if (parts.length != 2) return null;
         var nameParts = parts[0].split("\\.", 2);
         var type = classNameToTypeName(nameParts[0]);
         if (nameParts.length != 2 // own field, we don't care about it
                 || shouldIgnoreClass(type, typeName)) {
-            return Optional.empty();
+            return null;
         }
-        return Optional.of(new Code.Field(type, nameParts[1], parts[1]));
+        return new Code.Field(type, nameParts[1], parts[1]);
     }
 
     private String extractMethodName(String line, String typeName) {

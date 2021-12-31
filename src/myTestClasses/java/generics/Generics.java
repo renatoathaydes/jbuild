@@ -13,7 +13,4 @@ public class Generics<T extends Base> {
     public <V, Z extends SomethingSpecific> void genericMethod(Function<? super V, ? extends Z> fun) {
     }
 
-    public static class ManyTypes<A, B, C, D> {
-    }
-
 }
