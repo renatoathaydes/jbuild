@@ -1,64 +1,31 @@
 package jbuild.commands;
 
-import jbuild.errors.JBuildException;
 import jbuild.java.ClassGraph;
-import jbuild.java.JavapOutputParser;
-import jbuild.java.Tools;
+import jbuild.java.ClassGraphLoader;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
-import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.toList;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 
 public final class FixCommandExecutor {
 
     private final JBuildLog log;
-    private final Tools.Javap javap;
-    private final Tools.Jar jar;
+    private final ClassGraphLoader classGraphLoader;
 
     public FixCommandExecutor(JBuildLog log) {
+        this(log, ClassGraphLoader.create(log));
+    }
+
+    public FixCommandExecutor(JBuildLog log,
+                              ClassGraphLoader classGraphLoader) {
         this.log = log;
-        this.javap = Tools.Javap.create();
-        this.jar = Tools.Jar.create();
+        this.classGraphLoader = classGraphLoader;
     }
 
     public void run(String inputDir, boolean interactive) {
-        var classesByJar = parseClassDefinitionsInJars(inputDir);
-        showInconsistencies(classesByJar);
-    }
-
-    public ClassGraph parseClassDefinitionsInJars(String inputDir) {
-        var dir = new File(inputDir);
-        if (!dir.isDirectory()) {
-            throw new JBuildException("not a directory: " + inputDir, USER_INPUT);
-        }
-
-        var jarFiles = dir.listFiles(name -> name.getName().endsWith(".jar"));
-
-        if (jarFiles == null || jarFiles.length == 0) {
-            log.println("No jar files found at " + inputDir + ", nothing to do.");
-            return new ClassGraph(Map.of());
-        }
-
-        return parseClassDefinitionsInJars(jarFiles);
-    }
-
-    public ClassGraph parseClassDefinitionsInJars(File... jarFiles) {
-
-        var classesByJar = new HashMap<String, Map<String, TypeDefinition>>(jarFiles.length);
-        for (var jar : jarFiles) {
-            var classes = getClassesIn(jar);
-            classesByJar.put(jar.getPath(), processClasses(jar, classes));
-        }
-        return new ClassGraph(classesByJar);
+        var classGraph = classGraphLoader.fromJarsInDirectory(inputDir);
+        showInconsistencies(classGraph);
     }
 
     private void showInconsistencies(ClassGraph classGraph) {
@@ -94,34 +61,6 @@ public final class FixCommandExecutor {
                     }
                 }
             }
-        }
-    }
-
-    private String[] getClassesIn(File jarFile) {
-        var result = jar.listContents(jarFile.getAbsolutePath());
-        checkToolSuccessful("jar", result);
-
-        return result.stdout.lines()
-                .filter(line -> line.endsWith(".class") &&
-                        !line.endsWith("-info.class"))
-                .map(line -> line.replace(File.separatorChar, '.')
-                        .substring(0, line.length() - ".class".length()))
-                .collect(toList())
-                .toArray(String[]::new);
-    }
-
-    private Map<String, TypeDefinition> processClasses(File jar, String... classNames) {
-        var result = javap.run(jar.getAbsolutePath(), classNames);
-        checkToolSuccessful("javap", result);
-        var javapOutputParser = new JavapOutputParser(log);
-        return javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
-    }
-
-    private void checkToolSuccessful(String tool, Tools.ToolRunResult result) {
-        if (result.exitCode != 0) {
-            log.println("ERROR: " + tool + " exited with code " + result.exitCode);
-            throw new JBuildException("unexpected error when executing " + tool +
-                    ". Tool output:\n" + result.stderr, ACTION_ERROR);
         }
     }
 

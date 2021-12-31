@@ -202,4 +202,5 @@ public final class ClassGraph {
 
         return Collections.unmodifiableMap(jarsByClassName);
     }
+
 }

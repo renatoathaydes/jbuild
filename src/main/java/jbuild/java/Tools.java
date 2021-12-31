@@ -32,6 +32,20 @@ public abstract class Tools {
                         "Consider using a full JDK installation to run jbuild.", ACTION_ERROR));
     }
 
+    /**
+     * Verify that a tool has run successfully (exited with code 0).
+     *
+     * @param tool   name of tool
+     * @param result tool run result
+     * @throws JBuildException if the tool did not run successfully
+     */
+    public static void verifyToolSuccessful(String tool, Tools.ToolRunResult result) {
+        if (result.exitCode != 0) {
+            throw new JBuildException("unexpected error when executing " + tool +
+                    ". Tool output:\n" + result.stderr, ACTION_ERROR);
+        }
+    }
+
     private static String consumeOutput(ByteArrayOutputStream stream) {
         var output = stream.toString(UTF_8);
         stream.reset();

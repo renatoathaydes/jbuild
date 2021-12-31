@@ -1,6 +1,5 @@
 package jbuild.java;
 
-import jbuild.commands.FixCommandExecutor;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
@@ -23,8 +22,10 @@ public class ClassGraphTest {
 
     @BeforeAll
     static void beforeAll() {
-        var fix = new FixCommandExecutor(new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
-        classGraph = fix.parseClassDefinitionsInJars(new File(otherClassesJar), new File(JavapOutputParserTest.myClassesJar));
+        var loader = ClassGraphLoader.create(
+                new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
+
+        classGraph = loader.fromJars(new File(otherClassesJar), new File(JavapOutputParserTest.myClassesJar));
     }
 
     @Test
