@@ -1,8 +1,7 @@
 package jbuild.java;
 
 import java.util.List;
-
-import static jbuild.util.CollectionUtils.append;
+import java.util.stream.Stream;
 
 public final class JavaType {
 
@@ -30,8 +29,26 @@ public final class JavaType {
         this.interfaces = interfaces;
     }
 
+    /**
+     * @return the super types and interfaces implemented by this type.
+     */
     public Iterable<TypeBound> getParentTypes() {
-        return append(superTypes, interfaces);
+        var iter = parentTypes().iterator();
+        return () -> iter;
+    }
+
+    private Stream<TypeBound> parentTypes() {
+        return Stream.concat(superTypes.stream(), interfaces.stream());
+    }
+
+    /**
+     * @return all other types referred to from the type signature of this type. This includes its super-type,
+     * interfaces and type parameters' bounds, recursively.
+     */
+    public Stream<String> typesReferredTo() {
+        return Stream.concat(
+                typeParameters.stream().flatMap(TypeParam::typesReferredTo),
+                parentTypes().flatMap(TypeBound::typesReferredTo));
     }
 
     @Override
@@ -79,6 +96,13 @@ public final class JavaType {
             this.params = params;
         }
 
+        public Stream<String> typesReferredTo() {
+            if (bounds.isEmpty() && params.isEmpty()) return Stream.of();
+            return Stream.concat(
+                    bounds.stream().flatMap(TypeBound::typesReferredTo),
+                    params.stream().flatMap(TypeParam::typesReferredTo));
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -117,6 +141,10 @@ public final class JavaType {
                          List<TypeParam> params) {
             this.name = name;
             this.params = params;
+        }
+
+        public Stream<String> typesReferredTo() {
+            return Stream.concat(Stream.of(name), params.stream().flatMap(TypeParam::typesReferredTo));
         }
 
         @Override

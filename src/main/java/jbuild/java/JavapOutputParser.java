@@ -59,8 +59,8 @@ public final class JavapOutputParser {
         return result;
     }
 
-    public TypeDefinition processJavapOutput(JavaType javaType,
-                                             Iterator<String> lines) {
+    private TypeDefinition processJavapOutput(JavaType javaType,
+                                              Iterator<String> lines) {
         Set<Code.Method> methodHandles = null;
         while (lines.hasNext()) {
             var line = lines.next();
@@ -114,7 +114,7 @@ public final class JavapOutputParser {
             } else if (expectingCode) {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
-                    var method = new Definition.MethodDefinition(name, type);
+                    var method = new Definition.MethodDefinition(methodOrConstructorName(javaType.name, name), type);
                     var code = processCode(lines, javaType.name);
                     methods.put(method, code);
                 }
@@ -142,7 +142,7 @@ public final class JavapOutputParser {
                 javaType.kind == JavaType.Kind.ENUM ? addEnumMethods(methods) : methods);
     }
 
-    public Set<Code> processCode(Iterator<String> lines, String typeName) {
+    private Set<Code> processCode(Iterator<String> lines, String typeName) {
         var result = new LinkedHashSet<Code>();
         while (lines.hasNext()) {
             var line = lines.next();
@@ -284,6 +284,10 @@ public final class JavapOutputParser {
             return type.substring(index + 1, type.length() - 1);
         }
         return type;
+    }
+
+    private static String methodOrConstructorName(String typeName, String methodName) {
+        return typeName.equals(methodName) ? "\"<init>\"" : methodName;
     }
 
 }

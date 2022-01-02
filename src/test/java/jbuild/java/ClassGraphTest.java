@@ -4,6 +4,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -39,23 +40,26 @@ public class ClassGraphTest {
                         new Definition.MethodDefinition("foo", "()V"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to),
+                        new Definition.MethodDefinition("\"<init>\"", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
+                        new Definition.MethodDefinition("\"<init>\"", "()V"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
                         new Definition.MethodDefinition("b", "(Lfoo/Bar;)V"), to),
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
                         new Definition.MethodDefinition("c", "(I)Lfoo/Bar;"), to),
                 new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
-                        new Definition.MethodDefinition("Lother/ExtendsBar;", "()V"),
-                        new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"))));
+                        new Definition.MethodDefinition("\"<init>\"", "()V"),
+                        new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")),
+                new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
+                        null,
+                        new Code.Type("Lfoo/Bar;"))));
 
         to = new Code.Type("Lfoo/Zort;");
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"),
+                        new Definition.MethodDefinition("\"<init>\"", "()V"),
                         new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;")),
                 // Zort is referred to both in the type signature of "z" and in the body when it reads a field from Zort
                 new CodeReference(otherClassesJar, "Lother/ReadsFieldOfZort;",
@@ -128,16 +132,29 @@ public class ClassGraphTest {
                 new CodeReference(otherClassesJar, "Lother/UsesBar;",
                         new Definition.MethodDefinition("foo", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/ExtendsBar;",
-                        new Definition.MethodDefinition("Lother/ExtendsBar;", "()V"), to),
+                        new Definition.MethodDefinition("\"<init>\"", "()V"), to),
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+                        new Definition.MethodDefinition("\"<init>\"", "()V"), to)));
 
         to = new Code.Method("Lfoo/Zort;", "getBar", "(Lfoo/Bar;)Lfoo/Bar;");
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
                 new CodeReference(otherClassesJar, "Lother/CallsZortToCreateBar;",
-                        new Definition.MethodDefinition("Lother/CallsZortToCreateBar;", "()V"), to)));
+                        new Definition.MethodDefinition("\"<init>\"", "()V"), to)));
 
+    }
+
+    @Test
+    @Disabled("Can find reference through generic receiver, but not super-type yet")
+    void canFindReferencesToMethodThroughSuperTypeAndGenericReceiver() {
+        var to = new Code.Method("Lgenerics/Base;", "string", "()Ljava/lang/String;");
+
+        // only refs from other jars can be found, hence Lgenerics/Generics.takeT is not found
+        assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
+                new CodeReference(otherClassesJar, "Lother/UsesBaseA;",
+                        new Definition.MethodDefinition("usesSuperMethod", "()V"), to),
+                new CodeReference(otherClassesJar, "Lother/UsesBaseViaGenerics;",
+                        new Definition.MethodDefinition("useBase", "()V"), to)));
     }
 
     @Test
@@ -179,7 +196,7 @@ public class ClassGraphTest {
         var bar = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Bar;");
 
         assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, bar,
-                new Definition.MethodDefinition("Lfoo/Bar;", "()V"))
+                new Definition.MethodDefinition("\"<init>\"", "()V"))
         ).isTrue();
 
         assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, bar,

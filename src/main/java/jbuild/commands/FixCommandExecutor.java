@@ -47,10 +47,10 @@ public final class FixCommandExecutor {
                         var type = entry.getValue();
                         for (var ref : classGraph.referencesTo(new Code.Type(name))) {
                             var ok = ref.to.match(t -> true,
-                                    f -> classGraph.refExists(jar, type, new Definition.MethodDefinition(f.name, f.type)),
+                                    f -> classGraph.refExists(jar, type, new Definition.FieldDefinition(f.name, f.type)),
                                     m -> classGraph.refExists(jar, type, new Definition.MethodDefinition(m.name, m.type)));
                             if (!ok) {
-                                log.println("Cannot find\n  " + ref + "\n   to " + type + "\n  in " + jar + "\n... this jar is not ok");
+                                log.println("Cannot find\n  " + ref.type + " -> " + ref.to + "\n   in " + jar + "\n... this jar is not ok");
                                 jarOk = false;
                                 break typesByJarLoop;
                             }

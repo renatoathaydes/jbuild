@@ -163,7 +163,7 @@ public final class ClassGraph {
                                 .findAny()
                                 .map(code -> new CodeReference(jarFrom, typeFrom.typeName, entry.getKey(), to)))));
 
-        // find references to a type in fields and type signature of methods, even when they are not used
+        // find references to a type in fields and type signatures, even when the type is not used in code
         if (to instanceof Code.Type) {
             results = Stream.concat(
                     results,
@@ -178,7 +178,7 @@ public final class ClassGraph {
                             .filter(field -> field.type.equals(to.typeName))
                             .map(field -> new CodeReference(jarFrom, typeFrom.typeName, field, to)));
 
-            if (typeFrom.implementedInterfaces.contains(to.typeName)) {
+            if (typeFrom.type.typesReferredTo().anyMatch(to.typeName::equals)) {
                 results = Stream.concat(
                         results,
                         Stream.of(new CodeReference(jarFrom, typeFrom.typeName, null, to)));

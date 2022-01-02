@@ -42,13 +42,13 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.keySet())
                 .containsExactlyInAnyOrderElementsOf(Set.of(
-                        new Definition.MethodDefinition("LHello;", "(Ljava/lang/String;)V"),
+                        new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"),
                         new Definition.MethodDefinition("foo", "()Z"),
                         new Definition.MethodDefinition("aPrivateMethod", "()V"),
                         new Definition.MethodDefinition("theFloat", "(FJ)F"),
                         new Definition.MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("LHello;", "(Ljava/lang/String;)V"))).isEmpty();
+        assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("foo", "()Z"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("aPrivateMethod", "()V"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
@@ -68,8 +68,8 @@ public class JavapOutputParserTest {
 
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
-        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(new Definition.MethodDefinition("Lfoo/Bar;", "()V")));
-        assertThat(result.methods.get(new Definition.MethodDefinition("Lfoo/Bar;", "()V"))).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(new Definition.MethodDefinition("\"<init>\"", "()V")));
+        assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "()V"))).isEmpty();
 
         types = parser.processJavapOutput(javap(myClassesJar, "foo.Zort"));
         result = types.get("Lfoo/Zort;");
@@ -84,7 +84,7 @@ public class JavapOutputParserTest {
                 new Definition.MethodDefinition("static{}", "()V"),
                 new Definition.MethodDefinition("getBar", "(Lfoo/Bar;)Lfoo/Bar;"),
                 new Definition.MethodDefinition("createBar", "()Lfoo/Bar;"),
-                new Definition.MethodDefinition("Lfoo/Zort;", "()V")
+                new Definition.MethodDefinition("\"<init>\"", "()V")
         ));
         assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V")))
                 .containsExactlyInAnyOrderElementsOf(Set.of(
@@ -116,7 +116,7 @@ public class JavapOutputParserTest {
         assertThat(result.methodHandles).isEmpty();
 
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V"),
+                new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V"),
                 new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;"),
                 new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),
                 new Definition.MethodDefinition("static{}", "()V"),
@@ -124,7 +124,7 @@ public class JavapOutputParserTest {
                 new Definition.MethodDefinition("ordinal", "()I"),
                 new Definition.MethodDefinition("name", "()Ljava/lang/String;")));
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("Lfoo/SomeEnum;", "(Ljava/lang/String;I)V")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V")))
                 .isEmpty();
 
         assertThat(result.methods.get(new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;")))
@@ -152,7 +152,7 @@ public class JavapOutputParserTest {
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("Lfoo/SomethingSpecific;", "()V")));
+                new Definition.MethodDefinition("\"<init>\"", "()V")));
     }
 
     @Test
@@ -178,7 +178,7 @@ public class JavapOutputParserTest {
                 new Definition.MethodDefinition("filter", "(Ljava/util/List;)Ljava/util/List;"),
                 new Definition.MethodDefinition("logLengthsStats", "(Ljava/util/List;)V"),
                 new Definition.MethodDefinition("countLengths", "(Ljava/util/List;)Ljava/util/IntSummaryStatistics;"),
-                new Definition.MethodDefinition("Lfoo/FunctionalCode;", "(Lfoo/ExampleLogger;)V")));
+                new Definition.MethodDefinition("\"<init>\"", "(Lfoo/ExampleLogger;)V")));
 
         assertThat(result.methods.get(new Definition.MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;")))
                 .containsExactlyInAnyOrderElementsOf(Set.of(
@@ -203,7 +203,7 @@ public class JavapOutputParserTest {
         assertThat(result.methods.get(new Definition.MethodDefinition("countLengths", "(Ljava/util/List;)Ljava/util/IntSummaryStatistics;")))
                 .isEmpty();
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("Lfoo/FunctionalCode;", "(Lfoo/ExampleLogger;)V")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Lfoo/ExampleLogger;)V")))
                 .isEmpty();
 
     }
@@ -230,7 +230,7 @@ public class JavapOutputParserTest {
 
         // make sure contents of each class didn't mix up
         assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
-                .containsExactlyInAnyOrderElementsOf(Set.of("LHello;", "getMessage", "foo", "theFloat", "aPrivateMethod"));
+                .containsExactlyInAnyOrderElementsOf(Set.of("\"<init>\"", "getMessage", "foo", "theFloat", "aPrivateMethod"));
         assertThat(hello.implementedInterfaces).isEmpty();
         assertThat(hello.type.getParentTypes()).isEmpty();
 
@@ -241,11 +241,11 @@ public class JavapOutputParserTest {
         assertThat(emptyInterface.methodHandles).isEmpty();
 
         assertThat(funCode.methods.keySet().stream().map(it -> it.name).collect(toSet()))
-                .containsExactlyInAnyOrderElementsOf(Set.of("Lfoo/FunctionalCode;", "countLengths", "filter", "logLengthsStats",
+                .containsExactlyInAnyOrderElementsOf(Set.of("\"<init>\"", "countLengths", "filter", "logLengthsStats",
                         "lambda$filter$1", "lambda$countLengths$0"));
 
         assertThat(bar.methods.keySet().stream().map(it -> it.name).collect(toSet()))
-                .containsExactlyInAnyOrderElementsOf(Set.of("Lfoo/Bar;"));
+                .containsExactlyInAnyOrderElementsOf(Set.of("\"<init>\""));
     }
 
     @Test
@@ -264,7 +264,7 @@ public class JavapOutputParserTest {
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("Lgenerics/BasicGenerics;", "()V")
+                new Definition.MethodDefinition("\"<init>\"", "()V")
         ));
     }
 
@@ -284,7 +284,7 @@ public class JavapOutputParserTest {
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("Lgenerics/Generics;", "()V"),
+                new Definition.MethodDefinition("\"<init>\"", "()V"),
                 new Definition.MethodDefinition("takeT", "(Lgenerics/Base;)Ljava/lang/String;"),
                 // cannot see reference to generic type as it's not used and is not part of the type descriptor
                 new Definition.MethodDefinition("genericMethod", "(Ljava/util/function/Function;)V")
@@ -310,7 +310,7 @@ public class JavapOutputParserTest {
         assertThat(result.fields).isEmpty();
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("Lgenerics/ManyGenerics;", "()V")
+                new Definition.MethodDefinition("\"<init>\"", "()V")
         ));
     }
 
