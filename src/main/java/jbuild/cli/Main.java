@@ -4,8 +4,8 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.artifact.http.DefaultHttpClient;
 import jbuild.commands.DepsCommandExecutor;
+import jbuild.commands.DoctorCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
-import jbuild.commands.FixCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
@@ -160,8 +160,8 @@ public final class Main {
             case "install":
                 installArtifacts(options);
                 break;
-            case "fix":
-                fix(options);
+            case "doctor":
+                doctor(options);
                 break;
             case "versions":
                 listVersions(options);
@@ -172,12 +172,18 @@ public final class Main {
         }
     }
 
-    private void fix(Options options) {
-        var fixOptions = FixOptions.parse(options.commandArgs);
+    private void doctor(Options options) {
+        var fixOptions = DoctorOptions.parse(options.commandArgs);
 
-        var commandExecutor = new FixCommandExecutor(log);
+        if (fixOptions.entryPoints.isEmpty()) {
+            log.println("No entry points provided, nothing to do. Please provide the entry points (jars) " +
+                    "to check the classpath with the option -e, see usage for details.");
+            return;
+        }
 
-        commandExecutor.run(fixOptions.inputDir, fixOptions.interactive);
+        var commandExecutor = new DoctorCommandExecutor(log);
+
+        commandExecutor.run(fixOptions.inputDir, fixOptions.interactive, fixOptions.entryPoints);
     }
 
     private void listDeps(Options options) throws Exception {

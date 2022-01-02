@@ -147,6 +147,14 @@ public final class CollectionUtils {
                 .collect(Collectors.toSet());
     }
 
+    public static <T> long countRemaining(Set<T> set, Collection<T> exclusions) {
+        if (exclusions.isEmpty()) return set.size();
+        var exc = exclusions instanceof Set<?> ? ((Set<T>) exclusions) : new HashSet<>(exclusions);
+        return set.stream()
+                .filter(item -> !exc.contains(item))
+                .count();
+    }
+
     public static <K, A, B> Map<K, B> mapValues(Map<K, A> map, Function<A, B> transform) {
         var result = new HashMap<K, B>(map.size());
         for (var entry : map.entrySet()) {

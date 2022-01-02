@@ -18,6 +18,10 @@ public abstract class Definition {
     public abstract <T> T match(Function<FieldDefinition, T> matchField,
                                 Function<MethodDefinition, T> matchMethod);
 
+    public String descriptor() {
+        return name + "::" + type;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

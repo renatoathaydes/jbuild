@@ -6,11 +6,9 @@ import jbuild.java.code.TypeDefinition;
 import jbuild.util.CollectionUtils;
 import jbuild.util.JavaTypeUtils;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -23,7 +21,7 @@ import static jbuild.util.JavaTypeUtils.toTypeDescriptor;
 public final class ClassGraph {
 
     private final Map<String, Map<String, TypeDefinition>> typesByJar;
-    private final Map<String, List<String>> jarsByType;
+    private final Map<String, Set<String>> jarsByType;
 
     public ClassGraph(Map<String, Map<String, TypeDefinition>> typesByJar) {
         this.typesByJar = typesByJar;
@@ -33,7 +31,7 @@ public final class ClassGraph {
     /**
      * @return a Map from all types in this graph to the jar(s) in which they can be found.
      */
-    public Map<String, List<String>> getJarsByType() {
+    public Map<String, Set<String>> getJarsByType() {
         return jarsByType;
     }
 
@@ -228,14 +226,14 @@ public final class ClassGraph {
         return results;
     }
 
-    private static Map<String, List<String>> computeJarsByType(Map<String, Map<String, TypeDefinition>> classesByJar) {
-        var jarsByClassName = new HashMap<String, List<String>>(
+    private static Map<String, Set<String>> computeJarsByType(Map<String, Map<String, TypeDefinition>> classesByJar) {
+        var jarsByClassName = new HashMap<String, Set<String>>(
                 classesByJar.values().stream().mapToInt(Map::size).sum());
 
         for (var entry : classesByJar.entrySet()) {
             for (var type : entry.getValue().values()) {
                 jarsByClassName.computeIfAbsent(type.typeName,
-                        (ignore) -> new ArrayList<>(2)
+                        (ignore) -> new HashSet<>(2)
                 ).add(entry.getKey());
             }
         }

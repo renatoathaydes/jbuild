@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
@@ -296,24 +297,35 @@ final class InstallOptions {
 
 }
 
-final class FixOptions {
+final class DoctorOptions {
 
     final String inputDir;
     final boolean interactive;
+    final List<String> entryPoints;
 
-    public FixOptions(String inputDir, boolean interactive) {
+    public DoctorOptions(String inputDir,
+                         boolean interactive,
+                         List<String> entryPoints) {
         this.inputDir = inputDir;
         this.interactive = interactive;
+        this.entryPoints = unmodifiableList(entryPoints);
     }
 
-    static FixOptions parse(List<String> args) {
+    static DoctorOptions parse(List<String> args) {
         String inputDir = null;
         var interactive = true;
+        var entryPoints = new ArrayList<String>(4);
+        var expectEntryPoint = false;
 
         for (var arg : args) {
-            if (arg.startsWith("-")) {
+            if (expectEntryPoint) {
+                expectEntryPoint = false;
+                entryPoints.add(arg);
+            } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-y", "--yes")) {
                     interactive = false;
+                } else if (isEither(arg, "-e", "--entrypoint")) {
+                    expectEntryPoint = true;
                 } else {
                     throw new JBuildException("invalid fix option: " + arg +
                             "\nRun jbuild --help for usage.", USER_INPUT);
@@ -327,7 +339,11 @@ final class FixOptions {
             }
         }
 
-        return new FixOptions(inputDir, interactive);
+        if (expectEntryPoint) {
+            throw new JBuildException("expecting value for '--entrypoint' option", USER_INPUT);
+        }
+
+        return new DoctorOptions(inputDir, interactive, entryPoints);
     }
 }
 
