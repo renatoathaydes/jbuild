@@ -3,8 +3,10 @@ package jbuild.util;
 import jbuild.errors.JBuildException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import static java.util.stream.Collectors.joining;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 
 /**
@@ -28,6 +30,21 @@ public final class JavaTypeUtils {
         ) return className;
 
         return "L" + className.replaceAll("\\.", "/") + ";";
+    }
+
+    /**
+     * Convert a JVM internal type name to a name using the Java language conventional syntax.
+     * <p>
+     * This method only works with reference types. Primitive types are not supported.
+     *
+     * @param typeName JVM internal class name
+     * @return Java language type name
+     */
+    public static String typeNameToClassName(String typeName) {
+        if (typeName.startsWith("L") && typeName.endsWith(";")) {
+            return typeName.substring(1, typeName.length() - 1).replaceAll("/", ".");
+        }
+        return typeName;
     }
 
     /**
@@ -110,4 +127,15 @@ public final class JavaTypeUtils {
         return -1;
     }
 
+    public static String toTypeDescriptor(Class<?> type) {
+        var name = type.getName();
+        if (name.equals("void")) return "V";
+        return classNameToTypeName(type.getName());
+    }
+
+    public static String toMethodTypeDescriptor(Class<?> returnType,
+                                                Class<?>... parameterTypes) {
+        return Arrays.stream(parameterTypes).map(JavaTypeUtils::toTypeDescriptor)
+                .collect(joining("", "(", ")")) + toTypeDescriptor(returnType);
+    }
 }

@@ -314,6 +314,35 @@ public class JavapOutputParserTest {
         ));
     }
 
+    @Test
+    void canParseTypeUsingJavaMethodViaInterface() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(ClassGraphTest.otherClassesJar, "other.UsesMultiInterface"));
+        var result = types.get("Lother/UsesMultiInterface;");
+
+        assertThat(result.typeName).isEqualTo("Lother/UsesMultiInterface;");
+        assertThat(result.type.typeParameters).isEmpty();
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "()V"),
+                new Definition.MethodDefinition("callJavaMethodViaInterface", "(Lfoo/MultiInterface;)V")
+        ));
+
+        assertThat(result.methods.get(
+                new Definition.MethodDefinition("\"<init>\"", "()V"))
+        ).isEmpty();
+
+        assertThat(result.methods.get(
+                new Definition.MethodDefinition("callJavaMethodViaInterface", "(Lfoo/MultiInterface;)V")
+        )).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Code.Method("Lfoo/MultiInterface;", "run", "()V")
+        ));
+    }
+
     private Iterator<String> javap(String jar, String... classNames) {
         var result = Tools.Javap.create().run(jar, classNames);
         assertProcessWasSuccessful(result);

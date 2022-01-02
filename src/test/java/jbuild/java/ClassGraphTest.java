@@ -195,11 +195,11 @@ public class ClassGraphTest {
     void canFindOutIfReferenceToMethodExists() {
         var bar = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Bar;");
 
-        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, bar,
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, bar,
                 new Definition.MethodDefinition("\"<init>\"", "()V"))
         ).isTrue();
 
-        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, bar,
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, bar,
                 new Definition.MethodDefinition("not", "()V"))
         ).isFalse();
     }
@@ -207,17 +207,43 @@ public class ClassGraphTest {
     @Test
     void canFindOutIfReferenceToFieldExists() {
         var fields = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Fields;");
-        System.out.println(fields);
-        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, fields,
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, fields,
                 new Definition.FieldDefinition("aString", "Ljava/lang/String;"))
         ).isTrue();
 
-        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, fields,
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, fields,
                 new Definition.FieldDefinition("aBoolean", "Z"))
         ).isTrue();
 
-        assertThat(classGraph.refExists(JavapOutputParserTest.myClassesJar, fields,
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, fields,
                 new Definition.FieldDefinition("aChar", "C"))
         ).isFalse();
     }
+
+    @Test
+    void canFindReferenceToMethodInSuperType() {
+        var baseA = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar)
+                .get("Lgenerics/BaseA;");
+
+        // method defined in BaseA itself
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, baseA,
+                new Definition.MethodDefinition("aBoolean", "()Z"))
+        ).isTrue();
+
+        // method defined in super-class of BaseA
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, baseA,
+                new Definition.MethodDefinition("string", "()Ljava/lang/String;"))
+        ).isTrue();
+    }
+
+    @Test
+    void canFindReferenceToMethodInJavaSuperType() {
+        var multiInterface = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar)
+                .get("Lfoo/MultiInterface;");
+
+        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, multiInterface,
+                new Definition.MethodDefinition("run", "()V"))
+        ).isTrue();
+    }
+
 }

@@ -4,6 +4,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.util.CollectionUtils;
+import jbuild.util.JavaTypeUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,6 +17,8 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.streamOfOptional;
+import static jbuild.util.JavaTypeUtils.toMethodTypeDescriptor;
+import static jbuild.util.JavaTypeUtils.toTypeDescriptor;
 
 public final class ClassGraph {
 
@@ -107,14 +110,14 @@ public final class ClassGraph {
     }
 
     /**
-     * Check if a certain reference to a definition on the given type, in the given jar, exists.
+     * Check if a certain definition exists.
      *
-     * @param jar        where the type is located
+     * @param jar        where the type that may contain the definition is located
      * @param typeDef    the type where the definition might exist
      * @param definition a definition being referenced from elsewhere
      * @return true if the definition exists in the type
      */
-    public boolean refExists(String jar, TypeDefinition typeDef, Definition definition) {
+    public boolean exists(String jar, TypeDefinition typeDef, Definition definition) {
         var result = definition.match(
                 typeDef.fields::contains,
                 typeDef.methods::containsKey);
@@ -123,16 +126,53 @@ public final class ClassGraph {
         for (var parentType : typeDef.type.getParentTypes()) {
             var typeName = parentType.name;
             var jars = jarsByType.get(typeName);
-            if (jars == null) return false;
+            if (jars == null) return javaExists(typeName, definition);
             if (jars.contains(jar)) { // prefer to find parent type on the same jar
                 var t = typesByJar.get(jar).get(typeName);
-                return refExists(jar, t, definition);
+                return exists(jar, t, definition);
             } else {
                 for (var currentJar : jars) {
                     var t = typesByJar.get(currentJar).get(typeName);
-                    if (refExists(currentJar, t, definition)) {
+                    if (exists(currentJar, t, definition)) {
                         return true;
                     }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean javaExists(String typeName, Definition definition) {
+        if (typeName.startsWith("Ljava/")) {
+            Class<?> javaType;
+            try {
+                javaType = Class.forName(JavaTypeUtils.typeNameToClassName(typeName));
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+            return definition.match(f -> javaFieldExists(javaType, f), m -> javaMethodExists(javaType, m));
+        }
+        return false;
+    }
+
+    private static boolean javaFieldExists(Class<?> type, Definition.FieldDefinition field) {
+        for (var javaField : type.getFields()) {
+            if (javaField.getName().equals(field.name)) {
+                var fieldType = toTypeDescriptor(javaField.getType());
+                if (fieldType.equals(field.type)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean javaMethodExists(Class<?> type, Definition.MethodDefinition method) {
+        for (var javaMethod : type.getMethods()) {
+            if (javaMethod.getName().equals(method.name)) {
+                var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
+                if (methodType.equals(method.type)) {
+                    return true;
                 }
             }
         }
