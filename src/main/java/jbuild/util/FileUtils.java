@@ -1,8 +1,10 @@
 package jbuild.util;
 
 import jbuild.errors.CloseException;
+import jbuild.errors.JBuildException;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
@@ -12,7 +14,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CompletableFuture;
 
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+
 public final class FileUtils {
+
     public static boolean ensureDirectoryExists(File dir) {
         return dir.isDirectory() || dir.mkdirs();
     }
@@ -65,5 +70,15 @@ public final class FileUtils {
         });
 
         return completionStage;
+    }
+
+    public static File[] allFilesInDir(String directory, FilenameFilter filter) {
+        var dir = new File(directory);
+        if (!dir.isDirectory()) {
+            throw new JBuildException("not a directory: " + directory, USER_INPUT);
+        }
+        var files = dir.listFiles(filter);
+        if (files == null) return new File[0];
+        return files;
     }
 }

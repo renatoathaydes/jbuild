@@ -1,6 +1,5 @@
 package jbuild.java;
 
-import jbuild.errors.JBuildException;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
@@ -9,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.java.Tools.verifyToolSuccessful;
 
 public class ClassGraphLoader {
@@ -35,22 +33,6 @@ public class ClassGraphLoader {
             classesByJar.put(jar.getPath(), processClasses(jar, classes));
         }
         return new ClassGraph(classesByJar);
-    }
-
-    public ClassGraph fromJarsInDirectory(String inputDir) {
-        var dir = new File(inputDir);
-        if (!dir.isDirectory()) {
-            throw new JBuildException("not a directory: " + inputDir, USER_INPUT);
-        }
-
-        var jarFiles = dir.listFiles(name -> name.getName().endsWith(".jar"));
-
-        if (jarFiles == null || jarFiles.length == 0) {
-            log.println("No jar files found at " + inputDir + ", nothing to do.");
-            return new ClassGraph(Map.of());
-        }
-
-        return fromJars(jarFiles);
     }
 
     private String[] getClassesIn(File jarFile) {

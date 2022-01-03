@@ -15,12 +15,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.TextUtils.firstNonBlank;
 
@@ -47,14 +49,20 @@ public final class DoctorCommandExecutor {
     public List<ClasspathCheckResult> findClasspathPermutations(String inputDir,
                                                                 boolean interactive,
                                                                 List<String> entryPoints) {
-        var classGraph = classGraphLoader.fromJarsInDirectory(inputDir);
-        var entryJars = classGraph.getTypesByJar().keySet().stream()
-                .filter(entryPoints::contains)
+        var jarFiles = allFilesInDir(inputDir, (dir, fname) -> fname.endsWith(".jar"));
+        var entryJars = Stream.of(jarFiles)
+                .filter(jar -> entryPoints.stream().anyMatch(e -> includes(jar, e)))
+                .map(File::getPath)
                 .collect(toSet());
-        if (entryJars.isEmpty()) {
-            throw new JBuildException("Could not find any entry point", USER_INPUT);
+        if (entryJars.size() < entryPoints.size()) {
+            throw new JBuildException("Could not find all entry points, found following jars: " + entryJars, USER_INPUT);
         }
+        var classGraph = classGraphLoader.fromJars(jarFiles);
         return findClasspathPermutations(classGraph, entryJars);
+    }
+
+    private static boolean includes(File jar, String entryPoint) {
+        return jar.getName().equals(entryPoint) || jar.getPath().equals(entryPoint);
     }
 
     private void showClasspathCheckResults(List<ClasspathCheckResult> results) {
@@ -99,7 +107,7 @@ public final class DoctorCommandExecutor {
         var results = new ArrayList<ClasspathCheckResult>(jarPermutations.size());
 
         if (jarPermutations.size() > 1) {
-            log.println("Detected conflicts in classpath, trying to find combinations of jars that can work together");
+            log.println("Detected conflicts in classpath, trying to find combinations of jars that can work together.");
 
             for (var jarByType : jarPermutations) {
                 log.verbosePrintln(() -> "Trying classpath permutation: " + toClasspath(jarByType.values()));
