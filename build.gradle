@@ -19,14 +19,18 @@ sourceSets {
     }
 }
 
+final String testJarsDir = "$buildDir/test-jars"
+
 task myTestJar(type: Jar) {
     archiveFileName = 'my-tests.jar'
     from sourceSets.myTestClasses.output
+    destinationDirectory.set file(testJarsDir)
 }
 
 task otherTestJar(type: Jar) {
     archiveFileName = 'other-tests.jar'
     from sourceSets.otherTestClasses.output
+    destinationDirectory.set file(testJarsDir)
 }
 
 dependencies {
@@ -39,6 +43,8 @@ test {
     dependsOn('myTestJar', 'otherTestJar')
     useJUnitPlatform()
     systemProperty('tests.repo.dir', file('src/test/resources/jbuild/commands/repo').absolutePath)
-    systemProperty('tests.my-test-classes.jar', "$buildDir/libs/my-tests.jar")
-    systemProperty('tests.other-test-classes.jar', "$buildDir/libs/other-tests.jar")
+    systemProperty('tests.test-classes.dir', testJarsDir)
+    systemProperty('tests.my-test-classes.jar', "$testJarsDir/my-tests.jar")
+    systemProperty('tests.other-test-classes.jar', "$testJarsDir/other-tests.jar")
+    systemProperty('tests.real-jars.osgiaas-cli-api.jar', "$rootDir/src/test/real-jars/osgiaas-cli-api-0.7.jar")
 }

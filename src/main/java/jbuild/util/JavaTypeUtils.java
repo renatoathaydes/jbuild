@@ -48,6 +48,21 @@ public final class JavaTypeUtils {
     }
 
     /**
+     * Clean a type name in case it's an array type, so that the result is a simple type name.
+     *
+     * @param type name
+     * @return non-array type name
+     */
+    public static String cleanArrayTypeName(String type) {
+        if (type.startsWith("\"[") || type.startsWith("[")) {
+            var index = type.lastIndexOf('[');
+            var end = type.endsWith("\"") ? type.length() - 1 : type.length();
+            return type.substring(index + 1, end);
+        }
+        return type;
+    }
+
+    /**
      * Parse a list of types from a method argument list type descriptor.
      * <p>
      * This method is intended to be used to find reference to types, hence it drops array components from type
@@ -114,6 +129,25 @@ public final class JavaTypeUtils {
         }
 
         return result;
+    }
+
+    public static boolean isPrimitiveJavaType(String typeName) {
+        var type = cleanArrayTypeName(typeName);
+        if (type.length() > 1) return false;
+        switch (type.charAt(0)) {
+            case 'B':
+            case 'C':
+            case 'D':
+            case 'F':
+            case 'I':
+            case 'J':
+            case 'S':
+            case 'V':
+            case 'Z':
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static String toString(char[] chars, int start, int end) {

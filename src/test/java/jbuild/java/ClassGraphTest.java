@@ -10,14 +10,15 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
+import java.util.List;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
+import static jbuild.TestSystemProperties.myClassesJar;
+import static jbuild.TestSystemProperties.otherClassesJar;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ClassGraphTest {
-
-    static final String otherClassesJar = System.getProperty("tests.other-test-classes.jar");
 
     private static ClassGraph classGraph;
 
@@ -26,7 +27,7 @@ public class ClassGraphTest {
         var loader = ClassGraphLoader.create(
                 new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
-        classGraph = loader.fromJars(new File(otherClassesJar), new File(JavapOutputParserTest.myClassesJar));
+        classGraph = loader.fromJars(new File(otherClassesJar), new File(myClassesJar));
     }
 
     @Test
@@ -75,7 +76,8 @@ public class ClassGraphTest {
         var to = new Code.Type("Lfoo/EmptyInterface;");
 
         assertThat(classGraph.referencesTo(to)).containsExactlyInAnyOrderElementsOf(Set.of(
-                new CodeReference(otherClassesJar, "Lother/ImplementsEmptyInterface;", null, to)));
+                new CodeReference(otherClassesJar, "Lother/ImplementsEmptyInterface;", null, to),
+                new CodeReference(otherClassesJar, "Lother/UsesComplexType$Param;", null, to)));
     }
 
     @Test
@@ -193,57 +195,111 @@ public class ClassGraphTest {
 
     @Test
     void canFindOutIfReferenceToMethodExists() {
-        var bar = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Bar;");
+        var bar = classGraph.getTypesByJar().get(myClassesJar).get("Lfoo/Bar;");
 
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, bar,
+        assertThat(classGraph.exists(myClassesJar, bar,
                 new Definition.MethodDefinition("\"<init>\"", "()V"))
         ).isTrue();
 
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, bar,
+        assertThat(classGraph.exists(myClassesJar, bar,
                 new Definition.MethodDefinition("not", "()V"))
         ).isFalse();
     }
 
     @Test
     void canFindOutIfReferenceToFieldExists() {
-        var fields = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar).get("Lfoo/Fields;");
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, fields,
+        var fields = classGraph.getTypesByJar().get(myClassesJar).get("Lfoo/Fields;");
+        assertThat(classGraph.exists(myClassesJar, fields,
                 new Definition.FieldDefinition("aString", "Ljava/lang/String;"))
         ).isTrue();
 
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, fields,
+        assertThat(classGraph.exists(myClassesJar, fields,
                 new Definition.FieldDefinition("aBoolean", "Z"))
         ).isTrue();
 
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, fields,
+        assertThat(classGraph.exists(myClassesJar, fields,
                 new Definition.FieldDefinition("aChar", "C"))
         ).isFalse();
     }
 
     @Test
     void canFindReferenceToMethodInSuperType() {
-        var baseA = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar)
+        var baseA = classGraph.getTypesByJar().get(myClassesJar)
                 .get("Lgenerics/BaseA;");
 
         // method defined in BaseA itself
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, baseA,
+        assertThat(classGraph.exists(myClassesJar, baseA,
                 new Definition.MethodDefinition("aBoolean", "()Z"))
         ).isTrue();
 
         // method defined in super-class of BaseA
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, baseA,
+        assertThat(classGraph.exists(myClassesJar, baseA,
                 new Definition.MethodDefinition("string", "()Ljava/lang/String;"))
         ).isTrue();
     }
 
     @Test
     void canFindReferenceToMethodInJavaSuperType() {
-        var multiInterface = classGraph.getTypesByJar().get(JavapOutputParserTest.myClassesJar)
+        var multiInterface = classGraph.getTypesByJar().get(myClassesJar)
                 .get("Lfoo/MultiInterface;");
 
-        assertThat(classGraph.exists(JavapOutputParserTest.myClassesJar, multiInterface,
+        assertThat(classGraph.exists(myClassesJar, multiInterface,
                 new Definition.MethodDefinition("run", "()V"))
         ).isTrue();
     }
 
+    @Test
+    void javaPrimitiveTypesAlwaysExist() {
+        var examples = List.of("B", "C", "D", "F", "I", "J", "S", "V", "Z", "[Z", "[[B");
+        for (String example : examples) {
+            assertThat(classGraph.existsJava(example)).withFailMessage(example + " should exist").isTrue();
+        }
+    }
+
+    @Test
+    void javaStdLibTypesAlwaysExist() {
+        var examples = List.of(
+                "Ljava/lang/String;",
+                "\"[Ljava/lang/String;\"",
+                "Ljava/util/List;",
+                "Ljavax/security/auth/x500/X500Principal;",
+                "Lcom/sun/crypto/provider/SunJCE;",
+                "[[Lcom/sun/crypto/provider/SunJCE;");
+        for (String example : examples) {
+            assertThat(classGraph.existsJava(example)).withFailMessage(example + " should exist").isTrue();
+        }
+    }
+
+    @Test
+    void canCheckMethodExistsInJavaType() {
+        assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
+                new Definition.MethodDefinition("getName", "(Ljava/lang/String;)Ljava/lang/String;"))
+        ).isTrue();
+
+        assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
+                new Definition.MethodDefinition("getName", "(I)Ljava/lang/String;"))
+        ).isFalse();
+    }
+
+    @Test
+    void canCheckFieldExistsInJavaType() {
+        assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
+                new Definition.FieldDefinition("RFC1779", "Ljava/lang/String;"))
+        ).isTrue();
+
+        assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
+                new Definition.MethodDefinition("FOO_BAR", "Ljava/lang/String;"))
+        ).isFalse();
+    }
+
+    @Test
+    void canCheckConstructorExistsInJavaType() {
+        assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
+                new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"))
+        ).isTrue();
+
+        assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
+                new Definition.MethodDefinition("\"<init>\"", "(I)V"))
+        ).isFalse();
+    }
 }

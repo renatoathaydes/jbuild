@@ -4,7 +4,6 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.util.CollectionUtils;
-import jbuild.util.JavaTypeUtils;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,8 +14,11 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.streamOfOptional;
+import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
+import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
 import static jbuild.util.JavaTypeUtils.toMethodTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.toTypeDescriptor;
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 public final class ClassGraph {
 
@@ -124,7 +126,7 @@ public final class ClassGraph {
         for (var parentType : typeDef.type.getParentTypes()) {
             var typeName = parentType.name;
             var jars = jarsByType.get(typeName);
-            if (jars == null) return javaExists(typeName, definition);
+            if (jars == null) return existsJava(typeName, definition);
             if (jars.contains(jar)) { // prefer to find parent type on the same jar
                 var t = typesByJar.get(jar).get(typeName);
                 return exists(jar, t, definition);
@@ -140,17 +142,26 @@ public final class ClassGraph {
         return false;
     }
 
-    private boolean javaExists(String typeName, Definition definition) {
-        if (typeName.startsWith("Ljava/")) {
-            Class<?> javaType;
+    public boolean existsJava(String typeName) {
+        var type = cleanArrayTypeName(typeName);
+        return getJavaType(type) != null || isPrimitiveJavaType(type);
+    }
+
+    public boolean existsJava(String typeName, Definition definition) {
+        var type = getJavaType(typeName);
+        if (type == null) return false;
+        return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m));
+    }
+
+    private static Class<?> getJavaType(String typeName) {
+        if (typeName.startsWith("Ljava/") || typeName.startsWith("Ljavax/") || typeName.startsWith("Lcom/sun/")) {
             try {
-                javaType = Class.forName(JavaTypeUtils.typeNameToClassName(typeName));
+                return Class.forName(typeNameToClassName(typeName));
             } catch (ClassNotFoundException e) {
-                return false;
+                // ignore
             }
-            return definition.match(f -> javaFieldExists(javaType, f), m -> javaMethodExists(javaType, m));
         }
-        return false;
+        return null;
     }
 
     private static boolean javaFieldExists(Class<?> type, Definition.FieldDefinition field) {
@@ -166,12 +177,26 @@ public final class ClassGraph {
     }
 
     private static boolean javaMethodExists(Class<?> type, Definition.MethodDefinition method) {
+        if (method.name.equals("\"<init>\"")) {
+            return javaConstructorExists(type, method.type);
+        }
+
         for (var javaMethod : type.getMethods()) {
             if (javaMethod.getName().equals(method.name)) {
                 var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
                 if (methodType.equals(method.type)) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    private static boolean javaConstructorExists(Class<?> type, String constructorType) {
+        for (var constructor : type.getConstructors()) {
+            var typeDescriptor = toMethodTypeDescriptor(void.class, constructor.getParameterTypes());
+            if (typeDescriptor.equals(constructorType)) {
+                return true;
             }
         }
         return false;
@@ -240,5 +265,4 @@ public final class ClassGraph {
 
         return Collections.unmodifiableMap(jarsByClassName);
     }
-
 }

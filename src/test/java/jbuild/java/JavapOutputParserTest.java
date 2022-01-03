@@ -13,11 +13,12 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.TestSystemProperties.myClassesJar;
+import static jbuild.TestSystemProperties.osgiaasCliApiJar;
+import static jbuild.TestSystemProperties.otherClassesJar;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JavapOutputParserTest {
-
-    static final String myClassesJar = System.getProperty("tests.my-test-classes.jar");
 
     @Test
     void canParseBasicClass() {
@@ -318,7 +319,7 @@ public class JavapOutputParserTest {
     void canParseTypeUsingJavaMethodViaInterface() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(ClassGraphTest.otherClassesJar, "other.UsesMultiInterface"));
+        var types = parser.processJavapOutput(javap(otherClassesJar, "other.UsesMultiInterface"));
         var result = types.get("Lother/UsesMultiInterface;");
 
         assertThat(result.typeName).isEqualTo("Lother/UsesMultiInterface;");
@@ -341,6 +342,31 @@ public class JavapOutputParserTest {
         )).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Code.Method("Lfoo/MultiInterface;", "run", "()V")
         ));
+    }
+
+    @Test
+    void canParseInterfaceFromRealJar() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(osgiaasCliApiJar, "com.athaydes.osgiaas.cli.Cli"));
+        var result = types.get("Lcom/athaydes/osgiaas/cli/Cli;");
+
+        assertThat(result.typeName).isEqualTo("Lcom/athaydes/osgiaas/cli/Cli;");
+        assertThat(result.type.typeParameters).isEmpty();
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("start", "()V"),
+                new Definition.MethodDefinition("stop", "()V"),
+                new Definition.MethodDefinition("setPrompt", "(Ljava/lang/String;)V"),
+                new Definition.MethodDefinition("setPromptColor", "(Lcom/athaydes/osgiaas/api/ansi/AnsiColor;)V"),
+                new Definition.MethodDefinition("setErrorColor", "(Lcom/athaydes/osgiaas/api/ansi/AnsiColor;)V"),
+                new Definition.MethodDefinition("setTextColor", "(Lcom/athaydes/osgiaas/api/ansi/AnsiColor;)V"),
+                new Definition.MethodDefinition("clearScreen", "()V")
+        ));
+        assertThat(result.methods.values()).containsOnly(Set.of());
     }
 
     private Iterator<String> javap(String jar, String... classNames) {

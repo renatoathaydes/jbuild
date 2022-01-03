@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
+import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 
 public final class JavapOutputParser {
 
@@ -97,7 +98,7 @@ public final class JavapOutputParser {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<Definition.MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<Definition.FieldDefinition>();
-        boolean expectingCode = false, expectingFlags = false;
+        boolean expectingCode = false, expectingFlags = false, currentAbstractMethod = false;
         while (lines.hasNext()) {
             var line = lines.next();
             if (prevLine == null) {
@@ -110,7 +111,13 @@ public final class JavapOutputParser {
             }
             if (expectingFlags) {
                 expectingFlags = false;
-                expectingCode = true;
+                if (currentAbstractMethod) {
+                    currentAbstractMethod = false;
+                    var method = new Definition.MethodDefinition(methodOrConstructorName(javaType.name, name), type);
+                    methods.put(method, Set.of());
+                } else {
+                    expectingCode = true;
+                }
             } else if (expectingCode) {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
@@ -128,6 +135,7 @@ public final class JavapOutputParser {
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
                     expectingFlags = true; // after the descriptor, comes the flags then code
+                    currentAbstractMethod = prevLine.contains(" abstract ");
                 } else { // field
                     name = extractFieldName(prevLine);
                     if (name == null) continue;
@@ -276,14 +284,6 @@ public final class JavapOutputParser {
     private static boolean shouldIgnoreClass(String type, String className) {
         type = cleanArrayTypeName(type);
         return type.startsWith("Ljava/") || type.equals(className);
-    }
-
-    private static String cleanArrayTypeName(String type) {
-        if (type.startsWith("\"[") && type.endsWith(";\"")) {
-            var index = type.lastIndexOf('[');
-            return type.substring(index + 1, type.length() - 1);
-        }
-        return type;
     }
 
     private static String methodOrConstructorName(String typeName, String methodName) {
