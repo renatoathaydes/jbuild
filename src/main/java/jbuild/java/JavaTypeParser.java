@@ -8,6 +8,7 @@ import java.util.Set;
 import static java.lang.Character.isAlphabetic;
 import static java.lang.Character.isDigit;
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
+import static jbuild.util.JavaTypeUtils.unwrapTypeName;
 
 /**
  * A parser that can identify and parse a type identifier line given {@link Tools.Javap}'s output.
@@ -128,6 +129,13 @@ public final class JavaTypeParser {
             index++;
             params = parseParams();
             if (params == null) return null;
+            if (currentChar() == '.') { // nested type
+                index++;
+                var nested = nextTypeBound();
+                if (nested == null) return null;
+                name = classNameToTypeName(word + '$' + unwrapTypeName(nested.name));
+                params = nested.params;
+            }
         }
         return new JavaType.TypeBound(name, params);
     }
@@ -148,7 +156,7 @@ public final class JavaTypeParser {
             if (params == null) return null;
         }
 
-        if (expectNext(" extends ")) {
+        if (expectNext(" extends ") || expectNext("super ")) {
             bounds = parseBounds(false);
             if (bounds == null) return null;
         } else {
@@ -231,7 +239,7 @@ public final class JavaTypeParser {
         var i = index;
         for (; i < line.length(); i++) {
             var c = line.charAt(i);
-            if (!isAlphabetic(c) && !isDigit(c) && c != '_' && c != '$' && c != '.') {
+            if (!isAlphabetic(c) && !isDigit(c) && c != '_' && c != '$' && c != '.' && c != '[' && c != ']') {
                 return i;
             }
         }

@@ -293,6 +293,87 @@ public class JavapOutputParserTest {
     }
 
     @Test
+    void canParseGenericClassWithArrayTypeBound() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericWithArray"));
+        var result = types.get("Lgenerics/GenericWithArray;");
+
+        assertThat(result.typeName).isEqualTo("Lgenerics/GenericWithArray;");
+        assertThat(result.type.typeParameters).isEmpty();
+        assertThat(result.implementedInterfaces).containsExactlyInAnyOrderElementsOf(Set.of(
+                "Lgenerics/GenericParameter;"
+        ));
+        assertThat(result.type.getParentTypes()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new JavaType.TypeBound("Lgenerics/GenericParameter;", List.of(
+                        new JavaType.TypeParam("[Ljava/lang/Boolean;", List.of(), List.of()),
+                        new JavaType.TypeParam("[[Ljava/lang/String;", List.of(), List.of())
+                ))
+        ));
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "()V")
+        ));
+    }
+
+    @Test
+    void canParseGenericClassWithInnerGenericClass() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure"));
+        var result = types.get("Lgenerics/GenericStructure;");
+
+        assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure;");
+        assertThat(result.type.typeParameters).containsExactlyInAnyOrderElementsOf(Set.of(
+                new JavaType.TypeParam("D", List.of(), List.of())
+        ));
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "()V")
+        ));
+
+        types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure.Data"));
+        result = types.get("Lgenerics/GenericStructure$Data;");
+
+        assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure$Data;");
+        assertThat(result.type.typeParameters).containsExactlyInAnyOrderElementsOf(Set.of(
+                new JavaType.TypeParam("D", List.of(), List.of())
+        ));
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+        assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.FieldDefinition("this$0", "Lgenerics/GenericStructure;"),
+                new Definition.FieldDefinition("data", "Ljava/lang/Object;")
+        ));
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "(Lgenerics/GenericStructure;)V")
+        ));
+
+        types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure.OtherData"));
+        result = types.get("Lgenerics/GenericStructure$OtherData;");
+
+        assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure$OtherData;");
+        assertThat(result.type.typeParameters).isEmpty();
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new JavaType.TypeBound("Lgenerics/GenericStructure$Data;",
+                        List.of(new JavaType.TypeParam("LD;", List.of(), List.of())))
+        ));
+        assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.FieldDefinition("this$0", "Lgenerics/GenericStructure;")
+        ));
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "(Lgenerics/GenericStructure;)V")
+        ));
+    }
+
+    @Test
     void canParseManyGenericsClass() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));

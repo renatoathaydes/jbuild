@@ -164,6 +164,19 @@ public class JavaTypeParserTest {
     }
 
     @Test
+    void canParseGenericTypeWithinGenericType() {
+        var type = parser.parse("class generics.GenericStructure$OtherData extends " +
+                "generics.GenericStructure<D>.Data<D>");
+
+        assertThat(type)
+                .isEqualTo(new JavaType("Lgenerics/GenericStructure$OtherData;", JavaType.Kind.CLASS,
+                        List.of(typeBound("Lgenerics/GenericStructure$Data;",
+                                typeParam("LD;"))),
+                        List.of(),
+                        List.of()));
+    }
+
+    @Test
     void canThrowErrorsOrReturnNullWhenInvalidLineIsParsed() {
         class Example {
             final String line;

@@ -23,13 +23,23 @@ public final class JavaTypeUtils {
      * @return JVM internal class name
      */
     public static String classNameToTypeName(String className) {
-        // array type reference, leave it as it is
         if (className.startsWith("\"")
                 // avoid converting already converted type names
                 || (className.startsWith("L") && className.endsWith(";"))
         ) return className;
-
-        return "L" + className.replaceAll("\\.", "/") + ";";
+        var result = new StringBuilder(className.length() + 4);
+        if (className.endsWith("]")) {
+            var firstBracket = className.indexOf('[');
+            var lastBracket = className.lastIndexOf('[');
+            for (int i = 0; i < 1 + lastBracket - firstBracket; i += 2) {
+                result.append('[');
+            }
+            className = className.substring(0, firstBracket);
+        }
+        return result.append('L')
+                .append(className.replaceAll("\\.", "/"))
+                .append(';')
+                .toString();
     }
 
     /**
@@ -58,6 +68,13 @@ public final class JavaTypeUtils {
             var index = type.lastIndexOf('[');
             var end = type.endsWith("\"") ? type.length() - 1 : type.length();
             return type.substring(index + 1, end);
+        }
+        return type;
+    }
+
+    public static String unwrapTypeName(String type) {
+        if (type.startsWith("L") && type.endsWith(";")) {
+            return type.substring(1, type.length() - 1);
         }
         return type;
     }
