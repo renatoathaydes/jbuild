@@ -57,7 +57,14 @@ public final class DoctorCommandExecutor {
         if (entryJars.size() < entryPoints.size()) {
             throw new JBuildException("Could not find all entry points, found following jars: " + entryJars, USER_INPUT);
         }
-        var classGraph = classGraphLoader.fromJars(jarFiles);
+        var classGraphs = classGraphLoader.fromJars(jarFiles);
+
+        if (classGraphs.isEmpty()) {
+            throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
+        }
+
+        // FIXME
+
         return findClasspathPermutations(classGraph, entryJars);
     }
 
@@ -97,7 +104,7 @@ public final class DoctorCommandExecutor {
     private List<ClasspathCheckResult> findClasspathPermutations(
             ClassGraph classGraph,
             Set<String> entryJars) {
-        var jarSet = new JarSet(classGraph.getJarsByType());
+        var jarSet = new JarSet(log, classGraph.getJarsByType());
         var jarPermutations = jarSet.computeUniqueJarSetPermutations();
 
         if (jarPermutations.isEmpty()) {

@@ -44,14 +44,14 @@ public final class JBuildLog {
     }
 
     public void verbosePrintln(CharSequence message) {
-        if (verbose && enabled) out.println(message);
+        if (isVerbose()) out.println(message);
     }
 
     public void verbosePrintln(Supplier<? extends CharSequence> messageGetter) {
-        if (verbose && enabled) out.println(messageGetter.get());
+        if (isVerbose()) out.println(messageGetter.get());
     }
 
     public boolean isVerbose() {
-        return verbose;
+        return enabled && verbose;
     }
 }

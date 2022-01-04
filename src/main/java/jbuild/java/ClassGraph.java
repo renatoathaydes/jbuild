@@ -3,7 +3,6 @@ package jbuild.java;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
-import jbuild.util.CollectionUtils;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,18 +22,12 @@ import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 public final class ClassGraph {
 
     private final Map<String, Map<String, TypeDefinition>> typesByJar;
-    private final Map<String, Set<String>> jarsByType;
+    private final Map<String, String> jarByType;
 
-    public ClassGraph(Map<String, Map<String, TypeDefinition>> typesByJar) {
+    public ClassGraph(Map<String, Map<String, TypeDefinition>> typesByJar,
+                      Map<String, String> jarByType) {
         this.typesByJar = typesByJar;
-        this.jarsByType = computeJarsByType(typesByJar);
-    }
-
-    /**
-     * @return a Map from all types in this graph to the jar(s) in which they can be found.
-     */
-    public Map<String, Set<String>> getJarsByType() {
-        return jarsByType;
+        this.jarByType = jarByType;
     }
 
     /**
@@ -75,8 +68,8 @@ public final class ClassGraph {
      * @return references to the code, excluding references from the same jar where the code is defined
      */
     public Set<CodeReference> referencesTo(Code.Type code) {
-        var selfJars = jarsByType.get(code.typeName);
-        if (selfJars == null || selfJars.isEmpty()) return Set.of();
+        var jar = jarByType.get(code.typeName);
+        if (jar == null) return Set.of();
 
         var visitedDefinitions = new HashSet<>();
 
@@ -84,60 +77,55 @@ public final class ClassGraph {
         var result = referencesToCode(code);
 
         // now find all indirect references to the type via its methods and fields
-        for (var selfJar : selfJars) {
-            var type = typesByJar.get(selfJar).get(code.typeName);
 
-            for (var field : type.fields) {
-                var isNew = visitedDefinitions.add(field);
-                if (isNew) {
-                    result = Stream.concat(result,
-                            referencesToCode(new Code.Field(type.typeName, field.name, field.type)));
-                }
+        var type = typesByJar.get(jar).get(code.typeName);
+
+        for (var field : type.fields) {
+            var isNew = visitedDefinitions.add(field);
+            if (isNew) {
+                result = Stream.concat(result,
+                        referencesToCode(new Code.Field(type.typeName, field.name, field.type)));
             }
+        }
 
-            for (var method : type.methods.keySet()) {
-                var isNew = visitedDefinitions.add(method);
-                if (isNew) {
-                    // references to constructors are via the "<init>" name, not the type name
-                    var methodName = method.isConstructor() ? "\"<init>\"" : method.name;
-                    result = Stream.concat(result,
-                            referencesToCode(new Code.Method(type.typeName, methodName, method.type)));
-                }
+        for (var method : type.methods.keySet()) {
+            var isNew = visitedDefinitions.add(method);
+            if (isNew) {
+                // references to constructors are via the "<init>" name, not the type name
+                var methodName = method.isConstructor() ? "\"<init>\"" : method.name;
+                result = Stream.concat(result,
+                        referencesToCode(new Code.Method(type.typeName, methodName, method.type)));
             }
         }
 
         return result.collect(toSet());
     }
 
+    public TypeDefinition findTypeDefinition(String typeName) {
+        var jar = jarByType.get(typeName);
+        if (jar != null) return typesByJar.get(jar).get(typeName);
+        return null;
+    }
+
     /**
      * Check if a certain definition exists.
      *
-     * @param jar        where the type that may contain the definition is located
-     * @param typeDef    the type where the definition might exist
+     * @param typeName   the type where the definition might exist
      * @param definition a definition being referenced from elsewhere
      * @return true if the definition exists in the type
      */
-    public boolean exists(String jar, TypeDefinition typeDef, Definition definition) {
+    public boolean exists(String typeName, Definition definition) {
+        var typeDef = findTypeDefinition(typeName);
+        if (typeDef == null) return existsJava(typeName, definition);
         var result = definition.match(
                 typeDef.fields::contains,
                 typeDef.methods::containsKey);
         if (result) return true;
 
         for (var parentType : typeDef.type.getParentTypes()) {
-            var typeName = parentType.name;
-            var jars = jarsByType.get(typeName);
-            if (jars == null) return existsJava(typeName, definition);
-            if (jars.contains(jar)) { // prefer to find parent type on the same jar
-                var t = typesByJar.get(jar).get(typeName);
-                return exists(jar, t, definition);
-            } else {
-                for (var currentJar : jars) {
-                    var t = typesByJar.get(currentJar).get(typeName);
-                    if (exists(currentJar, t, definition)) {
-                        return true;
-                    }
-                }
-            }
+            typeName = parentType.name;
+            typeDef = findTypeDefinition(typeName);
+            if (typeDef == null && existsJava(typeName, definition)) return true;
         }
         return false;
     }
@@ -203,11 +191,11 @@ public final class ClassGraph {
     }
 
     private Stream<CodeReference> referencesToCode(Code code) {
-        var selfJars = jarsByType.get(code.typeName);
-        if (selfJars == null || selfJars.isEmpty()) return Stream.of();
-        var otherJars = CollectionUtils.difference(typesByJar.keySet(), selfJars);
-        return otherJars.stream()
-                .flatMap(jar -> refs(jar, code));
+        var jar = jarByType.get(code.typeName);
+        if (jar == null) return Stream.of();
+        return typesByJar.keySet().stream()
+                .filter(j -> !j.equals(jar))
+                .flatMap(j -> refs(j, code));
     }
 
     private Stream<CodeReference> refs(String jarFrom, Code to) {

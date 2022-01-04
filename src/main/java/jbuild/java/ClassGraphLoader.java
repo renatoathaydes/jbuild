@@ -4,11 +4,21 @@ import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static jbuild.java.Tools.verifyToolSuccessful;
+import static jbuild.util.AsyncUtils.awaitValues;
 
 public class ClassGraphLoader {
 
@@ -26,13 +36,39 @@ public class ClassGraphLoader {
         return new ClassGraphLoader(Tools.Jar.create(), Tools.Javap.create(), log);
     }
 
-    public ClassGraph fromJars(File... jarFiles) {
-        var classesByJar = new HashMap<String, Map<String, TypeDefinition>>(jarFiles.length);
+    public List<Supplier<CompletionStage<ClassGraph>>> fromJars(File... jarFiles) {
+        var jarsByType = new HashMap<String, Set<String>>(128);
+
         for (var jar : jarFiles) {
             var classes = getClassesIn(jar);
-            classesByJar.put(jar.getPath(), processClasses(jar, classes));
+            var jarPath = jar.getPath();
+            for (String aClass : classes) {
+                jarsByType.computeIfAbsent(aClass,
+                        (ignore) -> new HashSet<>(2)
+                ).add(jarPath);
+            }
         }
-        return new ClassGraph(classesByJar);
+
+        var jarSets = new JarSet.JarSetLoader(log)
+                .computeUniqueJarSetPermutations(jarsByType);
+
+        log.verbosePrintln(() -> "Found " + jarSets.size() + " different classpath permutations to check");
+
+        return jarSets.stream()
+                .map(this::lazyLoad)
+                .collect(toList());
+    }
+
+    private Supplier<CompletionStage<ClassGraph>> lazyLoad(JarSet jarSet) {
+        var cache = new ConcurrentHashMap<String, CompletionStage<Map<String, TypeDefinition>>>();
+        return () -> {
+            var typeDefsByJar = jarSet.getTypesByJar().entrySet().stream()
+                    .collect(toMap(
+                            Map.Entry::getKey,
+                            entry -> cache.computeIfAbsent(entry.getKey(), (ignore) ->
+                                    processClasses(new File(entry.getKey()), entry.getValue()))));
+            return awaitValues(typeDefsByJar, t -> new ClassGraph(t, jarSet.getJarByType()));
+        };
     }
 
     private String[] getClassesIn(File jarFile) {
@@ -48,11 +84,13 @@ public class ClassGraphLoader {
                 .toArray(String[]::new);
     }
 
-    private Map<String, TypeDefinition> processClasses(File jar, String... classNames) {
-        var result = javap.run(jar.getAbsolutePath(), classNames);
-        verifyToolSuccessful("javap", result);
-        var javapOutputParser = new JavapOutputParser(log);
-        return javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
+    private CompletionStage<Map<String, TypeDefinition>> processClasses(File jar, Collection<String> classNames) {
+        return CompletableFuture.supplyAsync(() -> {
+            var result = javap.run(jar.getAbsolutePath(), classNames.toArray(String[]::new));
+            verifyToolSuccessful("javap", result);
+            var javapOutputParser = new JavapOutputParser(log);
+            return javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
+        });
     }
 
 }

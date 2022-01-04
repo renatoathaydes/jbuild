@@ -12,22 +12,40 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.stream.Collectors.toSet;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class ClassGraphTest {
 
     private static ClassGraph classGraph;
 
     @BeforeAll
-    static void beforeAll() {
+    static void beforeAll() throws InterruptedException {
         var loader = ClassGraphLoader.create(
                 new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
-        classGraph = loader.fromJars(new File(otherClassesJar), new File(myClassesJar));
+        var waiter = new ArrayBlockingQueue<ClassGraph>(1);
+
+        var graphs = loader.fromJars(new File(otherClassesJar), new File(myClassesJar));
+
+        if (graphs.size() != 1) fail("Expected a single ClassGraph: " + graphs);
+
+        graphs.get(0).get()
+                .whenComplete((ok, err) -> {
+                    if (err != null) {
+                        err.printStackTrace();
+                        fail("Failed to create ClassGraph: " + err);
+                    }
+                    waiter.offer(ok);
+                });
+
+        classGraph = waiter.poll(4, TimeUnit.SECONDS);
     }
 
     @Test
@@ -195,55 +213,46 @@ public class ClassGraphTest {
 
     @Test
     void canFindOutIfReferenceToMethodExists() {
-        var bar = classGraph.getTypesByJar().get(myClassesJar).get("Lfoo/Bar;");
-
-        assertThat(classGraph.exists(myClassesJar, bar,
+        assertThat(classGraph.exists("Lfoo/Bar;",
                 new Definition.MethodDefinition("\"<init>\"", "()V"))
         ).isTrue();
 
-        assertThat(classGraph.exists(myClassesJar, bar,
+        assertThat(classGraph.exists("Lfoo/Bar;",
                 new Definition.MethodDefinition("not", "()V"))
         ).isFalse();
     }
 
     @Test
     void canFindOutIfReferenceToFieldExists() {
-        var fields = classGraph.getTypesByJar().get(myClassesJar).get("Lfoo/Fields;");
-        assertThat(classGraph.exists(myClassesJar, fields,
+        assertThat(classGraph.exists("Lfoo/Fields;",
                 new Definition.FieldDefinition("aString", "Ljava/lang/String;"))
         ).isTrue();
 
-        assertThat(classGraph.exists(myClassesJar, fields,
+        assertThat(classGraph.exists("Lfoo/Fields;",
                 new Definition.FieldDefinition("aBoolean", "Z"))
         ).isTrue();
 
-        assertThat(classGraph.exists(myClassesJar, fields,
+        assertThat(classGraph.exists("Lfoo/Fields;",
                 new Definition.FieldDefinition("aChar", "C"))
         ).isFalse();
     }
 
     @Test
     void canFindReferenceToMethodInSuperType() {
-        var baseA = classGraph.getTypesByJar().get(myClassesJar)
-                .get("Lgenerics/BaseA;");
-
         // method defined in BaseA itself
-        assertThat(classGraph.exists(myClassesJar, baseA,
+        assertThat(classGraph.exists("Lgenerics/BaseA;",
                 new Definition.MethodDefinition("aBoolean", "()Z"))
         ).isTrue();
 
         // method defined in super-class of BaseA
-        assertThat(classGraph.exists(myClassesJar, baseA,
+        assertThat(classGraph.exists("Lgenerics/BaseA;",
                 new Definition.MethodDefinition("string", "()Ljava/lang/String;"))
         ).isTrue();
     }
 
     @Test
     void canFindReferenceToMethodInJavaSuperType() {
-        var multiInterface = classGraph.getTypesByJar().get(myClassesJar)
-                .get("Lfoo/MultiInterface;");
-
-        assertThat(classGraph.exists(myClassesJar, multiInterface,
+        assertThat(classGraph.exists("Lfoo/MultiInterface;",
                 new Definition.MethodDefinition("run", "()V"))
         ).isTrue();
     }

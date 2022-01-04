@@ -8,6 +8,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 
@@ -40,6 +41,22 @@ public final class AsyncUtils {
             return completedStage(List.of());
         }
 
+        var results = new ConcurrentLinkedDeque<Either<T, Throwable>>();
+        var future = new CompletableFuture<Collection<Either<T, Throwable>>>();
+
+        list.forEach(value -> value.whenComplete((ok, err) -> {
+            results.add(err == null ? Either.left(ok) : Either.right(err));
+            if (results.size() == list.size()) {
+                future.complete(results);
+            }
+        }));
+
+        return future;
+    }
+
+    public static <K, T, V> CompletionStage<V> awaitValues(
+            Map<K, CompletionStage<T>> map,
+            Function<Map<K, T>, V> mapper) {
         var results = new ConcurrentLinkedDeque<Either<T, Throwable>>();
         var future = new CompletableFuture<Collection<Either<T, Throwable>>>();
 
