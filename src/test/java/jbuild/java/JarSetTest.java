@@ -4,6 +4,8 @@ import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.AbstractMap.SimpleEntry;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,6 +108,25 @@ public class JarSetTest {
                         Map.of("logger", "logger2", "logger_new", "logger2", "other", "other2"),
                         Map.of("logger_new", "logger3", "other", "other1"),
                         Map.of("logger_new", "logger3", "other", "other2")));
+    }
+
+    @Test
+    void canCheckIfContainsJarPair() {
+        var set = new JarSet(Map.of("t1", "j1", "t2", "j2", "t3", "j1"));
+
+        assertThat(set.containsAny(Set.of())).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j3")))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j3", "j1")))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j2", "j3")))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j3", "j2")))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j2")))).isTrue();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j2", "j1")))).isTrue();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j2", "j1"), new SimpleEntry<>("j3", "j1")))).isTrue();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j3"), new SimpleEntry<>("j1", "j2")))).isTrue();
+        // Set.of() does not allow duplicates
+        assertThat(set.containsAny(new HashSet<>(List.of(new SimpleEntry<>("j1", "j2"), new SimpleEntry<>("j1", "j2"))))).isTrue();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j3"), new SimpleEntry<>("j3", "j2")))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>("a", "b"), new SimpleEntry<>("c", "d")))).isFalse();
     }
 
     private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<String>> jarsByType) {

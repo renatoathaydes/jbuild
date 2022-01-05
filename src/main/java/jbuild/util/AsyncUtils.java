@@ -76,10 +76,6 @@ public final class AsyncUtils {
             });
         }
 
-        map.forEach((key, value) -> value.whenComplete((ok, err) -> {
-
-        }));
-
         return future;
     }
 

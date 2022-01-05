@@ -40,6 +40,10 @@ public final class JarSet {
         this.typesByJar = typesByJar;
     }
 
+    public JarSet(Map<String, String> jarByType) {
+        this(jarByType, computeTypesByJar(jarByType));
+    }
+
     public Map<String, String> getJarByType() {
         return jarByType;
     }
@@ -56,8 +60,25 @@ public final class JarSet {
         return getJars().containsAll(jars);
     }
 
+    public boolean containsAny(Set<Map.Entry<String, String>> jarPairs) {
+        var jars = getJars();
+        for (var pair : jarPairs) {
+            if (jars.contains(pair.getKey()) && jars.contains(pair.getValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public String toClasspath() {
         return String.join(File.pathSeparator, new HashSet<>(getJars()));
+    }
+
+    private static Map<String, Set<String>> computeTypesByJar(Map<String, String> jarByType) {
+        var result = new HashMap<String, Set<String>>();
+        jarByType.forEach((type, jar) -> result.computeIfAbsent(jar, (ignore) -> new HashSet<>(32))
+                .add(type));
+        return result;
     }
 
     /**

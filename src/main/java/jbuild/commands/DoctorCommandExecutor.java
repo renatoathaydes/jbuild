@@ -10,29 +10,34 @@ import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 
 import java.io.File;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.InteractivityHelper.askYesOrNoQuestion;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
-import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
-import static jbuild.util.TextUtils.firstNonBlank;
 
 public final class DoctorCommandExecutor {
 
@@ -51,12 +56,13 @@ public final class DoctorCommandExecutor {
 
     public CompletionStage<?> run(String inputDir, boolean interactive, List<String> entryPoints) {
         var results = findClasspathPermutations(inputDir, interactive, entryPoints);
-        return awaitValues(results).thenApply(this::showClasspathCheckResults);
+        return results.thenApply(this::showClasspathCheckResults);
     }
 
-    public List<CompletionStage<ClasspathCheckResult>> findClasspathPermutations(String inputDir,
-                                                                                 boolean interactive,
-                                                                                 List<String> entryPoints) {
+    public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findClasspathPermutations(
+            String inputDir,
+            boolean interactive,
+            List<String> entryPoints) {
         var jarFiles = allFilesInDir(inputDir, (dir, fname) -> fname.endsWith(".jar"));
         var entryJars = Stream.of(jarFiles)
                 .filter(jar -> entryPoints.stream().anyMatch(e -> includes(jar, e)))
@@ -74,7 +80,7 @@ public final class DoctorCommandExecutor {
         return findClasspathPermutations(classGraphCompletions, entryJars, interactive);
     }
 
-    private List<CompletionStage<ClasspathCheckResult>> findClasspathPermutations(
+    private CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findClasspathPermutations(
             List<ClassGraphLoader.ClassGraphCompletion> classGraphCompletions,
             Set<String> entryJars,
             boolean interactive) {
@@ -96,67 +102,76 @@ public final class DoctorCommandExecutor {
 
         var abort = new AtomicBoolean(false);
         var errorCount = new AtomicInteger(0);
-        var interactionBlocker = new LinkedBlockingDeque<Boolean>(1);
-        interactionBlocker.offer(Boolean.TRUE);
+        var badJarPairs = ConcurrentHashMap.<Map.Entry<String, String>>newKeySet(8);
 
-        var completionStream = interactive
-                ? acceptableCompletions.stream()
-                : acceptableCompletions.stream().parallel();
-
-        return completionStream
-                .map(c -> checkClasspath(c, entryJars, abort, interactive, interactionBlocker, errorCount))
-                .collect(toList());
+        return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : 2,
+                acceptableCompletions.stream()
+                        .map(c -> checkClasspath(c, entryJars, abort, interactive, errorCount, badJarPairs))
+                        .collect(toList())
+        ).toList();
     }
 
-    private CompletionStage<ClasspathCheckResult> checkClasspath(
+    private Supplier<CompletionStage<ClasspathCheckResult>> checkClasspath(
             ClassGraphLoader.ClassGraphCompletion completion,
             Set<String> entryJars,
             AtomicBoolean abort,
             boolean interactive,
-            LinkedBlockingDeque<Boolean> interactionBlocker,
-            AtomicInteger errorCount) {
-        if (abort.get()) {
-            log.verbosePrintln(() -> "Aborting check of classpath: " + completion.jarset.toClasspath());
-        } else {
-            if (interactive) {
-                try {
-                    interactionBlocker.poll(10, TimeUnit.DAYS);
-                } catch (InterruptedException e) {
-                    log.print(e);
-                }
-                log.println("Next classpath:\n" + completion.jarset.toClasspath());
-                var keepGoing = askYesOrNoQuestion("Do you want to continue");
-                if (!keepGoing) abort.set(true);
+            AtomicInteger errorCount,
+            Set<Map.Entry<String, String>> badJarPairs) {
+        return () -> {
+            var skip = false;
+            if (abort.get()) {
+                log.verbosePrintln(() -> "Aborting check of classpath: " + completion.jarset.toClasspath());
             } else {
-                log.verbosePrintln(() -> "Trying classpath: " + completion.jarset.toClasspath());
-            }
-        }
-
-        if (abort.get()) {
-            return completedStage(new ClasspathCheckResult(completion.jarset,
-                    List.of("Classpath check was aborted")));
-        }
-
-        return completion.getCompletion().thenApply(ok -> {
-            var result = checkClasspathConsistency(ok, entryJars);
-            if (result.isEmpty()) {
-                abort.set(true);
-            } else {
-                if (interactive) {
-                    log.println("Classpath is inconsistent!");
+                skip = completion.jarset.containsAny(badJarPairs);
+                if (!skip) {
+                    if (interactive) {
+                        log.println("Next classpath:\n" + completion.jarset.toClasspath());
+                        var keepGoing = askYesOrNoQuestion("Do you want to continue");
+                        if (!keepGoing) abort.set(true);
+                    } else {
+                        log.verbosePrintln(() -> "Trying classpath: " + completion.jarset.toClasspath());
+                    }
                 }
-                var badClasspaths = errorCount.incrementAndGet();
-                log.println(() -> badClasspaths + " inconsistent classpath" +
-                        (badClasspaths == 1 ? "" : "s") + " checked so far.");
             }
-            interactionBlocker.offer(Boolean.TRUE);
-            return new ClasspathCheckResult(completion.jarset, result);
-        });
+
+            if (skip || abort.get()) {
+                if (skip) {
+                    log.verbosePrintln("Classpath skipped as it contains known incompatible jars");
+                    var badClasspaths = errorCount.incrementAndGet();
+                    log.println(() -> badClasspaths + " inconsistent classpath" +
+                            (badClasspaths == 1 ? "" : "s") + " checked so far.");
+                }
+                return completedStage(new ClasspathCheckResult(completion.jarset, true, List.of()));
+            }
+
+            return completion.getCompletion().thenApply(ok -> {
+                var result = checkClasspathConsistency(ok, entryJars);
+                if (result.isEmpty()) {
+                    abort.set(true); // success found!
+                } else {
+                    for (var classPathInconsistency : result) {
+                        if (classPathInconsistency.jarFrom != null && classPathInconsistency.jarTo != null) {
+                            badJarPairs.add(new AbstractMap.SimpleEntry<>(
+                                    classPathInconsistency.jarFrom, classPathInconsistency.jarTo));
+                        }
+                    }
+                    if (interactive) {
+                        log.println("Classpath is inconsistent!");
+                    }
+                    var badClasspaths = errorCount.incrementAndGet();
+                    log.println(() -> badClasspaths + " inconsistent classpath" +
+                            (badClasspaths == 1 ? "" : "s") + " checked so far.");
+                }
+                return new ClasspathCheckResult(completion.jarset, false, result);
+            });
+        };
     }
 
-    private List<String> checkClasspathConsistency(ClassGraph classGraph,
-                                                   Set<String> entryJars) {
-        var allErrors = new ArrayList<String>();
+    private List<ClassPathInconsistency> checkClasspathConsistency(
+            ClassGraph classGraph,
+            Set<String> entryJars) {
+        var allErrors = new ArrayList<ClassPathInconsistency>();
 
         for (var jar : entryJars) {
             var startTime = System.currentTimeMillis();
@@ -166,8 +181,10 @@ public final class DoctorCommandExecutor {
                 var typeDef = entry.getValue();
                 typeDef.type.typesReferredTo().forEach(ref -> {
                     if (!classGraph.exists(ref)) {
-                        allErrors.add("Type " + ref + ", used in type signature of " +
-                                jar + "!" + type + " cannot be found");
+                        allErrors.add(new ClassPathInconsistency(
+                                "Type " + ref + ", used in type signature of " +
+                                        jar + "!" + type + " cannot be found",
+                                jar, classGraph.getJarByType().get(ref)));
                     }
                 });
                 for (var methodHandle : typeDef.methodHandles) {
@@ -189,39 +206,40 @@ public final class DoctorCommandExecutor {
         return allErrors;
     }
 
-    private String errorIfCodeRefDoesNotExist(ClassGraph classGraph,
-                                              String type,
-                                              String jar,
-                                              Definition.MethodDefinition method,
-                                              Code code) {
+    private ClassPathInconsistency errorIfCodeRefDoesNotExist(ClassGraph classGraph,
+                                                              String type,
+                                                              String jar,
+                                                              Definition.MethodDefinition method,
+                                                              Code code) {
         return code.match(
                 t -> errorIfTypeDoesNotExist(type, jar, method, classGraph, t.typeName),
-                f -> firstNonBlank(
+                f -> firstNonNull(
                         errorIfTypeDoesNotExist(type, jar, method, classGraph, f.typeName),
                         () -> errorIfFieldDoesNotExist(type, jar, method, classGraph, f)),
-                m -> firstNonBlank(
+                m -> firstNonNull(
                         errorIfTypeDoesNotExist(type, jar, method, classGraph, m.typeName),
                         () -> errorIfMethodDoesNotExist(type, jar, method, classGraph, m, "Method")));
     }
 
-    private static String errorIfTypeDoesNotExist(String type,
-                                                  String jar,
-                                                  Definition.MethodDefinition methodDef,
-                                                  ClassGraph classGraph,
-                                                  String targetType) {
+    private static ClassPathInconsistency errorIfTypeDoesNotExist(String type,
+                                                                  String jar,
+                                                                  Definition.MethodDefinition methodDef,
+                                                                  ClassGraph classGraph,
+                                                                  String targetType) {
         var typeName = cleanArrayTypeName(targetType);
         if (!classGraph.getJarByType().containsKey(typeName) && !classGraph.existsJava(typeName)) {
-            return "Type " + typeName + ", used in method " + methodDef.descriptor() + " of " +
-                    jar + "!" + type + " cannot be found in the classpath";
+            return new ClassPathInconsistency("Type " + typeName + ", used in method " + methodDef.descriptor() + " of " +
+                    jar + "!" + type + " cannot be found in the classpath",
+                    jar, null);
         }
         return null;
     }
 
-    private String errorIfFieldDoesNotExist(String type,
-                                            String jar,
-                                            Definition.MethodDefinition methodDef,
-                                            ClassGraph classGraph,
-                                            Code.Field field) {
+    private ClassPathInconsistency errorIfFieldDoesNotExist(String type,
+                                                            String jar,
+                                                            Definition.MethodDefinition methodDef,
+                                                            ClassGraph classGraph,
+                                                            Code.Field field) {
         var fieldOwner = field.typeName;
         var targetField = new Definition.FieldDefinition(field.name, field.type);
         var targetJar = classGraph.getJarByType().get(fieldOwner);
@@ -229,8 +247,9 @@ public final class DoctorCommandExecutor {
             log.verbosePrintln(() -> "Field type owner " + fieldOwner +
                     " not found in any jar, checking if it is a Java API");
             return classGraph.existsJava(fieldOwner, targetField) ? null :
-                    "Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
-                            jar + "!" + type + " cannot be found as there is no such field in " + fieldOwner;
+                    new ClassPathInconsistency("Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
+                            jar + "!" + type + " cannot be found as there is no such field in " + fieldOwner,
+                            jar, null);
         }
         if (jar.equals(targetJar)) return null; // do not check same-jar relations
         if (classGraph.exists(fieldOwner, targetField)) {
@@ -245,17 +264,18 @@ public final class DoctorCommandExecutor {
             return "Could not find " + targetField.descriptor() + " in " + typeDef.typeName +
                     ", available fields are " + fields;
         });
-        return "Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
+        return new ClassPathInconsistency("Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
                 jar + "!" + type + " cannot be found as there is no such field in " +
-                targetJar + "!" + typeDef.typeName;
+                targetJar + "!" + typeDef.typeName,
+                jar, targetJar);
     }
 
-    private String errorIfMethodDoesNotExist(String type,
-                                             String jar,
-                                             Definition.MethodDefinition methodDef,
-                                             ClassGraph classGraph,
-                                             Code.Method method,
-                                             String methodKind) {
+    private ClassPathInconsistency errorIfMethodDoesNotExist(String type,
+                                                             String jar,
+                                                             Definition.MethodDefinition methodDef,
+                                                             ClassGraph classGraph,
+                                                             Code.Method method,
+                                                             String methodKind) {
         var methodOwner = method.typeName;
         var targetMethod = new Definition.MethodDefinition(method.name, method.type);
         var targetJar = classGraph.getJarByType().get(methodOwner);
@@ -263,9 +283,10 @@ public final class DoctorCommandExecutor {
             log.verbosePrintln(() -> "Method type owner " + methodOwner +
                     " not found in any jar, checking if it is a Java API");
             return classGraph.existsJava(methodOwner, targetMethod) ? null :
-                    methodKind + " " + targetMethod.descriptor() + ", used in " +
+                    new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
                             (methodDef == null ? "" : " method " + methodDef.descriptor() + " of ") +
-                            jar + "!" + type + " cannot be found as there is no such method in " + methodOwner;
+                            jar + "!" + type + " cannot be found as there is no such method in " + methodOwner,
+                            jar, null);
         }
         if (jar.equals(targetJar)) return null; // do not check same-jar relations
         if (classGraph.exists(methodOwner, targetMethod)) {
@@ -280,10 +301,11 @@ public final class DoctorCommandExecutor {
             return "Could not find " + targetMethod.descriptor() + " in " + typeDef.typeName +
                     ", available methods are " + methods;
         });
-        return methodKind + " " + targetMethod.descriptor() + ", used in " +
+        return new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
                 (methodDef == null ? "" : " method " + methodDef.descriptor() + " of ") +
                 jar + "!" + type + " cannot be found as there is no such method in " +
-                targetJar + "!" + typeDef.typeName;
+                targetJar + "!" + typeDef.typeName,
+                jar, targetJar);
     }
 
     private Void showClasspathCheckResults(Collection<Either<ClasspathCheckResult, Throwable>> results) {
@@ -306,14 +328,15 @@ public final class DoctorCommandExecutor {
 
             for (var result : failures) {
                 result.use(failureResult -> {
+                    if (failureResult.aborted) return;
                     log.println(() -> "\nAttempted classpath: " + failureResult.jarSet.toClasspath());
                     log.println("Errors:");
                     var errorCount = failureResult.errors.size();
                     var reportable = errorCount > 5 && !log.isVerbose()
                             ? failureResult.errors.subList(0, 5)
                             : failureResult.errors;
-                    for (String error : reportable) {
-                        log.println("  * " + error);
+                    for (var error : reportable) {
+                        log.println("  * " + error.message);
                     }
                     if (reportable.size() < failureResult.errors.size()) {
                         log.println("  ... <enable verbose logging to see all errors>\n");
@@ -339,16 +362,85 @@ public final class DoctorCommandExecutor {
         return jar.getName().equals(entryPoint) || jar.getPath().equals(entryPoint);
     }
 
+    private static <T> T firstNonNull(T value, Supplier<T> other) {
+        return value == null ? other.get() : value;
+    }
+
     public static final class ClasspathCheckResult {
 
-        public final List<String> errors;
+        public final List<ClassPathInconsistency> errors;
+        public final boolean aborted;
         public final JarSet jarSet;
         public final boolean successful;
 
-        public ClasspathCheckResult(JarSet jarSet, List<String> errors) {
+        public ClasspathCheckResult(JarSet jarSet,
+                                    boolean aborted,
+                                    List<ClassPathInconsistency> errors) {
             this.jarSet = jarSet;
+            this.aborted = aborted;
             this.errors = errors;
-            successful = errors.isEmpty();
+            successful = !aborted && errors.isEmpty();
         }
+    }
+
+    public static final class ClassPathInconsistency {
+        public final String message;
+        public final String jarFrom;
+        public final String jarTo;
+
+        public ClassPathInconsistency(String message, String jarFrom, String jarTo) {
+            this.message = message;
+            this.jarFrom = jarFrom;
+            this.jarTo = jarTo;
+        }
+    }
+
+    private static final class LimitedConcurrencyAsyncCompleter {
+
+        private final int maxConcurrentCompletions;
+        private final int totalCompletions;
+        private final Deque<Supplier<CompletionStage<ClasspathCheckResult>>> completions;
+        private final List<Either<ClasspathCheckResult, Throwable>> results;
+        private final CompletableFuture<List<Either<ClasspathCheckResult, Throwable>>> futureResult;
+
+
+        public LimitedConcurrencyAsyncCompleter(int maxConcurrentCompletions,
+                                                List<Supplier<CompletionStage<ClasspathCheckResult>>> completions) {
+            this.maxConcurrentCompletions = maxConcurrentCompletions;
+            this.totalCompletions = completions.size();
+            this.completions = new ConcurrentLinkedDeque<>(completions);
+            this.results = new ArrayList<>(completions.size());
+            this.futureResult = new CompletableFuture<>();
+        }
+
+        public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> toList() {
+            for (var i = 0; i < maxConcurrentCompletions; i++) {
+                var nextStage = completions.poll();
+                if (nextStage == null) break;
+                runAsync(() -> next(nextStage));
+            }
+            return futureResult;
+        }
+
+        private void next(Supplier<CompletionStage<ClasspathCheckResult>> stageSupplier) {
+            BiConsumer<ClasspathCheckResult, Throwable> onDone = (ok, err) -> {
+                synchronized (results) {
+                    results.add(err == null ? Either.left(ok) : Either.right(err));
+                }
+                if (results.size() == totalCompletions) {
+                    futureResult.complete(results);
+                } else {
+                    var nextStage = completions.poll();
+                    if (nextStage != null) next(nextStage);
+                }
+            };
+
+            try {
+                stageSupplier.get().whenComplete(onDone);
+            } catch (Throwable e) {
+                onDone.accept(null, e);
+            }
+        }
+
     }
 }
