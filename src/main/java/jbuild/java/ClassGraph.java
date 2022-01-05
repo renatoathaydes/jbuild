@@ -19,6 +19,17 @@ import static jbuild.util.JavaTypeUtils.toMethodTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.toTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
+/**
+ * A graph of types within a consistent classpath where each type is only found within a single jar.
+ * <p>
+ * A {@link ClassGraph} can be used to check the validity of a Java classpath without having to wait for runtime
+ * errors such as {@link NoClassDefFoundError}.
+ * <p>
+ * It can find references to Java definitions (types, fields, methods) from other jars and answer whether a certain
+ * definition exists, for example.
+ * <p>
+ * This class uses the internal JVM type descriptors for all type names.
+ */
 public final class ClassGraph {
 
     private final Map<String, Map<String, TypeDefinition>> typesByJar;
@@ -35,6 +46,16 @@ public final class ClassGraph {
      */
     public Map<String, Map<String, TypeDefinition>> getTypesByJar() {
         return typesByJar;
+    }
+
+    public Map<String, String> getJarByType() {
+        return jarByType;
+    }
+
+    public TypeDefinition getTypeDefinition(String typeName) {
+        var jar = jarByType.get(typeName);
+        if (jar == null) return null;
+        return typesByJar.get(jar).get(typeName);
     }
 
     /**
@@ -107,6 +128,10 @@ public final class ClassGraph {
         return null;
     }
 
+    public boolean exists(String typeName) {
+        return findTypeDefinition(typeName) != null || existsJava(typeName);
+    }
+
     /**
      * Check if a certain definition exists.
      *
@@ -125,6 +150,9 @@ public final class ClassGraph {
         for (var parentType : typeDef.type.getParentTypes()) {
             typeName = parentType.name;
             typeDef = findTypeDefinition(typeName);
+            if (typeDef != null && definition.match(
+                    typeDef.fields::contains,
+                    typeDef.methods::containsKey)) return true;
             if (typeDef == null && existsJava(typeName, definition)) return true;
         }
         return false;

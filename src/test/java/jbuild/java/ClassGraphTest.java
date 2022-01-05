@@ -12,7 +12,6 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.stream.Collectors.toSet;
@@ -26,26 +25,20 @@ public class ClassGraphTest {
     private static ClassGraph classGraph;
 
     @BeforeAll
-    static void beforeAll() throws InterruptedException {
+    static void beforeAll() throws Exception {
         var loader = ClassGraphLoader.create(
                 new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
-        var waiter = new ArrayBlockingQueue<ClassGraph>(1);
-
-        var graphs = loader.fromJars(new File(otherClassesJar), new File(myClassesJar));
+        var graphs = loader.fromJars(
+                new File(otherClassesJar),
+                new File(myClassesJar));
 
         if (graphs.size() != 1) fail("Expected a single ClassGraph: " + graphs);
 
-        graphs.get(0).get()
-                .whenComplete((ok, err) -> {
-                    if (err != null) {
-                        err.printStackTrace();
-                        fail("Failed to create ClassGraph: " + err);
-                    }
-                    waiter.offer(ok);
-                });
+        classGraph = graphs.get(0).getCompletion().toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-        classGraph = waiter.poll(4, TimeUnit.SECONDS);
+        assertThat(classGraph.getTypesByJar().keySet())
+                .isEqualTo(Set.of(myClassesJar, otherClassesJar));
     }
 
     @Test

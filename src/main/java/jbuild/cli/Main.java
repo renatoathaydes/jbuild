@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -172,7 +173,7 @@ public final class Main {
         }
     }
 
-    private void doctor(Options options) {
+    private void doctor(Options options) throws ExecutionException, InterruptedException {
         var fixOptions = DoctorOptions.parse(options.commandArgs);
 
         if (fixOptions.entryPoints.isEmpty()) {
@@ -183,7 +184,9 @@ public final class Main {
 
         var commandExecutor = new DoctorCommandExecutor(log);
 
-        commandExecutor.run(fixOptions.inputDir, fixOptions.interactive, fixOptions.entryPoints);
+        commandExecutor.run(
+                fixOptions.inputDir, fixOptions.interactive, fixOptions.entryPoints
+        ).toCompletableFuture().get();
     }
 
     private void listDeps(Options options) throws Exception {

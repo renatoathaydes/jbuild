@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class JarSetTest {
 
@@ -20,82 +23,82 @@ public class JarSetTest {
 
     @Test
     void canIdentifyUniqueTypesJarsPermutations() {
-        var set = new JarSet(log, Map.of("foo", Set.of("j1")));
+        var set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1")));
 
-        assertThat(set.computeUniqueJarSetPermutations())
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1")));
 
-        set = new JarSet(log, Map.of("foo", Set.of("j1", "j2")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2")));
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1"),
                         Map.of("foo", "j2")));
 
-        set = new JarSet(log, Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j2")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j2")));
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1"),
                         Map.of("foo", "j2", "bar", "j2")));
 
-        set = new JarSet(log, Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j1", "j2")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j1", "j2")));
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "bar", "j1"),
                         Map.of("foo", "j2", "bar", "j2")));
 
-        set = new JarSet(log, Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j2"), "car", Set.of("j3")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j2"), "car", Set.of("j3")));
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "car", "j3"),
                         Map.of("foo", "j2", "bar", "j2", "car", "j3")));
 
-        set = new JarSet(log, Map.of(
+        set = computeUniqueJarSetPermutations(Map.of(
                 "foo", Set.of("j1", "j2"),
                 "bar", Set.of("j2", "j3"),
                 "car", Set.of("j3")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1"),
                         Map.of("foo", "j2", "bar", "j2"),
                         Map.of("bar", "j3", "car", "j3")));
 
-        set = new JarSet(log, Map.of(
+        set = computeUniqueJarSetPermutations(Map.of(
                 "foo", Set.of("j1", "j2"),
                 "bar", Set.of("j1", "j2"),
                 "car", Set.of("j1", "j2")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "bar", "j1", "car", "j1"),
                         Map.of("foo", "j2", "bar", "j2", "car", "j2")));
 
-        set = new JarSet(log, Map.of(
+        set = computeUniqueJarSetPermutations(Map.of(
                 "foo", Set.of("j1", "j2"),
                 "bar", Set.of("j2", "j3"),
                 "car", Set.of("j1", "j2", "j3")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "car", "j1"),
                         Map.of("bar", "j3", "car", "j3"),
                         Map.of("foo", "j2", "bar", "j2", "car", "j2")));
 
-        set = new JarSet(log, Map.of(
+        set = computeUniqueJarSetPermutations(Map.of(
                 "foo", Set.of("j1"),
                 "bar", Set.of("j2"),
                 "car", Set.of("j3")));
-        assertThat(set.computeUniqueJarSetPermutations())
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "bar", "j2", "car", "j3")));
     }
 
     @Test
     void canPruneConflictingJarsWhenSameJarsAppearInMultiplePlaces() {
-        var set = new JarSet(log, Map.of(
+        var set = computeUniqueJarSetPermutations(Map.of(
                 "logger", Set.of("logger1", "logger2"),
                 "logger_new", Set.of("logger2", "logger3"),
                 "other", Set.of("other1", "other2")));
 
-        assertThat(set.computeUniqueJarSetPermutations())
+        assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("logger", "logger1", "other", "other1"),
                         Map.of("logger", "logger1", "other", "other2"),
@@ -103,6 +106,13 @@ public class JarSetTest {
                         Map.of("logger", "logger2", "logger_new", "logger2", "other", "other2"),
                         Map.of("logger_new", "logger3", "other", "other1"),
                         Map.of("logger_new", "logger3", "other", "other2")));
+    }
+
+    private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<String>> jarsByType) {
+        var sets = new JarSet.Loader(log).computeUniqueJarSetPermutations(jarsByType);
+        return sets.stream()
+                .map(JarSet::getJarByType)
+                .collect(Collectors.toList());
     }
 
 }

@@ -2,6 +2,7 @@ package jbuild.java;
 
 import jbuild.log.JBuildLog;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,16 +20,22 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static jbuild.util.CollectionUtils.mapValues;
 
+/**
+ * A set of jars and their respective types.
+ * <p>
+ * To create a number of consistent (i.e. all types are unique within each jar)
+ * {@link JarSet} instances from a given (possibly invalid) classpath, a {@link JarSet.Loader} can be used.
+ * <p>
+ * Unlike in most other JBuild classes, the types names in this class use the Java standard syntax
+ * instead of JVM internal type descriptors.
+ */
 public final class JarSet {
 
-    private final JBuildLog log;
     private final Map<String, String> jarByType;
     private final Map<String, Set<String>> typesByJar;
 
-    public JarSet(JBuildLog log,
-                  Map<String, String> jarByType,
+    public JarSet(Map<String, String> jarByType,
                   Map<String, Set<String>> typesByJar) {
-        this.log = log;
         this.jarByType = jarByType;
         this.typesByJar = typesByJar;
     }
@@ -45,15 +52,24 @@ public final class JarSet {
         return typesByJar.keySet();
     }
 
-    public Set<String> getTypesByJar(String jar) {
-        return typesByJar.getOrDefault(jar, Set.of());
+    public boolean containsAll(Set<String> jars) {
+        return getJars().containsAll(jars);
     }
 
-    public static final class JarSetLoader {
+    public String toClasspath() {
+        return String.join(File.pathSeparator, new HashSet<>(getJars()));
+    }
+
+    /**
+     * Loader of consistent instances of {@link JarSet}.
+     *
+     * @see JarSet
+     */
+    public static final class Loader {
 
         private final JBuildLog log;
 
-        public JarSetLoader(JBuildLog log) {
+        public Loader(JBuildLog log) {
             this.log = log;
         }
 
@@ -87,14 +103,14 @@ public final class JarSet {
             if (dups.isEmpty()) {
                 log.verbosePrintln("No conflicts were found between any jar");
                 var jarByType = mapValues(jarsByType, jars -> jars.iterator().next());
-                return List.of(new JarSet(log, jarByType, typesByJar));
+                return List.of(new JarSet(jarByType, typesByJar));
             }
 
             var duplicates = flattenDuplicates(dups);
-            logDuplicates("The following jars conflict:", duplicates);
+            logJars("The following jars conflict:", false, duplicates);
             var ok = partitions.getOrDefault(true, Map.of()).keySet();
             var jarPermutations = computePermutations(ok, duplicates);
-            logDuplicates("Jar permutations:", jarPermutations);
+            logJars("Jar permutations:", true, jarPermutations);
 
             return computeUniqueJarSetPermutations(jarPermutations, typesByJar);
         }
@@ -116,15 +132,22 @@ public final class JarSet {
                                 }
                             }
                         }
-                        return new JarSet(log, jarByType, typeByJar);
+                        return new JarSet(jarByType, typeByJar);
                     }).collect(toList());
         }
 
-        private void logDuplicates(String header, List<? extends Collection<String>> dups) {
-            if (log.isVerbose()) {
+        private void logJars(String header, boolean verbose, List<? extends Collection<String>> jarSets) {
+            if (verbose && log.isVerbose()) {
                 log.verbosePrintln(header);
-                for (var dup : dups) {
-                    log.verbosePrintln(dup.stream()
+                for (var jars : jarSets) {
+                    log.verbosePrintln(jars.stream()
+                            .collect(Collectors.joining(", ", "  * ", "")));
+                }
+            }
+            if (!verbose) {
+                log.println(header);
+                for (var jars : jarSets) {
+                    log.println(jars.stream()
                             .collect(Collectors.joining(", ", "  * ", "")));
                 }
             }

@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -54,17 +55,29 @@ public final class AsyncUtils {
         return future;
     }
 
+    @SuppressWarnings("unchecked")
     public static <K, T, V> CompletionStage<V> awaitValues(
             Map<K, CompletionStage<T>> map,
             Function<Map<K, T>, V> mapper) {
-        var results = new ConcurrentLinkedDeque<Either<T, Throwable>>();
-        var future = new CompletableFuture<Collection<Either<T, Throwable>>>();
+        Map<K, T> results = (Map<K, T>) map;
+        var future = new CompletableFuture<V>();
+        var remainingEntries = new AtomicInteger(map.size());
 
-        list.forEach(value -> value.whenComplete((ok, err) -> {
-            results.add(err == null ? Either.left(ok) : Either.right(err));
-            if (results.size() == list.size()) {
-                future.complete(results);
-            }
+        for (Map.Entry<K, CompletionStage<T>> entry : map.entrySet()) {
+            entry.getValue().whenComplete((ok, err) -> {
+                if (future.isDone()) return;
+                if (err != null) future.completeExceptionally(err);
+                var entrySetter = (Map.Entry<K, T>) entry;
+                entrySetter.setValue(ok);
+                var remaining = remainingEntries.decrementAndGet();
+                if (remaining == 0) {
+                    future.complete(mapper.apply(results));
+                }
+            });
+        }
+
+        map.forEach((key, value) -> value.whenComplete((ok, err) -> {
+
         }));
 
         return future;
