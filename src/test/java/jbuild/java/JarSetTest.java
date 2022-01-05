@@ -18,7 +18,7 @@ public class JarSetTest {
     @BeforeAll
     static void beforeAll() {
         log = new JBuildLog(System.out, true);
-//        log.setEnabled(false);
+        log.setEnabled(false);
     }
 
     @Test
