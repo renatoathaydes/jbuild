@@ -4,6 +4,7 @@ import jbuild.errors.JBuildException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.spi.ToolProvider;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -41,8 +42,8 @@ public abstract class Tools {
      */
     public static void verifyToolSuccessful(String tool, Tools.ToolRunResult result) {
         if (result.exitCode != 0) {
-            throw new JBuildException("unexpected error when executing " + tool +
-                    ". Tool output:\n" + result.stderr, ACTION_ERROR);
+            throw new JBuildException("unexpected error when executing " + tool + " " + Arrays.toString(result.args) +
+                    ". Tool output:\n" + result.stdout + "\n\nstderr:\n" + result.stderr, ACTION_ERROR);
         }
     }
 
@@ -54,8 +55,10 @@ public abstract class Tools {
 
     public static final class Javap extends Tools {
 
+        private static final ToolProvider toolProvider = Tools.lookupTool("javap");
+
         public static Javap create() {
-            return new Javap(lookupTool("javap"));
+            return new Javap(toolProvider);
         }
 
         private Javap(ToolProvider tool) {
@@ -65,7 +68,7 @@ public abstract class Tools {
         public ToolRunResult run(String jarPath, String... classNames) {
             var args = collectArgs(jarPath, classNames);
             var exitCode = tool.run(new PrintStream(out), new PrintStream(err), args);
-            return new ToolRunResult(exitCode, consumeOutput(out), consumeOutput(err));
+            return new ToolRunResult(exitCode, args, consumeOutput(out), consumeOutput(err));
         }
 
         private static String[] collectArgs(String jarPath, String... classNames) {
@@ -84,8 +87,10 @@ public abstract class Tools {
 
     public static final class Jar extends Tools {
 
+        private static final ToolProvider toolProvider = Tools.lookupTool("jar");
+
         public static Jar create() {
-            return new Jar(lookupTool("jar"));
+            return new Jar(toolProvider);
         }
 
         private Jar(ToolProvider tool) {
@@ -95,7 +100,7 @@ public abstract class Tools {
         public ToolRunResult listContents(String jarPath) {
             var exitCode = tool.run(new PrintStream(out), new PrintStream(err),
                     "tf", jarPath);
-            return new ToolRunResult(exitCode, consumeOutput(out), consumeOutput(err));
+            return new ToolRunResult(exitCode, new String[]{"tf", jarPath}, consumeOutput(out), consumeOutput(err));
         }
 
     }
@@ -103,11 +108,13 @@ public abstract class Tools {
     public static final class ToolRunResult {
 
         public final int exitCode;
+        private final String[] args;
         public final String stdout;
         public final String stderr;
 
-        public ToolRunResult(int exitCode, String stdout, String stderr) {
+        public ToolRunResult(int exitCode, String[] args, String stdout, String stderr) {
             this.exitCode = exitCode;
+            this.args = args;
             this.stderr = stderr;
             this.stdout = stdout;
         }
