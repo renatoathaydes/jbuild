@@ -137,10 +137,12 @@ public final class DoctorCommandExecutor {
 
             if (skip || abort.get()) {
                 if (skip) {
-                    log.verbosePrintln("Classpath skipped as it contains known incompatible jars");
                     var badClasspaths = errorCount.incrementAndGet();
                     log.println(() -> badClasspaths + " inconsistent classpath" +
-                            (badClasspaths == 1 ? "" : "s") + " checked so far.");
+                            (badClasspaths == 1 ? "" : "s") + " checked so far... " +
+                            "latest classpath contained known incompatible jars: " + badJarPairs.stream()
+                            .map(pair -> pair.getKey() + " ✗ " + pair.getValue())
+                            .collect(joining(" | ")));
                 }
                 return completedStage(new ClasspathCheckResult(completion.jarset, true, List.of()));
             }
@@ -330,8 +332,8 @@ public final class DoctorCommandExecutor {
                 result.use(failureResult -> {
                     if (failureResult.aborted) return;
                     log.println(() -> "\nAttempted classpath: " + failureResult.jarSet.toClasspath());
-                    log.println("Errors:");
                     var errorCount = failureResult.errors.size();
+                    log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
                     var reportable = errorCount > 5 && !log.isVerbose()
                             ? failureResult.errors.subList(0, 5)
                             : failureResult.errors;
@@ -339,7 +341,7 @@ public final class DoctorCommandExecutor {
                         log.println("  * " + error.message);
                     }
                     if (reportable.size() < failureResult.errors.size()) {
-                        log.println("  ... <enable verbose logging to see all errors>\n");
+                        log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>\n");
                     } else {
                         log.println("");
                     }
