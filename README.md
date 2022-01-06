@@ -20,12 +20,11 @@ to manage other Java projects and dependencies themselves.
 - [x] detect version clashes in dependency tree.
 - [x] list artifacts licenses.
 - [x] install artifacts in local file system (flat dir or Maven repo).
-- [ ] check completeness of classpath in general (all code included).
-- [ ] check completeness of classpath given a Java entry-point (exclude unused code).
-- [ ] check binary compatibility of artifacts included in the classpath.
-- [ ] automatically find compatible set of artifacts in dependency tree, based on application needs.
+- [ ] check completeness of classpath given jar entry-points (exclude unused code).
+- [ ] automatically find compatible set of artifacts based on jar entry-points.
 - [ ] show full call hierarchy of jar/class/method.
-- [ ] find unused jars/classes/methods in a given compilation unit.
+- [ ] find unused jars/classes/methods, given a classpath and jar entry-points.
+- [ ] automatically prune classpath, removing unused jars.
 - [ ] compile and package Java applications.
 - [ ] execute JUnit tests.
 
@@ -83,7 +82,8 @@ Currently implemented detections:
 - [x] references to a method by direct invocation.
 - [x] references to a super-type method by virtual invocation.
 - [x] references to a method via `MethodHandle` (used a lot with the stream API).
-- [ ] indirect type references via generics (if the type is actually used, it's detected by the other detections).
+- [x] indirect type references via generics (if the type is actually used, it's detected by the other detections).
+- [ ] transitive code references.
 
 ## CLI
 
