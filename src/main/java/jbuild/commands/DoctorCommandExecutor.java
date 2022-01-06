@@ -147,7 +147,7 @@ public final class DoctorCommandExecutor {
                     log.println(() -> badClasspaths + " inconsistent classpath" +
                             (badClasspaths == 1 ? "" : "s") + " checked so far... " +
                             "latest classpath contained known incompatible jars: " + badJarPairs.stream()
-                            .map(pair -> pair.getKey() + " ✗ " + pair.getValue())
+                            .map(pair -> pair.getKey().getName() + " ✗ " + pair.getValue().getName())
                             .collect(joining(" | ")));
                 }
                 return completedStage(new ClasspathCheckResult(completion.jarset, true, List.of()));
