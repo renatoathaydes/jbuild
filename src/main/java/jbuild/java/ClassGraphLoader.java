@@ -47,8 +47,6 @@ public class ClassGraphLoader {
         var jarSets = new JarSet.Loader(log)
                 .computeUniqueJarSetPermutations(jarsByType);
 
-        log.verbosePrintln(() -> "Found " + jarSets.size() + " different classpath permutations to check");
-
         return jarSets.stream()
                 .map(this::lazyLoad)
                 .collect(toList());

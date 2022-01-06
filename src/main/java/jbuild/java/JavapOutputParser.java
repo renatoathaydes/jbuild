@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
+import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
 
 public final class JavapOutputParser {
 
@@ -283,7 +284,7 @@ public final class JavapOutputParser {
      */
     private static boolean shouldIgnoreClass(String type, String className) {
         type = cleanArrayTypeName(type);
-        return type.startsWith("Ljava/") || type.equals(className);
+        return mayBeJavaStdLibType(type) || type.equals(className);
     }
 
     private static String methodOrConstructorName(String typeName, String methodName) {

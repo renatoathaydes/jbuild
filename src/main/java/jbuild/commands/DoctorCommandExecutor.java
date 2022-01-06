@@ -100,7 +100,7 @@ public final class DoctorCommandExecutor {
         }
 
         if (acceptableCompletions.size() == 1) {
-            log.println("Found a single valid classpath, checking its consistency.");
+            log.println("Found a single classpath permutation, checking its consistency.");
         } else {
             log.println(() -> "Detected conflicts in classpath, resulting in " + acceptableCompletions.size() +
                     " possible classpath permutations. Trying to find a consistent permutation.");
@@ -368,8 +368,8 @@ public final class DoctorCommandExecutor {
 
     private static File getIfMatches(File jar, File entryPoint) {
         var match = entryPoint.getName().contains(File.separator)
-                ? jar.getName().equals(entryPoint.getName())
-                : jar.equals(entryPoint);
+                ? jar.equals(entryPoint)
+                : jar.getName().equals(entryPoint.getName());
         if (match) return jar;
         return null;
     }

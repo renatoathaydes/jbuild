@@ -14,6 +14,7 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.streamOfOptional;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
+import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
 import static jbuild.util.JavaTypeUtils.toMethodTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.toTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
@@ -169,7 +170,7 @@ public final class ClassGraph {
     }
 
     private static Class<?> getJavaType(String typeName) {
-        if (typeName.startsWith("Ljava/") || typeName.startsWith("Ljavax/") || typeName.startsWith("Lcom/sun/")) {
+        if (mayBeJavaStdLibType(typeName)) {
             try {
                 return Class.forName(typeNameToClassName(typeName));
             } catch (ClassNotFoundException e) {

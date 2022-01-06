@@ -5,6 +5,7 @@ import jbuild.errors.JBuildException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static java.util.stream.Collectors.joining;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
@@ -13,6 +14,18 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
  * Utility class to help handle Java types.
  */
 public final class JavaTypeUtils {
+
+    // See https://docs.oracle.com/en/java/javase/11/docs/api/overview-tree.html
+    private static final Set<String> JAVA_STD_LIB_PACKAGES = Set.of(
+            "Ljava/",
+            "Ljavax/",
+            "Lcom/sun/",
+            "Ljdk/",
+            "Lnetscape/javascript/",
+            "Lorg/ietf/jgss/",
+            "Lorg/w3c/dom/",
+            "Lorg/xml/sax/"
+    );
 
     /**
      * Convert a class name in the Java language conventional syntax into a JVM internal type name.
@@ -72,6 +85,12 @@ public final class JavaTypeUtils {
         return type;
     }
 
+    /**
+     * Remove the usual type name markers for reference types (starts with 'L', ends with ';').
+     *
+     * @param type name of type
+     * @return the unwrapped reference type name, or the same type name as given if it's not a reference type
+     */
     public static String unwrapTypeName(String type) {
         if (type.startsWith("L") && type.endsWith(";")) {
             return type.substring(1, type.length() - 1);
@@ -148,6 +167,25 @@ public final class JavaTypeUtils {
         return result;
     }
 
+    /**
+     * Check if a type may be part of the Java standard library.
+     * <p>
+     * See <a href="https://docs.oracle.com/en/java/javase/11/docs/api/overview-tree.html">JDK Javadocs</a>
+     * for a complete list of packages.
+     *
+     * @param typeName name of type
+     * @return true if the type belongs to one of the packages included in the Java standard library.
+     */
+    public static boolean mayBeJavaStdLibType(String typeName) {
+        return JAVA_STD_LIB_PACKAGES.stream().anyMatch(typeName::startsWith);
+    }
+
+    /**
+     * Check if a type refers to a Java primitive type or {@code void}.
+     *
+     * @param typeName name of type
+     * @return true if the type is primitive, false otherwise.
+     */
     public static boolean isPrimitiveJavaType(String typeName) {
         var type = cleanArrayTypeName(typeName);
         if (type.length() > 1) return false;
@@ -178,12 +216,25 @@ public final class JavaTypeUtils {
         return -1;
     }
 
+    /**
+     * Convert a {@link Class} to its type name / descriptor.
+     *
+     * @param type Java type
+     * @return the type name / descriptor.
+     */
     public static String toTypeDescriptor(Class<?> type) {
         var name = type.getName();
         if (name.equals("void")) return "V";
         return classNameToTypeName(type.getName());
     }
 
+    /**
+     * Convert a method's return types and parameter types to the equivalent type name / descriptor.
+     *
+     * @param returnType     return type
+     * @param parameterTypes method parameter types
+     * @return the type name / descriptor.
+     */
     public static String toMethodTypeDescriptor(Class<?> returnType,
                                                 Class<?>... parameterTypes) {
         return Arrays.stream(parameterTypes).map(JavaTypeUtils::toTypeDescriptor)
