@@ -33,15 +33,14 @@ public class ClassGraphLoader {
     }
 
     public List<ClassGraphCompletion> fromJars(File... jarFiles) {
-        var jarsByType = new HashMap<String, Set<String>>(128);
-
+        var jarsByType = new HashMap<String, Set<File>>(128);
+        var jarTool = Tools.Jar.create();
         for (var jar : jarFiles) {
-            var classes = getClassesIn(jar);
-            var jarPath = jar.getPath();
-            for (String aClass : classes) {
-                jarsByType.computeIfAbsent(aClass,
+            var classes = getClassesIn(jarTool, jar);
+            for (var type : classes) {
+                jarsByType.computeIfAbsent(type,
                         (ignore) -> new HashSet<>(2)
-                ).add(jarPath);
+                ).add(jar);
             }
         }
 
@@ -56,16 +55,16 @@ public class ClassGraphLoader {
     }
 
     private ClassGraphCompletion lazyLoad(JarSet jarSet) {
-        var cacheByJar = new ConcurrentHashMap<String, CompletionStage<Map<String, TypeDefinition>>>();
+        var cacheByJar = new ConcurrentHashMap<File, CompletionStage<Map<String, TypeDefinition>>>();
         return new ClassGraphCompletion(jarSet, () -> {
             var startTime = System.currentTimeMillis();
             var completionsByJar = jarSet.getTypesByJar().entrySet().stream()
                     .collect(toMap(
                             Map.Entry::getKey,
                             entry -> cacheByJar.computeIfAbsent(entry.getKey(), (jar) ->
-                                    processClasses(new File(jar), entry.getValue()))));
+                                    processClasses(jar, entry.getValue()))));
             return awaitValues(completionsByJar, typeDefsByJar -> {
-                var jarByType = new HashMap<String, String>();
+                var jarByType = new HashMap<String, File>();
                 typeDefsByJar.forEach((jar, types) -> {
                     for (var typeName : types.keySet()) {
                         jarByType.put(typeName, jar);
@@ -78,8 +77,8 @@ public class ClassGraphLoader {
         });
     }
 
-    private String[] getClassesIn(File jarFile) {
-        var result = Tools.Jar.create().listContents(jarFile.getAbsolutePath());
+    private String[] getClassesIn(Tools.Jar jar, File jarFile) {
+        var result = jar.listContents(jarFile.getPath());
         verifyToolSuccessful("jar", result);
 
         return result.stdout.lines()

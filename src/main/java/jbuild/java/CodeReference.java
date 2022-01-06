@@ -3,6 +3,7 @@ package jbuild.java;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 
+import java.io.File;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -14,7 +15,7 @@ public final class CodeReference {
     /**
      * The jar in which the code reference is found.
      */
-    public final String jar;
+    public final File jar;
 
     /**
      * The type in which the reference comes from.
@@ -28,7 +29,7 @@ public final class CodeReference {
 
     private final Definition definition;
 
-    public CodeReference(String jar,
+    public CodeReference(File jar,
                          String type,
                          Definition definition,
                          Code to) {
@@ -71,7 +72,7 @@ public final class CodeReference {
     @Override
     public String toString() {
         return "CodeReference{" +
-                "jar='" + jar + '\'' +
+                "jar='" + jar.getPath() + '\'' +
                 ", type=" + type +
                 ", from=" + definition +
                 ", to=" + to +

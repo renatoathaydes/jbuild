@@ -55,18 +55,24 @@ public final class DoctorCommandExecutor {
     }
 
     public CompletionStage<?> run(String inputDir, boolean interactive, List<String> entryPoints) {
-        var results = findClasspathPermutations(inputDir, interactive, entryPoints);
+        var results = findClasspathPermutations(
+                new File(inputDir),
+                interactive,
+                entryPoints.stream().map(File::new).collect(toList()));
         return results.thenApply(this::showClasspathCheckResults);
     }
 
     public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findClasspathPermutations(
-            String inputDir,
+            File inputDir,
             boolean interactive,
-            List<String> entryPoints) {
-        var jarFiles = allFilesInDir(inputDir, (dir, fname) -> fname.endsWith(".jar"));
+            List<File> entryPoints) {
+        var jarFiles = allFilesInDir(inputDir, (dir, name) -> name.endsWith(".jar"));
         var entryJars = Stream.of(jarFiles)
-                .filter(jar -> entryPoints.stream().anyMatch(e -> includes(jar, e)))
-                .map(File::getPath)
+                .map(jar -> entryPoints.stream()
+                        .map(e -> getIfMatches(jar, e))
+                        .filter(Objects::nonNull)
+                        .findFirst().orElse(null))
+                .filter(Objects::nonNull)
                 .collect(toSet());
         if (entryJars.size() < entryPoints.size()) {
             throw new JBuildException("Could not find all entry points, found following jars: " + entryJars, USER_INPUT);
@@ -82,7 +88,7 @@ public final class DoctorCommandExecutor {
 
     private CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findClasspathPermutations(
             List<ClassGraphLoader.ClassGraphCompletion> classGraphCompletions,
-            Set<String> entryJars,
+            Set<File> entryJars,
             boolean interactive) {
         var acceptableCompletions = classGraphCompletions.stream()
                 .filter(c -> c.jarset.containsAll(entryJars))
@@ -102,7 +108,7 @@ public final class DoctorCommandExecutor {
 
         var abort = new AtomicBoolean(false);
         var errorCount = new AtomicInteger(0);
-        var badJarPairs = ConcurrentHashMap.<Map.Entry<String, String>>newKeySet(8);
+        var badJarPairs = ConcurrentHashMap.<Map.Entry<File, File>>newKeySet(8);
 
         return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : 2,
                 acceptableCompletions.stream()
@@ -113,11 +119,11 @@ public final class DoctorCommandExecutor {
 
     private Supplier<CompletionStage<ClasspathCheckResult>> checkClasspath(
             ClassGraphLoader.ClassGraphCompletion completion,
-            Set<String> entryJars,
+            Set<File> entryJars,
             AtomicBoolean abort,
             boolean interactive,
             AtomicInteger errorCount,
-            Set<Map.Entry<String, String>> badJarPairs) {
+            Set<Map.Entry<File, File>> badJarPairs) {
         return () -> {
             var skip = false;
             if (abort.get()) {
@@ -172,7 +178,7 @@ public final class DoctorCommandExecutor {
 
     private List<ClassPathInconsistency> checkClasspathConsistency(
             ClassGraph classGraph,
-            Set<String> entryJars) {
+            Set<File> entryJars) {
         var allErrors = new ArrayList<ClassPathInconsistency>();
 
         for (var jar : entryJars) {
@@ -185,7 +191,7 @@ public final class DoctorCommandExecutor {
                     if (!classGraph.exists(ref)) {
                         allErrors.add(new ClassPathInconsistency(
                                 "Type " + ref + ", used in type signature of " +
-                                        jar + "!" + type + " cannot be found",
+                                        jar.getName() + "!" + type + " cannot be found",
                                 jar, classGraph.getJarByType().get(ref)));
                     }
                 });
@@ -201,7 +207,7 @@ public final class DoctorCommandExecutor {
                 });
             }
 
-            log.verbosePrintln(() -> "Checked " + jar + " classpath requirements in " +
+            log.verbosePrintln(() -> "Checked " + jar.getName() + " classpath requirements in " +
                     (System.currentTimeMillis() - startTime) + " ms, ok? " + (allErrors.size() == initialErrorCount));
         }
 
@@ -210,7 +216,7 @@ public final class DoctorCommandExecutor {
 
     private ClassPathInconsistency errorIfCodeRefDoesNotExist(ClassGraph classGraph,
                                                               String type,
-                                                              String jar,
+                                                              File jar,
                                                               Definition.MethodDefinition method,
                                                               Code code) {
         return code.match(
@@ -224,21 +230,21 @@ public final class DoctorCommandExecutor {
     }
 
     private static ClassPathInconsistency errorIfTypeDoesNotExist(String type,
-                                                                  String jar,
+                                                                  File jar,
                                                                   Definition.MethodDefinition methodDef,
                                                                   ClassGraph classGraph,
                                                                   String targetType) {
         var typeName = cleanArrayTypeName(targetType);
         if (!classGraph.getJarByType().containsKey(typeName) && !classGraph.existsJava(typeName)) {
             return new ClassPathInconsistency("Type " + typeName + ", used in method " + methodDef.descriptor() + " of " +
-                    jar + "!" + type + " cannot be found in the classpath",
+                    jar.getName() + "!" + type + " cannot be found in the classpath",
                     jar, null);
         }
         return null;
     }
 
     private ClassPathInconsistency errorIfFieldDoesNotExist(String type,
-                                                            String jar,
+                                                            File jar,
                                                             Definition.MethodDefinition methodDef,
                                                             ClassGraph classGraph,
                                                             Code.Field field) {
@@ -250,7 +256,7 @@ public final class DoctorCommandExecutor {
                     " not found in any jar, checking if it is a Java API");
             return classGraph.existsJava(fieldOwner, targetField) ? null :
                     new ClassPathInconsistency("Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
-                            jar + "!" + type + " cannot be found as there is no such field in " + fieldOwner,
+                            jar.getName() + "!" + type + " cannot be found as there is no such field in " + fieldOwner,
                             jar, null);
         }
         if (jar.equals(targetJar)) return null; // do not check same-jar relations
@@ -267,13 +273,13 @@ public final class DoctorCommandExecutor {
                     ", available fields are " + fields;
         });
         return new ClassPathInconsistency("Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
-                jar + "!" + type + " cannot be found as there is no such field in " +
+                jar.getName() + "!" + type + " cannot be found as there is no such field in " +
                 targetJar + "!" + typeDef.typeName,
                 jar, targetJar);
     }
 
     private ClassPathInconsistency errorIfMethodDoesNotExist(String type,
-                                                             String jar,
+                                                             File jar,
                                                              Definition.MethodDefinition methodDef,
                                                              ClassGraph classGraph,
                                                              Code.Method method,
@@ -287,7 +293,7 @@ public final class DoctorCommandExecutor {
             return classGraph.existsJava(methodOwner, targetMethod) ? null :
                     new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
                             (methodDef == null ? "" : " method " + methodDef.descriptor() + " of ") +
-                            jar + "!" + type + " cannot be found as there is no such method in " + methodOwner,
+                            jar.getName() + "!" + type + " cannot be found as there is no such method in " + methodOwner,
                             jar, null);
         }
         if (jar.equals(targetJar)) return null; // do not check same-jar relations
@@ -305,7 +311,7 @@ public final class DoctorCommandExecutor {
         });
         return new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
                 (methodDef == null ? "" : " method " + methodDef.descriptor() + " of ") +
-                jar + "!" + type + " cannot be found as there is no such method in " +
+                jar.getName() + "!" + type + " cannot be found as there is no such method in " +
                 targetJar + "!" + typeDef.typeName,
                 jar, targetJar);
     }
@@ -360,8 +366,12 @@ public final class DoctorCommandExecutor {
         log.println(jarSet.toClasspath());
     }
 
-    private static boolean includes(File jar, String entryPoint) {
-        return jar.getName().equals(entryPoint) || jar.getPath().equals(entryPoint);
+    private static File getIfMatches(File jar, File entryPoint) {
+        var match = entryPoint.getName().contains(File.separator)
+                ? jar.getName().equals(entryPoint.getName())
+                : jar.equals(entryPoint);
+        if (match) return jar;
+        return null;
     }
 
     private static <T> T firstNonNull(T value, Supplier<T> other) {
@@ -387,10 +397,10 @@ public final class DoctorCommandExecutor {
 
     public static final class ClassPathInconsistency {
         public final String message;
-        public final String jarFrom;
-        public final String jarTo;
+        public final File jarFrom;
+        public final File jarTo;
 
-        public ClassPathInconsistency(String message, String jarFrom, String jarTo) {
+        public ClassPathInconsistency(String message, File jarFrom, File jarTo) {
             this.message = message;
             this.jarFrom = jarFrom;
             this.jarTo = jarTo;

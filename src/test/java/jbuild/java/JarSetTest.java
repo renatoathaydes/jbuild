@@ -4,6 +4,7 @@ import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.HashSet;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static jbuild.util.CollectionUtils.mapValues;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JarSetTest {
@@ -25,40 +27,47 @@ public class JarSetTest {
 
     @Test
     void canIdentifyUniqueTypesJarsPermutations() {
-        var set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1")));
+        var set = computeUniqueJarSetPermutations(Map.of("foo", Set.of(file("j1"))));
 
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1")));
 
-        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2")));
+        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of(file("j1"), file("j2"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1"),
                         Map.of("foo", "j2")));
 
-        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j2")));
+        set = computeUniqueJarSetPermutations(Map.of(
+                "foo", Set.of(file("j1"), file("j2")),
+                "bar", Set.of(file("j2"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1"),
                         Map.of("foo", "j2", "bar", "j2")));
 
-        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j1", "j2")));
+        set = computeUniqueJarSetPermutations(Map.of(
+                "foo", Set.of(file("j1"), file("j2")),
+                "bar", Set.of(file("j1"), file("j2"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "bar", "j1"),
                         Map.of("foo", "j2", "bar", "j2")));
 
-        set = computeUniqueJarSetPermutations(Map.of("foo", Set.of("j1", "j2"), "bar", Set.of("j2"), "car", Set.of("j3")));
+        set = computeUniqueJarSetPermutations(Map.of(
+                "foo", Set.of(file("j1"), file("j2")),
+                "bar", Set.of(file("j2")),
+                "car", Set.of(file("j3"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "car", "j3"),
                         Map.of("foo", "j2", "bar", "j2", "car", "j3")));
 
         set = computeUniqueJarSetPermutations(Map.of(
-                "foo", Set.of("j1", "j2"),
-                "bar", Set.of("j2", "j3"),
-                "car", Set.of("j3")));
+                "foo", Set.of(file("j1"), file("j2")),
+                "bar", Set.of(file("j2"), file("j3")),
+                "car", Set.of(file("j3"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1"),
@@ -66,18 +75,18 @@ public class JarSetTest {
                         Map.of("bar", "j3", "car", "j3")));
 
         set = computeUniqueJarSetPermutations(Map.of(
-                "foo", Set.of("j1", "j2"),
-                "bar", Set.of("j1", "j2"),
-                "car", Set.of("j1", "j2")));
+                "foo", Set.of(file("j1"), file("j2")),
+                "bar", Set.of(file("j1"), file("j2")),
+                "car", Set.of(file("j1"), file("j2"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "bar", "j1", "car", "j1"),
                         Map.of("foo", "j2", "bar", "j2", "car", "j2")));
 
         set = computeUniqueJarSetPermutations(Map.of(
-                "foo", Set.of("j1", "j2"),
-                "bar", Set.of("j2", "j3"),
-                "car", Set.of("j1", "j2", "j3")));
+                "foo", Set.of(file("j1"), file("j2")),
+                "bar", Set.of(file("j2"), file("j3")),
+                "car", Set.of(file("j1"), file("j2"), file("j3"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "car", "j1"),
@@ -85,9 +94,9 @@ public class JarSetTest {
                         Map.of("foo", "j2", "bar", "j2", "car", "j2")));
 
         set = computeUniqueJarSetPermutations(Map.of(
-                "foo", Set.of("j1"),
-                "bar", Set.of("j2"),
-                "car", Set.of("j3")));
+                "foo", Set.of(file("j1")),
+                "bar", Set.of(file("j2")),
+                "car", Set.of(file("j3"))));
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
                         Map.of("foo", "j1", "bar", "j2", "car", "j3")));
@@ -96,9 +105,9 @@ public class JarSetTest {
     @Test
     void canPruneConflictingJarsWhenSameJarsAppearInMultiplePlaces() {
         var set = computeUniqueJarSetPermutations(Map.of(
-                "logger", Set.of("logger1", "logger2"),
-                "logger_new", Set.of("logger2", "logger3"),
-                "other", Set.of("other1", "other2")));
+                "logger", Set.of(file("logger1"), file("logger2")),
+                "logger_new", Set.of(file("logger2"), file("logger3")),
+                "other", Set.of(file("other1"), file("other2"))));
 
         assertThat(set)
                 .containsExactlyInAnyOrderElementsOf(List.of(
@@ -112,28 +121,43 @@ public class JarSetTest {
 
     @Test
     void canCheckIfContainsJarPair() {
-        var set = new JarSet(Map.of("t1", "j1", "t2", "j2", "t3", "j1"));
+        var set = new JarSet(Map.of("t1", file("j1"), "t2", file("j2"), "t3", file("j1")));
 
         assertThat(set.containsAny(Set.of())).isFalse();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j3")))).isFalse();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j3", "j1")))).isFalse();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j2", "j3")))).isFalse();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j3", "j2")))).isFalse();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j2")))).isTrue();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j2", "j1")))).isTrue();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j2", "j1"), new SimpleEntry<>("j3", "j1")))).isTrue();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j3"), new SimpleEntry<>("j1", "j2")))).isTrue();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j1"), file("j3"))))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j3"), file("j1"))))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j2"), file("j3"))))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j3"), file("j2"))))).isFalse();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j1"), file("j2"))))).isTrue();
+        assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j2"), file("j1"))))).isTrue();
+        assertThat(set.containsAny(Set.of(
+                new SimpleEntry<>(file("j2"), file("j1")),
+                new SimpleEntry<>(file("j3"), file("j1"))))).isTrue();
+        assertThat(set.containsAny(Set.of(
+                new SimpleEntry<>(file("j1"), file("j3")),
+                new SimpleEntry<>(file("j1"), file("j2"))))).isTrue();
         // Set.of() does not allow duplicates
-        assertThat(set.containsAny(new HashSet<>(List.of(new SimpleEntry<>("j1", "j2"), new SimpleEntry<>("j1", "j2"))))).isTrue();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("j1", "j3"), new SimpleEntry<>("j3", "j2")))).isFalse();
-        assertThat(set.containsAny(Set.of(new SimpleEntry<>("a", "b"), new SimpleEntry<>("c", "d")))).isFalse();
+        assertThat(set.containsAny(new HashSet<>(List.of(
+                new SimpleEntry<>(file("j1"), file("j2")),
+                new SimpleEntry<>(file("j1"), file("j2")))))).isTrue();
+        assertThat(set.containsAny(Set.of(
+                new SimpleEntry<>(file("j1"), file("j3")),
+                new SimpleEntry<>(file("j3"), file("j2"))))).isFalse();
+        assertThat(set.containsAny(Set.of(
+                new SimpleEntry<>(file("a"), file("b")),
+                new SimpleEntry<>(file("c"), file("d"))))).isFalse();
     }
 
-    private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<String>> jarsByType) {
+    private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<File>> jarsByType) {
         var sets = new JarSet.Loader(log).computeUniqueJarSetPermutations(jarsByType);
         return sets.stream()
                 .map(JarSet::getJarByType)
+                .map(map -> mapValues(map, File::getPath))
                 .collect(Collectors.toList());
+    }
+
+    private static File file(String path) {
+        return new File(path);
     }
 
 }

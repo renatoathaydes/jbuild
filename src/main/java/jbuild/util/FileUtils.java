@@ -72,12 +72,11 @@ public final class FileUtils {
         return completionStage;
     }
 
-    public static File[] allFilesInDir(String directory, FilenameFilter filter) {
-        var dir = new File(directory);
-        if (!dir.isDirectory()) {
+    public static File[] allFilesInDir(File directory, FilenameFilter filter) {
+        if (!directory.isDirectory()) {
             throw new JBuildException("not a directory: " + directory, USER_INPUT);
         }
-        var files = dir.listFiles(filter);
+        var files = directory.listFiles(filter);
         if (files == null) return new File[0];
         return files;
     }

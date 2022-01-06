@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
@@ -30,8 +29,8 @@ public class ClassGraphTest {
                 new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
         var graphs = loader.fromJars(
-                new File(otherClassesJar),
-                new File(myClassesJar));
+                otherClassesJar,
+                myClassesJar);
 
         if (graphs.size() != 1) fail("Expected a single ClassGraph: " + graphs);
 

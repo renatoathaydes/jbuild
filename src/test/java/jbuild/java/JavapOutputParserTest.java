@@ -6,6 +6,7 @@ import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.List;
@@ -450,8 +451,8 @@ public class JavapOutputParserTest {
         assertThat(result.methods.values()).containsOnly(Set.of());
     }
 
-    private Iterator<String> javap(String jar, String... classNames) {
-        var result = Tools.Javap.create().run(jar, classNames);
+    private Iterator<String> javap(File jar, String... classNames) {
+        var result = Tools.Javap.create().run(jar.getPath(), classNames);
         assertProcessWasSuccessful(result);
         return result.stdout.lines().iterator();
     }

@@ -13,11 +13,12 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import static java.util.Comparator.reverseOrder;
+import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.mapValues;
 
 /**
@@ -31,36 +32,42 @@ import static jbuild.util.CollectionUtils.mapValues;
  */
 public final class JarSet {
 
-    private final Map<String, String> jarByType;
-    private final Map<String, Set<String>> typesByJar;
+    private final Map<String, File> jarByType;
+    private final Map<File, Set<String>> typesByJar;
 
-    public JarSet(Map<String, String> jarByType,
-                  Map<String, Set<String>> typesByJar) {
+    public JarSet(Map<String, File> jarByType,
+                  Map<File, Set<String>> typesByJar) {
         this.jarByType = jarByType;
         this.typesByJar = typesByJar;
     }
 
-    public JarSet(Map<String, String> jarByType) {
+    public JarSet(Map<String, File> jarByType) {
         this(jarByType, computeTypesByJar(jarByType));
     }
 
-    public Map<String, String> getJarByType() {
+    public Map<String, File> getJarByType() {
         return jarByType;
     }
 
-    public Map<String, Set<String>> getTypesByJar() {
+    public Map<File, Set<String>> getTypesByJar() {
         return typesByJar;
     }
 
-    public Set<String> getJars() {
+    public Set<File> getJars() {
         return typesByJar.keySet();
     }
 
-    public boolean containsAll(Set<String> jars) {
+    public Set<String> getJarPaths() {
+        return typesByJar.keySet().stream()
+                .map(File::getPath)
+                .collect(toSet());
+    }
+
+    public boolean containsAll(Set<File> jars) {
         return getJars().containsAll(jars);
     }
 
-    public boolean containsAny(Set<Map.Entry<String, String>> jarPairs) {
+    public boolean containsAny(Set<Map.Entry<File, File>> jarPairs) {
         var jars = getJars();
         for (var pair : jarPairs) {
             if (jars.contains(pair.getKey()) && jars.contains(pair.getValue())) {
@@ -71,11 +78,11 @@ public final class JarSet {
     }
 
     public String toClasspath() {
-        return String.join(File.pathSeparator, new HashSet<>(getJars()));
+        return String.join(File.pathSeparator, new HashSet<>(getJarPaths()));
     }
 
-    private static Map<String, Set<String>> computeTypesByJar(Map<String, String> jarByType) {
-        var result = new HashMap<String, Set<String>>();
+    private static Map<File, Set<String>> computeTypesByJar(Map<String, File> jarByType) {
+        var result = new HashMap<File, Set<String>>();
         jarByType.forEach((type, jar) -> result.computeIfAbsent(jar, (ignore) -> new HashSet<>(32))
                 .add(type));
         return result;
@@ -101,16 +108,15 @@ public final class JarSet {
          * @param jarsByType map from type to the jars in which they can be found
          * @return all permutations of {@link JarSet} that are possible without internal conflicts
          */
-        public List<JarSet> computeUniqueJarSetPermutations(Map<String, Set<String>> jarsByType) {
-            var forbiddenJarsByJar = new HashMap<String, Set<String>>();
-            var typesByJar = new HashMap<String, Set<String>>();
+        public List<JarSet> computeUniqueJarSetPermutations(Map<String, Set<File>> jarsByType) {
+            var forbiddenJarsByJar = new HashMap<File, Set<File>>();
+            var typesByJar = new HashMap<File, Set<String>>();
 
             jarsByType.forEach((type, jars) -> {
                 for (var jar : jars) {
                     typesByJar.computeIfAbsent(jar, (ignore) -> new HashSet<>(32)).add(type);
                     var forbidden = forbiddenJarsByJar.computeIfAbsent(jar, (ignore) -> new HashSet<>(2));
                     for (var jar2 : jars) {
-                        //noinspection StringEquality
                         if (jar != jar2) forbidden.add(jar2);
                     }
                 }
@@ -136,12 +142,12 @@ public final class JarSet {
             return computeUniqueJarSetPermutations(jarPermutations, typesByJar);
         }
 
-        private List<JarSet> computeUniqueJarSetPermutations(List<? extends Collection<String>> jarPermutations,
-                                                             Map<String, Set<String>> typesByJar) {
+        private List<JarSet> computeUniqueJarSetPermutations(List<? extends Collection<File>> jarPermutations,
+                                                             Map<File, Set<String>> typesByJar) {
             return jarPermutations.stream()
                     .map(jars -> {
-                        var jarByType = new HashMap<String, String>();
-                        var typeByJar = new HashMap<String, Set<String>>();
+                        var jarByType = new HashMap<String, File>();
+                        var typeByJar = new HashMap<File, Set<String>>();
                         for (var jar : jars) {
                             var types = typesByJar.get(jar);
                             typeByJar.put(jar, types);
@@ -157,11 +163,12 @@ public final class JarSet {
                     }).collect(toList());
         }
 
-        private void logJars(String header, boolean verbose, List<? extends Collection<String>> jarSets) {
+        private void logJars(String header, boolean verbose, List<? extends Collection<File>> jarSets) {
             if (verbose && log.isVerbose()) {
                 log.verbosePrintln(header);
                 for (var jars : jarSets) {
                     log.verbosePrintln(jars.stream()
+                            .map(File::getName)
                             .collect(Collectors.joining(", ", "  * ", "")));
                 }
             }
@@ -169,44 +176,49 @@ public final class JarSet {
                 log.println(header);
                 for (var jars : jarSets) {
                     log.println(jars.stream()
+                            .map(File::getName)
                             .collect(Collectors.joining(", ", "  * ", "")));
                 }
             }
         }
 
-        private static List<? extends Set<String>> computePermutations(Set<String> okJars,
-                                                                       List<? extends Collection<String>> duplicates) {
-            var result = new ArrayList<Set<String>>();
+        private static List<? extends Set<File>> computePermutations(Set<File> okJars,
+                                                                     List<? extends Collection<File>> duplicates) {
+            var result = new ArrayList<Set<File>>();
 
             // the number of permutations is equal to the multiplication of the sizes of each list
             var permCount = duplicates.stream().mapToInt(Collection::size).reduce(1, (a, b) -> a * b);
 
             var dups = duplicates.stream().map(ArrayList::new).collect(toList());
             for (var i = 0; i < permCount; i++) {
-                var permutation = new HashSet<String>(okJars.size() + duplicates.size());
+                var permutation = new HashSet<File>(okJars.size() + duplicates.size());
                 permutation.addAll(okJars);
                 for (var dup : dups) {
                     permutation.add(dup.get(i % dup.size()));
                 }
                 result.add(permutation);
             }
-            assert new HashSet<>(result).size() == result.size();
+            assert new HashSet<>(result).size() == result.size() :
+                    "should be " + new HashSet<>(result) + " but was " + result;
             return result;
         }
 
-        private static List<? extends Set<String>> flattenDuplicates(Map<String, Set<String>> dups) {
-            var result = new ArrayList<Set<String>>();
+        private static List<? extends Set<File>> flattenDuplicates(Map<File, Set<File>> dups) {
+            var result = new ArrayList<Set<File>>();
             dups.forEach((jar, forbidden) -> {
-                var optSet = result.stream().filter(it -> it.contains(jar)).findAny();
-                Set<String> set;
+                // if any set in result already contains any of the jars in this iteration, re-use that set
+                var optSet = result.stream()
+                        .filter(it -> it.contains(jar) || forbidden.stream().anyMatch(it::contains))
+                        .findAny();
+                Set<File> set;
                 if (optSet.isPresent()) {
                     set = optSet.get();
                 } else {
                     // keep jars sorted in reverse alphabetical order hoping that translates to newer jars first
-                    set = new TreeSet<>(reverseOrder());
-                    set.add(jar);
+                    set = new TreeSet<>(comparing(File::getName).reversed());
                     result.add(set);
                 }
+                set.add(jar);
                 set.addAll(forbidden);
             });
             return result;

@@ -4,8 +4,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 
-import java.util.Collections;
-import java.util.HashMap;
+import java.io.File;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -32,11 +31,11 @@ import static jbuild.util.JavaTypeUtils.typeNameToClassName;
  */
 public final class ClassGraph {
 
-    private final Map<String, Map<String, TypeDefinition>> typesByJar;
-    private final Map<String, String> jarByType;
+    private final Map<File, Map<String, TypeDefinition>> typesByJar;
+    private final Map<String, File> jarByType;
 
-    public ClassGraph(Map<String, Map<String, TypeDefinition>> typesByJar,
-                      Map<String, String> jarByType) {
+    public ClassGraph(Map<File, Map<String, TypeDefinition>> typesByJar,
+                      Map<String, File> jarByType) {
         this.typesByJar = typesByJar;
         this.jarByType = jarByType;
     }
@@ -44,11 +43,11 @@ public final class ClassGraph {
     /**
      * @return a Map from all jars in this graph to the types which they contain, indexed by name.
      */
-    public Map<String, Map<String, TypeDefinition>> getTypesByJar() {
+    public Map<File, Map<String, TypeDefinition>> getTypesByJar() {
         return typesByJar;
     }
 
-    public Map<String, String> getJarByType() {
+    public Map<String, File> getJarByType() {
         return jarByType;
     }
 
@@ -226,12 +225,12 @@ public final class ClassGraph {
                 .flatMap(j -> refs(j, code));
     }
 
-    private Stream<CodeReference> refs(String jarFrom, Code to) {
+    private Stream<CodeReference> refs(File jarFrom, Code to) {
         return typesByJar.get(jarFrom).values().stream()
                 .flatMap(type -> refs(jarFrom, type, to));
     }
 
-    private Stream<CodeReference> refs(String jarFrom, TypeDefinition typeFrom, Code to) {
+    private Stream<CodeReference> refs(File jarFrom, TypeDefinition typeFrom, Code to) {
         var results = Stream.concat(
                 typeFrom.methodHandles.stream()
                         .filter(to::equals)
@@ -267,18 +266,4 @@ public final class ClassGraph {
         return results;
     }
 
-    private static Map<String, Set<String>> computeJarsByType(Map<String, Map<String, TypeDefinition>> classesByJar) {
-        var jarsByClassName = new HashMap<String, Set<String>>(
-                classesByJar.values().stream().mapToInt(Map::size).sum());
-
-        for (var entry : classesByJar.entrySet()) {
-            for (var type : entry.getValue().values()) {
-                jarsByClassName.computeIfAbsent(type.typeName,
-                        (ignore) -> new HashSet<>(2)
-                ).add(entry.getKey());
-            }
-        }
-
-        return Collections.unmodifiableMap(jarsByClassName);
-    }
 }
