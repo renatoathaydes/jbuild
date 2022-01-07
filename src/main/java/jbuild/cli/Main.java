@@ -27,6 +27,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.Comparator.comparing;
@@ -120,16 +122,21 @@ public final class Main {
             "";
 
     public static void main(String[] args) {
-        new Main(args);
+        new Main(args, System::exit, (verbose) -> new JBuildLog(System.out, verbose));
     }
 
     private final JBuildLog log;
+    private final Consumer<Integer> exit;
 
-    private Main(String[] args) {
+    public Main(String[] args,
+                Consumer<Integer> exit,
+                Function<Boolean, JBuildLog> logCreator) {
+        this.exit = exit;
+
         var startTime = System.currentTimeMillis();
 
         var options = Options.parse(args);
-        this.log = new JBuildLog(System.out, options.verbose);
+        this.log = logCreator.apply(options.verbose);
 
         log.verbosePrintln(() -> "Parsed CLI options in " + time(startTime));
 
@@ -243,7 +250,7 @@ public final class Main {
                 : new ArtifactFileWriter(new File(installOptions.outDir), FLAT_DIR);
 
         var installCommandExecutor = createInstallCommandExecutor(options, fileWriter);
-        var latch = new CountDownLatch(artifacts.size());
+        var latch = new CountDownLatch(1);
         var anyError = new AtomicReference<ErrorCause>();
 
         installCommandExecutor.installDependencyTree(
@@ -457,7 +464,7 @@ public final class Main {
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
         }
         log.println(() -> "JBuild success in " + time(startTime) + "!");
-        System.exit(0);
+        exit.accept(0);
     }
 
     private Set<? extends Artifact> parseArtifacts(Set<String> coordinates) {
@@ -482,7 +489,7 @@ public final class Main {
         log.println(message);
         log.println(() -> "JBuild failed in " + time(startTime) +
                 "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
-        System.exit(exitCode(cause));
+        exit.accept(exitCode(cause));
     }
 
     private static CharSequence time(long startTime) {
