@@ -101,6 +101,34 @@ public class CollectionUtilsTest {
     }
 
     @Test
+    void canFoldEitherCombiningLeft() {
+        assertThat(CollectionUtils.foldEither(List.of(Either.left(1)), Integer::sum))
+                .extracting(e -> e.map(ok -> ok, err -> -1))
+                .isEqualTo(1);
+        assertThat(CollectionUtils.foldEither(List.of(Either.left(3), Either.left(5)), Integer::sum))
+                .extracting(e -> e.map(ok -> ok, err -> -1))
+                .isEqualTo(8);
+        assertThat(CollectionUtils.foldEither(List.of(Either.right(NonEmptyCollection.of(1))), Integer::sum))
+                .extracting(e -> e.map(l -> List.of(), CollectionUtilsTest::listOf))
+                .isEqualTo(List.of(1));
+        assertThat(CollectionUtils.foldEither(List.of(Either.right(NonEmptyCollection.of(List.of(1, 2), 3))), Integer::sum))
+                .extracting(e -> e.map(l -> List.of(), CollectionUtilsTest::listOf))
+                .isEqualTo(List.of(1, 2, 3));
+        assertThat(CollectionUtils.foldEither(List.of(
+                Either.right(NonEmptyCollection.of(List.of(1, 2), 3)),
+                Either.right(NonEmptyCollection.of(List.of(4), 5))), Integer::sum))
+                .extracting(e -> e.map(l -> List.of(), CollectionUtilsTest::listOf))
+                .isEqualTo(List.of(1, 2, 3, 4, 5));
+        assertThat(CollectionUtils.foldEither(List.of(
+                Either.right(NonEmptyCollection.of(List.of(1, 2), 3)),
+                Either.left(10),
+                Either.right(NonEmptyCollection.of(List.of(4), 5)),
+                Either.left(20)), Integer::sum))
+                .extracting(e -> e.map(ok -> "ERROR: " + ok, CollectionUtilsTest::listOf))
+                .isEqualTo(List.of(1, 2, 3, 4, 5));
+    }
+
+    @Test
     void canSortList() {
         assertThat(CollectionUtils.sorted(
                 List.of("1", "", "123456", "123", "1", "12"),
