@@ -49,14 +49,16 @@ tasks.register('integrationTest', Test) {
     testClassesDirs = sourceSets.intTest.output.classesDirs
     classpath = sourceSets.intTest.runtimeClasspath
     shouldRunAfter test
-    check.dependsOn it
     it.systemProperty('tests.int-tests.repo', "$buildDir/mvn-repo")
 }
 
+check.dependsOn integrationTest
+
 tasks.register('cleanIntegrationTestRepo', Delete) {
     delete "$buildDir/mvn-repo"
-    clean.dependsOn it
 }
+
+clean.dependsOn cleanIntegrationTestRepo
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
