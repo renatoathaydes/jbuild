@@ -8,7 +8,6 @@ import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.MavenPom;
 import jbuild.maven.Scope;
-import jbuild.util.CollectionUtils;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
 
@@ -24,6 +23,7 @@ import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.maven.MavenUtils.extensionOfPackaging;
 import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.AsyncUtils.awaitValues;
+import static jbuild.util.CollectionUtils.foldEither;
 
 public final class InstallCommandExecutor {
 
@@ -66,7 +66,7 @@ public final class InstallCommandExecutor {
                                         completedStage(0L))))
                         .collect(toList())
         ).thenApply(this::groupErrors)
-                .thenApply(CollectionUtils::foldEither);
+                .thenApply(e -> foldEither(e, Long::sum));
     }
 
     private Collection<Either<Long, NonEmptyCollection<Throwable>>> groupErrors(

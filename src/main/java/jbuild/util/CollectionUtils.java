@@ -200,6 +200,35 @@ public final class CollectionUtils {
         return result;
     }
 
+    public static <T, E> Either<T, NonEmptyCollection<E>> foldEither(
+            Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable,
+            BiFunction<T, T, T> combiner) {
+        T leftResults = null;
+        for (var either : eitherIterable) {
+            var value = either.map(l -> l, r -> null);
+            if (value == null) {
+                leftResults = null;
+                break;
+            }
+            if (leftResults == null) {
+                leftResults = value;
+            } else {
+                leftResults = combiner.apply(leftResults, value);
+            }
+        }
+
+        if (leftResults != null) return Either.left(leftResults);
+
+        var iter = eitherIterable.iterator();
+        var result = iter.next();
+        while (iter.hasNext()) {
+            //noinspection OptionalGetWithoutIsPresent
+            var res = result.combineRight(iter.next(), NonEmptyCollection::of);
+            if (res.isPresent()) result = res.get();
+        }
+        return result;
+    }
+
     public static <T> Iterable<T> sorted(Collection<T> collection, Comparator<T> comparator) {
         var mutable = new ArrayList<>(collection);
         mutable.sort(comparator);
