@@ -20,8 +20,8 @@ to manage other Java projects and dependencies themselves.
 - [x] detect version clashes in dependency tree.
 - [x] list artifacts licenses.
 - [x] install artifacts in local file system (flat dir or Maven repo).
-- [ ] check completeness of classpath given jar entry-points (exclude unused code).
-- [ ] automatically find compatible set of artifacts based on jar entry-points.
+- [x] check completeness of classpath given jar entry-points (exclude unused code).
+- [x] automatically find compatible set of artifacts based on jar entry-points.
 - [ ] show full call hierarchy of jar/class/method.
 - [ ] find unused jars/classes/methods, given a classpath and jar entry-points.
 - [ ] automatically prune classpath, removing unused jars.
@@ -155,6 +155,20 @@ Available commands:
         -t        include transitive dependencies.
       Example:
         jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2
+
+  * doctor
+    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s).
+    This command requires user interaction by default.
+      Usage:
+        jbuild doctor <options...> <dir>
+      Options:
+        --entrypoint
+        -e        entry-point jar within the directory, or the application jar
+                  (can be passed more than once).
+        --yes
+        -y        answer any question with 'yes'.
+      Example:
+        jbuild doctor my-dir -e app.jar
 
   * versions
     List the versions of the given artifacts that are available on Maven Central.
