@@ -113,6 +113,20 @@ public final class Main {
             "      Example:\n" +
             "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
             "\n" +
+            "  * doctor\n" +
+            "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s).\n" +
+            "    This command requires user interaction by default.\n" +
+            "      Usage:\n" +
+            "        jbuild doctor <options...> <dir>\n" +
+            "      Options:\n" +
+            "        --entrypoint\n" +
+            "        -e        entry-point jar within the directory, or the application jar\n" +
+            "                  (can be passed more than once).\n" +
+            "        --yes\n" +
+            "        -y        answer any question with 'yes'.\n" +
+            "      Example:\n" +
+            "        jbuild doctor my-dir -e app.jar\n" +
+            "\n" +
             "  * versions\n" +
             "    List the versions of the given artifacts that are available on Maven Central.\n" +
             "      Usage:\n" +
