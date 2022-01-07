@@ -9,6 +9,11 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    intTestImplementation.extendsFrom implementation
+    intTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
 sourceSets {
     myTestClasses {
         java {}
@@ -17,26 +22,50 @@ sourceSets {
         java {}
         compileClasspath += sourceSets.myTestClasses.output
     }
+    intTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
 }
 
 final String testJarsDir = "$buildDir/test-jars"
 
-task myTestJar(type: Jar) {
+tasks.register('myTestJar', Jar) {
     archiveFileName = 'my-tests.jar'
     from sourceSets.myTestClasses.output
     destinationDirectory.set file(testJarsDir)
 }
 
-task otherTestJar(type: Jar) {
+tasks.register('otherTestJar', Jar) {
     archiveFileName = 'other-tests.jar'
     from sourceSets.otherTestClasses.output
     destinationDirectory.set file(testJarsDir)
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.intTest.output.classesDirs
+    classpath = sourceSets.intTest.runtimeClasspath
+    shouldRunAfter test
+    check.dependsOn it
+    it.systemProperty('tests.int-tests.repo', "$buildDir/mvn-repo")
+}
+
+tasks.register('cleanIntegrationTestRepo', Delete) {
+    delete "$buildDir/mvn-repo"
+    clean.dependsOn it
 }
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testImplementation 'org.assertj:assertj-core:3.21.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+
+    intTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    intTestImplementation 'org.assertj:assertj-core:3.21.0'
+    intTestRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 }
 
 test {
