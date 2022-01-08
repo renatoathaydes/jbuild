@@ -82,7 +82,7 @@ public class ClassGraphLoader {
         return result.stdout.lines()
                 .filter(line -> line.endsWith(".class") &&
                         !line.endsWith("-info.class"))
-                .map(line -> line.replace(File.separatorChar, '.')
+                .map(line -> line.replace('/', '.')
                         .substring(0, line.length() - ".class".length()))
                 .collect(toList())
                 .toArray(String[]::new);
