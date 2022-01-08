@@ -1,6 +1,7 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
+import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.artifact.http.DefaultHttpClient;
 import jbuild.commands.DepsCommandExecutor;
@@ -327,7 +328,7 @@ public final class Main {
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
 
-        FetchCommandExecutor.createDefault(log).fetchArtifacts(artifacts, fileWriter)
+        createFetchCommandExecutor(options).fetchArtifacts(artifacts, fileWriter)
                 .forEach((artifact, completion) -> completion.whenComplete((ok, err) -> {
                     try {
                         reportErrors(anyError, artifact, ok, err);
@@ -409,23 +410,28 @@ public final class Main {
         return new VersionsCommandExecutor(log, NonEmptyCollection.of(baseUris), DefaultHttpClient.get());
     }
 
-    private DepsCommandExecutor<ArtifactRetrievalError> createDepsCommandExecutor(Options options) {
+    private FetchCommandExecutor<ArtifactRetrievalError> createFetchCommandExecutor(Options options) {
         var retrievers = options.getRetrievers();
         if (retrievers.isEmpty()) {
-            return DepsCommandExecutor.create(log);
+            return FetchCommandExecutor.createDefault(log);
         }
-        return DepsCommandExecutor.create(log,
-                new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers)));
+        return createFetch(log, NonEmptyCollection.of(retrievers));
+    }
+
+    private static <E extends ArtifactRetrievalError> FetchCommandExecutor<E> createFetch(
+            JBuildLog log,
+            NonEmptyCollection<ArtifactRetriever<? extends E>> retrievers) {
+        return new FetchCommandExecutor<>(log, retrievers);
+    }
+
+    private DepsCommandExecutor<ArtifactRetrievalError> createDepsCommandExecutor(Options options) {
+        return DepsCommandExecutor.create(log, createFetchCommandExecutor(options));
     }
 
     private InstallCommandExecutor createInstallCommandExecutor(Options options,
                                                                 ArtifactFileWriter writer) {
-        var retrievers = options.getRetrievers();
-        if (retrievers.isEmpty()) {
-            return InstallCommandExecutor.create(log, writer);
-        }
         return new InstallCommandExecutor(log,
-                new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers)),
+                createFetchCommandExecutor(options),
                 writer);
     }
 

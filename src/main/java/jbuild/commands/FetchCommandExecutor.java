@@ -3,10 +3,9 @@ package jbuild.commands;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
+import jbuild.artifact.DefaultArtifactRetrievers;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.file.ArtifactFileWriter;
-import jbuild.artifact.file.FileArtifactRetriever;
-import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.util.CollectionUtils;
@@ -41,9 +40,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
     }
 
     public static FetchCommandExecutor<ArtifactRetrievalError> createDefault(JBuildLog log) {
-        return new FetchCommandExecutor<>(log, NonEmptyCollection.of(
-                NonEmptyCollection.of(new FileArtifactRetriever()),
-                new HttpArtifactRetriever()));
+        return new FetchCommandExecutor<>(log, DefaultArtifactRetrievers.get());
     }
 
     public CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> fetchArtifact(Artifact artifact) {
