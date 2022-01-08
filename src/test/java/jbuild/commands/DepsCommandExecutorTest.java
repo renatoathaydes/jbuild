@@ -73,7 +73,7 @@ public class DepsCommandExecutorTest {
 
         assertThat(bytesOut.toString(StandardCharsets.UTF_8))
                 .isEqualTo("WARNING: Detected circular dependency chain - " +
-                        "com.athaydes:b:1.0 -> com.athaydes:a:1.0 -> com.athaydes:b:1.0\n");
+                        "com.athaydes:b:1.0 -> com.athaydes:a:1.0 -> com.athaydes:b:1.0" + System.lineSeparator());
     }
 
     private static DepsCommandExecutor<FileRetrievalError> createDepsCommand(OutputStream bytesOut) {
