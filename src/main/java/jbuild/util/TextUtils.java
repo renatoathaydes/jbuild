@@ -5,6 +5,8 @@ import java.util.function.Supplier;
 
 public final class TextUtils {
 
+    public static final String LINE_END = System.lineSeparator();
+
     public static String firstNonBlank(String a, String b) {
         if (a == null || a.isBlank()) {
             return b;

@@ -12,6 +12,7 @@ import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
+import jbuild.util.TextUtils;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -160,11 +161,11 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
             Artifact artifact,
             NonEmptyCollection<? extends Describable> errors) {
         var builder = new StringBuilder(4096);
-        builder.append("Unable to retrieve ").append(artifact).append(" due to:\n");
+        builder.append("Unable to retrieve ").append(artifact).append(" due to:").append(TextUtils.LINE_END);
         for (var error : errors) {
             builder.append("  * ");
             error.describe(builder, log.isVerbose());
-            builder.append('\n');
+            builder.append(TextUtils.LINE_END);
         }
         log.print(builder);
         return Optional.empty();

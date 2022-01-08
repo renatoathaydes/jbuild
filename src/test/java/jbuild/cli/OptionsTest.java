@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -46,12 +47,12 @@ public class OptionsTest {
     void mustNotRecognizeUnknownOption() {
         assertThatThrownBy(() -> Options.parse(new String[]{"-f"}))
                 .isInstanceOf(JBuildException.class)
-                .hasMessage("invalid root option: -f\n" +
+                .hasMessage("invalid root option: -f" + LINE_END +
                         "Run jbuild --help for usage.");
 
         assertThatThrownBy(() -> Options.parse(new String[]{"-v", "--nothing"}))
                 .isInstanceOf(JBuildException.class)
-                .hasMessage("invalid root option: --nothing\n" +
+                .hasMessage("invalid root option: --nothing" + LINE_END +
                         "Run jbuild --help for usage.");
     }
 

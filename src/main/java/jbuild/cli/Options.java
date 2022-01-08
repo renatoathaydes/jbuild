@@ -20,6 +20,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.isEither;
 
 final class Options {
@@ -81,7 +82,7 @@ final class Options {
             } else if (isEither(arg, "-h", "--help")) {
                 help = true;
             } else {
-                throw new JBuildException("invalid root option: " + arg + "\nRun jbuild --help for usage.", USER_INPUT);
+                throw new JBuildException("invalid root option: " + arg + LINE_END + "Run jbuild --help for usage.", USER_INPUT);
             }
         }
 
@@ -130,7 +131,7 @@ final class FetchOptions {
                     nextIsDir = true;
                 } else {
                     throw new JBuildException("invalid fetch option: " + arg +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -187,7 +188,7 @@ final class DepsOptions {
                     licenses = true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -250,7 +251,7 @@ final class InstallOptions {
                     outDir = arg;
                 } else {
                     throw new JBuildException("cannot provide output directory more than once" +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else if (expectRepoDir) {
                 expectRepoDir = false;
@@ -258,7 +259,7 @@ final class InstallOptions {
                     repoDir = arg;
                 } else {
                     throw new JBuildException("cannot provide repository directory more than once" +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
@@ -271,7 +272,7 @@ final class InstallOptions {
                     expectRepoDir = true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -289,7 +290,7 @@ final class InstallOptions {
         if (outDir == null && repoDir == null) outDir = "out";
         if (outDir != null && repoDir != null) {
             throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
-                    "\nRun jbuild --help for usage.", USER_INPUT);
+                    LINE_END + "Run jbuild --help for usage.", USER_INPUT);
         }
 
         return new InstallOptions(unmodifiableSet(artifacts), scopes, outDir, repoDir, optional);
@@ -328,12 +329,12 @@ final class DoctorOptions {
                     expectEntryPoint = true;
                 } else {
                     throw new JBuildException("invalid fix option: " + arg +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
                 if (inputDir != null) {
                     throw new JBuildException("cannot provide more than one input directory for fix command" +
-                            "\nRun jbuild --help for usage.", USER_INPUT);
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
                 inputDir = arg;
             }
@@ -361,7 +362,7 @@ final class VersionsOptions {
         for (String arg : args) {
             if (arg.startsWith("-")) {
                 throw new JBuildException("invalid versions option: " + arg +
-                        "\nRun jbuild --help for usage.", USER_INPUT);
+                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
             } else {
                 artifacts.add(arg);
             }

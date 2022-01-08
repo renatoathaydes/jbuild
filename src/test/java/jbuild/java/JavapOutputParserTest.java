@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.osgiaasCliApiJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
+import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JavapOutputParserTest {
@@ -461,13 +462,13 @@ public class JavapOutputParserTest {
 
     private void assertProcessWasSuccessful(Tools.ToolRunResult result) {
         if (result.exitCode != 0) {
-            throw new RuntimeException("tool failed: " + result.exitCode + ":\n" + processOutput(result));
+            throw new RuntimeException("tool failed: " + result.exitCode + ":" + LINE_END + processOutput(result));
         }
     }
 
     private String processOutput(Tools.ToolRunResult result) {
-        return ">>> sysout:\n" + result.stdout + "\n" +
-                ">>> syserr:\n" + result.stderr + "\n" +
+        return ">>> sysout:" + LINE_END + result.stdout + LINE_END +
+                ">>> syserr:" + LINE_END + result.stderr + LINE_END +
                 "---";
     }
 

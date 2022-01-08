@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -39,12 +40,12 @@ public class FetchOptionsTest {
     void mustNotRecognizeUnknownOption() {
         assertThatThrownBy(() -> FetchOptions.parse(List.of("-f")))
                 .isInstanceOf(JBuildException.class)
-                .hasMessage("invalid fetch option: -f\n" +
+                .hasMessage("invalid fetch option: -f" + LINE_END +
                         "Run jbuild --help for usage.");
 
         assertThatThrownBy(() -> FetchOptions.parse(List.of("-d", "o", "--nothing")))
                 .isInstanceOf(JBuildException.class)
-                .hasMessage("invalid fetch option: --nothing\n" +
+                .hasMessage("invalid fetch option: --nothing" + LINE_END +
                         "Run jbuild --help for usage.");
     }
 

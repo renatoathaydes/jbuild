@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.util.TextUtils.LINE_END;
 import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 public class JBuildTestRunner {
@@ -73,7 +74,8 @@ public class JBuildTestRunner {
     public static void verifySuccessful(String tool, Tools.ToolRunResult result) {
         if (result.exitCode != 0) {
             throw new JBuildException("unexpected error when executing " + tool +
-                    ". Tool output:\n" + result.stdout + "\n\nstderr:\n" + result.stderr, ACTION_ERROR);
+                    ". Tool output:" + LINE_END + result.stdout + LINE_END + LINE_END +
+                    "stderr:" + LINE_END + result.stderr, ACTION_ERROR);
         }
     }
 }

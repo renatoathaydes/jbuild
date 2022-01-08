@@ -12,6 +12,7 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThat;
 import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
@@ -228,7 +229,7 @@ public class InstallTest extends JBuildTestRunner {
         Arrays.sort(files);
 
         for (var file : files) {
-            builder.append(indentation).append(file.getName()).append('\n');
+            builder.append(indentation).append(file.getName()).append(LINE_END);
             if (file.isDirectory()) {
                 fileTreeString(file.listFiles(), builder, indentation + "  ");
             }

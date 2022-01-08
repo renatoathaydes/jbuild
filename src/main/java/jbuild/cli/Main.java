@@ -39,101 +39,102 @@ import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;
 
 public final class Main {
 
     static final String JBUILD_VERSION = "0.0";
 
-    static final String USAGE = "------ JBuild CLI ------\n" +
-            "Version: " + JBUILD_VERSION + "\n" +
-            "\n" +
-            "Utility to build Java (JVM) applications.\n" +
-            "This is work in progress!\n" +
-            "\n" +
-            "Usage:\n" +
-            "    jbuild <root-option> <cmd> <cmd-args...> \n" +
-            "Root Options:\n" +
-            "    --repository\n" +
-            "     -r       Maven repository to use to locate artifacts (file location or HTTP URL).\n" +
-            "    --verbose\n" +
-            "    -V        log verbose output.\n" +
-            "    --version\n" +
-            "    -v        print JBuild version and exit.\n" +
-            "    --help\n" +
-            "    -h        print this usage message.\n" +
-            "\n" +
-            "Available commands:\n" +
-            "\n" +
-            "  * fetch\n" +
-            "    Fetches Maven artifacts from the local Maven repo or Maven Central.\n" +
-            "      Usage:\n" +
-            "        jbuild fetch <options... | artifact...>\n" +
-            "      Options:\n" +
-            "        --directory\n" +
-            "        -d        output directory.\n" +
-            "      Example:\n" +
-            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0\n" +
-            "\n" +
-            "  * install\n" +
-            "    Install Maven artifacts from the local Maven repo or Maven Central.\n" +
-            "    Unlike fetch, install downloads artifacts and their dependencies, and can write\n" +
-            "    them into a flat directory or in the format of a Maven repository.\n" +
-            "      Usage:\n" +
-            "        jbuild install <options... | artifact...>\n" +
-            "      Options:\n" +
-            "        --directory\n" +
-            "        -d        (flat) output directory.\n" +
-            "        --repository\n" +
-            "        -r        (Maven repository root) output directory.\n" +
-            "        --optional\n" +
-            "        -O        include optional dependencies.\n" +
-            "        --scope\n" +
-            "        -s        scope to include (can be passed more than once).\n" +
-            "                  The runtime scope is used by default.\n" +
-            "      Note:\n" +
-            "        The --directory and --repository options are mutually exclusive.\n" +
+    static final String USAGE = "------ JBuild CLI ------" + LINE_END +
+            "Version: " + JBUILD_VERSION + "" + LINE_END +
+            "" + LINE_END +
+            "Utility to build Java (JVM) applications." + LINE_END +
+            "This is work in progress!" + LINE_END +
+            "" + LINE_END +
+            "Usage:" + LINE_END +
+            "    jbuild <root-option> <cmd> <cmd-args...> " + LINE_END +
+            "Root Options:" + LINE_END +
+            "    --repository" + LINE_END +
+            "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
+            "    --verbose" + LINE_END +
+            "    -V        log verbose output." + LINE_END +
+            "    --version" + LINE_END +
+            "    -v        print JBuild version and exit." + LINE_END +
+            "    --help" + LINE_END +
+            "    -h        print this usage message." + LINE_END +
+            "" + LINE_END +
+            "Available commands:" + LINE_END +
+            "" + LINE_END +
+            "  * fetch" + LINE_END +
+            "    Fetches Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild fetch <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        output directory." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
+            "" + LINE_END +
+            "  * install" + LINE_END +
+            "    Install Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
+            "    Unlike fetch, install downloads artifacts and their dependencies, and can write" + LINE_END +
+            "    them into a flat directory or in the format of a Maven repository." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild install <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        (flat) output directory." + LINE_END +
+            "        --repository" + LINE_END +
+            "        -r        (Maven repository root) output directory." + LINE_END +
+            "        --optional" + LINE_END +
+            "        -O        include optional dependencies." + LINE_END +
+            "        --scope" + LINE_END +
+            "        -s        scope to include (can be passed more than once)." + LINE_END +
+            "                  The runtime scope is used by default." + LINE_END +
+            "      Note:" + LINE_END +
+            "        The --directory and --repository options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-d out/' is used." +
-            "      Example:\n" +
-            "        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0\n" +
-            "\n" +
-            "  * deps\n" +
-            "    List the dependencies of the given artifacts.\n" +
-            "      Usage:\n" +
-            "        jbuild deps <options... | artifact...>\n" +
-            "      Options:\n" +
-            "        --licenses\n" +
-            "        -l        show licenses of all artifacts (requires --transitive option).\n" +
-            "        --optional\n" +
-            "        -O        include optional dependencies.\n" +
-            "        --scope\n" +
-            "        -s        scope to include (can be passed more than once).\n" +
-            "                  All scopes are listed by default.\n" +
-            "        --transitive\n" +
-            "        -t        include transitive dependencies.\n" +
-            "      Example:\n" +
-            "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2\n" +
-            "\n" +
-            "  * doctor\n" +
-            "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s).\n" +
-            "    This command requires user interaction by default.\n" +
-            "      Usage:\n" +
-            "        jbuild doctor <options...> <dir>\n" +
-            "      Options:\n" +
-            "        --entrypoint\n" +
-            "        -e        entry-point jar within the directory, or the application jar\n" +
-            "                  (can be passed more than once).\n" +
-            "        --yes\n" +
-            "        -y        answer any question with 'yes'.\n" +
-            "      Example:\n" +
-            "        jbuild doctor my-dir -e app.jar\n" +
-            "\n" +
-            "  * versions\n" +
-            "    List the versions of the given artifacts that are available on Maven Central.\n" +
-            "      Usage:\n" +
-            "        jbuild versions <artifact...>\n" +
-            "      Example:\n" +
-            "        jbuild versions junit:junit\n" +
+            "      Example:" + LINE_END +
+            "        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0" + LINE_END +
+            "" + LINE_END +
+            "  * deps" + LINE_END +
+            "    List the dependencies of the given artifacts." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild deps <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --licenses" + LINE_END +
+            "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
+            "        --optional" + LINE_END +
+            "        -O        include optional dependencies." + LINE_END +
+            "        --scope" + LINE_END +
+            "        -s        scope to include (can be passed more than once)." + LINE_END +
+            "                  All scopes are listed by default." + LINE_END +
+            "        --transitive" + LINE_END +
+            "        -t        include transitive dependencies." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2" + LINE_END +
+            "" + LINE_END +
+            "  * doctor" + LINE_END +
+            "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s)." + LINE_END +
+            "    This command requires user interaction by default." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild doctor <options...> <dir>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --entrypoint" + LINE_END +
+            "        -e        entry-point jar within the directory, or the application jar" + LINE_END +
+            "                  (can be passed more than once)." + LINE_END +
+            "        --yes" + LINE_END +
+            "        -y        answer any question with 'yes'." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild doctor my-dir -e app.jar" + LINE_END +
+            "" + LINE_END +
+            "  * versions" + LINE_END +
+            "    List the versions of the given artifacts that are available on Maven Central." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild versions <artifact...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild versions junit:junit" + LINE_END +
             "";
 
     public static void main(String[] args) {
@@ -497,8 +498,8 @@ public final class Main {
             throw new JBuildException(e.getMessage(), USER_INPUT);
         }
 
-        log.verbosePrintln(() -> "Parsed artifacts coordinates:\n" + artifacts.stream()
-                .map(a -> "  * " + a + "\n")
+        log.verbosePrintln(() -> "Parsed artifacts coordinates:" + LINE_END + artifacts.stream()
+                .map(a -> "  * " + a + LINE_END)
                 .collect(joining()));
 
         return artifacts;

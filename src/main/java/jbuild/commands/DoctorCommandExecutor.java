@@ -38,6 +38,7 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
+import static jbuild.util.TextUtils.LINE_END;
 
 public final class DoctorCommandExecutor {
 
@@ -132,7 +133,7 @@ public final class DoctorCommandExecutor {
                 skip = completion.jarset.containsAny(badJarPairs);
                 if (!skip) {
                     if (interactive) {
-                        log.println("Next classpath:\n" + completion.jarset.toClasspath());
+                        log.println("Next classpath:" + LINE_END + completion.jarset.toClasspath());
                         var keepGoing = askYesOrNoQuestion("Do you want to continue");
                         if (!keepGoing) abort.set(true);
                     } else {
@@ -337,7 +338,7 @@ public final class DoctorCommandExecutor {
             for (var result : failures) {
                 result.use(failureResult -> {
                     if (failureResult.aborted) return;
-                    log.println(() -> "\nAttempted classpath: " + failureResult.jarSet.toClasspath());
+                    log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
                     var errorCount = failureResult.errors.size();
                     log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
                     var reportable = errorCount > 5 && !log.isVerbose()
@@ -347,12 +348,12 @@ public final class DoctorCommandExecutor {
                         log.println("  * " + error.message);
                     }
                     if (reportable.size() < failureResult.errors.size()) {
-                        log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>\n");
+                        log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>" + LINE_END);
                     } else {
                         log.println("");
                     }
                 }, throwable -> {
-                    log.println("\nError trying to verify classpath consistency:");
+                    log.println(LINE_END + "Error trying to verify classpath consistency:");
                     log.print(throwable);
                 });
 
@@ -362,7 +363,7 @@ public final class DoctorCommandExecutor {
     }
 
     private void showSuccessfulClasspath(JarSet jarSet) {
-        log.println("All entrypoint type dependencies are satisfied by the classpath below:\n");
+        log.println("All entrypoint type dependencies are satisfied by the classpath below:" + LINE_END);
         log.println(jarSet.toClasspath());
     }
 
