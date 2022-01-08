@@ -1,5 +1,6 @@
 package tests;
 
+import jbuild.artifact.Artifact;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
@@ -12,6 +13,7 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
+import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 /**
  * Note: the install program is used to initialize the {@link JBuildTestRunner}, so we already know that
@@ -201,6 +203,19 @@ public class InstallTest extends JBuildTestRunner {
                         "junit-jupiter-engine-5.7.0.jar",
                         "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
                 );
+    }
+
+    @Test
+    void cannotFetchArtifactThatDoesNotExist() {
+        var result = runWithIntTestRepo("install", "foo.bar:foo:1.0");
+        assertThat(result.exitCode).isEqualTo(6);
+
+        var artifact = new Artifact("foo.bar", "foo", "1.0", "pom");
+        assertThat(result.stdout).startsWith("Unable to retrieve " +
+                artifact + " due to:\n" +
+                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]\n" +
+                "ERROR: Could not install all artifacts successfully\n" +
+                "JBuild failed in ");
     }
 
     private static String fileTreeString(File[] files) {

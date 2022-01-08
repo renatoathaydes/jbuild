@@ -15,6 +15,7 @@ import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 public class FetchTest extends JBuildTestRunner {
 
@@ -100,6 +101,20 @@ public class FetchTest extends JBuildTestRunner {
                 "org/opentest4j/TestAbortedException.class",
                 "org/opentest4j/ValueWrapper.class",
                 "module-info.class"));
+    }
+
+    @Test
+    void cannotFetchArtifactThatDoesNotExist() {
+        var result = runWithIntTestRepo("fetch", "foo.bar:foo:1.0");
+        assertThat(result.exitCode).isEqualTo(1);
+
+        var artifact = new Artifact("foo.bar", "foo", "1.0");
+        assertThat(result.stdout).startsWith("Unable to retrieve " +
+                artifact + " due to:\n" +
+                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]\n" +
+                "Failed to handle foo.bar:foo:1.0\n" +
+                "ERROR: Could not fetch all artifacts successfully\n" +
+                "JBuild failed in ");
     }
 
 }

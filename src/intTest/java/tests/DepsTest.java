@@ -1,9 +1,11 @@
 package tests;
 
+import jbuild.artifact.Artifact;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 public class DepsTest extends JBuildTestRunner {
 
@@ -59,4 +61,19 @@ public class DepsTest extends JBuildTestRunner {
                 "  5 compile dependencies listed\n" +
                 "JBuild success in ");
     }
+
+    @Test
+    void canNotGetDepsOfNonExistingArtifact() {
+        var result = runWithIntTestRepo("deps", "bad:artifact:0");
+        assertThat(result.exitCode).isEqualTo(1);
+
+        var artifact = new Artifact("bad", "artifact", "0", "pom");
+        assertThat(result.stdout).startsWith("Unable to retrieve " +
+                artifact + " due to:\n" +
+                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]\n" +
+                "Failed to handle bad:artifact:0\n" +
+                "ERROR: Could not fetch all Maven dependencies successfully\n" +
+                "JBuild failed in ");
+    }
+
 }
