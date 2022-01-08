@@ -1,11 +1,16 @@
 # JBuild
 
-JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management
-and application, as opposed to libraries, classpath verification.
+[![Actions Status](https://github.com/renatoathaydes/jbuild/workflows/Build%20And%20Test%20on%20All%20OSs/badge.svg)](https://github.com/renatoathaydes/jbuild/actions)
 
-It consists of a simple CLI, so it can be used as a very handy command-line utility,
-but can also be used as a Java library, allowing JVM applications
-to manage other Java projects and dependencies themselves.
+[![Maven Central](https://img.shields.io/maven-central/v/com.athaydes.jbuild/jbuild.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22com.athaydes.jbuild%22%20AND%20a:%22jbuild%22)
+
+> This project is NOT READY for general usage, consider it in ALPHA for the moment!
+
+JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management and
+application, as opposed to libraries, classpath verification.
+
+It consists of a simple CLI, so it can be used as a very handy command-line utility, but can also be used as a Java
+library, allowing JVM applications to manage other Java projects and dependencies themselves.
 
 ## Features
 
