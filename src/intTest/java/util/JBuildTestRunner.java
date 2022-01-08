@@ -17,6 +17,8 @@ import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 public class JBuildTestRunner {
 
+    public static final String LE = System.lineSeparator();
+
     public interface Artifacts {
         String GUAVA = "com.google.guava:guava:31.0.1-jre";
         String APACHE_COMMONS_COMPRESS = "org.apache.commons:commons-compress:1.21";

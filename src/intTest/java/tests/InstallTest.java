@@ -31,128 +31,128 @@ public class InstallTest extends JBuildTestRunner {
         assertThat(rootDirectories).isNotNull();
 
         List<String> expectedLines = ("" +
-                "asm\n" +
-                "  asm\n" +
-                "    3.2\n" +
-                "      asm-3.2.jar\n" +
-                "      asm-3.2.pom\n" +
-                "  asm-parent\n" +
-                "    3.2\n" +
-                "      asm-parent-3.2.pom\n" +
-                "com\n" +
-                "  github\n" +
-                "    luben\n" +
-                "      zstd-jni\n" +
-                "        1.5.0-2\n" +
-                "          zstd-jni-1.5.0-2.jar\n" +
-                "          zstd-jni-1.5.0-2.pom\n" +
-                "  google\n" +
-                "    code\n" +
-                "      findbugs\n" +
-                "        jsr305\n" +
-                "          3.0.2\n" +
-                "            jsr305-3.0.2.jar\n" +
-                "            jsr305-3.0.2.pom\n" +
-                "    errorprone\n" +
-                "      error_prone_annotations\n" +
-                "        2.7.1\n" +
-                "          error_prone_annotations-2.7.1.jar\n" +
-                "          error_prone_annotations-2.7.1.pom\n" +
-                "      error_prone_parent\n" +
-                "        2.7.1\n" +
-                "          error_prone_parent-2.7.1.pom\n" +
-                "    guava\n" +
-                "      failureaccess\n" +
-                "        1.0.1\n" +
-                "          failureaccess-1.0.1.jar\n" +
-                "          failureaccess-1.0.1.pom\n" +
-                "      guava\n" +
-                "        31.0.1-jre\n" +
-                "          guava-31.0.1-jre.jar\n" +
-                "          guava-31.0.1-jre.pom\n" +
-                "      guava-parent\n" +
-                "        26.0-android\n" +
-                "          guava-parent-26.0-android.pom\n" +
-                "        31.0.1-jre\n" +
-                "          guava-parent-31.0.1-jre.pom\n" +
-                "      listenablefuture\n" +
-                "        9999.0-empty-to-avoid-conflict-with-guava\n" +
-                "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar\n" +
-                "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom\n" +
-                "    j2objc\n" +
-                "      j2objc-annotations\n" +
-                "        1.3\n" +
-                "          j2objc-annotations-1.3.jar\n" +
-                "          j2objc-annotations-1.3.pom\n" +
-                "org\n" +
-                "  apache\n" +
-                "    apache\n" +
-                "      23\n" +
-                "        apache-23.pom\n" +
-                "    commons\n" +
-                "      commons-compress\n" +
-                "        1.21\n" +
-                "          commons-compress-1.21.jar\n" +
-                "          commons-compress-1.21.pom\n" +
-                "      commons-parent\n" +
-                "        52\n" +
-                "          commons-parent-52.pom\n" +
-                "  apiguardian\n" +
-                "    apiguardian-api\n" +
-                "      1.1.0\n" +
-                "        apiguardian-api-1.1.0.jar\n" +
-                "        apiguardian-api-1.1.0.pom\n" +
-                "  brotli\n" +
-                "    dec\n" +
-                "      0.1.2\n" +
-                "        dec-0.1.2.jar\n" +
-                "        dec-0.1.2.pom\n" +
-                "    parent\n" +
-                "      0.1.2\n" +
-                "        parent-0.1.2.pom\n" +
-                "  checkerframework\n" +
-                "    checker-qual\n" +
-                "      3.12.0\n" +
-                "        checker-qual-3.12.0.jar\n" +
-                "        checker-qual-3.12.0.pom\n" +
-                "  junit\n" +
-                "    junit-bom\n" +
-                "      5.7.0\n" +
-                "        junit-bom-5.7.0.pom\n" +
-                "    jupiter\n" +
-                "      junit-jupiter-api\n" +
-                "        5.7.0\n" +
-                "          junit-jupiter-api-5.7.0.jar\n" +
-                "          junit-jupiter-api-5.7.0.pom\n" +
-                "      junit-jupiter-engine\n" +
-                "        5.7.0\n" +
-                "          junit-jupiter-engine-5.7.0.jar\n" +
-                "          junit-jupiter-engine-5.7.0.pom\n" +
-                "    platform\n" +
-                "      junit-platform-commons\n" +
-                "        1.7.0\n" +
-                "          junit-platform-commons-1.7.0.jar\n" +
-                "          junit-platform-commons-1.7.0.pom\n" +
-                "      junit-platform-engine\n" +
-                "        1.7.0\n" +
-                "          junit-platform-engine-1.7.0.jar\n" +
-                "          junit-platform-engine-1.7.0.pom\n" +
-                "  opentest4j\n" +
-                "    opentest4j\n" +
-                "      1.2.0\n" +
-                "        opentest4j-1.2.0.jar\n" +
-                "        opentest4j-1.2.0.pom\n" +
-                "  sonatype\n" +
-                "    oss\n" +
-                "      oss-parent\n" +
-                "        7\n" +
-                "          oss-parent-7.pom\n" +
-                "        9\n" +
-                "          oss-parent-9.pom\n" +
-                "  tukaani\n" +
-                "    xz\n" +
-                "      1.9\n" +
-                "        xz-1.9.jar\n" +
+                "asm" + LE +
+                "  asm" + LE +
+                "    3.2" + LE +
+                "      asm-3.2.jar" + LE +
+                "      asm-3.2.pom" + LE +
+                "  asm-parent" + LE +
+                "    3.2" + LE +
+                "      asm-parent-3.2.pom" + LE +
+                "com" + LE +
+                "  github" + LE +
+                "    luben" + LE +
+                "      zstd-jni" + LE +
+                "        1.5.0-2" + LE +
+                "          zstd-jni-1.5.0-2.jar" + LE +
+                "          zstd-jni-1.5.0-2.pom" + LE +
+                "  google" + LE +
+                "    code" + LE +
+                "      findbugs" + LE +
+                "        jsr305" + LE +
+                "          3.0.2" + LE +
+                "            jsr305-3.0.2.jar" + LE +
+                "            jsr305-3.0.2.pom" + LE +
+                "    errorprone" + LE +
+                "      error_prone_annotations" + LE +
+                "        2.7.1" + LE +
+                "          error_prone_annotations-2.7.1.jar" + LE +
+                "          error_prone_annotations-2.7.1.pom" + LE +
+                "      error_prone_parent" + LE +
+                "        2.7.1" + LE +
+                "          error_prone_parent-2.7.1.pom" + LE +
+                "    guava" + LE +
+                "      failureaccess" + LE +
+                "        1.0.1" + LE +
+                "          failureaccess-1.0.1.jar" + LE +
+                "          failureaccess-1.0.1.pom" + LE +
+                "      guava" + LE +
+                "        31.0.1-jre" + LE +
+                "          guava-31.0.1-jre.jar" + LE +
+                "          guava-31.0.1-jre.pom" + LE +
+                "      guava-parent" + LE +
+                "        26.0-android" + LE +
+                "          guava-parent-26.0-android.pom" + LE +
+                "        31.0.1-jre" + LE +
+                "          guava-parent-31.0.1-jre.pom" + LE +
+                "      listenablefuture" + LE +
+                "        9999.0-empty-to-avoid-conflict-with-guava" + LE +
+                "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar" + LE +
+                "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom" + LE +
+                "    j2objc" + LE +
+                "      j2objc-annotations" + LE +
+                "        1.3" + LE +
+                "          j2objc-annotations-1.3.jar" + LE +
+                "          j2objc-annotations-1.3.pom" + LE +
+                "org" + LE +
+                "  apache" + LE +
+                "    apache" + LE +
+                "      23" + LE +
+                "        apache-23.pom" + LE +
+                "    commons" + LE +
+                "      commons-compress" + LE +
+                "        1.21" + LE +
+                "          commons-compress-1.21.jar" + LE +
+                "          commons-compress-1.21.pom" + LE +
+                "      commons-parent" + LE +
+                "        52" + LE +
+                "          commons-parent-52.pom" + LE +
+                "  apiguardian" + LE +
+                "    apiguardian-api" + LE +
+                "      1.1.0" + LE +
+                "        apiguardian-api-1.1.0.jar" + LE +
+                "        apiguardian-api-1.1.0.pom" + LE +
+                "  brotli" + LE +
+                "    dec" + LE +
+                "      0.1.2" + LE +
+                "        dec-0.1.2.jar" + LE +
+                "        dec-0.1.2.pom" + LE +
+                "    parent" + LE +
+                "      0.1.2" + LE +
+                "        parent-0.1.2.pom" + LE +
+                "  checkerframework" + LE +
+                "    checker-qual" + LE +
+                "      3.12.0" + LE +
+                "        checker-qual-3.12.0.jar" + LE +
+                "        checker-qual-3.12.0.pom" + LE +
+                "  junit" + LE +
+                "    junit-bom" + LE +
+                "      5.7.0" + LE +
+                "        junit-bom-5.7.0.pom" + LE +
+                "    jupiter" + LE +
+                "      junit-jupiter-api" + LE +
+                "        5.7.0" + LE +
+                "          junit-jupiter-api-5.7.0.jar" + LE +
+                "          junit-jupiter-api-5.7.0.pom" + LE +
+                "      junit-jupiter-engine" + LE +
+                "        5.7.0" + LE +
+                "          junit-jupiter-engine-5.7.0.jar" + LE +
+                "          junit-jupiter-engine-5.7.0.pom" + LE +
+                "    platform" + LE +
+                "      junit-platform-commons" + LE +
+                "        1.7.0" + LE +
+                "          junit-platform-commons-1.7.0.jar" + LE +
+                "          junit-platform-commons-1.7.0.pom" + LE +
+                "      junit-platform-engine" + LE +
+                "        1.7.0" + LE +
+                "          junit-platform-engine-1.7.0.jar" + LE +
+                "          junit-platform-engine-1.7.0.pom" + LE +
+                "  opentest4j" + LE +
+                "    opentest4j" + LE +
+                "      1.2.0" + LE +
+                "        opentest4j-1.2.0.jar" + LE +
+                "        opentest4j-1.2.0.pom" + LE +
+                "  sonatype" + LE +
+                "    oss" + LE +
+                "      oss-parent" + LE +
+                "        7" + LE +
+                "          oss-parent-7.pom" + LE +
+                "        9" + LE +
+                "          oss-parent-9.pom" + LE +
+                "  tukaani" + LE +
+                "    xz" + LE +
+                "      1.9" + LE +
+                "        xz-1.9.jar" + LE +
                 "        xz-1.9.pom" +
                 "").lines().collect(toList());
 
@@ -172,14 +172,14 @@ public class InstallTest extends JBuildTestRunner {
         // the "Will install..." message runs async, either one can show up first
         assertThat(result.stdout).satisfiesAnyOf(
                 stdout ->
-                        assertThat(stdout).startsWith("Will install 6 artifacts at " + dir + "\n" +
-                                "Will install 7 artifacts at " + dir + "\n" +
-                                "Successfully installed 13 artifacts at " + dir + "\n" +
+                        assertThat(stdout).startsWith("Will install 6 artifacts at " + dir + "" + LE +
+                                "Will install 7 artifacts at " + dir + "" + LE +
+                                "Successfully installed 13 artifacts at " + dir + "" + LE +
                                 "JBuild success in "),
                 stdout ->
-                        assertThat(stdout).startsWith("Will install 7 artifacts at " + dir + "\n" +
-                                "Will install 6 artifacts at " + dir + "\n" +
-                                "Successfully installed 13 artifacts at " + dir + "\n" +
+                        assertThat(stdout).startsWith("Will install 7 artifacts at " + dir + "" + LE +
+                                "Will install 6 artifacts at " + dir + "" + LE +
+                                "Successfully installed 13 artifacts at " + dir + "" + LE +
                                 "JBuild success in "));
 
         var jars = dir.toFile().listFiles();
@@ -212,9 +212,9 @@ public class InstallTest extends JBuildTestRunner {
 
         var artifact = new Artifact("foo.bar", "foo", "1.0", "pom");
         assertThat(result.stdout).startsWith("Unable to retrieve " +
-                artifact + " due to:\n" +
-                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]\n" +
-                "ERROR: Could not install all artifacts successfully\n" +
+                artifact + " due to:" + LE +
+                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
+                "ERROR: Could not install all artifacts successfully" + LE +
                 "JBuild failed in ");
     }
 

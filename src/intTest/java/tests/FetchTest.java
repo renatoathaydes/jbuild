@@ -26,6 +26,7 @@ public class FetchTest extends JBuildTestRunner {
         outDirExists = new File("out").isDirectory();
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @AfterAll
     static void afterAll() {
         if (!outDirExists) {
@@ -36,10 +37,10 @@ public class FetchTest extends JBuildTestRunner {
                     if (file.isDirectory()) {
                         throw new IllegalStateException("Did not expect directory inside out/ dir");
                     }
-                    assertThat(file.delete()).isTrue();
+                    file.delete();
                 }
             }
-            assertThat(outDir.delete()).isTrue();
+            outDir.delete();
         }
     }
 
@@ -110,10 +111,10 @@ public class FetchTest extends JBuildTestRunner {
 
         var artifact = new Artifact("foo.bar", "foo", "1.0");
         assertThat(result.stdout).startsWith("Unable to retrieve " +
-                artifact + " due to:\n" +
-                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]\n" +
-                "Failed to handle foo.bar:foo:1.0\n" +
-                "ERROR: Could not fetch all artifacts successfully\n" +
+                artifact + " due to:" + LE +
+                "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
+                "Failed to handle foo.bar:foo:1.0" + LE +
+                "ERROR: Could not fetch all artifacts successfully" + LE +
                 "JBuild failed in ");
     }
 
