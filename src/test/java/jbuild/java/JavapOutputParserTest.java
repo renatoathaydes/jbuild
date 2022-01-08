@@ -1,5 +1,6 @@
 package jbuild.java;
 
+import jbuild.TestSystemProperties;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
@@ -118,7 +119,7 @@ public class JavapOutputParserTest {
 
         assertThat(result.methodHandles).isEmpty();
 
-        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+        assertThat(result.methods.keySet()).containsAll(Set.of(
                 new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V"),
                 new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;"),
                 new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),
@@ -126,6 +127,17 @@ public class JavapOutputParserTest {
                 // these two methods are inherited from Enum, but special-cased so we can find references to them
                 new Definition.MethodDefinition("ordinal", "()I"),
                 new Definition.MethodDefinition("name", "()Ljava/lang/String;")));
+
+        var isJava17Plus = TestSystemProperties.javaVersion >= 17;
+
+        if (isJava17Plus) {
+            assertThat(result.methods.keySet()).contains(
+                    new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;")
+            );
+            assertThat(result.methods.size()).isEqualTo(7);
+        } else {
+            assertThat(result.methods.size()).isEqualTo(6);
+        }
 
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V")))
                 .isEmpty();
@@ -138,6 +150,11 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V")))
                 .isEmpty();
+
+        if (isJava17Plus) {
+            assertThat(result.methods.get(new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;")))
+                    .isEmpty();
+        }
     }
 
     @Test
