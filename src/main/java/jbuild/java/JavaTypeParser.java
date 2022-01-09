@@ -8,7 +8,6 @@ import java.util.Set;
 import static java.lang.Character.isAlphabetic;
 import static java.lang.Character.isDigit;
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
-import static jbuild.util.JavaTypeUtils.unwrapTypeName;
 
 /**
  * A parser that can identify and parse a type identifier line given {@link Tools.Javap}'s output.
@@ -19,6 +18,8 @@ import static jbuild.util.JavaTypeUtils.unwrapTypeName;
  * of invalid lines to parse... for this reason, instead of throwing Exceptions or returning errors, when created with
  * {@code throwOnError} set to {@code false}, it will simply
  * return {@code null} as soon as it finds out that a particular line is not a valid type identifier line.
+ * <p>
+ * This class is mutable and not Thread-safe.
  */
 public final class JavaTypeParser {
 
@@ -27,7 +28,6 @@ public final class JavaTypeParser {
 
     private int index;
     private String line;
-
     private final boolean throwOnError;
 
     /**
@@ -40,20 +40,25 @@ public final class JavaTypeParser {
     }
 
     public JavaType parse(String line) {
-        this.line = line;
-        this.index = 0;
-        return parseType();
+        var typeId = parseTypeId(line);
+        if (typeId == null) return null;
+        return parseType(typeId);
     }
 
-    private JavaType parseType() {
-        String name = null;
-        JavaType.Kind kind = null;
-        List<JavaType.TypeBound> superTypes = List.of();
-        List<JavaType.TypeParam> typeParameters = List.of();
-        List<JavaType.TypeBound> interfaces = List.of();
+    public JavaType parseSignature(JavaType.TypeId typeId, String line) {
+        this.line = line;
+        this.index = 0;
+        return parseSignature(typeId);
+    }
+
+    public JavaType.TypeId parseTypeId(String typeIdLine) {
+        this.line = typeIdLine;
+        this.index = 0;
+
+        JavaType.TypeId typeId = null;
 
         while (index >= 0 && index < line.length()) {
-            var word = nextWord(false);
+            var word = nextWord();
             if (word.isEmpty() || index >= line.length() || currentChar() != ' ') {
                 if (throwOnError) throw new RuntimeException("expected word followed by space but got '" +
                         word + currentChar() + "'");
@@ -64,26 +69,11 @@ public final class JavaTypeParser {
                 continue;
             }
             if (TYPE_KIND.contains(word)) {
-                kind = JavaType.Kind.valueOf(word.toUpperCase(Locale.ROOT));
+                var kind = JavaType.Kind.valueOf(word.toUpperCase(Locale.ROOT));
                 var spec = nextTypeBound();
                 if (spec == null) return null;
-                name = spec.name;
-                typeParameters = spec.params;
-                if (expectNext(" extends ")) {
-                    if (kind == JavaType.Kind.INTERFACE) {
-                        interfaces = parseBounds(true);
-                        if (interfaces == null) return null;
-                    } else {
-                        var bound = nextTypeBound();
-                        if (bound == null) return null;
-                        if (!bound.equals(JavaType.OBJECT)) {
-                            superTypes = List.of(bound);
-                        }
-                    }
-                    if (superTypes.stream().anyMatch(t -> t.name.equals("Ljava/lang/Enum;"))) {
-                        kind = JavaType.Kind.ENUM;
-                    }
-                }
+                var name = spec.name;
+                typeId = new JavaType.TypeId(name, kind);
                 break;
             } else {
                 if (throwOnError) throw new RuntimeException("expected a type kind or modifier but got '" + word + "'");
@@ -91,14 +81,39 @@ public final class JavaTypeParser {
             }
         }
 
-        if (name == null || name.isBlank()) {
+        if (typeId == null || typeId.name.isBlank()) {
             if (throwOnError) throw new RuntimeException("no type name found");
             return null;
         }
 
-        if (kind != JavaType.Kind.INTERFACE &&
+        return typeId;
+    }
+
+    private JavaType parseType(JavaType.TypeId typeId) {
+        List<JavaType.TypeBound> superTypes = List.of();
+        List<JavaType.TypeBound> interfaces = List.of();
+
+        if (index >= 0 && index < line.length()) {
+            if (expectNext(" extends ")) {
+                if (typeId.kind == JavaType.Kind.INTERFACE) {
+                    interfaces = parseInterfaces();
+                    if (interfaces == null) return null;
+                } else {
+                    var bound = nextTypeBound();
+                    if (bound == null) return null;
+                    if (!bound.equals(JavaType.OBJECT)) {
+                        superTypes = List.of(bound);
+                    }
+                }
+                if (superTypes.stream().anyMatch(t -> t.name.equals("Ljava/lang/Enum;"))) {
+                    typeId = new JavaType.TypeId(typeId.name, JavaType.Kind.ENUM);
+                }
+            }
+        }
+
+        if (typeId.kind != JavaType.Kind.INTERFACE &&
                 (expectNext(" implements ") || expectNext("implements "))) {
-            interfaces = parseBounds(true);
+            interfaces = parseInterfaces();
             if (interfaces == null) {
                 return null;
             }
@@ -109,14 +124,19 @@ public final class JavaTypeParser {
             return null;
         }
 
-        return new JavaType(name, kind, superTypes, typeParameters, interfaces);
+        return new JavaType(typeId, superTypes, List.of(), interfaces);
+    }
+
+    private JavaType parseSignature(JavaType.TypeId typeId) {
+        // TODO parse the type signature
+        return null;
     }
 
     private JavaType.TypeBound nextTypeBound() {
         String name;
         List<JavaType.TypeParam> params = List.of();
 
-        var word = nextWord(false);
+        var word = nextWord();
         if (word.isEmpty()) {
             if (throwOnError) throw new RuntimeException("expected type bound but got '" + currentChar() + "'");
             return null;
@@ -124,68 +144,10 @@ public final class JavaTypeParser {
 
         name = classNameToTypeName(word);
 
-        char c = currentChar();
-        if (c == '<') {
-            index++;
-            params = parseParams();
-            if (params == null) return null;
-            if (currentChar() == '.') { // nested type
-                index++;
-                var nested = nextTypeBound();
-                if (nested == null) return null;
-                name = classNameToTypeName(word + '$' + unwrapTypeName(nested.name));
-                params = nested.params;
-            }
-        }
         return new JavaType.TypeBound(name, params);
     }
 
-    private JavaType.TypeParam nextTypeParam() {
-        List<JavaType.TypeBound> bounds = List.of();
-        List<JavaType.TypeParam> params = List.of();
-
-        var name = nextWord(true);
-        if (name.isEmpty()) {
-            if (throwOnError) throw new RuntimeException("expected type parameter but got '" + currentChar() + "'");
-            return null;
-        }
-
-        if (currentChar() == '<') {
-            index++;
-            params = parseParams();
-            if (params == null) return null;
-        }
-
-        if (expectNext(" extends ") || expectNext("super ")) {
-            bounds = parseBounds(false);
-            if (bounds == null) return null;
-        } else {
-            name = classNameToTypeName(name);
-        }
-
-        return new JavaType.TypeParam(name, bounds, params);
-    }
-
-    private List<JavaType.TypeParam> parseParams() {
-        var params = new ArrayList<JavaType.TypeParam>(2);
-        var keepGoing = true;
-        while (keepGoing) {
-            var param = nextTypeParam();
-            if (param == null) return null;
-            params.add(param);
-            keepGoing = expectNext(", ");
-        }
-        if (currentChar() == '>') {
-            index++;
-            return params;
-        }
-        if (throwOnError) throw new RuntimeException("expected type parameters to end with '>' but got '" +
-                currentChar() + "'");
-
-        return null;
-    }
-
-    private List<JavaType.TypeBound> parseBounds(boolean isInterfaces) {
+    private List<JavaType.TypeBound> parseInterfaces() {
         var bounds = new ArrayList<JavaType.TypeBound>(2);
         var keepGoing = true;
         while (keepGoing) {
@@ -194,12 +156,8 @@ public final class JavaTypeParser {
             if (!JavaType.OBJECT.equals(bound)) {
                 bounds.add(bound);
             }
-            if (isInterfaces) {
-                keepGoing = expectNext(",");
-                expectNext(" "); // optional whitespace sometimes emitted by javap
-            } else {
-                keepGoing = expectNext(" & ");
-            }
+            keepGoing = expectNext(",");
+            expectNext(" "); // optional whitespace sometimes emitted by javap
         }
         return bounds;
     }
@@ -221,13 +179,9 @@ public final class JavaTypeParser {
         return Character.MIN_VALUE;
     }
 
-    private String nextWord(boolean isTypeParameter) {
+    private String nextWord() {
         var next = nextSeparator();
         if (index == next) {
-            if (isTypeParameter && currentChar() == '?') {
-                index++;
-                return "?";
-            }
             return "";
         }
         var word = line.substring(index, next);

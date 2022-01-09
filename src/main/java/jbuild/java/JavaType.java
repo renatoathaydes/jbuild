@@ -9,21 +9,28 @@ public final class JavaType {
         CLASS, ENUM, INTERFACE,
     }
 
+    public static class TypeId {
+        public final String name;
+        public final Kind kind;
+
+        public TypeId(String name, Kind kind) {
+            this.name = name;
+            this.kind = kind;
+        }
+    }
+
     public static final TypeBound OBJECT = new TypeBound("Ljava/lang/Object;", List.of());
 
-    public String name;
-    public Kind kind;
-    public List<TypeBound> superTypes;
-    public List<TypeParam> typeParameters;
-    public List<TypeBound> interfaces;
+    public final TypeId typeId;
+    public final List<TypeBound> superTypes;
+    public final List<TypeParam> typeParameters;
+    public final List<TypeBound> interfaces;
 
-    public JavaType(String name,
-                    Kind kind,
+    public JavaType(TypeId typeId,
                     List<TypeBound> superTypes,
                     List<TypeParam> typeParameters,
                     List<TypeBound> interfaces) {
-        this.name = name;
-        this.kind = kind;
+        this.typeId = typeId;
         this.superTypes = superTypes;
         this.typeParameters = typeParameters;
         this.interfaces = interfaces;
@@ -58,7 +65,7 @@ public final class JavaType {
 
         JavaType javaType = (JavaType) o;
 
-        if (!name.equals(javaType.name)) return false;
+        if (!typeId.name.equals(javaType.typeId.name)) return false;
         if (!superTypes.equals(javaType.superTypes)) return false;
         if (!typeParameters.equals(javaType.typeParameters)) return false;
         return interfaces.equals(javaType.interfaces);
@@ -66,7 +73,7 @@ public final class JavaType {
 
     @Override
     public int hashCode() {
-        int result = name.hashCode();
+        int result = typeId.name.hashCode();
         result = 31 * result + superTypes.hashCode();
         result = 31 * result + typeParameters.hashCode();
         result = 31 * result + interfaces.hashCode();
@@ -76,7 +83,8 @@ public final class JavaType {
     @Override
     public String toString() {
         return "JavaType{" +
-                "name='" + name + '\'' +
+                "name='" + typeId.name + '\'' +
+                ", kind='" + typeId.kind + '\'' +
                 ", superTypes=" + superTypes +
                 ", typeParams=" + typeParameters +
                 ", interfaces=" + interfaces +
@@ -87,6 +95,7 @@ public final class JavaType {
         public final String name;
         public final List<TypeBound> bounds;
         public final List<TypeParam> params;
+        public boolean isConcreteType;
 
         public TypeParam(String name,
                          List<TypeBound> bounds,
@@ -94,13 +103,14 @@ public final class JavaType {
             this.name = name;
             this.bounds = bounds;
             this.params = params;
+            this.isConcreteType = name.endsWith(";");
         }
 
         public Stream<String> typesReferredTo() {
             if (bounds.isEmpty() && params.isEmpty()) return Stream.of();
             return Stream.concat(
                     bounds.stream().flatMap(TypeBound::typesReferredTo),
-                    params.stream().flatMap(TypeParam::typesReferredTo));
+                    params.stream().filter(p -> p.isConcreteType).flatMap(TypeParam::typesReferredTo));
         }
 
         @Override

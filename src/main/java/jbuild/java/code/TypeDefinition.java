@@ -27,7 +27,7 @@ public final class TypeDefinition {
         this.methodHandles = methodHandles;
         this.methods = methods;
 
-        this.typeName = type.name;
+        this.typeName = type.typeId.name;
         this.implementedInterfaces = type.interfaces.stream()
                 .map(bound -> bound.name)
                 .collect(toSet());

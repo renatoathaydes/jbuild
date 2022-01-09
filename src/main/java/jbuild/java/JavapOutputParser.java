@@ -44,15 +44,39 @@ public final class JavapOutputParser {
         while (lines.hasNext()) {
             var line = lines.next();
             if (waitingForClassLine) {
-                var type = typeParser.parse(line);
-                if (type != null) {
-                    var typeDef = processJavapOutput(type, lines);
-                    result.put(typeDef.typeName, typeDef);
-                    waitingForClassLine = false;
-                } else if (!line.startsWith(" ")) {
-                    log.println("WARNING: did not find class name after Classfile section started. " +
-                            "Ignoring class from line '" + line + "'");
-                    waitingForClassLine = false;
+                waitingForClassLine = false;
+                var isGeneric = line.contains("<");
+                if (isGeneric) {
+                    var typeId = typeParser.parseTypeId(line);
+                    if (typeId != null) {
+                        var typeDef = processBody(typeId, lines);
+                        if (lines.hasNext()) {
+                            var typeSignature = lines.next();
+                            var type = typeParser.parseSignature(typeId, typeSignature);
+                            if (type != null) {
+                                result.put(typeId.name, typeDef.toTypeDefinition(type));
+                            } else {
+                                log.println("WARNING: could not parse generic type signature, " +
+                                        "ignoring class from line '" + line + "': bad signature: '" + typeSignature);
+                            }
+                        } else {
+                            log.println("WARNING: did not find generic type signature after Classfile section started. " +
+                                    "Ignoring class from line '" + line + "'");
+                        }
+                    } else if (!line.startsWith(" ")) {
+                        log.println("WARNING: did not find class name after Classfile section started. " +
+                                "Ignoring class from line '" + line + "'");
+                    }
+
+                } else {
+                    var type = typeParser.parse(line);
+                    if (type != null) {
+                        var typeDef = processBody(type.typeId, lines);
+                        result.put(type.typeId.name, typeDef.toTypeDefinition(type));
+                    } else if (!line.startsWith(" ")) {
+                        log.println("WARNING: did not find class name after Classfile section started. " +
+                                "Ignoring class from line '" + line + "'");
+                    }
                 }
             } else if (line.startsWith("Classfile jar:")) {
                 waitingForClassLine = true;
@@ -61,19 +85,19 @@ public final class JavapOutputParser {
         return result;
     }
 
-    private TypeDefinition processJavapOutput(JavaType javaType,
-                                              Iterator<String> lines) {
+    private JavaTypeDefinitions processBody(JavaType.TypeId typeId,
+                                            Iterator<String> lines) {
         Set<Code.Method> methodHandles = null;
         while (lines.hasNext()) {
             var line = lines.next();
             if (line.equals("Constant pool:")) {
-                methodHandles = parseConstantPool(javaType.name, lines);
+                methodHandles = parseConstantPool(typeId.name, lines);
                 break;
             }
         }
         if (methodHandles == null)
-            throw new IllegalStateException("Constant pool not found for class " + javaType.name);
-        return processClassMethods(javaType, methodHandles, lines);
+            throw new IllegalStateException("Constant pool not found for class " + typeId.name);
+        return processClassMethods(typeId, methodHandles, lines);
     }
 
     private Set<Code.Method> parseConstantPool(String typeName, Iterator<String> lines) {
@@ -93,9 +117,10 @@ public final class JavapOutputParser {
         return methodHandles;
     }
 
-    private TypeDefinition processClassMethods(JavaType javaType,
-                                               Set<Code.Method> methodHandles,
-                                               Iterator<String> lines) {
+    private JavaTypeDefinitions processClassMethods(JavaType.TypeId typeId,
+                                                    Set<Code.Method> methodHandles,
+                                                    Iterator<String> lines) {
+        var typeName = typeId.name;
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<Definition.MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<Definition.FieldDefinition>();
@@ -114,7 +139,7 @@ public final class JavapOutputParser {
                 expectingFlags = false;
                 if (currentAbstractMethod) {
                     currentAbstractMethod = false;
-                    var method = new Definition.MethodDefinition(methodOrConstructorName(javaType.name, name), type);
+                    var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
                     methods.put(method, Set.of());
                 } else {
                     expectingCode = true;
@@ -122,8 +147,8 @@ public final class JavapOutputParser {
             } else if (expectingCode) {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
-                    var method = new Definition.MethodDefinition(methodOrConstructorName(javaType.name, name), type);
-                    var code = processCode(lines, javaType.name);
+                    var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
+                    var code = processCode(lines, typeName);
                     methods.put(method, code);
                 }
             } else if (line.startsWith("    descriptor: ")) {
@@ -132,7 +157,7 @@ public final class JavapOutputParser {
                     type = "()V";
                     expectingFlags = true;
                 } else if (prevLine.contains("(")) { // method
-                    name = extractMethodName(prevLine, javaType.name); // descriptor always appears after the definition's name
+                    name = extractMethodName(prevLine, typeName); // descriptor always appears after the definition's name
                     if (name == null) continue;
                     type = line.substring("    descriptor: ".length());
                     expectingFlags = true; // after the descriptor, comes the flags then code
@@ -147,8 +172,8 @@ public final class JavapOutputParser {
             prevLine = line;
         }
 
-        return new TypeDefinition(javaType, fields, methodHandles,
-                javaType.kind == JavaType.Kind.ENUM ? addEnumMethods(methods) : methods);
+        return new JavaTypeDefinitions(fields, methodHandles,
+                typeId.kind == JavaType.Kind.ENUM ? addEnumMethods(methods) : methods);
     }
 
     private Set<Code> processCode(Iterator<String> lines, String typeName) {
@@ -289,6 +314,25 @@ public final class JavapOutputParser {
 
     private static String methodOrConstructorName(String typeName, String methodName) {
         return typeName.equals(methodName) ? "\"<init>\"" : methodName;
+    }
+
+    private static final class JavaTypeDefinitions {
+
+        final Set<Definition.FieldDefinition> fields;
+        final Set<Code.Method> methodHandles;
+        final Map<Definition.MethodDefinition, Set<Code>> methods;
+
+        JavaTypeDefinitions(Set<Definition.FieldDefinition> fields,
+                            Set<Code.Method> methodHandles,
+                            Map<Definition.MethodDefinition, Set<Code>> methods) {
+            this.fields = fields;
+            this.methodHandles = methodHandles;
+            this.methods = methods;
+        }
+
+        TypeDefinition toTypeDefinition(JavaType type) {
+            return new TypeDefinition(type, fields, methodHandles, methods);
+        }
     }
 
 }
