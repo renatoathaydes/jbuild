@@ -84,7 +84,7 @@ public class JavaTypeParserTest {
         assertThat(type)
                 .isEqualTo(new JavaType(new JavaType.TypeId("LGenerics;", JavaType.Kind.CLASS),
                         List.of(),
-                        List.of(typeParam("T", typeBound("LBaseA;"))),
+                        List.of(typeParam("T", typeBound("Lgenerics/Base;"))),
                         List.of()));
     }
 
@@ -130,8 +130,8 @@ public class JavaTypeParserTest {
                         List.of(typeBound("Ljava/util/function/Function;",
                                 typeParam("Lgenerics/Generics;",
                                         List.of(), typeParam("Lgenerics/BaseA;")),
-                                typeParam("Ljava/util/concurrent/Callable",
-                                        List.of(), typeParam("T"))))));
+                                typeParam("Ljava/util/concurrent/Callable;",
+                                        List.of(), typeParam("TT"))))));
     }
 
     @Test
@@ -155,13 +155,13 @@ public class JavaTypeParserTest {
         var type = parser.parseSignature(
                 new JavaType.TypeId("Lgenerics/ComplexType;", JavaType.Kind.CLASS),
                 "<T:Lgenerics/Generics<+Lgenerics/BaseA;>;:Lfoo/EmptyInterface;>" +
-                        "Lgenerics/Generics<Lgenerics/Base;>" +
-                        ";Ljava/util/concurrent/Callable<Lgenerics/Generics<Lgenerics/BaseA;>;>;" +
+                        "Lgenerics/Generics<Lgenerics/Base;>;" +
+                        "Ljava/util/concurrent/Callable<Lgenerics/Generics<Lgenerics/BaseA;>;>;" +
                         "Ljava/lang/Runnable;" +
                         "Ljava/util/function/Function<Ljava/lang/String;Lgenerics/Generics<Lgenerics/Base;>;>;");
 
         assertThat(type)
-                .isEqualTo(new JavaType(new JavaType.TypeId("Lgenerics/X;", JavaType.Kind.CLASS),
+                .isEqualTo(new JavaType(new JavaType.TypeId("Lgenerics/ComplexType;", JavaType.Kind.CLASS),
                         List.of(typeBound("Lgenerics/Generics;",
                                 typeParam("Lgenerics/Base;"))),
                         List.of(typeParam("T",
@@ -208,10 +208,10 @@ public class JavaTypeParserTest {
                         List.of(typeBound("Lcom/google/common/util/concurrent/AbstractCatchingFuture;",
                                 typeParam("TV"),
                                 typeParam("TX"),
-                                typeParam("Lcom/google/common/base/Function", List.of(),
+                                typeParam("Lcom/google/common/base/Function;", List.of(),
                                         typeParam("TX"), typeParam("TV")),
                                 typeParam("TV"))),
-                        List.of(),
+                        List.of(typeParam("V"), typeParam("X", typeBound("Ljava/lang/Throwable;"))),
                         List.of()));
     }
 
@@ -233,9 +233,9 @@ public class JavaTypeParserTest {
                 new Example("foo bar", "expected a type kind or modifier but got 'foo'"),
                 new Example("public bar", "expected word followed by space but got 'bar\u0000'"),
                 new Example("public bar ", "expected a type kind or modifier but got 'bar'"),
-                new Example("public class ", "expected type bound but got '\u0000'"),
-                new Example("class Foo extends ", "expected type bound but got '\u0000'"),
-                new Example("class Foo implements ", "expected type bound but got '\u0000'"),
+                new Example("public class ", "expected type bound but got '\u0000' at index 13"),
+                new Example("class Foo extends ", "expected type bound but got '\u0000' at index 18"),
+                new Example("class Foo implements ", "expected type bound but got '\u0000' at index 21"),
                 new Example("class Foo<>", "unexpected input following type at index 9"),
                 new Example("class Foo extends Bar extends Zort",
                         "unexpected input following type at index 22"),

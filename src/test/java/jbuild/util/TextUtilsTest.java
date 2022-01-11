@@ -49,4 +49,21 @@ public class TextUtilsTest {
         assertThat("" + TextUtils.durationText(Duration.ofDays(35).plus(Duration.ofMillis(15))))
                 .isEqualTo("PT840H0.015S");
     }
+
+    @Test
+    void trimEnd() {
+        assertThat(TextUtils.trimEnd("", ' ')).isEqualTo("");
+        assertThat(TextUtils.trimEnd(" ", ' ')).isEqualTo("");
+        assertThat(TextUtils.trimEnd("   ", ' ')).isEqualTo("");
+        assertThat(TextUtils.trimEnd("f", ' ')).isEqualTo("f");
+        assertThat(TextUtils.trimEnd("foo", ' ')).isEqualTo("foo");
+        assertThat(TextUtils.trimEnd("f ", ' ')).isEqualTo("f");
+        assertThat(TextUtils.trimEnd(" f ", ' ')).isEqualTo(" f");
+        assertThat(TextUtils.trimEnd(" foo bar ", ' ')).isEqualTo(" foo bar");
+        assertThat(TextUtils.trimEnd(" foo bar      ", ' ')).isEqualTo(" foo bar");
+        assertThat(TextUtils.trimEnd(";", ';')).isEqualTo("");
+        assertThat(TextUtils.trimEnd("foo;", ';')).isEqualTo("foo");
+        assertThat(TextUtils.trimEnd("foo;;", ';')).isEqualTo("foo");
+        assertThat(TextUtils.trimEnd("fo;o;;", ';')).isEqualTo("fo;o");
+    }
 }

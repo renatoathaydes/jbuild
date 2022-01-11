@@ -61,4 +61,18 @@ public final class TextUtils {
         }
         return false;
     }
+
+    public static String trimEnd(String text, char endChar) {
+        if (text.isEmpty()) return "";
+        int index = text.length() - 1;
+        while (index >= 0) {
+            if (text.charAt(index) == endChar) {
+                index--;
+            } else {
+                break;
+            }
+        }
+        if (index < 0) return "";
+        return text.substring(0, index + 1);
+    }
 }

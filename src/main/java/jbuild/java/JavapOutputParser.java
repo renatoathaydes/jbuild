@@ -1,5 +1,6 @@
 package jbuild.java;
 
+import jbuild.errors.JBuildException;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
@@ -24,6 +26,7 @@ public final class JavapOutputParser {
     private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:.*\\s//\\s([A-Za-z].+)");
 
     private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
+    private static final Pattern METHOD_SIGNATURE_LINE = Pattern.compile("Signature:\\s[0-9\\s#]+//\\s(.+)");
 
     private final JBuildLog log;
     private final JavaTypeParser typeParser;
@@ -44,6 +47,7 @@ public final class JavapOutputParser {
         while (lines.hasNext()) {
             var line = lines.next();
             if (waitingForClassLine) {
+                if (line.startsWith(" ")) continue; // wait for first line without indent
                 waitingForClassLine = false;
                 var isGeneric = line.contains("<");
                 if (isGeneric) {
@@ -52,7 +56,12 @@ public final class JavapOutputParser {
                         var typeDef = processBody(typeId, lines);
                         if (lines.hasNext()) {
                             var typeSignature = lines.next();
-                            var type = typeParser.parseSignature(typeId, typeSignature);
+                            var match = METHOD_SIGNATURE_LINE.matcher(typeSignature);
+                            if (!match.matches()) {
+                                throw new JBuildException("invalid javap output: expected method signature but got '" +
+                                        typeSignature + "'", ACTION_ERROR);
+                            }
+                            var type = typeParser.parseSignature(typeId, match.group(1));
                             if (type != null) {
                                 result.put(typeId.name, typeDef.toTypeDefinition(type));
                             } else {
@@ -131,8 +140,7 @@ public final class JavapOutputParser {
                 prevLine = line;
                 continue;
             }
-            if (line.equals("}") // normal end of class
-                    || line.startsWith("SourceFile: \"")) { // the code section might end with '}', so the next line will be this
+            if (!line.isEmpty() && !line.startsWith("  ")) { // indent must be less than the type body's
                 break;
             }
             if (expectingFlags) {
@@ -148,8 +156,9 @@ public final class JavapOutputParser {
                 expectingCode = false;
                 if (line.equals("    Code:")) {
                     var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
-                    var code = processCode(lines, typeName);
-                    methods.put(method, code);
+                    var codeSection = processCode(lines, typeName);
+                    methods.put(method, codeSection.code);
+                    if (codeSection.endsTypeSection) break;
                 }
             } else if (line.startsWith("    descriptor: ")) {
                 if (prevLine.equals("  static {};")) { // static block
@@ -176,21 +185,23 @@ public final class JavapOutputParser {
                 typeId.kind == JavaType.Kind.ENUM ? addEnumMethods(methods) : methods);
     }
 
-    private Set<Code> processCode(Iterator<String> lines, String typeName) {
-        var result = new LinkedHashSet<Code>();
+    private CodeSection processCode(Iterator<String> lines, String typeName) {
+        var codes = new LinkedHashSet<Code>();
+        var endTypeSection = false;
         while (lines.hasNext()) {
             var line = lines.next();
-            if (line.isEmpty() || line.equals("}")) { // this ends the code section
+            if (!line.startsWith("      ")) { // indentation must be less than the Code section's
+                endTypeSection = line.equals("}");
                 break;
             }
             var match = CODE_LINE.matcher(line);
             if (match.matches()) {
                 var parts = match.group(1).split("\\s");
                 var code = handleCommentParts(parts, typeName);
-                if (code != null) result.add(code);
+                if (code != null) codes.add(code);
             }
         }
-        return result;
+        return new CodeSection(codes, endTypeSection);
     }
 
     // special-case enum methods as it's not currently possible to find parent classes' methods yet
@@ -227,9 +238,17 @@ public final class JavapOutputParser {
     private Code.Method parseMethod(String method,
                                     String typeName) {
         var parts1 = method.split("\\.", 2);
-        if (parts1.length != 2) return null; // unexpected, maybe WARNING?
+        if (parts1.length != 2) {
+            log.println(() -> "WARNING: unexpected javap method line, expected a '.' " +
+                    "after the name: '" + method + "'");
+            return null;
+        }
         var parts2 = parts1[1].split(":");
-        if (parts2.length != 2) return null; // unexpected, maybe WARNING?
+        if (parts2.length != 2) {
+            log.println(() -> "WARNING: unexpected javap method line, expected a ':' " +
+                    "between name and type signature: '" + method + "'");
+            return null;
+        }
         var type = classNameToTypeName(parts1[0]);
         if (shouldIgnoreClass(type, typeName)) return null;
         return new Code.Method(type, parts2[0], parts2[1]);
@@ -332,6 +351,16 @@ public final class JavapOutputParser {
 
         TypeDefinition toTypeDefinition(JavaType type) {
             return new TypeDefinition(type, fields, methodHandles, methods);
+        }
+    }
+
+    private static final class CodeSection {
+        final Set<Code> code;
+        boolean endsTypeSection;
+
+        CodeSection(Set<Code> code, boolean endsTypeSection) {
+            this.code = code;
+            this.endsTypeSection = endsTypeSection;
         }
     }
 
