@@ -104,9 +104,6 @@ public final class JavaTypeParser {
                         superTypes = List.of(bound);
                     }
                 }
-                if (superTypes.stream().anyMatch(t -> t.name.equals("Ljava/lang/Enum;"))) {
-                    typeId = new JavaType.TypeId(typeId.name, JavaType.Kind.ENUM);
-                }
             }
         }
 
@@ -151,6 +148,10 @@ public final class JavaTypeParser {
             }
         }
 
+        if (superTypes.stream().anyMatch(t -> t.name.equals("Ljava/lang/Enum;"))) {
+            typeId = new JavaType.TypeId(typeId.name, JavaType.Kind.ENUM);
+        }
+
         return new JavaType(typeId, superTypes, typeParameters, interfaces);
     }
 
@@ -183,7 +184,7 @@ public final class JavaTypeParser {
         } else {
             name = word;
         }
-        var isTypeParameter = !name.startsWith("L");
+        var isTypeParameter = !name.startsWith("L") && !name.startsWith("[");
         var c = currentChar();
         if (c == ':') {
             isTypeParameter = true;

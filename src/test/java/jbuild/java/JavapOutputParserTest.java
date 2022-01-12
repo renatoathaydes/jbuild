@@ -381,7 +381,7 @@ public class JavapOutputParserTest {
         assertThat(result.implementedInterfaces).isEmpty();
         assertThat(result.type.getParentTypes()).containsExactlyInAnyOrderElementsOf(Set.of(
                 new JavaType.TypeBound("Lgenerics/GenericStructure$Data;",
-                        List.of(new JavaType.TypeParam("LD;", List.of(), List.of())))
+                        List.of(new JavaType.TypeParam("TD", List.of(), List.of())))
         ));
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.FieldDefinition("this$0", "Lgenerics/GenericStructure;")

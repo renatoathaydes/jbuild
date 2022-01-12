@@ -63,6 +63,9 @@ public final class JavapOutputParser {
                             }
                             var type = typeParser.parseSignature(typeId, match.group(1));
                             if (type != null) {
+                                if (type.typeId.kind == JavaType.Kind.ENUM) {
+                                    typeDef = typeDef.withMethods(addEnumMethods(typeDef.methods));
+                                }
                                 result.put(typeId.name, typeDef.toTypeDefinition(type));
                             } else {
                                 log.println("WARNING: could not parse generic type signature, " +
@@ -106,6 +109,7 @@ public final class JavapOutputParser {
         }
         if (methodHandles == null)
             throw new IllegalStateException("Constant pool not found for class " + typeId.name);
+
         return processClassMethods(typeId, methodHandles, lines);
     }
 
@@ -136,6 +140,7 @@ public final class JavapOutputParser {
         boolean expectingCode = false, expectingFlags = false, currentAbstractMethod = false;
         while (lines.hasNext()) {
             var line = lines.next();
+            if (line.equals("}")) break;
             if (prevLine == null) {
                 prevLine = line;
                 continue;
@@ -181,8 +186,7 @@ public final class JavapOutputParser {
             prevLine = line;
         }
 
-        return new JavaTypeDefinitions(fields, methodHandles,
-                typeId.kind == JavaType.Kind.ENUM ? addEnumMethods(methods) : methods);
+        return new JavaTypeDefinitions(fields, methodHandles, methods);
     }
 
     private CodeSection processCode(Iterator<String> lines, String typeName) {
@@ -351,6 +355,10 @@ public final class JavapOutputParser {
 
         TypeDefinition toTypeDefinition(JavaType type) {
             return new TypeDefinition(type, fields, methodHandles, methods);
+        }
+
+        public JavaTypeDefinitions withMethods(Map<Definition.MethodDefinition, Set<Code>> methods) {
+            return new JavaTypeDefinitions(fields, methodHandles, methods);
         }
     }
 

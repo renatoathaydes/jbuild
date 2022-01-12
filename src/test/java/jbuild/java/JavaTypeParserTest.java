@@ -191,6 +191,20 @@ public class JavaTypeParserTest {
     }
 
     @Test
+    void canParseGenericTypeWithArray() {
+        var type = parser.parseSignature(
+                new JavaType.TypeId("Lgenerics/GenericWithArray;", JavaType.Kind.CLASS),
+                "Ljava/lang/Object;Lgenerics/GenericParameter<[Ljava/lang/Boolean;[[Ljava/lang/String;>;");
+
+        assertThat(type)
+                .isEqualTo(new JavaType(new JavaType.TypeId("Lgenerics/GenericWithArray;", JavaType.Kind.CLASS),
+                        List.of(),
+                        List.of(),
+                        List.of(typeBound("Lgenerics/GenericParameter;",
+                                typeParam("[Ljava/lang/Boolean;"), typeParam("[[Ljava/lang/String;")))));
+    }
+
+    @Test
     void canParseReallyComplexGuavaType() {
         // final class com.google.common.util.concurrent.AbstractCatchingFuture$CatchingFuture
         // <V extends java.lang.Object,
