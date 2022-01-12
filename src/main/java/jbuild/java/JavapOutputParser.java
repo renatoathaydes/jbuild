@@ -222,7 +222,9 @@ public final class JavapOutputParser {
                     break;
                 case "Method":
                 case "InterfaceMethod":
-                    return parseMethod(parts[1], typeName);
+                    // only look at method calls that have a receiver (i.e. not this)
+                    if (parts[1].contains(".")) return parseMethod(parts[1], typeName);
+                    break;
                 case "class":
                     return parseClass(parts[1], typeName);
                 case "Field":
