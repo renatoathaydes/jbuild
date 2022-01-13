@@ -256,7 +256,8 @@ public final class DoctorCommandExecutor {
             log.verbosePrintln(() -> "Field type owner " + fieldOwner +
                     " not found in any jar, checking if it is a Java API");
             return classGraph.existsJava(fieldOwner, targetField) ? null :
-                    new ClassPathInconsistency("Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
+                    new ClassPathInconsistency("Field " + targetField.descriptor() +
+                            ", used in method " + methodDef.descriptor() + " of " +
                             jar.getName() + "!" + type + " cannot be found as there is no such field in " + fieldOwner,
                             jar, null);
         }
@@ -273,7 +274,8 @@ public final class DoctorCommandExecutor {
             return "Could not find " + targetField.descriptor() + " in " + typeDef.typeName +
                     ", available fields are " + fields;
         });
-        return new ClassPathInconsistency("Field " + targetField.descriptor() + ", used in method " + methodDef.descriptor() + " of " +
+        return new ClassPathInconsistency("Field " + targetField.descriptor() +
+                ", used in method " + methodDef.descriptor() + " of " +
                 jar.getName() + "!" + type + " cannot be found as there is no such field in " +
                 targetJar + "!" + typeDef.typeName,
                 jar, targetJar);
@@ -293,7 +295,7 @@ public final class DoctorCommandExecutor {
                     " not found in any jar, checking if it is a Java API");
             return classGraph.existsJava(methodOwner, targetMethod) ? null :
                     new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
-                            (methodDef == null ? "" : " method " + methodDef.descriptor() + " of ") +
+                            (methodDef == null ? "" : "method " + methodDef.descriptor() + " of ") +
                             jar.getName() + "!" + type + " cannot be found as there is no such method in " + methodOwner,
                             jar, null);
         }
@@ -311,7 +313,7 @@ public final class DoctorCommandExecutor {
                     ", available methods are " + methods;
         });
         return new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
-                (methodDef == null ? "" : " method " + methodDef.descriptor() + " of ") +
+                (methodDef == null ? "" : "method " + methodDef.descriptor() + " of ") +
                 jar.getName() + "!" + type + " cannot be found as there is no such method in " +
                 targetJar + "!" + typeDef.typeName,
                 jar, targetJar);

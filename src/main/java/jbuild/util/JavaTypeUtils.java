@@ -15,6 +15,12 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
  */
 public final class JavaTypeUtils {
 
+    // types that should not be used in usual JVM projects, but are widely used so we open an exception
+    // for them so usual jars like guava and Groovy won't cause errors
+    private static final Set<String> WHITELISTED_NON_STDLIB_TYPES = Set.of(
+            "Lsun/misc/Unsafe;"
+    );
+
     // See https://docs.oracle.com/en/java/javase/11/docs/api/overview-tree.html
     private static final Set<String> JAVA_STD_LIB_PACKAGES = Set.of(
             "Ljava/",
@@ -38,7 +44,7 @@ public final class JavaTypeUtils {
     public static String classNameToTypeName(String className) {
         if (className.startsWith("\"")
                 // avoid converting already converted type names
-                || (className.startsWith("L") && className.endsWith(";"))
+                || (isReferenceType(className))
         ) return className;
         var result = new StringBuilder(className.length() + 4);
         if (className.endsWith("]")) {
@@ -64,10 +70,20 @@ public final class JavaTypeUtils {
      * @return Java language type name
      */
     public static String typeNameToClassName(String typeName) {
-        if (typeName.startsWith("L") && typeName.endsWith(";")) {
+        if (isReferenceType(typeName)) {
             return typeName.substring(1, typeName.length() - 1).replaceAll("/", ".");
         }
         return typeName;
+    }
+
+    /**
+     * Check if the given JVM internal type name is a reference type.
+     *
+     * @param typeName name of type
+     * @return true if type name starts with 'L' and ends with ';', false otherwise.
+     */
+    public static boolean isReferenceType(String typeName) {
+        return typeName.startsWith("L") && typeName.endsWith(";");
     }
 
     /**
@@ -81,19 +97,6 @@ public final class JavaTypeUtils {
             var index = type.lastIndexOf('[');
             var end = type.endsWith("\"") ? type.length() - 1 : type.length();
             return type.substring(index + 1, end);
-        }
-        return type;
-    }
-
-    /**
-     * Remove the usual type name markers for reference types (starts with 'L', ends with ';').
-     *
-     * @param type name of type
-     * @return the unwrapped reference type name, or the same type name as given if it's not a reference type
-     */
-    public static String unwrapTypeName(String type) {
-        if (type.startsWith("L") && type.endsWith(";")) {
-            return type.substring(1, type.length() - 1);
         }
         return type;
     }
@@ -177,7 +180,8 @@ public final class JavaTypeUtils {
      * @return true if the type belongs to one of the packages included in the Java standard library.
      */
     public static boolean mayBeJavaStdLibType(String typeName) {
-        return JAVA_STD_LIB_PACKAGES.stream().anyMatch(typeName::startsWith);
+        return WHITELISTED_NON_STDLIB_TYPES.contains(typeName) ||
+                JAVA_STD_LIB_PACKAGES.stream().anyMatch(typeName::startsWith);
     }
 
     /**
@@ -240,4 +244,5 @@ public final class JavaTypeUtils {
         return Arrays.stream(parameterTypes).map(JavaTypeUtils::toTypeDescriptor)
                 .collect(joining("", "(", ")")) + toTypeDescriptor(returnType);
     }
+
 }

@@ -230,6 +230,26 @@ public class JavaTypeParserTest {
     }
 
     @Test
+    void canParseTypeWithGenericBoundaryBeingAnotherGenericParameter() {
+        // final class com.google.common.base.PairwiseEquivalence
+        //  <E extends java.lang.Object, T extends E>
+        //  extends com.google.common.base.Equivalence<java.lang.Iterable<T>>
+        //  implements java.io.Serializable
+        var type = parser.parseSignature(
+                new JavaType.TypeId("Lcom/google/common/base/PairwiseEquivalence;", JavaType.Kind.CLASS),
+                "<E:Ljava/lang/Object;T:TE;>" +
+                        "Lcom/google/common/base/Equivalence<Ljava/lang/Iterable<TT;>;>;" +
+                        "Ljava/io/Serializable;");
+
+        assertThat(type)
+                .isEqualTo(new JavaType(new JavaType.TypeId("Lcom/google/common/base/PairwiseEquivalence;", JavaType.Kind.CLASS),
+                        List.of(typeBound("Lcom/google/common/base/Equivalence;",
+                                typeParam("Ljava/lang/Iterable;", List.of(), typeParam("TT")))),
+                        List.of(typeParam("E"), typeParam("T", typeBound("TE"))),
+                        List.of(typeBound("Ljava/io/Serializable;"))));
+    }
+
+    @Test
     void canThrowErrorsOrReturnNullWhenInvalidLineIsParsed() {
         class Example {
             final String line;

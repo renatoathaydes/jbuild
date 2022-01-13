@@ -32,6 +32,12 @@ import static jbuild.util.JavaTypeUtils.typeNameToClassName;
  */
 public final class ClassGraph {
 
+    private static final Definition.FieldDefinition ARRAY_LENGTH =
+            new Definition.FieldDefinition("length", "I");
+
+    private static final Definition.MethodDefinition ARRAY_CLONE =
+            new Definition.MethodDefinition("clone", "()Ljava/lang/Object;");
+
     private final Map<File, Map<String, TypeDefinition>> typesByJar;
     private final Map<String, File> jarByType;
 
@@ -140,6 +146,7 @@ public final class ClassGraph {
      * @return true if the definition exists in the type
      */
     public boolean exists(String typeName, Definition definition) {
+        if (typeName.startsWith("\"[")) return existsJavaArray(definition);
         var typeDef = findTypeDefinition(typeName);
         if (typeDef == null) return existsJava(typeName, definition);
         var result = definition.match(
@@ -164,9 +171,14 @@ public final class ClassGraph {
     }
 
     public boolean existsJava(String typeName, Definition definition) {
+        if (typeName.startsWith("\"[")) return existsJavaArray(definition);
         var type = getJavaType(typeName);
         if (type == null) return false;
         return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m));
+    }
+
+    private boolean existsJavaArray(Definition definition) {
+        return definition.match(ARRAY_LENGTH::equals, ARRAY_CLONE::equals);
     }
 
     private static Class<?> getJavaType(String typeName) {

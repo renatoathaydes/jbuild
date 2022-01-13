@@ -24,6 +24,10 @@ public class JBuildTestRunner {
         String GUAVA = "com.google.guava:guava:31.0.1-jre";
         String APACHE_COMMONS_COMPRESS = "org.apache.commons:commons-compress:1.21";
         String JUNIT5_ENGINE = "org.junit.jupiter:junit-jupiter-engine:5.7.0";
+        String GROOVY = "org.codehaus.groovy:groovy:3.0.9";
+
+        String GUAVA_JAR_NAME = "guava-31.0.1-jre.jar";
+        String GROOVY_JAR_NAME = "groovy-3.0.9.jar";
     }
 
     public interface SystemProperties {
@@ -36,7 +40,7 @@ public class JBuildTestRunner {
             System.out.println("Installing Maven repository for integration tests at " + integrationTestsRepo.getPath());
             var result = new JBuildTestRunner().run("install",
                     "-O", "-s", "compile", "-r", integrationTestsRepo.getPath(),
-                    Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE);
+                    Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE, Artifacts.GROOVY);
             verifySuccessful("install", result);
         } else {
             System.out.println("Skipping creating a new Maven repository for integration tests as repo already exists");

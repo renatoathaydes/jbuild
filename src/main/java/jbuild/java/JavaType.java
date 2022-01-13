@@ -3,6 +3,8 @@ package jbuild.java;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static jbuild.util.JavaTypeUtils.isReferenceType;
+
 public final class JavaType {
 
     public enum Kind {
@@ -103,7 +105,7 @@ public final class JavaType {
             this.name = name;
             this.bounds = bounds;
             this.params = params;
-            this.isConcreteType = name.endsWith(";");
+            this.isConcreteType = isReferenceType(name);
         }
 
         public Stream<String> typesReferredTo() {
@@ -154,7 +156,10 @@ public final class JavaType {
         }
 
         public Stream<String> typesReferredTo() {
-            return Stream.concat(Stream.of(name), params.stream().flatMap(TypeParam::typesReferredTo));
+            var others = params.stream().flatMap(TypeParam::typesReferredTo);
+            return isReferenceType(name) // only reference types count
+                    ? Stream.concat(Stream.of(name), others)
+                    : others;
         }
 
         @Override

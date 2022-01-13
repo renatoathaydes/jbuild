@@ -10,11 +10,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static jbuild.java.Tools.verifyToolSuccessful;
@@ -89,12 +90,28 @@ public class ClassGraphLoader {
     }
 
     private CompletionStage<Map<String, TypeDefinition>> processClasses(File jar, Collection<String> classNames) {
-        return supplyAsync(() -> {
-            var result = Tools.Javap.create().run(jar.getAbsolutePath(), classNames.toArray(String[]::new));
-            verifyToolSuccessful("javap", result);
-            var javapOutputParser = new JavapOutputParser(log);
-            return javapOutputParser.processJavapOutput(result.stdout.lines().iterator());
-        });
+        var result = new CompletableFuture<Map<String, TypeDefinition>>();
+
+        // this call can block for a long time, use a new Thread to avoid blocking concurrent work
+        new Thread(() -> {
+            var startTime = System.currentTimeMillis();
+            try {
+                var toolResult = Tools.Javap.create().run(jar.getAbsolutePath(), classNames.toArray(String[]::new));
+                var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
+                log.verbosePrintln(() -> "javap " + jar + " completed in " + totalTime.get() + "ms");
+                verifyToolSuccessful("javap", toolResult);
+                var javapOutputParser = new JavapOutputParser(log);
+                startTime = System.currentTimeMillis();
+                var typeDefs = javapOutputParser.processJavapOutput(toolResult.stdout.lines().iterator());
+                totalTime.set(System.currentTimeMillis() - startTime);
+                log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar + " in " + totalTime.get() + "ms");
+                result.complete(typeDefs);
+            } catch (Throwable e) {
+                result.completeExceptionally(e);
+            }
+        }).start();
+
+        return result;
     }
 
     public static final class ClassGraphCompletion {

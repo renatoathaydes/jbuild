@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static jbuild.util.CollectionUtils.append;
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 import static jbuild.util.TextUtils.trimEnd;
 
@@ -69,7 +70,7 @@ public final class JavaTypeParser {
             }
             if (TYPE_KIND.contains(word)) {
                 var kind = JavaType.Kind.valueOf(word.toUpperCase(Locale.ROOT));
-                var spec = nextTypeBound(false);
+                var spec = nextTypeBound(false, List.of());
                 if (spec == null) return null;
                 var name = spec.name;
                 typeId = new JavaType.TypeId(name, kind);
@@ -98,7 +99,7 @@ public final class JavaTypeParser {
                     interfaces = parseInterfaces();
                     if (interfaces == null) return null;
                 } else {
-                    var bound = nextTypeBound(false);
+                    var bound = nextTypeBound(false, List.of());
                     if (bound == null) return null;
                     if (!bound.equals(JavaType.OBJECT)) {
                         superTypes = List.of(bound);
@@ -129,11 +130,11 @@ public final class JavaTypeParser {
 
         if (currentChar() == '<') {
             index++;
-            typeParameters = parseTypeSignatureParameters();
+            typeParameters = parseTypeSignatureParameters(typeParameters);
             if (typeParameters == null) return null;
         }
 
-        var bound = nextTypeBound(true);
+        var bound = nextTypeBound(true, typeParameters);
         if (bound == null) return null;
         var superTypes = JavaType.OBJECT.equals(bound)
                 ? List.<JavaType.TypeBound>of()
@@ -142,7 +143,7 @@ public final class JavaTypeParser {
         if (index < line.length()) {
             interfaces = new ArrayList<>(2);
             while (index < line.length()) {
-                bound = nextTypeBound(true);
+                bound = nextTypeBound(true, typeParameters);
                 if (bound == null) return null;
                 interfaces.add(bound);
             }
@@ -155,11 +156,12 @@ public final class JavaTypeParser {
         return new JavaType(typeId, superTypes, typeParameters, interfaces);
     }
 
-    private List<JavaType.TypeParam> parseTypeSignatureParameters() {
+    private List<JavaType.TypeParam> parseTypeSignatureParameters(
+            Iterable<JavaType.TypeParam> previousParameters) {
         var params = new ArrayList<JavaType.TypeParam>(2);
         var c = currentChar();
         while (c != '>' && index < line.length()) {
-            var param = nextTypeParameter();
+            var param = nextTypeParameter(append(params, previousParameters));
             if (param == null) return null;
             params.add(param);
             c = currentChar();
@@ -168,7 +170,7 @@ public final class JavaTypeParser {
         return params;
     }
 
-    private JavaType.TypeParam nextTypeParameter() {
+    private JavaType.TypeParam nextTypeParameter(Iterable<JavaType.TypeParam> previousParameters) {
         String name;
         var bounds = new ArrayList<JavaType.TypeBound>(2);
         var params = List.<JavaType.TypeParam>of();
@@ -190,7 +192,11 @@ public final class JavaTypeParser {
             isTypeParameter = true;
             while (c == ':') {
                 index++;
-                var bound = nextTypeBound(true);
+
+                // sometimes, a double ':' shows up, just ignore the second one
+                if (currentChar() == ':') index++;
+
+                var bound = nextTypeBound(true, previousParameters);
                 if (bound == null) return null;
                 if (!JavaType.OBJECT.equals(bound)) {
                     bounds.add(bound);
@@ -199,7 +205,7 @@ public final class JavaTypeParser {
             }
         } else if (c == '<') {
             index++;
-            params = parseTypeSignatureParameters();
+            params = parseTypeSignatureParameters(previousParameters);
             if (params == null) return null;
             if (currentChar() == ';') index++;
         } else if (c == ';') {
@@ -213,7 +219,8 @@ public final class JavaTypeParser {
         return new JavaType.TypeParam(name, bounds, params);
     }
 
-    private JavaType.TypeBound nextTypeBound(boolean isTypeSignature) {
+    private JavaType.TypeBound nextTypeBound(boolean isTypeSignature,
+                                             Iterable<JavaType.TypeParam> previousParams) {
         String name;
         List<JavaType.TypeParam> params = List.of();
 
@@ -227,16 +234,17 @@ public final class JavaTypeParser {
         if (isTypeSignature) {
             if (currentChar() == ';') {
                 index++;
-                name = word + ';';
+                name = isParameter(previousParams, word) ? word : word + ';';
             } else if (currentChar() == '<') {
                 index++;
                 name = word + ';';
-                params = parseTypeSignatureParameters();
+                params = parseTypeSignatureParameters(previousParams);
                 if (params == null) return null;
                 if (currentChar() == ';') index++;
                 if (currentChar() == '.') {
                     index++;
-                    var nestedBound = nextTypeBound(true);
+                    var nestedBound = nextTypeBound(true,
+                            append(previousParams, params));
                     if (nestedBound == null) return null;
                     name = trimEnd(name, ';') + '$' + nestedBound.name;
                     params = nestedBound.params;
@@ -254,11 +262,21 @@ public final class JavaTypeParser {
         return new JavaType.TypeBound(name, params);
     }
 
+    private static boolean isParameter(Iterable<JavaType.TypeParam> typeParameters, String word) {
+        if (!word.contains("/") && word.startsWith("T")) {
+            var paramName = word.substring(1);
+            for (var param : typeParameters) {
+                if (param.name.equals(paramName)) return true;
+            }
+        }
+        return false;
+    }
+
     private List<JavaType.TypeBound> parseInterfaces() {
         var bounds = new ArrayList<JavaType.TypeBound>(2);
         var keepGoing = true;
         while (keepGoing) {
-            var bound = nextTypeBound(false);
+            var bound = nextTypeBound(false, List.of());
             if (bound == null) return null;
             if (!JavaType.OBJECT.equals(bound)) {
                 bounds.add(bound);
@@ -300,7 +318,7 @@ public final class JavaTypeParser {
         var i = index;
         for (; i < line.length(); i++) {
             var c = line.charAt(i);
-            if ((c < '.' && c != '$' && c != '+' && c != '-')
+            if ((c < '.' && c != '$' && c != '+' && c != '-' && c != '*')
                     || c > 'z'
                     || (c > '9' && c < 'A')
                     || (c > '[' && c < 'a' && c != ']' && c != '_')) return i;
