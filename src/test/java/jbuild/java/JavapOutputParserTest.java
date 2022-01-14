@@ -384,11 +384,33 @@ public class JavapOutputParserTest {
                         List.of(new JavaType.TypeParam("TD", List.of(), List.of())))
         ));
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.FieldDefinition("this$0", "Lgenerics/GenericStructure;")
+                new Definition.FieldDefinition("this$0", "Lgenerics/GenericStructure;"),
+                new Definition.FieldDefinition("innerData", "Lgenerics/GenericStructure$OtherData$InnerData;")
         ));
         assertThat(result.methodHandles).isEmpty();
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.MethodDefinition("\"<init>\"", "(Lgenerics/GenericStructure;)V")
+        ));
+    }
+
+    @Test
+    void canParseGenericClassWithDoubleNestedInnerClass() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure.OtherData.InnerData"));
+        var result = types.get("Lgenerics/GenericStructure$OtherData$InnerData;");
+
+        assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure$OtherData$InnerData;");
+        assertThat(result.type.typeParameters).isEmpty();
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+        assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.FieldDefinition("this$1", "Lgenerics/GenericStructure$OtherData;"),
+                new Definition.FieldDefinition("strField", "Ljava/lang/String;")
+        ));
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "(Lgenerics/GenericStructure$OtherData;)V")
         ));
     }
 

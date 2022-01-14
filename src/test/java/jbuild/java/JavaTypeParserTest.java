@@ -250,6 +250,29 @@ public class JavaTypeParserTest {
     }
 
     @Test
+    void canParseDoubleNestedGenericTypeSignature() {
+        // class com.google.common.collect.AbstractMapBasedMultimap$WrappedList$WrappedListIterator
+        //  extends com.google.common.collect.AbstractMapBasedMultimap<K, V>
+        //      .WrappedCollection.WrappedIterator
+        //  implements java.util.ListIterator<V>
+        var type = parser.parseSignature(
+                new JavaType.TypeId(
+                        "Lcom/google/common/collect/AbstractMapBasedMultimap$WrappedList$WrappedListIterator;",
+                        JavaType.Kind.CLASS),
+                "Lcom/google/common/collect/AbstractMapBasedMultimap<TK;TV;>" +
+                        ".WrappedCollection.WrappedIterator;" +
+                        "Ljava/util/ListIterator<TV;>;");
+
+        assertThat(type)
+                .isEqualTo(new JavaType(new JavaType.TypeId(
+                        "Lcom/google/common/collect/AbstractMapBasedMultimap$WrappedList$WrappedListIterator;",
+                        JavaType.Kind.CLASS),
+                        List.of(typeBound("Lcom/google/common/collect/AbstractMapBasedMultimap$WrappedCollection$WrappedIterator;")),
+                        List.of(),
+                        List.of(typeBound("Ljava/util/ListIterator;", typeParam("TV")))));
+    }
+
+    @Test
     void canThrowErrorsOrReturnNullWhenInvalidLineIsParsed() {
         class Example {
             final String line;

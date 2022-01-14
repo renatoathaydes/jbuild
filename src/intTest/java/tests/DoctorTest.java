@@ -30,8 +30,9 @@ public class DoctorTest extends JBuildTestRunner {
                 .collect(toList());
         assertThat(warnings).isEmpty();
 
-        // TODO assert success when all errors are fixed
-        assertThat(result.stdout).isEmpty();
+        assertThat(result.stdout).contains("Found a single classpath permutation, checking its consistency." + LE +
+                "All entrypoint type dependencies are satisfied by the classpath below:");
+        assertThat(result.stdout).contains(LE + "JBuild success in");
     }
 
 }

@@ -273,15 +273,15 @@ public class ClassGraphTest {
 
     @Test
     void canCheckMethodExistsInJavaArrayType() {
-        assertThat(classGraph.exists("[D",
+        assertThat(classGraph.exists("\"[D\"",
                 new Definition.MethodDefinition("clone", "()Ljava/lang/Object;"))
         ).isTrue();
 
-        assertThat(classGraph.exists("[Ljava/lang/Number;",
+        assertThat(classGraph.exists("\"[Ljava/lang/Number;\"",
                 new Definition.MethodDefinition("clone", "()Ljava/lang/Object;"))
         ).isTrue();
 
-        assertThat(classGraph.exists("[Ljava/lang/Number;",
+        assertThat(classGraph.exists("\"[Ljava/lang/Number;\"",
                 new Definition.MethodDefinition("foo", "()Ljava/lang/Object;"))
         ).isFalse();
     }
@@ -306,15 +306,15 @@ public class ClassGraphTest {
 
     @Test
     void canCheckFieldExistsInJavaArrayType() {
-        assertThat(classGraph.exists("[I",
+        assertThat(classGraph.exists("\"[I\"",
                 new Definition.FieldDefinition("length", "I"))
         ).isTrue();
 
-        assertThat(classGraph.exists("[[Ljava/lang/Object;",
+        assertThat(classGraph.exists("\"[[Ljava/lang/Object;\"",
                 new Definition.FieldDefinition("length", "I"))
         ).isTrue();
 
-        assertThat(classGraph.exists("[I",
+        assertThat(classGraph.exists("\"[I\"",
                 new Definition.FieldDefinition("FOO_BAR", "Ljava/lang/String;"))
         ).isFalse();
     }

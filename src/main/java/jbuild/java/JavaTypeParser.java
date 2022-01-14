@@ -241,12 +241,12 @@ public final class JavaTypeParser {
                 params = parseTypeSignatureParameters(previousParams);
                 if (params == null) return null;
                 if (currentChar() == ';') index++;
-                if (currentChar() == '.') {
+                else while (currentChar() == '.') {
                     index++;
                     var nestedBound = nextTypeBound(true,
                             append(previousParams, params));
                     if (nestedBound == null) return null;
-                    name = trimEnd(name, ';') + '$' + nestedBound.name;
+                    name = trimEnd(name, ';') + '$' + nestedBound.name.replaceAll("\\.", "\\$");
                     params = nestedBound.params;
                 }
             } else if (throwOnError) {

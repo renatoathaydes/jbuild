@@ -6,6 +6,11 @@ public class GenericStructure<D> {
     }
 
     class OtherData extends GenericStructure<D>.Data<D> {
+        public InnerData innerData;
+
+        class InnerData {
+            public String strField;
+        }
 
     }
 }
