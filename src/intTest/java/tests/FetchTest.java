@@ -64,6 +64,8 @@ public class FetchTest extends JBuildTestRunner {
     void canFetchArtifactToSpecificDir(@TempDir File tempDir) throws Exception {
         var outputDir = new File(tempDir, "outDir");
         final var expectedFileLocation = new File(outputDir, "opentest4j-1.2.0.pom");
+        outputDir.deleteOnExit();
+        expectedFileLocation.deleteOnExit();
 
         var result = runWithIntTestRepo("fetch", "org.opentest4j:opentest4j:1.2.0:pom",
                 "-d", outputDir.getPath());
