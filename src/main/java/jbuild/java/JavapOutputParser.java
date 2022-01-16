@@ -6,11 +6,18 @@ import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.util.JavaTypeUtils.*;
+import static jbuild.util.JavaTypeUtils.classNameToTypeName;
+import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
+import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
 
 public final class JavapOutputParser {
 
@@ -48,22 +55,9 @@ public final class JavapOutputParser {
                     if (typeId != null) {
                         var typeDef = processBody(typeId, lines);
                         if (lines.hasNext()) {
-                            var typeSignature = lines.next();
-                            var match = METHOD_SIGNATURE_LINE.matcher(typeSignature);
-                            if (!match.matches()) {
-                                throw new JBuildException("invalid javap output: expected method signature but got '" +
-                                        typeSignature + "'. Current type is: " + typeId.name, ACTION_ERROR);
-                            }
-                            var type = typeParser.parseSignature(typeId, match.group(1));
-                            if (type != null) {
-                                if (type.typeId.kind == JavaType.Kind.ENUM) {
-                                    typeDef = typeDef.withMethods(addEnumMethods(typeDef.methods));
-                                }
-                                result.put(typeId.name, typeDef.toTypeDefinition(type));
-                            } else {
-                                log.println("WARNING: could not parse generic type signature, " +
-                                        "ignoring class from line '" + line + "': bad signature: '" + typeSignature);
-                            }
+                            var type = parseTypeSignature(lines, typeId, typeDef);
+                            if (type == null) continue;
+                            result.put(typeId.name, type);
                         } else {
                             log.println("WARNING: did not find generic type signature after Classfile section started. " +
                                     "Ignoring class from line '" + line + "'");
@@ -72,7 +66,6 @@ public final class JavapOutputParser {
                         log.println("WARNING: did not find class name after Classfile section started. " +
                                 "Ignoring class from line '" + line + "'");
                     }
-
                 } else {
                     var type = typeParser.parse(line);
                     if (type != null) {
@@ -229,6 +222,38 @@ public final class JavapOutputParser {
             }
         }
         return new CodeSection(codes, endTypeSection);
+    }
+
+    private TypeDefinition parseTypeSignature(Iterator<String> lines, JavaType.TypeId typeId, JavaTypeDefinitions typeDef) {
+        var skippingSection = false;
+        while (lines.hasNext()) {
+            var line = lines.next();
+            if (skippingSection && line.startsWith(" ")) continue;
+            var match = METHOD_SIGNATURE_LINE.matcher(line);
+            if (!match.matches()) {
+                var tooLate = line.startsWith("SourceFile:"); // too late, missed type signature
+                if (!tooLate && !line.startsWith(" ")) { // unrecognized section, skip it
+                    skippingSection = true;
+                    continue;
+                }
+                throw new JBuildException("invalid javap output: expected method signature but got '" +
+                        line + "'. Current type is: " + typeId.name, ACTION_ERROR);
+            }
+            var type = typeParser.parseSignature(typeId, match.group(1));
+            if (type != null) {
+                if (type.typeId.kind == JavaType.Kind.ENUM) {
+                    typeDef = typeDef.withMethods(addEnumMethods(typeDef.methods));
+                }
+                return typeDef.toTypeDefinition(type);
+            } else {
+                log.println("WARNING: could not parse generic type signature, " +
+                        "ignoring class from line '" + line + "': bad signature: '" + line);
+                return null;
+            }
+        }
+
+        throw new JBuildException("invalid javap output: ran out of output while expecting " +
+                "method signature parsing type: " + typeId.name, ACTION_ERROR);
     }
 
     // special-case enum methods as it's not currently possible to find parent classes' methods yet
