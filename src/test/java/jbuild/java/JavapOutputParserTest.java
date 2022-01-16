@@ -158,6 +158,25 @@ public class JavapOutputParserTest {
     }
 
     @Test
+    void canParseClassWithVarargsMethod() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(myClassesJar, "foo.Something"));
+        var result = types.get("Lfoo/Something;");
+
+        assertThat(result.typeName).isEqualTo("Lfoo/Something;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.superTypes).isEmpty();
+        assertThat(result.type.interfaces).isEmpty();
+        assertThat(result.fields).isEmpty();
+        assertThat(result.methodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "()V"),
+                new Definition.MethodDefinition("some", "()Ljava/lang/String;"),
+                new Definition.MethodDefinition("varargs", "([Ljava/lang/String;)I")));
+    }
+
+    @Test
     void canParseClassExtendingAnother() {
         var out = new ByteArrayOutputStream();
         var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
