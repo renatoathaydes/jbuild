@@ -6,18 +6,11 @@ import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.util.JavaTypeUtils.classNameToTypeName;
-import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
-import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
+import static jbuild.util.JavaTypeUtils.*;
 
 public final class JavapOutputParser {
 
@@ -59,7 +52,7 @@ public final class JavapOutputParser {
                             var match = METHOD_SIGNATURE_LINE.matcher(typeSignature);
                             if (!match.matches()) {
                                 throw new JBuildException("invalid javap output: expected method signature but got '" +
-                                        typeSignature + "'", ACTION_ERROR);
+                                        typeSignature + "'. Current type is: " + typeId.name, ACTION_ERROR);
                             }
                             var type = typeParser.parseSignature(typeId, match.group(1));
                             if (type != null) {
@@ -110,92 +103,109 @@ public final class JavapOutputParser {
         if (methodHandles == null)
             throw new IllegalStateException("Constant pool not found for class " + typeId.name);
 
-        return processClassMethods(typeId, methodHandles, lines);
+        return processClassBody(typeId, methodHandles, lines);
     }
 
     private Set<Code.Method> parseConstantPool(String typeName, Iterator<String> lines) {
         Set<Code.Method> methodHandles = new LinkedHashSet<>(4);
         while (lines.hasNext()) {
             var line = lines.next();
+            if (line.equals("{")) {
+                return methodHandles;
+            }
             var match = METHOD_HANDLE_LINE.matcher(line);
             if (match.matches()) {
                 var method = extractMethodHandle(typeName, match.group(1));
                 if (method != null) methodHandles.add(method);
-            }
-            if (line.equals("{")) {
-                return methodHandles;
             }
         }
         log.println(() -> "WARNING: reached the end of the class file without finishing the constant pool section");
         return methodHandles;
     }
 
-    private JavaTypeDefinitions processClassMethods(JavaType.TypeId typeId,
-                                                    Set<Code.Method> methodHandles,
-                                                    Iterator<String> lines) {
+    private JavaTypeDefinitions processClassBody(JavaType.TypeId typeId,
+                                                 Set<Code.Method> methodHandles,
+                                                 Iterator<String> lines) {
         var typeName = typeId.name;
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<Definition.MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<Definition.FieldDefinition>();
-        boolean expectingCode = false, expectingFlags = false, currentAbstractMethod = false;
+        boolean expectingCode = false;
         while (lines.hasNext()) {
             var line = lines.next();
             if (line.equals("}")) break;
-            if (prevLine == null) {
+            try {
+                if (prevLine == null || line.isEmpty()) continue;
+                if (!line.startsWith("  ")) { // indent must be less than the type body's
+                    throw new JBuildException("Unexpected line inside class: '" + line + "'. " +
+                            "Previous line was '" + prevLine + "'.", ACTION_ERROR);
+                }
+                if (expectingCode) {
+                    if (line.equals("    Code:")) {
+                        expectingCode = false;
+                        var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
+                        var codeSection = processCode(lines, typeName, name);
+                        methods.put(method, codeSection.code);
+                        if (codeSection.endsTypeSection) break;
+                        line = ""; // this line has been used, set prevLine to nothing
+                    } else if (!line.startsWith("    ")) { // make sure we don't accidentally enter another section
+                        throw new JBuildException("Expected to find code section but got unexpected line: '" +
+                                line + "', previous line was: '" + prevLine + "'", ACTION_ERROR);
+                    }
+                } else if (line.startsWith("    descriptor: ")) {
+                    if (prevLine.equals("  static {};")) { // static block
+                        name = "static{}";
+                        type = "()V";
+                        expectingCode = true;
+                    } else if (prevLine.contains("(")) { // method
+                        name = extractMethodName(prevLine, typeName); // descriptor always appears after the definition's name
+                        if (name == null) {
+                            throw new JBuildException("Expected method line but got '" + prevLine +
+                                    "', descriptor line: '" + line.substring("    descriptor: ".length()) +
+                                    "'", ACTION_ERROR);
+                        }
+                        type = line.substring("    descriptor: ".length());
+                        if (prevLine.contains(" abstract ")) {
+                            var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
+                            methods.put(method, Set.of());
+                        } else { // collect the code for the method
+                            expectingCode = true;
+                        }
+                    } else { // field
+                        name = extractFieldName(prevLine);
+                        if (name == null) {
+                            throw new JBuildException("Expected field line but got '" + prevLine +
+                                    "', descriptor line: '" + line.substring("    descriptor: ".length()) +
+                                    "'", ACTION_ERROR);
+                        }
+                        type = line.substring("    descriptor: ".length());
+                        fields.add(new Definition.FieldDefinition(name, type));
+                    }
+                }
+            } finally {
                 prevLine = line;
-                continue;
             }
-            if (!line.isEmpty() && !line.startsWith("  ")) { // indent must be less than the type body's
-                break;
-            }
-            if (expectingFlags) {
-                expectingFlags = false;
-                if (currentAbstractMethod) {
-                    currentAbstractMethod = false;
-                    var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
-                    methods.put(method, Set.of());
-                } else {
-                    expectingCode = true;
-                }
-            } else if (expectingCode) {
-                expectingCode = false;
-                if (line.equals("    Code:")) {
-                    var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
-                    var codeSection = processCode(lines, typeName);
-                    methods.put(method, codeSection.code);
-                    if (codeSection.endsTypeSection) break;
-                }
-            } else if (line.startsWith("    descriptor: ")) {
-                if (prevLine.equals("  static {};")) { // static block
-                    name = "static{}";
-                    type = "()V";
-                    expectingFlags = true;
-                } else if (prevLine.contains("(")) { // method
-                    name = extractMethodName(prevLine, typeName); // descriptor always appears after the definition's name
-                    if (name == null) continue;
-                    type = line.substring("    descriptor: ".length());
-                    expectingFlags = true; // after the descriptor, comes the flags then code
-                    currentAbstractMethod = prevLine.contains(" abstract ");
-                } else { // field
-                    name = extractFieldName(prevLine);
-                    if (name == null) continue;
-                    type = line.substring("    descriptor: ".length());
-                    fields.add(new Definition.FieldDefinition(name, type));
-                }
-            }
-            prevLine = line;
         }
 
         return new JavaTypeDefinitions(fields, methodHandles, methods);
     }
 
-    private CodeSection processCode(Iterator<String> lines, String typeName) {
+    private CodeSection processCode(Iterator<String> lines, String typeName, String methodName) {
         var codes = new LinkedHashSet<Code>();
-        var endTypeSection = false;
+        boolean endTypeSection = false, consumeRestOfBody = false;
         while (lines.hasNext()) {
             var line = lines.next();
+
             if (!line.startsWith("      ")) { // indentation must be less than the Code section's
+                if (line.startsWith("    ")) { // more inner sections inside this method
+                    consumeRestOfBody = true;
+                    break;
+                }
                 endTypeSection = line.equals("}");
+                if (!endTypeSection && !line.isEmpty()) {
+                    throw new JBuildException("code section of '" + typeName +
+                            "#" + methodName + "' did not end with '}': '" + line + "'", ACTION_ERROR);
+                }
                 break;
             }
             var match = CODE_LINE.matcher(line);
@@ -203,6 +213,19 @@ public final class JavapOutputParser {
                 var parts = match.group(1).split("\\s");
                 var code = handleCommentParts(parts, typeName);
                 if (code != null) codes.add(code);
+            }
+        }
+        if (consumeRestOfBody) {
+            while (lines.hasNext()) {
+                var line = lines.next();
+                if (!line.startsWith("    ")) {
+                    endTypeSection = line.equals("}");
+                    if (!endTypeSection && !line.isEmpty()) {
+                        throw new JBuildException("code section of '" + typeName +
+                                "#" + methodName + "' did not end with '}': '" + line + "'", ACTION_ERROR);
+                    }
+                    break;
+                }
             }
         }
         return new CodeSection(codes, endTypeSection);

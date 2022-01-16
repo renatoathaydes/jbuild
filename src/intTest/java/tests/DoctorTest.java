@@ -1,5 +1,6 @@
 package tests;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import util.JBuildTestRunner;
@@ -22,6 +23,28 @@ public class DoctorTest extends JBuildTestRunner {
 
         // verify that the jar is valid
         result = runWithIntTestRepo("doctor", tempDir.toString(), "-y", "-e", Artifacts.GUAVA_JAR_NAME);
+
+        verifySuccessful("jbuild deps", result);
+
+        var warnings = result.stdout.lines()
+                .filter(it -> it.startsWith("WARNING"))
+                .collect(toList());
+        assertThat(warnings).isEmpty();
+
+        assertThat(result.stdout).contains("Found a single classpath permutation, checking its consistency." + LE +
+                "All entrypoint type dependencies are satisfied by the classpath below:");
+        assertThat(result.stdout).contains(LE + "JBuild success in");
+    }
+
+    @Disabled("Still fixing Groovy jar parsing")
+    @Test
+    void canCheckGroovyDependencies() {
+        // install the artifact in the tempDir
+        var result = runWithIntTestRepo("install", "-d", tempDir.toString(), Artifacts.GROOVY);
+        verifySuccessful("jbuild install", result);
+
+        // verify that the jar is valid
+        result = runWithIntTestRepo("doctor", tempDir.toString(), "-y", "-e", Artifacts.GROOVY_JAR_NAME);
 
         verifySuccessful("jbuild deps", result);
 

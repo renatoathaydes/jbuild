@@ -116,6 +116,12 @@ public class InstallTest extends JBuildTestRunner {
                 "      3.12.0" + LE +
                 "        checker-qual-3.12.0.jar" + LE +
                 "        checker-qual-3.12.0.pom" + LE +
+                "  codehaus" + LE +
+                "    groovy" + LE +
+                "      groovy" + LE +
+                "        3.0.9" + LE +
+                "          groovy-3.0.9.jar" + LE +
+                "          groovy-3.0.9.pom" + LE +
                 "  junit" + LE +
                 "    junit-bom" + LE +
                 "      5.7.0" + LE +
