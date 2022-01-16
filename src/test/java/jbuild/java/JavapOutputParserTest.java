@@ -511,20 +511,20 @@ public class JavapOutputParserTest {
     }
 
     private Iterator<String> javap(File jar, String... classNames) {
-        var result = Tools.Javap.create().run(jar.getPath(), classNames);
+        var result = Tools.Javap.create().run(jar.getPath(), List.of(classNames));
         assertProcessWasSuccessful(result);
-        return result.stdout.lines().iterator();
+        return result.getStdout().lines().iterator();
     }
 
-    private void assertProcessWasSuccessful(Tools.ToolRunResult result) {
-        if (result.exitCode != 0) {
-            throw new RuntimeException("tool failed: " + result.exitCode + ":" + LINE_END + processOutput(result));
+    private void assertProcessWasSuccessful(ToolRunResult result) {
+        if (result.exitCode() != 0) {
+            throw new RuntimeException("tool failed: " + result.exitCode() + ":" + LINE_END + processOutput(result));
         }
     }
 
-    private String processOutput(Tools.ToolRunResult result) {
-        return ">>> sysout:" + LINE_END + result.stdout + LINE_END +
-                ">>> syserr:" + LINE_END + result.stderr + LINE_END +
+    private String processOutput(ToolRunResult result) {
+        return ">>> sysout:" + LINE_END + result.getStdout() + LINE_END +
+                ">>> syserr:" + LINE_END + result.getStderr() + LINE_END +
                 "---";
     }
 

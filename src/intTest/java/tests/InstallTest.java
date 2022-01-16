@@ -177,7 +177,7 @@ public class InstallTest extends JBuildTestRunner {
         verifySuccessful("jbuild install", result);
 
         // the "Will install..." message runs async, either one can show up first
-        assertThat(result.stdout).satisfiesAnyOf(
+        assertThat(result.getStdout()).satisfiesAnyOf(
                 stdout ->
                         assertThat(stdout).startsWith("Will install 6 artifacts at " + dir + "" + LE +
                                 "Will install 7 artifacts at " + dir + "" + LE +
@@ -215,10 +215,10 @@ public class InstallTest extends JBuildTestRunner {
     @Test
     void cannotFetchArtifactThatDoesNotExist() {
         var result = runWithIntTestRepo("install", "foo.bar:foo:1.0");
-        assertThat(result.exitCode).isEqualTo(6);
+        assertThat(result.exitCode()).isEqualTo(6);
 
         var artifact = new Artifact("foo.bar", "foo", "1.0", "pom");
-        assertThat(result.stdout).startsWith("Unable to retrieve " +
+        assertThat(result.getStdout()).startsWith("Unable to retrieve " +
                 artifact + " due to:" + LE +
                 "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
                 "ERROR: Could not install all artifacts successfully" + LE +

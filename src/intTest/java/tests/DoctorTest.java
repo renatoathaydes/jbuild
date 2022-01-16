@@ -26,14 +26,14 @@ public class DoctorTest extends JBuildTestRunner {
 
         verifySuccessful("jbuild deps", result);
 
-        var warnings = result.stdout.lines()
+        var warnings = result.getStdout().lines()
                 .filter(it -> it.startsWith("WARNING"))
                 .collect(toList());
         assertThat(warnings).isEmpty();
 
-        assertThat(result.stdout).contains("Found a single classpath permutation, checking its consistency." + LE +
+        assertThat(result.getStdout()).contains("Found a single classpath permutation, checking its consistency." + LE +
                 "All entrypoint type dependencies are satisfied by the classpath below:");
-        assertThat(result.stdout).contains(LE + "JBuild success in");
+        assertThat(result.getStdout()).contains(LE + "JBuild success in");
     }
 
     @Disabled("Still fixing Groovy jar parsing")
@@ -48,14 +48,14 @@ public class DoctorTest extends JBuildTestRunner {
 
         verifySuccessful("jbuild deps", result);
 
-        var warnings = result.stdout.lines()
+        var warnings = result.getStdout().lines()
                 .filter(it -> it.startsWith("WARNING"))
                 .collect(toList());
         assertThat(warnings).isEmpty();
 
-        assertThat(result.stdout).contains("Found a single classpath permutation, checking its consistency." + LE +
+        assertThat(result.getStdout()).contains("Found a single classpath permutation, checking its consistency." + LE +
                 "All entrypoint type dependencies are satisfied by the classpath below:");
-        assertThat(result.stdout).contains(LE + "JBuild success in");
+        assertThat(result.getStdout()).contains(LE + "JBuild success in");
     }
 
 }

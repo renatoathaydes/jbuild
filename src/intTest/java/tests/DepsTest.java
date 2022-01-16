@@ -14,7 +14,7 @@ public class DepsTest extends JBuildTestRunner {
         var result = runWithIntTestRepo("deps", Artifacts.GUAVA);
 
         verifySuccessful("jbuild deps", result);
-        assertThat(result.stdout).startsWith("Dependencies of " + Artifacts.GUAVA + ":" + LE +
+        assertThat(result.getStdout()).startsWith("Dependencies of " + Artifacts.GUAVA + ":" + LE +
                 "  - scope compile" + LE +
                 "    * com.google.code.findbugs:jsr305:3.0.2 [compile]" + LE +
                 "    * com.google.errorprone:error_prone_annotations:2.7.1 [compile]" + LE +
@@ -31,7 +31,7 @@ public class DepsTest extends JBuildTestRunner {
         var result = runWithIntTestRepo("deps", Artifacts.APACHE_COMMONS_COMPRESS, "-O", "-s", "compile");
 
         verifySuccessful("jbuild deps", result);
-        assertThat(result.stdout).startsWith("Dependencies of " + Artifacts.APACHE_COMMONS_COMPRESS + " (incl. optionals):" + LE +
+        assertThat(result.getStdout()).startsWith("Dependencies of " + Artifacts.APACHE_COMMONS_COMPRESS + " (incl. optionals):" + LE +
                 "  - scope compile" + LE +
                 "    * asm:asm:3.2 [compile][optional]" + LE +
                 "    * com.github.luben:zstd-jni:1.5.0-2 [compile][optional]" + LE +
@@ -46,7 +46,7 @@ public class DepsTest extends JBuildTestRunner {
         var result = runWithIntTestRepo("deps", "-t", Artifacts.JUNIT5_ENGINE);
 
         verifySuccessful("jbuild deps", result);
-        assertThat(result.stdout).startsWith("Dependencies of " + Artifacts.JUNIT5_ENGINE + " (incl. transitive):" + LE +
+        assertThat(result.getStdout()).startsWith("Dependencies of " + Artifacts.JUNIT5_ENGINE + " (incl. transitive):" + LE +
                 "  - scope compile" + LE +
                 "    * org.apiguardian:apiguardian-api:1.1.0 [compile]" + LE +
                 "    * org.junit.jupiter:junit-jupiter-api:5.7.0 [compile]" + LE +
@@ -65,10 +65,10 @@ public class DepsTest extends JBuildTestRunner {
     @Test
     void canNotGetDepsOfNonExistingArtifact() {
         var result = runWithIntTestRepo("deps", "bad:artifact:0");
-        assertThat(result.exitCode).isEqualTo(1);
+        assertThat(result.exitCode()).isEqualTo(1);
 
         var artifact = new Artifact("bad", "artifact", "0", "pom");
-        assertThat(result.stdout).startsWith("Unable to retrieve " +
+        assertThat(result.getStdout()).startsWith("Unable to retrieve " +
                 artifact + " due to:" + LE +
                 "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
                 "Failed to handle bad:artifact:0" + LE +

@@ -80,7 +80,7 @@ public class ClassGraphLoader {
         var result = jar.listContents(jarFile.getPath());
         verifyToolSuccessful("jar", result);
 
-        return result.stdout.lines()
+        return result.getStdout().lines()
                 .filter(line -> line.endsWith(".class") &&
                         !line.endsWith("-info.class"))
                 .map(line -> line.replace('/', '.')
@@ -96,13 +96,21 @@ public class ClassGraphLoader {
         new Thread(() -> {
             var startTime = System.currentTimeMillis();
             try {
-                var toolResult = Tools.Javap.create().run(jar.getAbsolutePath(), classNames.toArray(String[]::new));
+                log.verbosePrintln(() -> "Parsing jar " + jar.getAbsolutePath() + " with " + classNames.size() + " classes");
+                var javap = classNames.size() > 4_000 // can run out of memory when parsing so many classes
+                        ? Tools.Javap.createFileBacked()
+                        : Tools.Javap.create();
+                var toolResult = javap.run(jar.getAbsolutePath(), classNames);
                 var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
                 log.verbosePrintln(() -> "javap " + jar + " completed in " + totalTime.get() + "ms");
                 verifyToolSuccessful("javap", toolResult);
                 var javapOutputParser = new JavapOutputParser(log);
                 startTime = System.currentTimeMillis();
-                var typeDefs = javapOutputParser.processJavapOutput(toolResult.stdout.lines().iterator());
+                Map<String, TypeDefinition> typeDefs;
+                try (var stdoutStream = toolResult.getStdoutLines();
+                     var ignored = toolResult.getStderrLines()) {
+                    typeDefs = javapOutputParser.processJavapOutput(stdoutStream.iterator());
+                }
                 totalTime.set(System.currentTimeMillis() - startTime);
                 log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar + " in " + totalTime.get() + "ms");
                 result.complete(typeDefs);

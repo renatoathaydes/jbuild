@@ -2,7 +2,8 @@ package util;
 
 import jbuild.cli.Main;
 import jbuild.errors.JBuildException;
-import jbuild.java.Tools;
+import jbuild.java.MemoryToolRunResult;
+import jbuild.java.ToolRunResult;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -47,7 +48,7 @@ public class JBuildTestRunner {
         }
     }
 
-    public Tools.ToolRunResult run(String... args) {
+    public ToolRunResult run(String... args) {
         class ExitError extends Error {
         }
 
@@ -64,10 +65,10 @@ public class JBuildTestRunner {
             // expected
         }
 
-        return new Tools.ToolRunResult(exitCode.get(), args, outStream.toString(UTF_8), "");
+        return new MemoryToolRunResult(exitCode.get(), args, outStream.toString(UTF_8), "");
     }
 
-    public Tools.ToolRunResult runWithIntTestRepo(String... args) {
+    public ToolRunResult runWithIntTestRepo(String... args) {
         var commandArgs = new String[args.length + 2];
         commandArgs[0] = "-r";
         commandArgs[1] = integrationTestsRepo.getPath();
@@ -75,11 +76,11 @@ public class JBuildTestRunner {
         return run(commandArgs);
     }
 
-    public static void verifySuccessful(String tool, Tools.ToolRunResult result) {
-        if (result.exitCode != 0) {
+    public static void verifySuccessful(String tool, ToolRunResult result) {
+        if (result.exitCode() != 0) {
             throw new JBuildException("unexpected error when executing " + tool +
-                    ". Tool output:" + LINE_END + result.stdout + LINE_END + LINE_END +
-                    "stderr:" + LINE_END + result.stderr, ACTION_ERROR);
+                    ". Tool output:" + LINE_END + result.getStdout() + LINE_END + LINE_END +
+                    "stderr:" + LINE_END + result.getStderr(), ACTION_ERROR);
         }
     }
 }

@@ -51,7 +51,7 @@ public class FetchTest extends JBuildTestRunner {
         var result = runWithIntTestRepo("fetch", "org.opentest4j:opentest4j:1.2.0:pom");
         verifySuccessful("jbuild fetch", result);
 
-        assertThat(result.stdout).startsWith("JBuild success in ");
+        assertThat(result.getStdout()).startsWith("JBuild success in ");
         assertThat(expectedFileLocation).isFile();
 
         try (var stream = new FileInputStream(expectedFileLocation)) {
@@ -69,7 +69,7 @@ public class FetchTest extends JBuildTestRunner {
                 "-d", outputDir.getPath());
         verifySuccessful("jbuild fetch", result);
 
-        assertThat(result.stdout).startsWith("JBuild success in ");
+        assertThat(result.getStdout()).startsWith("JBuild success in ");
         assertThat(expectedFileLocation).isFile();
 
         try (var stream = new FileInputStream(expectedFileLocation)) {
@@ -85,12 +85,12 @@ public class FetchTest extends JBuildTestRunner {
         var result = runWithIntTestRepo("fetch", "org.opentest4j:opentest4j:1.2.0");
         verifySuccessful("jbuild fetch", result);
 
-        assertThat(result.stdout).startsWith("JBuild success in ");
+        assertThat(result.getStdout()).startsWith("JBuild success in ");
         assertThat(expectedFileLocation).isFile();
 
         var contentsResult = Tools.Jar.create().listContents(expectedFileLocation.getPath());
         verifySuccessful("jar", contentsResult);
-        assertThat(contentsResult.stdout.lines().collect(toList())).containsExactlyElementsOf(List.of(
+        assertThat(contentsResult.getStdout().lines().collect(toList())).containsExactlyElementsOf(List.of(
                 "META-INF/",
                 "META-INF/MANIFEST.MF",
                 "org/",
@@ -107,10 +107,10 @@ public class FetchTest extends JBuildTestRunner {
     @Test
     void cannotFetchArtifactThatDoesNotExist() {
         var result = runWithIntTestRepo("fetch", "foo.bar:foo:1.0");
-        assertThat(result.exitCode).isEqualTo(1);
+        assertThat(result.exitCode()).isEqualTo(1);
 
         var artifact = new Artifact("foo.bar", "foo", "1.0");
-        assertThat(result.stdout).startsWith("Unable to retrieve " +
+        assertThat(result.getStdout()).startsWith("Unable to retrieve " +
                 artifact + " due to:" + LE +
                 "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
                 "Failed to handle foo.bar:foo:1.0" + LE +
