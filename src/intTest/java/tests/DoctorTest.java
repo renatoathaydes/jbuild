@@ -1,6 +1,5 @@
 package tests;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import util.JBuildTestRunner;
@@ -36,7 +35,6 @@ public class DoctorTest extends JBuildTestRunner {
         assertThat(result.getStdout()).contains(LE + "JBuild success in");
     }
 
-    @Disabled("Still fixing Groovy jar parsing")
     @Test
     void canCheckGroovyDependencies() {
         // install the artifact in the tempDir
@@ -44,7 +42,16 @@ public class DoctorTest extends JBuildTestRunner {
         verifySuccessful("jbuild install", result);
 
         // verify that the jar is valid
-        result = runWithIntTestRepo("doctor", tempDir.toString(), "-y", "-e", Artifacts.GROOVY_JAR_NAME);
+        result = runWithIntTestRepo("doctor", tempDir.toString(), "-y",
+                "-e", Artifacts.GROOVY_JAR_NAME,
+                "-x", "Lorg\\/apache\\/ivy\\/.*",
+                "-x", "Lorg\\/stringtemplate\\/.*",
+                "-x", "Lorg\\/abego\\/.*",
+                "-x", "Lgroovyjarjarantlr4\\/.*",
+                "-x", "Lorg\\/fusesource\\/jansi\\/.*",
+                "-x", "Lversion;",
+                "-x", "Lcom\\/thoughtworks\\/xstream\\/.*",
+                "-x", "Lgroovyjarjarasm\\/asm\\/util\\/ASMifierSupport;");
 
         verifySuccessful("jbuild deps", result);
 

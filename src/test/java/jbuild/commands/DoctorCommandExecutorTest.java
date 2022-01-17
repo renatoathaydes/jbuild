@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
@@ -21,12 +22,12 @@ public class DoctorCommandExecutorTest {
         var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
         var resultsForMyClassesJar = command.findClasspathPermutations(testJarsDir,
-                        false, List.of(myClassesJar))
+                        false, List.of(myClassesJar), Set.of())
                 .toCompletableFuture()
                 .get();
 
         var resultsForOtherClassesJar = command.findClasspathPermutations(testJarsDir,
-                        false, List.of(otherClassesJar))
+                        false, List.of(otherClassesJar), Set.of())
                 .toCompletableFuture()
                 .get();
 

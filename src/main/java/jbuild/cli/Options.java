@@ -11,10 +11,13 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
@@ -303,30 +306,39 @@ final class DoctorOptions {
     final String inputDir;
     final boolean interactive;
     final List<String> entryPoints;
+    final Set<Pattern> typeExclusions;
 
     public DoctorOptions(String inputDir,
                          boolean interactive,
-                         List<String> entryPoints) {
+                         List<String> entryPoints,
+                         Set<Pattern> typeExclusions) {
         this.inputDir = inputDir;
         this.interactive = interactive;
         this.entryPoints = unmodifiableList(entryPoints);
+        this.typeExclusions = unmodifiableSet(typeExclusions);
     }
 
     static DoctorOptions parse(List<String> args) {
         String inputDir = null;
         var interactive = true;
         var entryPoints = new ArrayList<String>(4);
-        var expectEntryPoint = false;
+        var typeExclusions = new HashSet<String>(4);
+        boolean expectEntryPoint = false, expectTypeExclusion = false;
 
         for (var arg : args) {
             if (expectEntryPoint) {
                 expectEntryPoint = false;
                 entryPoints.add(arg);
+            } else if (expectTypeExclusion) {
+                expectTypeExclusion = false;
+                typeExclusions.add(arg);
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-y", "--yes")) {
                     interactive = false;
                 } else if (isEither(arg, "-e", "--entrypoint")) {
                     expectEntryPoint = true;
+                } else if (isEither(arg, "-x", "--exclude-type")) {
+                    expectTypeExclusion = true;
                 } else {
                     throw new JBuildException("invalid fix option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -343,8 +355,20 @@ final class DoctorOptions {
         if (expectEntryPoint) {
             throw new JBuildException("expecting value for '--entrypoint' option", USER_INPUT);
         }
+        if (expectTypeExclusion) {
+            throw new JBuildException("expecting value for '--exclude-type' option", USER_INPUT);
+        }
 
-        return new DoctorOptions(inputDir, interactive, entryPoints);
+        var exclusions = new HashSet<Pattern>(typeExclusions.size());
+        for (var typeExclusion : typeExclusions) {
+            try {
+                exclusions.add(Pattern.compile(typeExclusion));
+            } catch (PatternSyntaxException e) {
+                throw new JBuildException("invalid regex: '" + typeExclusion + "': " + e, USER_INPUT);
+            }
+        }
+
+        return new DoctorOptions(inputDir, interactive, entryPoints, exclusions);
     }
 }
 
