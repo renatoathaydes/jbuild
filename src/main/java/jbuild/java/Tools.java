@@ -8,7 +8,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +16,7 @@ import java.util.Collection;
 import java.util.spi.ToolProvider;
 import java.util.stream.Stream;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.IO_READ;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
@@ -62,11 +61,11 @@ public abstract class Tools {
         }
     }
 
-    protected OutputStream stdout() {
+    protected PrintStream stdout() {
         return streams.stdout();
     }
 
-    protected OutputStream stderr() {
+    protected PrintStream stderr() {
         return streams.stderr();
     }
 
@@ -99,7 +98,7 @@ public abstract class Tools {
 
         public ToolRunResult run(String jarPath, Collection<String> classNames) {
             var args = collectArgs(jarPath, classNames);
-            var exitCode = tool.run(new PrintStream(stdout()), new PrintStream(stderr()), args);
+            var exitCode = tool.run(stdout(), stderr(), args);
             return result(exitCode, args);
         }
 
@@ -134,7 +133,9 @@ public abstract class Tools {
         }
 
         public ToolRunResult listContents(String jarPath) {
-            var exitCode = tool.run(new PrintStream(stdout()), new PrintStream(stderr()),
+            var exitCode = tool.run(
+                    new PrintStream(stdout(), false, ISO_8859_1),
+                    new PrintStream(stderr(), false, ISO_8859_1),
                     "tf", jarPath);
             return result(exitCode, new String[]{"tf", jarPath});
         }
@@ -142,9 +143,9 @@ public abstract class Tools {
     }
 
     private interface Streams {
-        OutputStream stdout();
+        PrintStream stdout();
 
-        OutputStream stderr();
+        PrintStream stderr();
 
         String readStdout();
 
@@ -157,28 +158,28 @@ public abstract class Tools {
         ToolRunResult result(int exitCode, String[] args);
     }
 
-    private static class MemoryStreams implements Streams {
+    private static final class MemoryStreams implements Streams {
         private final ByteArrayOutputStream out = new ByteArrayOutputStream(4096);
         private final ByteArrayOutputStream err = new ByteArrayOutputStream(1024);
 
         @Override
-        public OutputStream stdout() {
-            return out;
+        public PrintStream stdout() {
+            return new PrintStream(out, false, ISO_8859_1);
         }
 
         @Override
-        public OutputStream stderr() {
-            return err;
+        public PrintStream stderr() {
+            return new PrintStream(err, false, ISO_8859_1);
         }
 
         @Override
         public String readStdout() {
-            return out.toString(UTF_8);
+            return out.toString(ISO_8859_1);
         }
 
         @Override
         public String readStderr() {
-            return err.toString(UTF_8);
+            return err.toString(ISO_8859_1);
         }
 
         @Override
@@ -202,7 +203,7 @@ public abstract class Tools {
         }
     }
 
-    private static class FileStreams implements Streams {
+    private static final class FileStreams implements Streams {
         private final File out;
         private final File err;
 
@@ -212,18 +213,22 @@ public abstract class Tools {
         }
 
         @Override
-        public OutputStream stdout() {
+        public PrintStream stdout() {
             try {
-                return new BufferedOutputStream(new FileOutputStream(out), 1024 * 64);
+                return new PrintStream(
+                        new BufferedOutputStream(new FileOutputStream(out), 1024 * 64),
+                        false, ISO_8859_1);
             } catch (FileNotFoundException e) {
                 throw new JBuildException("Cannot write stdout to file as it does not exist: " + out, IO_WRITE);
             }
         }
 
         @Override
-        public OutputStream stderr() {
+        public PrintStream stderr() {
             try {
-                return new BufferedOutputStream(new FileOutputStream(err), 1024);
+                return new PrintStream(new BufferedOutputStream(
+                        new FileOutputStream(err), 1024),
+                        false, ISO_8859_1);
             } catch (FileNotFoundException e) {
                 throw new JBuildException("Cannot write stderr to file as it does not exist: " + err, IO_WRITE);
             }
@@ -232,7 +237,7 @@ public abstract class Tools {
         @Override
         public String readStdout() {
             try {
-                return Files.readString(out.toPath(), UTF_8);
+                return Files.readString(out.toPath(), ISO_8859_1);
             } catch (IOException e) {
                 throw new JBuildException("Cannot read stdout file: " + e, IO_READ);
             }
@@ -241,7 +246,7 @@ public abstract class Tools {
         @Override
         public String readStderr() {
             try {
-                return Files.readString(err.toPath(), UTF_8);
+                return Files.readString(err.toPath(), ISO_8859_1);
             } catch (IOException e) {
                 throw new JBuildException("Cannot read stderr file: " + e, IO_READ);
             }
@@ -250,7 +255,7 @@ public abstract class Tools {
         @Override
         public Stream<String> readStdoutLines() {
             try {
-                return Files.lines(out.toPath());
+                return Files.lines(out.toPath(), ISO_8859_1);
             } catch (IOException e) {
                 throw new JBuildException("Cannot read stdout file: " + e, IO_READ);
             }
@@ -259,7 +264,7 @@ public abstract class Tools {
         @Override
         public Stream<String> readStderrLines() {
             try {
-                return Files.lines(err.toPath());
+                return Files.lines(err.toPath(), ISO_8859_1);
             } catch (IOException e) {
                 throw new JBuildException("Cannot read stderr file: " + e, IO_READ);
             }
