@@ -6,11 +6,11 @@ import jbuild.maven.MavenUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import util.JBuildTestRunner;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.file.Files;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
@@ -61,9 +61,12 @@ public class FetchTest extends JBuildTestRunner {
     }
 
     @Test
-    void canFetchArtifactToSpecificDir(@TempDir File tempDir) throws Exception {
+    void canFetchArtifactToSpecificDir() throws Exception {
+        var tempDir = Files.createTempDirectory(FetchTest.class.getSimpleName()).toFile();
         var outputDir = new File(tempDir, "outDir");
         final var expectedFileLocation = new File(outputDir, "opentest4j-1.2.0.pom");
+
+        tempDir.deleteOnExit();
         outputDir.deleteOnExit();
         expectedFileLocation.deleteOnExit();
 
