@@ -1,6 +1,7 @@
 package jbuild.java;
 
 import jbuild.java.code.TypeDefinition;
+import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 
 import java.io.File;
@@ -18,7 +19,7 @@ import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static jbuild.java.Tools.verifyToolSuccessful;
+import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static jbuild.util.AsyncUtils.awaitValues;
 
 public class ClassGraphLoader {

@@ -1,4 +1,4 @@
-package jbuild.java;
+package jbuild.java.tools;
 
 import java.util.stream.Stream;
 

@@ -1,7 +1,7 @@
 package tests;
 
 import jbuild.artifact.Artifact;
-import jbuild.java.Tools;
+import jbuild.java.tools.Tools;
 import jbuild.maven.MavenUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

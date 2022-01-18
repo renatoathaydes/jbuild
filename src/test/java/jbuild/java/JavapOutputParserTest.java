@@ -3,6 +3,8 @@ package jbuild.java;
 import jbuild.TestSystemProperties;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
+import jbuild.java.tools.ToolRunResult;
+import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 

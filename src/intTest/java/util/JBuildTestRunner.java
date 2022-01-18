@@ -2,8 +2,8 @@ package util;
 
 import jbuild.cli.Main;
 import jbuild.errors.JBuildException;
-import jbuild.java.MemoryToolRunResult;
-import jbuild.java.ToolRunResult;
+import jbuild.java.tools.MemoryToolRunResult;
+import jbuild.java.tools.ToolRunResult;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.BeforeAll;
 

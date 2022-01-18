@@ -1,5 +1,7 @@
 package jbuild.java;
 
+import jbuild.java.tools.Tools;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
