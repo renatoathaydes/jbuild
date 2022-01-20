@@ -245,7 +245,7 @@ public final class ClassGraph {
 
     private Stream<CodeReference> refs(File jarFrom, TypeDefinition typeFrom, Code to) {
         var results = Stream.concat(
-                typeFrom.methodHandles.stream()
+                typeFrom.usedMethodHandles.stream()
                         .filter(to::equals)
                         .map(code -> new CodeReference(jarFrom, typeFrom.typeName, null, to)),
                 typeFrom.methods.entrySet().stream()

@@ -25,13 +25,14 @@ public class ClassGraphTest {
 
     @BeforeAll
     static void beforeAll() throws Exception {
-        var loader = ClassGraphLoader.create(
+        var loader = JarSetPermutations.create(
                 new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
         var graphs = loader.fromJars(
                 otherClassesJar,
                 myClassesJar);
 
+        // FIXME need to await
         if (graphs.size() != 1) fail("Expected a single ClassGraph: " + graphs);
 
         classGraph = graphs.get(0).getCompletion().toCompletableFuture().get(10, TimeUnit.SECONDS);

@@ -22,6 +22,9 @@ import static jbuild.errors.JBuildException.ErrorCause.IO_READ;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.util.TextUtils.LINE_END;
 
+/**
+ * Abstraction for Java tools provided by {@link ToolProvider}.
+ */
 public abstract class Tools {
 
     private final Streams streams;
@@ -73,6 +76,9 @@ public abstract class Tools {
         return streams.result(exitCode, args);
     }
 
+    /**
+     * The javap tool.
+     */
     public static final class Javap extends Tools {
 
         private static final ToolProvider toolProvider = Tools.lookupTool("javap");
@@ -96,6 +102,15 @@ public abstract class Tools {
             super(tool, streams);
         }
 
+        /**
+         * Run javap with the default flags used in JBuild.
+         * <p>
+         * The output can be piped into {@link jbuild.java.JavapOutputParser} for parsing.
+         *
+         * @param jarPath    path of jar file
+         * @param classNames name of types to include
+         * @return result
+         */
         public ToolRunResult run(String jarPath, Collection<String> classNames) {
             var args = collectArgs(jarPath, classNames);
             var exitCode = tool.run(stdout(), stderr(), args);
@@ -120,6 +135,9 @@ public abstract class Tools {
 
     }
 
+    /**
+     * The jar tool.
+     */
     public static final class Jar extends Tools {
 
         private static final ToolProvider toolProvider = Tools.lookupTool("jar");
@@ -132,6 +150,12 @@ public abstract class Tools {
             super(tool, new MemoryStreams());
         }
 
+        /**
+         * Run the jar tool in order to list the contents of the jar file.
+         *
+         * @param jarPath path to the jar
+         * @return result
+         */
         public ToolRunResult listContents(String jarPath) {
             var exitCode = tool.run(
                     new PrintStream(stdout(), false, ISO_8859_1),

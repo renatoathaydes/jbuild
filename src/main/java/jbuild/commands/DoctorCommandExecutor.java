@@ -2,8 +2,8 @@ package jbuild.commands;
 
 import jbuild.errors.JBuildException;
 import jbuild.java.ClassGraph;
-import jbuild.java.ClassGraphLoader;
 import jbuild.java.JarSet;
+import jbuild.java.JarSetPermutations;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
@@ -44,23 +44,23 @@ import static jbuild.util.TextUtils.LINE_END;
 public final class DoctorCommandExecutor {
 
     private final JBuildLog log;
-    private final ClassGraphLoader classGraphLoader;
+    private final JarSetPermutations jarSetPermutations;
 
     public DoctorCommandExecutor(JBuildLog log) {
-        this(log, ClassGraphLoader.create(log));
+        this(log, JarSetPermutations.create(log));
     }
 
     public DoctorCommandExecutor(JBuildLog log,
-                                 ClassGraphLoader classGraphLoader) {
+                                 JarSetPermutations jarSetPermutations) {
         this.log = log;
-        this.classGraphLoader = classGraphLoader;
+        this.jarSetPermutations = jarSetPermutations;
     }
 
     public CompletionStage<?> run(String inputDir,
                                   boolean interactive,
                                   List<String> entryPoints,
                                   Set<Pattern> typeExclusions) {
-        var results = findClasspathPermutations(
+        var results = findValidClasspaths(
                 new File(inputDir),
                 interactive,
                 entryPoints.stream().map(File::new).collect(toList()),
@@ -68,7 +68,7 @@ public final class DoctorCommandExecutor {
         return results.thenApply(this::showClasspathCheckResults);
     }
 
-    public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findClasspathPermutations(
+    public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findValidClasspaths(
             File inputDir,
             boolean interactive,
             List<File> entryPoints,
@@ -84,33 +84,33 @@ public final class DoctorCommandExecutor {
         if (entryJars.size() < entryPoints.size()) {
             throw new JBuildException("Could not find all entry points, found following jars: " + entryJars, USER_INPUT);
         }
-        var classGraphCompletions = classGraphLoader.fromJars(jarFiles);
 
-        if (classGraphCompletions.isEmpty()) {
-            throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
-        }
-
-        return findClasspathPermutations(classGraphCompletions, entryJars, interactive, typeExclusions);
+        return jarSetPermutations.fromJars(jarFiles).thenComposeAsync((ok) -> {
+            if (ok.isEmpty()) {
+                throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
+            }
+            return findValidClasspaths(ok, entryJars, interactive, typeExclusions);
+        });
     }
 
-    private CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findClasspathPermutations(
-            List<ClassGraphLoader.ClassGraphCompletion> classGraphCompletions,
+    private CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findValidClasspaths(
+            List<JarSet> jarSets,
             Set<File> entryJars,
             boolean interactive,
             Set<Pattern> typeExclusions) {
-        var acceptableCompletions = classGraphCompletions.stream()
-                .filter(c -> c.jarset.containsAll(entryJars))
+        var acceptableJarSets = jarSets.stream()
+                .filter(jarset -> jarset.containsAll(entryJars))
                 .collect(toList());
 
-        if (acceptableCompletions.isEmpty()) {
-            throw new JBuildException("Out of " + classGraphCompletions.size() + " classpath permutations found, " +
+        if (acceptableJarSets.isEmpty()) {
+            throw new JBuildException("Out of " + jarSets.size() + " classpath permutations found, " +
                     "none includes all the entry points.", ACTION_ERROR);
         }
 
-        if (acceptableCompletions.size() == 1) {
+        if (acceptableJarSets.size() == 1) {
             log.println("Found a single classpath permutation, checking its consistency.");
         } else {
-            log.println(() -> "Detected conflicts in classpath, resulting in " + acceptableCompletions.size() +
+            log.println(() -> "Detected conflicts in classpath, resulting in " + acceptableJarSets.size() +
                     " possible classpath permutations. Trying to find a consistent permutation.");
         }
 
@@ -119,14 +119,14 @@ public final class DoctorCommandExecutor {
         var badJarPairs = ConcurrentHashMap.<Map.Entry<File, File>>newKeySet(8);
 
         return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : 2,
-                acceptableCompletions.stream()
+                acceptableJarSets.stream()
                         .map(c -> checkClasspath(c, entryJars, typeExclusions, abort, interactive, errorCount, badJarPairs))
                         .collect(toList())
         ).toList();
     }
 
     private Supplier<CompletionStage<ClasspathCheckResult>> checkClasspath(
-            ClassGraphLoader.ClassGraphCompletion completion,
+            JarSet jarSet,
             Set<File> entryJars,
             Set<Pattern> typeExclusions,
             AtomicBoolean abort,
@@ -136,16 +136,16 @@ public final class DoctorCommandExecutor {
         return () -> {
             var skip = false;
             if (abort.get()) {
-                log.verbosePrintln(() -> "Aborting check of classpath: " + completion.jarset.toClasspath());
+                log.verbosePrintln(() -> "Aborting check of classpath: " + jarSet.toClasspath());
             } else {
-                skip = completion.jarset.containsAny(badJarPairs);
+                skip = jarSet.containsAny(badJarPairs);
                 if (!skip) {
                     if (interactive) {
-                        log.println("Next classpath:" + LINE_END + completion.jarset.toClasspath());
+                        log.println("Next classpath:" + LINE_END + jarSet.toClasspath());
                         var keepGoing = askYesOrNoQuestion("Do you want to continue");
                         if (!keepGoing) abort.set(true);
                     } else {
-                        log.verbosePrintln(() -> "Trying classpath: " + completion.jarset.toClasspath());
+                        log.verbosePrintln(() -> "Trying classpath: " + jarSet.toClasspath());
                     }
                 }
             }
@@ -159,10 +159,11 @@ public final class DoctorCommandExecutor {
                             .map(pair -> pair.getKey().getName() + " ✗ " + pair.getValue().getName())
                             .collect(joining(" | ")));
                 }
-                return completedStage(new ClasspathCheckResult(completion.jarset, true, List.of()));
+                return completedStage(new ClasspathCheckResult(jarSet, true, List.of()));
             }
 
-            return completion.getCompletion().thenApply(ok -> {
+            // FIXME
+            return jarSet.getCompletion().thenApply(ok -> {
                 var result = checkClasspathConsistency(ok, entryJars, typeExclusions);
                 if (result.isEmpty()) {
                     abort.set(true); // success found!
@@ -180,7 +181,7 @@ public final class DoctorCommandExecutor {
                     log.println(() -> badClasspaths + " inconsistent classpath" +
                             (badClasspaths == 1 ? "" : "s") + " checked so far.");
                 }
-                return new ClasspathCheckResult(completion.jarset, false, result);
+                return new ClasspathCheckResult(jarSet, false, result);
             });
         };
     }
@@ -206,7 +207,7 @@ public final class DoctorCommandExecutor {
                                 jar, classGraph.getJarByType().get(ref)));
                     }
                 });
-                for (var methodHandle : typeDef.methodHandles) {
+                for (var methodHandle : typeDef.usedMethodHandles) {
                     if (isIgnored(methodHandle.typeName, typeExclusions)) continue;
                     var error = errorIfMethodDoesNotExist(type, jar, null, classGraph, methodHandle, "MethodHandle");
                     if (error != null) allErrors.add(error);

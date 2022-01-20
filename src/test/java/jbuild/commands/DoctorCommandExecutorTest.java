@@ -21,12 +21,12 @@ public class DoctorCommandExecutorTest {
     void shouldFindNoErrorsInTestJarsDir() throws Exception {
         var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
-        var resultsForMyClassesJar = command.findClasspathPermutations(testJarsDir,
+        var resultsForMyClassesJar = command.findValidClasspaths(testJarsDir,
                         false, List.of(myClassesJar), Set.of())
                 .toCompletableFuture()
                 .get();
 
-        var resultsForOtherClassesJar = command.findClasspathPermutations(testJarsDir,
+        var resultsForOtherClassesJar = command.findValidClasspaths(testJarsDir,
                         false, List.of(otherClassesJar), Set.of())
                 .toCompletableFuture()
                 .get();

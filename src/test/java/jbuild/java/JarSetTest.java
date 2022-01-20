@@ -149,7 +149,8 @@ public class JarSetTest {
     }
 
     private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<File>> jarsByType) {
-        var sets = new JarSet.Loader(log).computeUniqueJarSetPermutations(jarsByType);
+        var sets = new JarSetPermutations(log)
+                .compute(jarsByType);
         return sets.stream()
                 .map(JarSet::getJarByType)
                 .map(map -> mapValues(map, File::getPath))

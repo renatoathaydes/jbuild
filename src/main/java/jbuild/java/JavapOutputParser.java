@@ -19,6 +19,9 @@ import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
 
+/**
+ * Parser of javap output.
+ */
 public final class JavapOutputParser {
 
     // example:
@@ -41,6 +44,15 @@ public final class JavapOutputParser {
         this.typeParser = typeParser;
     }
 
+    /**
+     * Process the output lines emitted by javap.
+     * <p>
+     * javap must be invoked with the following flags: {@code -c -s -v}, and optionally, {@code -p}.
+     *
+     * @param lines javap output lines
+     * @return map of types by their names
+     * @see jbuild.java.tools.Tools.Javap
+     */
     public Map<String, TypeDefinition> processJavapOutput(Iterator<String> lines) {
         var result = new LinkedHashMap<String, TypeDefinition>();
         var waitingForClassLine = false;
