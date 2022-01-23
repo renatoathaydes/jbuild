@@ -6,10 +6,14 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static jbuild.util.CollectionUtils.mapValues;
@@ -18,11 +22,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class JarSetTest {
 
     private static JBuildLog log;
+    private static ExecutorService service;
 
     @BeforeAll
     static void beforeAll() {
         log = new JBuildLog(System.out, true);
         log.setEnabled(false);
+
+        var service = Executors.newSingleThreadExecutor();
+        // service will not be used as we won't load any jars
+        service.shutdown();
     }
 
     @Test
@@ -121,6 +130,7 @@ public class JarSetTest {
 
     @Test
     void canCheckIfContainsJarPair() {
+        // FIXME
         var set = new JarSet(Map.of("t1", file("j1"), "t2", file("j2"), "t3", file("j1")));
 
         assertThat(set.containsAny(Set.of())).isFalse();
@@ -149,16 +159,36 @@ public class JarSetTest {
     }
 
     private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<File>> jarsByType) {
+        var jarLoader = new Jar.Loader(log, service);
+
+        var jarByFile = new HashMap<File, Jar>();
+
+        try {
+            for (var files : jarsByType.values()) {
+                for (var file : files) {
+                    if (!jarByFile.containsKey(file)) {
+                        jarByFile.put(file, jarLoader.lazyLoad(file)
+                                .toCompletableFuture()
+                                .get(5, TimeUnit.SECONDS));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         var sets = new JarSetPermutations(log)
-                .compute(jarsByType);
+                .computePermutations(mapValues(jarsByType, files -> files.stream()
+                        .map(jarByFile::get).collect(Collectors.toSet())));
+
         return sets.stream()
                 .map(JarSet::getJarByType)
-                .map(map -> mapValues(map, File::getPath))
+                .map(map -> mapValues(map, jar -> jar.file.getPath()))
                 .collect(Collectors.toList());
     }
 
     private static File file(String path) {
-        return new File(path);
+        return new Jar.Loader().lazyLoad(new File(path));
     }
 
 }

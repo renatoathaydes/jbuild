@@ -2,18 +2,21 @@ package jbuild.commands;
 
 import jbuild.errors.JBuildException;
 import jbuild.java.ClassGraph;
+import jbuild.java.Jar;
 import jbuild.java.JarSet;
 import jbuild.java.JarSetPermutations;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
+import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +40,7 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.InteractivityHelper.askYesOrNoQuestion;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.TextUtils.LINE_END;
@@ -74,6 +78,7 @@ public final class DoctorCommandExecutor {
             List<File> entryPoints,
             Set<Pattern> typeExclusions) {
         var jarFiles = allFilesInDir(inputDir, (dir, name) -> name.endsWith(".jar"));
+
         var entryJars = Stream.of(jarFiles)
                 .map(jar -> entryPoints.stream()
                         .map(e -> getIfMatches(jar, e))
@@ -85,16 +90,97 @@ public final class DoctorCommandExecutor {
             throw new JBuildException("Could not find all entry points, found following jars: " + entryJars, USER_INPUT);
         }
 
-        return jarSetPermutations.fromJars(jarFiles).thenComposeAsync((ok) -> {
-            if (ok.isEmpty()) {
+        return jarSetPermutations.fromJars(jarFiles).thenComposeAsync((jarSets) -> {
+            if (jarSets.isEmpty()) {
                 throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
             }
-            return findValidClasspaths(ok, entryJars, interactive, typeExclusions);
+
+            var entryPointJars = jarSets.iterator().next().getJars(entryJars);
+
+            // take any jarSet to check the entrypoint type requirements
+            return computeEntryPointsTypeRequirements(entryPointJars, typeExclusions)
+                    .thenApplyAsync(typeRequirements ->
+                            findTypeCompleteClasspaths(interactive, jarSets, entryPointJars, typeRequirements))
+                    .thenComposeAsync((goodJarSets) ->
+                            findValidClasspaths(goodJarSets, entryJars, interactive, typeExclusions));
+        });
+    }
+
+    private NonEmptyCollection<JarSet> findTypeCompleteClasspaths(boolean interactive,
+                                                                  List<JarSet> jarSets,
+                                                                  Set<Jar> entryPointJars,
+                                                                  Set<String> typeRequirements) {
+        var filteredJarSets = jarSets.stream()
+                .map((jarSet) -> jarSet.filter(entryPointJars, typeRequirements)
+                        .mapRight(errors -> new AbstractMap.SimpleEntry<>(jarSet, errors)))
+                .collect(toList());
+
+        var badResults = filteredJarSets.stream()
+                .map(res -> res.map(ok -> null, err -> err))
+                .filter(Objects::nonNull)
+                .collect(toList());
+
+        var goodResults = filteredJarSets.stream()
+                .map(res -> res.map(ok -> ok, err -> null))
+                .filter(Objects::nonNull)
+                .collect(toList());
+
+        if (!badResults.isEmpty() && !goodResults.isEmpty()) {
+            log.verbosePrintln(() -> "Eliminated " + badResults.size() + " classpath(s) " +
+                    "due to missing types, but found " + goodResults.size() + " that can provide " +
+                    "the required types");
+        }
+        if (goodResults.isEmpty()) {
+            if (interactive) {
+                var answer = askYesOrNoQuestion("Failed to find any classpath that can provide " +
+                        "all required types. Do you want to see the problems for each " +
+                        "attempted classpath");
+                if (answer) {
+                    showErrors(badResults, true);
+                }
+            } else {
+                showErrors(badResults, log.isVerbose());
+            }
+            throw new JBuildException("None of the classpaths could provide all types required by the " +
+                    "entry-points. See log above for details.", ACTION_ERROR);
+        }
+        return NonEmptyCollection.of(goodResults);
+    }
+
+    private void showErrors(List<AbstractMap.SimpleEntry<JarSet, NonEmptyCollection<String>>> badResults,
+                            boolean verbose) {
+        var limit = verbose ? Integer.MAX_VALUE : 5;
+        badResults.stream().limit(limit).forEach((badResult) -> {
+            var errors = badResult.getValue().stream().collect(toSet());
+            log.println(() -> "Found " + errors.size() + " errors in classpath:" + badResult.getKey().toClasspath());
+            errors.stream().limit(limit).forEach(err -> log.println("  * " + err));
+            if (errors.size() > limit) {
+                log.println("  ...");
+            }
+        });
+    }
+
+    private CompletionStage<Set<String>> computeEntryPointsTypeRequirements(
+            Set<Jar> jarSet,
+            Set<Pattern> typeExclusions) {
+        // ensure the entry points have been parsed so we can check if all their type requirements can be fulfilled
+        var entryPoints = awaitSuccessValues(jarSet.stream()
+                .map(Jar::parsed)
+                .collect(toList()));
+
+        return entryPoints.thenApplyAsync((jars) -> {
+            var requiredTypes = new HashSet<String>(512);
+            for (var entryPoint : jars) {
+                entryPoint.collectTypesReferredToInto(requiredTypes);
+            }
+            return requiredTypes.stream()
+                    .filter(type -> typeExclusions.stream().noneMatch(p -> p.matcher(type).matches()))
+                    .collect(toSet());
         });
     }
 
     private CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findValidClasspaths(
-            List<JarSet> jarSets,
+            NonEmptyCollection<JarSet> jarSets,
             Set<File> entryJars,
             boolean interactive,
             Set<Pattern> typeExclusions) {
@@ -103,7 +189,7 @@ public final class DoctorCommandExecutor {
                 .collect(toList());
 
         if (acceptableJarSets.isEmpty()) {
-            throw new JBuildException("Out of " + jarSets.size() + " classpath permutations found, " +
+            throw new JBuildException("Out of " + jarSets.stream().count() + " classpath permutations found, " +
                     "none includes all the entry points.", ACTION_ERROR);
         }
 
@@ -134,24 +220,26 @@ public final class DoctorCommandExecutor {
             AtomicInteger errorCount,
             Set<Map.Entry<File, File>> badJarPairs) {
         return () -> {
-            var skip = false;
+            boolean skip = false, isInconsistent = false;
             if (abort.get()) {
                 log.verbosePrintln(() -> "Aborting check of classpath: " + jarSet.toClasspath());
+                skip = true;
             } else {
-                skip = jarSet.containsAny(badJarPairs);
-                if (!skip) {
-                    if (interactive) {
-                        log.println("Next classpath:" + LINE_END + jarSet.toClasspath());
-                        var keepGoing = askYesOrNoQuestion("Do you want to continue");
-                        if (!keepGoing) abort.set(true);
-                    } else {
-                        log.verbosePrintln(() -> "Trying classpath: " + jarSet.toClasspath());
-                    }
+                isInconsistent = jarSet.containsAny(badJarPairs);
+                if (isInconsistent) skip = true;
+            }
+
+            if (interactive && !skip) {
+                log.println("Next classpath:" + LINE_END + jarSet.toClasspath());
+                var keepGoing = askYesOrNoQuestion("Do you want to check this classpath");
+                if (!keepGoing) {
+                    abort.set(true);
+                    skip = true;
                 }
             }
 
-            if (skip || abort.get()) {
-                if (skip) {
+            if (skip) {
+                if (isInconsistent) {
                     var badClasspaths = errorCount.incrementAndGet();
                     log.println(() -> badClasspaths + " inconsistent classpath" +
                             (badClasspaths == 1 ? "" : "s") + " checked so far... " +
@@ -162,9 +250,10 @@ public final class DoctorCommandExecutor {
                 return completedStage(new ClasspathCheckResult(jarSet, true, List.of()));
             }
 
-            // FIXME
-            return jarSet.getCompletion().thenApply(ok -> {
-                var result = checkClasspathConsistency(ok, entryJars, typeExclusions);
+            log.verbosePrintln(() -> "Checking classpath: " + jarSet.toClasspath());
+
+            return jarSet.toClassGraph().thenApply(graph -> {
+                var result = checkClasspathConsistency(graph, entryJars, typeExclusions);
                 if (result.isEmpty()) {
                     abort.set(true); // success found!
                 } else {

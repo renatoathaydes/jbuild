@@ -1,5 +1,6 @@
 package jbuild.util;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -55,10 +56,11 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
         return new NonEmptyCollection<>(head.first, append(head, tail));
     }
 
-    public static <T> NonEmptyCollection<T> of(List<T> list) {
+    public static <T> NonEmptyCollection<T> of(Collection<T> list) {
         if (list.isEmpty()) {
             throw new IllegalArgumentException("empty list");
         }
-        return new NonEmptyCollection<>(list.get(0), list);
+        var iter = list.iterator();
+        return new NonEmptyCollection<>(iter.next(), () -> iter);
     }
 }

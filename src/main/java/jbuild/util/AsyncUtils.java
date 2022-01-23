@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -49,6 +50,32 @@ public final class AsyncUtils {
             results.add(err == null ? Either.left(ok) : Either.right(err));
             if (results.size() == list.size()) {
                 future.complete(results);
+            }
+        }));
+
+        return future;
+    }
+
+    public static <T> CompletionStage<Collection<T>> awaitSuccessValues(
+            List<? extends CompletionStage<T>> list) {
+        if (list.isEmpty()) {
+            return completedStage(List.of());
+        }
+
+        var done = new AtomicBoolean(false);
+        var results = new ConcurrentLinkedDeque<T>();
+        var future = new CompletableFuture<Collection<T>>();
+
+        list.forEach(value -> value.whenComplete((ok, err) -> {
+            if (err != null) {
+                if (done.compareAndSet(false, true)) {
+                    future.completeExceptionally(err);
+                }
+            } else {
+                results.add(ok);
+                if (results.size() == list.size()) {
+                    future.complete(results);
+                }
             }
         }));
 

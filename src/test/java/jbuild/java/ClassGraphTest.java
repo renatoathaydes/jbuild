@@ -29,13 +29,13 @@ public class ClassGraphTest {
                 new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
 
         var graphs = loader.fromJars(
-                otherClassesJar,
-                myClassesJar);
+                        otherClassesJar,
+                        myClassesJar).toCompletableFuture()
+                .get(10, TimeUnit.SECONDS);
 
-        // FIXME need to await
         if (graphs.size() != 1) fail("Expected a single ClassGraph: " + graphs);
 
-        classGraph = graphs.get(0).getCompletion().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        classGraph = graphs.get(0).toClassGraph().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         assertThat(classGraph.getTypesByJar().keySet())
                 .isEqualTo(Set.of(myClassesJar, otherClassesJar));

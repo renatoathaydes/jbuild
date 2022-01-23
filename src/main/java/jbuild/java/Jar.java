@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -47,6 +50,25 @@ public final class Jar {
         return computeParsedJar.get();
     }
 
+    public String getName() {
+        return file.getName();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Jar jar = (Jar) o;
+
+        return file.equals(jar.file);
+    }
+
+    @Override
+    public int hashCode() {
+        return file.hashCode();
+    }
+
     @Override
     public String toString() {
         return "Jar{" +
@@ -70,6 +92,12 @@ public final class Jar {
         public Set<String> getTypes() {
             return typeByName.keySet();
         }
+
+        public void collectTypesReferredToInto(Set<String> result) {
+            for (var typeDef : typeByName.values()) {
+                typeDef.type.typesReferredTo().forEach(result::add);
+            }
+        }
     }
 
     /**
@@ -84,6 +112,14 @@ public final class Jar {
                       ExecutorService executorService) {
             this.log = log;
             this.executorService = executorService;
+        }
+
+        public Loader(JBuildLog log) {
+            this.log = log;
+            this.executorService = Executors.newFixedThreadPool(
+                    Math.max(4, Runtime.getRuntime().availableProcessors()),
+                    new JarLoaderThreadFactory());
+
         }
 
         public CompletionStage<Jar> lazyLoad(File jarFile) {
@@ -134,5 +170,16 @@ public final class Jar {
             return new ParsedJar(jar, typeDefs);
         }
 
+    }
+
+    private static final class JarLoaderThreadFactory implements ThreadFactory {
+        private final AtomicInteger count = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable runnable) {
+            var thread = new Thread(runnable, "jar-loader-" + count.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
+        }
     }
 }
