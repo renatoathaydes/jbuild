@@ -15,6 +15,7 @@ import jbuild.util.NonEmptyCollection;
 import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
@@ -83,6 +84,7 @@ public final class DoctorCommandExecutor {
             List<File> entryPoints,
             Set<Pattern> typeExclusions) {
         var jarFiles = allFilesInDir(inputDir, (dir, name) -> name.endsWith(".jar"));
+        log.verbosePrintln(() -> "All provided jars: " + Arrays.toString(jarFiles));
 
         var entryJars = Stream.of(jarFiles)
                 .map(jar -> entryPoints.stream()
@@ -125,6 +127,7 @@ public final class DoctorCommandExecutor {
                                                                   List<JarSet> jarSets,
                                                                   Set<Jar> entryPointJars,
                                                                   Set<String> typeRequirements) {
+        log.verbosePrintln(() -> "Entry-points required types: " + String.join(", ", typeRequirements));
         var filteredJarSets = jarSets.stream()
                 .map((jarSet) -> jarSet.filter(entryPointJars, typeRequirements)
                         .mapRight(errors -> new AbstractMap.SimpleEntry<>(jarSet, errors)))

@@ -13,18 +13,20 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
 import static jbuild.TestSystemProperties.testJarsDir;
 import static jbuild.java.TestHelper.jar;
-import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -127,7 +129,7 @@ public class DoctorCommandExecutorTest {
         Path otherClassesJarCopy = classpathDir.resolve(Paths.get(otherClassesJar.getName()));
         Files.copy(otherClassesJar.toPath(), otherClassesJarCopy);
 
-        expectError(false, (command) -> {
+        expectError(true, (command) -> {
             var results = command.findValidClasspaths(classpathDir.toFile(),
                             false, List.of(otherClassesJarCopy.toFile()), Set.of())
                     .toCompletableFuture()
@@ -154,12 +156,54 @@ public class DoctorCommandExecutorTest {
                     .getRootCause()
                     .hasMessage("None of the classpaths could provide all types required by the entry-points. " +
                             "See log above for details.");
-            var out = stdout.get();
-            assertThat(out).contains("Found 4 errors in classpath: " + otherClassesJarCopy + LINE_END);
-            assertThat(out).endsWith("  * Type 'Lfoo/Bar;', required by an entry-point, cannot be found in classpath" + LINE_END +
-                    "  * Type 'Lfoo/EmptyInterface;', required by an entry-point, cannot be found in classpath" + LINE_END +
-                    "  * Type 'Lgenerics/Base;', required by an entry-point, cannot be found in classpath" + LINE_END +
-                    "  * Type 'Lgenerics/Generics;', required by an entry-point, cannot be found in classpath" + LINE_END);
+
+            var out = stdout.get().lines()
+                    .dropWhile(line -> !line.startsWith("Entry-points required types:"))
+                    .collect(Collectors.toList());
+
+            assertThat(out).hasSizeGreaterThan(3);
+            assertThat(out.get(0)).startsWith("Entry-points required types: ");
+            var requiredTypes = Arrays.stream(out.get(0)
+                            .substring("Entry-points required types: ".length())
+                            .split(",\\s+"))
+                    .collect(toSet());
+            assertThat(requiredTypes).containsExactlyInAnyOrder(
+                    "Lfoo/Bar;",
+                    "Lfoo/FunctionalCode;",
+                    "Lfoo/SomethingSpecific;",
+                    "Lfoo/ExampleLogger;",
+                    "Lfoo/Zort;",
+                    "Lfoo/MultiInterface;",
+                    "Lfoo/Something;",
+                    "Lfoo/Fields;",
+                    "Lfoo/SomeEnum;",
+                    "Lfoo/EmptyInterface;",
+                    "Lgenerics/ManyGenerics;",
+                    "Lgenerics/Base;",
+                    "Lgenerics/BaseA;",
+                    "Lgenerics/ComplexType;",
+                    "Lgenerics/Generics;"
+            );
+
+            assertThat(out.get(1)).isEqualTo("Found 15 errors in classpath: " + otherClassesJarCopy);
+
+            assertThat(out.subList(2, out.size())).containsExactly(
+                    "  * Type 'Lfoo/Bar;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/EmptyInterface;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/ExampleLogger;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/Fields;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/FunctionalCode;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/MultiInterface;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/SomeEnum;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/Something;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/SomethingSpecific;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lfoo/Zort;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lgenerics/Base;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lgenerics/BaseA;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lgenerics/ComplexType;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lgenerics/Generics;', required by an entry-point, cannot be found in classpath",
+                    "  * Type 'Lgenerics/ManyGenerics;', required by an entry-point, cannot be found in classpath"
+            );
         });
     }
 

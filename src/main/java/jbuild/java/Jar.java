@@ -7,6 +7,8 @@ import jbuild.util.CachedSupplier;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -20,6 +22,8 @@ import java.util.function.Supplier;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
+import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
+import static jbuild.util.JavaTypeUtils.isReferenceType;
 
 /**
  * A parsed jar file.
@@ -97,6 +101,42 @@ public final class Jar {
         public void collectTypesReferredToInto(Set<String> result) {
             for (var typeDef : typeByName.values()) {
                 typeDef.type.typesReferredTo().forEach(result::add);
+                for (var field : typeDef.fields) {
+                    addReferenceTypeTo(result, field.type);
+                }
+                for (var methodDef : typeDef.methods.keySet()) {
+                    addReferenceTypesTo(result, methodDef.getParameterTypes());
+                    addReferenceTypeTo(result, methodDef.getReturnType());
+                }
+                for (var methodDef : typeDef.usedMethodHandles) {
+                    addReferenceTypesTo(result, methodDef.type, methodDef.typeName);
+                }
+                for (var codes : typeDef.methods.values()) {
+                    for (var code : codes) {
+                        addReferenceTypeTo(result, code.typeName);
+                        addReferenceTypesTo(result, code.<List<String>>match(
+                                t -> List.of(t.typeName),
+                                f -> List.of(f.typeName, f.type),
+                                m -> List.of(m.typeName, m.type)));
+                    }
+                }
+            }
+        }
+
+        private void addReferenceTypesTo(Set<String> result, Collection<String> types) {
+            addReferenceTypesTo(result, types.toArray(new String[0]));
+        }
+
+        private void addReferenceTypesTo(Set<String> result, String... types) {
+            for (var type : types) {
+                addReferenceTypeTo(result, type);
+            }
+        }
+
+        private void addReferenceTypeTo(Set<String> result, String type) {
+            var cleanType = cleanArrayTypeName(type);
+            if (isReferenceType(cleanType) && !typeByName.containsKey(cleanType)) {
+                result.add(cleanType);
             }
         }
     }
