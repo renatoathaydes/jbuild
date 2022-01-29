@@ -22,9 +22,6 @@ import static jbuild.util.CollectionUtils.mapValues;
  * To create a number of consistent (i.e. all types are unique within each jar)
  * {@link JarSet} instances from a given (possibly invalid) classpath,
  * a {@link JarSetPermutations} can be used.
- * <p>
- * Unlike in most other JBuild classes, the types names in this class use the Java standard syntax
- * instead of JVM internal type descriptors.
  */
 public final class JarSet {
 
@@ -100,7 +97,6 @@ public final class JarSet {
             var found = false;
             for (var entry : typesByJar.entrySet()) {
                 var jar = entry.getKey();
-                if (entryJars.contains(jar)) continue;
                 var types = entry.getValue();
                 found = types.contains(typeRequirement);
                 if (found) {

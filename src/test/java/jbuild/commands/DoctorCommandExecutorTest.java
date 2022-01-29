@@ -9,29 +9,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
 import static jbuild.TestSystemProperties.testJarsDir;
+import static jbuild.java.TestHelper.jar;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 public class DoctorCommandExecutorTest {
 
     @Test
-    void shouldFindNoErrorsInTestJarsDir() throws Exception {
-        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(new ByteArrayOutputStream()), false));
+    void shouldFindNoErrorsWhenTwoJarsAreAvailableButEntryPointDoesNotRequireTheOtherJar() throws Exception {
+        var stdout = new ByteArrayOutputStream();
+        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout), true));
 
-        var resultsForMyClassesJar = command.findValidClasspaths(testJarsDir,
-                        false, List.of(myClassesJar), Set.of())
-                .toCompletableFuture()
-                .get();
+        try {
+            var results = command.findValidClasspaths(testJarsDir,
+                            false, List.of(myClassesJar), Set.of())
+                    .toCompletableFuture()
+                    .get();
 
-        var resultsForOtherClassesJar = command.findValidClasspaths(testJarsDir,
-                        false, List.of(otherClassesJar), Set.of())
-                .toCompletableFuture()
-                .get();
-
-        for (var results : List.of(resultsForMyClassesJar, resultsForOtherClassesJar)) {
             assertThat(results.size()).isEqualTo(1);
 
             var result = results.get(0).map(
@@ -40,13 +38,48 @@ public class DoctorCommandExecutorTest {
 
             assertThat(result.errors).isEmpty();
             assertThat(result.successful).isTrue();
+            assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
+                    .containsExactlyInAnyOrder(jar(myClassesJar));
             assertThat(result.jarSet.getJarByType()).containsAllEntriesOf(Map.of(
-                    "Hello", myClassesJar,
-                    "foo.Bar", myClassesJar,
-                    "other.ExtendsBar", otherClassesJar,
-                    "other.UsesBar", otherClassesJar
+                    "LHello;", jar(myClassesJar),
+                    "Lfoo/Bar;", jar(myClassesJar)
             ));
-            assertThat(result.jarSet.getJarByType().values()).containsOnly(myClassesJar, otherClassesJar);
+        } catch (Throwable e) {
+            System.out.println("STDOUT:\n" + stdout.toString(UTF_8));
+            throw e;
+        }
+    }
+
+    @Test
+    void shouldFindNoErrorsWhenTwoJarsAreAvailableAndEntryPointRequiresTheOtherJar() throws Exception {
+        var stdout = new ByteArrayOutputStream();
+        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout), true));
+
+        try {
+            var results = command.findValidClasspaths(testJarsDir,
+                            false, List.of(otherClassesJar), Set.of())
+                    .toCompletableFuture()
+                    .get();
+
+            assertThat(results.size()).isEqualTo(1);
+
+            var result = results.get(0).map(
+                    ok -> ok,
+                    err -> fail("could not find classpath permutations", err));
+
+            assertThat(result.errors).isEmpty();
+            assertThat(result.successful).isTrue();
+            assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
+                    .containsExactlyInAnyOrder(jar(myClassesJar), jar(otherClassesJar));
+            assertThat(result.jarSet.getJarByType()).containsAllEntriesOf(Map.of(
+                    "LHello;", jar(myClassesJar),
+                    "Lfoo/Bar;", jar(myClassesJar),
+                    "Lother/ExtendsBar;", jar(otherClassesJar),
+                    "Lother/UsesBar;", jar(otherClassesJar)
+            ));
+        } catch (Throwable e) {
+            System.out.println("STDOUT:\n" + stdout.toString(UTF_8));
+            throw e;
         }
     }
 }

@@ -9,6 +9,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
+import jbuild.util.JavaTypeUtils;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
@@ -34,6 +35,7 @@ import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -95,9 +97,9 @@ public final class DoctorCommandExecutor {
                 throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
             }
 
+            // all jarSets contain the entry point jars, so we peek them from the first available one
             var entryPointJars = jarSets.iterator().next().getJars(entryJars);
 
-            // take any jarSet to check the entrypoint type requirements
             return computeEntryPointsTypeRequirements(entryPointJars, typeExclusions)
                     .thenApplyAsync(typeRequirements ->
                             findTypeCompleteClasspaths(interactive, jarSets, entryPointJars, typeRequirements))
@@ -125,10 +127,15 @@ public final class DoctorCommandExecutor {
                 .filter(Objects::nonNull)
                 .collect(toList());
 
-        if (!badResults.isEmpty() && !goodResults.isEmpty()) {
-            log.verbosePrintln(() -> "Eliminated " + badResults.size() + " classpath(s) " +
-                    "due to missing types, but found " + goodResults.size() + " that can provide " +
-                    "the required types");
+        if (log.isVerbose() && !goodResults.isEmpty()) {
+            if (badResults.isEmpty()) {
+                log.verbosePrintln("All " + goodResults.size() + " classpath(s) contain the types " +
+                        "required by the entry-points");
+            } else {
+                log.verbosePrintln("Eliminated " + badResults.size() + " classpath(s) " +
+                        "due to missing types required by the entry-points, " +
+                        "but found " + goodResults.size() + " that can provide the required types");
+            }
         }
         if (goodResults.isEmpty()) {
             if (interactive) {
@@ -174,6 +181,7 @@ public final class DoctorCommandExecutor {
                 entryPoint.collectTypesReferredToInto(requiredTypes);
             }
             return requiredTypes.stream()
+                    .filter(not(JavaTypeUtils::mayBeJavaStdLibType))
                     .filter(type -> typeExclusions.stream().noneMatch(p -> p.matcher(type).matches()))
                     .collect(toSet());
         });

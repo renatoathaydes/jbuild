@@ -61,6 +61,6 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
             throw new IllegalArgumentException("empty list");
         }
         var iter = list.iterator();
-        return new NonEmptyCollection<>(iter.next(), () -> iter);
+        return new NonEmptyCollection<>(iter.next(), list);
     }
 }

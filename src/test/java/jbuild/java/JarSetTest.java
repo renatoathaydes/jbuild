@@ -1,6 +1,7 @@
 package jbuild.java;
 
 import jbuild.log.JBuildLog;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -13,9 +14,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static jbuild.java.TestHelper.file;
+import static jbuild.java.TestHelper.jar;
 import static jbuild.util.CollectionUtils.mapValues;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,9 +31,12 @@ public class JarSetTest {
         log = new JBuildLog(System.out, true);
         log.setEnabled(false);
 
-        var service = Executors.newSingleThreadExecutor();
-        // service will not be used as we won't load any jars
-        service.shutdown();
+        service = Executors.newSingleThreadExecutor();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        service.shutdownNow();
     }
 
     @Test
@@ -130,8 +135,7 @@ public class JarSetTest {
 
     @Test
     void canCheckIfContainsJarPair() {
-        // FIXME
-        var set = new JarSet(Map.of("t1", file("j1"), "t2", file("j2"), "t3", file("j1")));
+        var set = new JarSet(Map.of("t1", jar("j1"), "t2", jar("j2"), "t3", jar("j1")));
 
         assertThat(set.containsAny(Set.of())).isFalse();
         assertThat(set.containsAny(Set.of(new SimpleEntry<>(file("j1"), file("j3"))))).isFalse();
@@ -159,17 +163,13 @@ public class JarSetTest {
     }
 
     private static List<Map<String, String>> computeUniqueJarSetPermutations(Map<String, Set<File>> jarsByType) {
-        var jarLoader = new Jar.Loader(log, service);
-
         var jarByFile = new HashMap<File, Jar>();
 
         try {
             for (var files : jarsByType.values()) {
                 for (var file : files) {
                     if (!jarByFile.containsKey(file)) {
-                        jarByFile.put(file, jarLoader.lazyLoad(file)
-                                .toCompletableFuture()
-                                .get(5, TimeUnit.SECONDS));
+                        jarByFile.put(file, jar(file));
                     }
                 }
             }
@@ -185,10 +185,6 @@ public class JarSetTest {
                 .map(JarSet::getJarByType)
                 .map(map -> mapValues(map, jar -> jar.file.getPath()))
                 .collect(Collectors.toList());
-    }
-
-    private static File file(String path) {
-        return new Jar.Loader().lazyLoad(new File(path));
     }
 
 }

@@ -4,6 +4,7 @@ import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.CachedSupplier;
+import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
 import java.util.Map;
@@ -33,9 +34,9 @@ public final class Jar {
 
     private final Supplier<CompletionStage<ParsedJar>> computeParsedJar;
 
-    private Jar(File file,
-                Set<String> types,
-                Supplier<CompletionStage<ParsedJar>> computeParsedJar) {
+    Jar(File file,
+        Set<String> types,
+        Supplier<CompletionStage<ParsedJar>> computeParsedJar) {
         this.file = file;
         this.types = types;
         this.computeParsedJar = new CachedSupplier<>(computeParsedJar);
@@ -73,7 +74,7 @@ public final class Jar {
     public String toString() {
         return "Jar{" +
                 "file=" + file +
-                ", types=" + types +
+                ", typeCount=" + types.size() +
                 '}';
     }
 
@@ -128,9 +129,13 @@ public final class Jar {
         }
 
         private Jar lazyLoad(File jar, Set<String> classNames) {
+            var typeNames = classNames.stream()
+                    .map(JavaTypeUtils::classNameToTypeName)
+                    .collect(toSet());
+
             // the load method will be called only once, but lazily...
             // the Jar constructor caches the supplier.
-            return new Jar(jar, classNames, () -> supplyAsync(
+            return new Jar(jar, typeNames, () -> supplyAsync(
                     () -> load(jar, classNames),
                     executorService));
         }
