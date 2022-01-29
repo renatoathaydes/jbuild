@@ -1,5 +1,6 @@
 package jbuild.java;
 
+import jbuild.errors.JBuildException;
 import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
@@ -209,6 +210,8 @@ public final class Jar {
             try (var stdoutStream = toolResult.getStdoutLines();
                  var ignored = toolResult.getStderrLines()) {
                 typeDefs = javapOutputParser.processJavapOutput(stdoutStream.iterator());
+            } catch (JBuildException e) {
+                throw new JBuildException(e.getMessage() + " (jar: " + jar + ")", e.getErrorCause());
             }
             totalTime.set(System.currentTimeMillis() - startTime);
             log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar + " in " + totalTime.get() + "ms");

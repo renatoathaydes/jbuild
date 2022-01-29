@@ -143,7 +143,8 @@ public final class JavapOutputParser {
                 if (prevLine == null || line.isEmpty()) continue;
                 if (!line.startsWith("  ")) { // indent must be less than the type body's
                     throw new JBuildException("Unexpected line inside class: '" + line + "'. " +
-                            "Previous line was '" + prevLine + "'.", ACTION_ERROR);
+                            "Previous line was '" + prevLine + "'. Parsing type: '" + typeName + "'.",
+                            ACTION_ERROR);
                 }
                 if (expectingCode) {
                     if (line.equals("    Code:")) {
@@ -155,7 +156,8 @@ public final class JavapOutputParser {
                         line = ""; // this line has been used, set prevLine to nothing
                     } else if (!line.startsWith("    ")) { // make sure we don't accidentally enter another section
                         throw new JBuildException("Expected to find code section but got unexpected line: '" +
-                                line + "', previous line was: '" + prevLine + "'", ACTION_ERROR);
+                                line + "', previous line was: '" + prevLine + "'. Parsing type: '" + typeName + "'.",
+                                ACTION_ERROR);
                     }
                 } else if (line.startsWith("    descriptor: ")) {
                     if (prevLine.equals("  static {};")) { // static block
@@ -167,7 +169,8 @@ public final class JavapOutputParser {
                         if (name == null) {
                             throw new JBuildException("Expected method line but got '" + prevLine +
                                     "', descriptor line: '" + line.substring("    descriptor: ".length()) +
-                                    "'", ACTION_ERROR);
+                                    "'. Parsing type: '" + typeName + "'.",
+                                    ACTION_ERROR);
                         }
                         type = line.substring("    descriptor: ".length());
                         if (prevLine.contains(" abstract ")) {
@@ -181,7 +184,8 @@ public final class JavapOutputParser {
                         if (name == null) {
                             throw new JBuildException("Expected field line but got '" + prevLine +
                                     "', descriptor line: '" + line.substring("    descriptor: ".length()) +
-                                    "'", ACTION_ERROR);
+                                    "'. Parsing type: '" + typeName + "'.",
+                                    ACTION_ERROR);
                         }
                         type = line.substring("    descriptor: ".length());
                         fields.add(new Definition.FieldDefinition(name, type));
