@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +30,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -37,6 +39,7 @@ import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.InteractivityHelper.askYesOrNoQuestion;
@@ -89,10 +92,20 @@ public final class DoctorCommandExecutor {
                 .filter(Objects::nonNull)
                 .collect(toSet());
         if (entryJars.size() < entryPoints.size()) {
-            throw new JBuildException("Could not find all entry points, found following jars: " + entryJars, USER_INPUT);
+            if (entryJars.isEmpty()) {
+                throw new JBuildException("Could not find any of the entry points in the input directory.", USER_INPUT);
+            }
+            var missingJars = entryPoints.stream()
+                    .filter(Predicate.not(entryJars::contains))
+                    .collect(toSet());
+            throw new JBuildException("Could not find all entry points.\n" +
+                    "Found jars: " + entryJars + "\n" +
+                    "Missing jars: " + missingJars, USER_INPUT);
         }
 
-        return jarSetPermutations.fromJars(jarFiles).thenComposeAsync((jarSets) -> {
+        return jarSetPermutations.fromJars(jarFiles).thenComposeAsync((allJarSets) -> {
+            var jarSets = eliminateJarSetsMissingEntrypoints(entryJars, allJarSets);
+
             if (jarSets.isEmpty()) {
                 throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
             }
@@ -154,12 +167,25 @@ public final class DoctorCommandExecutor {
         return NonEmptyCollection.of(goodResults);
     }
 
+    private List<JarSet> eliminateJarSetsMissingEntrypoints(Set<File> entryJars, List<JarSet> jarSets) {
+        return jarSets.stream()
+                .filter(jarSet -> {
+                    var ok = jarSet.containsAll(entryJars);
+                    if (log.isVerbose() && !ok) {
+                        log.verbosePrintln("Eliminating classpath as it is missing at least one entry-point: " +
+                                jarSet.toClasspath());
+                    }
+                    return ok;
+                }).collect(toList());
+    }
+
     private void showErrors(List<AbstractMap.SimpleEntry<JarSet, NonEmptyCollection<String>>> badResults,
                             boolean verbose) {
         var limit = verbose ? Integer.MAX_VALUE : 5;
         badResults.stream().limit(limit).forEach((badResult) -> {
-            var errors = badResult.getValue().stream().collect(toSet());
-            log.println(() -> "Found " + errors.size() + " errors in classpath:" + badResult.getKey().toClasspath());
+            var errors = badResult.getValue().stream()
+                    .collect(toCollection(TreeSet::new));
+            log.println(() -> "Found " + errors.size() + " errors in classpath: " + badResult.getKey().toClasspath());
             errors.stream().limit(limit).forEach(err -> log.println("  * " + err));
             if (errors.size() > limit) {
                 log.println("  ...");
