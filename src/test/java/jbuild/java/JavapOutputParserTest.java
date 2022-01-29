@@ -17,6 +17,7 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.TestSystemProperties.jlineJar;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.osgiaasCliApiJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
@@ -512,6 +513,47 @@ public class JavapOutputParserTest {
         assertThat(result.methods.values()).containsOnly(Set.of());
     }
 
+    @Test
+    void canParseTrickyTypeFromAnsiJar() {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var types = parser.processJavapOutput(javap(jlineJar,
+                "org.fusesource.jansi.internal.Kernel32$COORD"));
+        var result = types.get("Lorg/fusesource/jansi/internal/Kernel32$COORD;");
+
+        assertThat(result.typeName).isEqualTo("Lorg/fusesource/jansi/internal/Kernel32$COORD;");
+        assertThat(result.type.typeParameters).isEmpty();
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+        assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.FieldDefinition("SIZEOF", "I"),
+                new Definition.FieldDefinition("x", "S"),
+                new Definition.FieldDefinition("y", "S")
+        ));
+        assertThat(result.usedMethodHandles).isEmpty();
+        assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.MethodDefinition("\"<init>\"", "()V"),
+                new Definition.MethodDefinition("static{}", "()V"),
+                new Definition.MethodDefinition("init", "()V"),
+                new Definition.MethodDefinition("copy", "()Lorg/fusesource/jansi/internal/Kernel32$COORD;")
+        ));
+        assertThat(result.methods.get(
+                new Definition.MethodDefinition("\"<init>\"", "()V")
+        )).isEmpty();
+        assertThat(result.methods.get(
+                new Definition.MethodDefinition("init", "()V")
+        )).isEmpty();
+        assertThat(result.methods.get(
+                new Definition.MethodDefinition("copy", "()Lorg/fusesource/jansi/internal/Kernel32$COORD;")
+        )).isEmpty();
+        assertThat(result.methods.get(
+                new Definition.MethodDefinition("static{}", "()V")
+        )).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Code.Method("Lorg/fusesource/jansi/internal/Kernel32;", "access$000", "()Lorg/fusesource/hawtjni/runtime/Library;"),
+                new Code.Method("Lorg/fusesource/hawtjni/runtime/Library;", "load", "()V")
+        ));
+    }
+
     private Iterator<String> javap(File jar, String... classNames) {
         var result = Tools.Javap.create().run(jar.getPath(), List.of(classNames));
         assertProcessWasSuccessful(result);
@@ -520,7 +562,7 @@ public class JavapOutputParserTest {
 
     private void assertProcessWasSuccessful(ToolRunResult result) {
         if (result.exitCode() != 0) {
-            throw new RuntimeException("tool failed: " + result.exitCode() + ":" + LINE_END + processOutput(result));
+            throw new RuntimeException("tool failed [code=" + result.exitCode() + "]:" + LINE_END + processOutput(result));
         }
     }
 

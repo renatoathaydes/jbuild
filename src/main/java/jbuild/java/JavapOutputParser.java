@@ -173,7 +173,7 @@ public final class JavapOutputParser {
                                     ACTION_ERROR);
                         }
                         type = line.substring("    descriptor: ".length());
-                        if (prevLine.contains(" abstract ")) {
+                        if (prevLine.contains(" abstract ") || prevLine.contains(" native ")) {
                             var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
                             methods.put(method, Set.of());
                         } else { // collect the code for the method

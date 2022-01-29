@@ -78,4 +78,5 @@ test {
     systemProperty('tests.my-test-classes.jar', "$testJarsDir/my-tests.jar")
     systemProperty('tests.other-test-classes.jar', "$testJarsDir/other-tests.jar")
     systemProperty('tests.real-jars.osgiaas-cli-api.jar', "$rootDir/src/test/real-jars/osgiaas-cli-api-0.7.jar")
+    systemProperty('tests.real-jars.jline.jar', "$rootDir/src/test/real-jars/jline-2.14.2.jar")
 }
