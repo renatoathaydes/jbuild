@@ -50,6 +50,7 @@ public class DoctorTest extends JBuildTestRunner {
                 "-x", "Lgroovyjarjarantlr4\\/.*",
                 "-x", "Lorg\\/fusesource\\/jansi\\/.*",
                 "-x", "Lversion;",
+                "-x", "Lcom\\/ibm\\/icu\\/.*",
                 "-x", "Lcom\\/thoughtworks\\/xstream\\/.*",
                 "-x", "Lgroovyjarjarasm\\/asm\\/util\\/ASMifierSupport;");
 
