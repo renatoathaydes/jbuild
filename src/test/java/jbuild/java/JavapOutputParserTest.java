@@ -3,7 +3,7 @@ package jbuild.java;
 import jbuild.TestSystemProperties;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
-import jbuild.java.tools.ToolRunResult;
+import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
@@ -21,16 +22,14 @@ import static jbuild.TestSystemProperties.jlineJar;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.osgiaasCliApiJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
-import static jbuild.util.TextUtils.LINE_END;
+import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JavapOutputParserTest {
 
     @Test
     void canParseBasicClass() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "Hello"));
+        var types = javapParse(myClassesJar, "Hello");
         var result = types.get("LHello;");
 
         assertThat(result.typeName).isEqualTo("LHello;");
@@ -64,9 +63,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseClassWithStaticBlockAndStaticMethods() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "foo.Bar"));
+        var types = javapParse(myClassesJar, "foo.Bar");
         var result = types.get("Lfoo/Bar;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/Bar;");
@@ -78,7 +75,7 @@ public class JavapOutputParserTest {
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(new Definition.MethodDefinition("\"<init>\"", "()V")));
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "()V"))).isEmpty();
 
-        types = parser.processJavapOutput(javap(myClassesJar, "foo.Zort"));
+        types = javapParse(myClassesJar, "foo.Zort");
         result = types.get("Lfoo/Zort;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/Zort;");
@@ -102,9 +99,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseBasicEnum() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "foo.SomeEnum"));
+        var types = javapParse(myClassesJar, "foo.SomeEnum");
         var result = types.get("Lfoo/SomeEnum;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/SomeEnum;");
@@ -162,9 +157,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseClassWithVarargsMethod() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "foo.Something"));
+        var types = javapParse(myClassesJar, "foo.Something");
         var result = types.get("Lfoo/Something;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/Something;");
@@ -181,9 +174,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseClassExtendingAnother() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "foo.SomethingSpecific"));
+        var types = javapParse(myClassesJar, "foo.SomethingSpecific");
         var result = types.get("Lfoo/SomethingSpecific;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/SomethingSpecific;");
@@ -199,9 +190,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseFunctionalCode() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "foo.FunctionalCode"));
+        var types = javapParse(myClassesJar, "foo.FunctionalCode");
         var result = types.get("Lfoo/FunctionalCode;");
 
         assertThat(result.typeName).isEqualTo("Lfoo/FunctionalCode;");
@@ -252,11 +241,8 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseMultipleClassesAtOnce() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var result = parser.processJavapOutput(
-                javap(myClassesJar, "Hello", "foo.EmptyInterface", "foo.FunctionalCode", "foo.Bar")
-        ).values();
+        var result = javapParse(myClassesJar,
+                "Hello", "foo.EmptyInterface", "foo.FunctionalCode", "foo.Bar").values();
 
         assertThat(result.stream().map(c -> c.typeName).collect(toList()))
                 .isEqualTo(List.of("LHello;", "Lfoo/EmptyInterface;", "Lfoo/FunctionalCode;", "Lfoo/Bar;"));
@@ -292,9 +278,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseBasicGenericClass() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "generics.BasicGenerics"));
+        var types = javapParse(myClassesJar, "generics.BasicGenerics");
         var result = types.get("Lgenerics/BasicGenerics;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/BasicGenerics;");
@@ -312,9 +296,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseGenericClass() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "generics.Generics"));
+        var types = javapParse(myClassesJar, "generics.Generics");
         var result = types.get("Lgenerics/Generics;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/Generics;");
@@ -335,9 +317,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseGenericClassWithArrayTypeBound() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericWithArray"));
+        var types = javapParse(myClassesJar, "generics.GenericWithArray");
         var result = types.get("Lgenerics/GenericWithArray;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/GenericWithArray;");
@@ -360,9 +340,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseGenericClassWithInnerGenericClass() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure"));
+        var types = javapParse(myClassesJar, "generics.GenericStructure");
         var result = types.get("Lgenerics/GenericStructure;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure;");
@@ -377,7 +355,7 @@ public class JavapOutputParserTest {
                 new Definition.MethodDefinition("\"<init>\"", "()V")
         ));
 
-        types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure.Data"));
+        types = javapParse(myClassesJar, "generics.GenericStructure.Data");
         result = types.get("Lgenerics/GenericStructure$Data;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure$Data;");
@@ -395,7 +373,7 @@ public class JavapOutputParserTest {
                 new Definition.MethodDefinition("\"<init>\"", "(Lgenerics/GenericStructure;)V")
         ));
 
-        types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure.OtherData"));
+        types = javapParse(myClassesJar, "generics.GenericStructure.OtherData");
         result = types.get("Lgenerics/GenericStructure$OtherData;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure$OtherData;");
@@ -417,9 +395,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseGenericClassWithDoubleNestedInnerClass() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "generics.GenericStructure.OtherData.InnerData"));
+        var types = javapParse(myClassesJar, "generics.GenericStructure.OtherData.InnerData");
         var result = types.get("Lgenerics/GenericStructure$OtherData$InnerData;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/GenericStructure$OtherData$InnerData;");
@@ -438,9 +414,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseManyGenericsClass() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(myClassesJar, "generics.ManyGenerics"));
+        var types = javapParse(myClassesJar, "generics.ManyGenerics");
         var result = types.get("Lgenerics/ManyGenerics;");
 
         assertThat(result.typeName).isEqualTo("Lgenerics/ManyGenerics;");
@@ -461,9 +435,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseTypeUsingJavaMethodViaInterface() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(otherClassesJar, "other.UsesMultiInterface"));
+        var types = javapParse(otherClassesJar, "other.UsesMultiInterface");
         var result = types.get("Lother/UsesMultiInterface;");
 
         assertThat(result.typeName).isEqualTo("Lother/UsesMultiInterface;");
@@ -490,9 +462,7 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseInterfaceFromRealJar() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(osgiaasCliApiJar, "com.athaydes.osgiaas.cli.Cli"));
+        var types = javapParse(osgiaasCliApiJar, "com.athaydes.osgiaas.cli.Cli");
         var result = types.get("Lcom/athaydes/osgiaas/cli/Cli;");
 
         assertThat(result.typeName).isEqualTo("Lcom/athaydes/osgiaas/cli/Cli;");
@@ -515,10 +485,8 @@ public class JavapOutputParserTest {
 
     @Test
     void canParseTrickyTypeFromAnsiJar() {
-        var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
-        var types = parser.processJavapOutput(javap(jlineJar,
-                "org.fusesource.jansi.internal.Kernel32$COORD"));
+        var types = javapParse(jlineJar,
+                "org.fusesource.jansi.internal.Kernel32$COORD");
         var result = types.get("Lorg/fusesource/jansi/internal/Kernel32$COORD;");
 
         assertThat(result.typeName).isEqualTo("Lorg/fusesource/jansi/internal/Kernel32$COORD;");
@@ -554,22 +522,20 @@ public class JavapOutputParserTest {
         ));
     }
 
-    private Iterator<String> javap(File jar, String... classNames) {
-        var result = Tools.Javap.create().run(jar.getPath(), List.of(classNames));
-        assertProcessWasSuccessful(result);
+    public static Map<String, TypeDefinition> javapParse(File classpath, String... classNames) {
+        return javapParse(classpath.getPath(), classNames);
+    }
+
+    public static Map<String, TypeDefinition> javapParse(String classpath, String... classNames) {
+        var out = new ByteArrayOutputStream();
+        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        return parser.processJavapOutput(javap(classpath, classNames));
+    }
+
+    public static Iterator<String> javap(String classpath, String... classNames) {
+        var result = Tools.Javap.create().run(classpath, List.of(classNames));
+        verifyToolSuccessful("javap", result);
         return result.getStdout().lines().iterator();
-    }
-
-    private void assertProcessWasSuccessful(ToolRunResult result) {
-        if (result.exitCode() != 0) {
-            throw new RuntimeException("tool failed [code=" + result.exitCode() + "]:" + LINE_END + processOutput(result));
-        }
-    }
-
-    private String processOutput(ToolRunResult result) {
-        return ">>> sysout:" + LINE_END + result.getStdout() + LINE_END +
-                ">>> syserr:" + LINE_END + result.getStderr() + LINE_END +
-                "---";
     }
 
 }
