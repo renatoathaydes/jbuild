@@ -80,3 +80,9 @@ test {
     systemProperty('tests.real-jars.osgiaas-cli-api.jar', "$rootDir/src/test/real-jars/osgiaas-cli-api-0.7.jar")
     systemProperty('tests.real-jars.jline.jar', "$rootDir/src/test/real-jars/jline-2.14.2.jar")
 }
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'jbuild.cli.Main'
+    }
+}
