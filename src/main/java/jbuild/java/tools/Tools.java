@@ -15,7 +15,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import java.util.spi.ToolProvider;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -133,8 +132,7 @@ public abstract class Tools {
                 result[i++] = classpath;
             }
             for (var className : classNames) {
-                result[i] = className;
-                i++;
+                result[i++] = className;
             }
             return result;
         }
@@ -187,23 +185,38 @@ public abstract class Tools {
         /**
          * Run the javac tool in order to compile all given files.
          *
-         * @param files  files to compile
-         * @param outDir where to store compiled class files
+         * @param files     files to compile
+         * @param outDir    where to store compiled class files
+         * @param classpath the classpath (may be empty)
          * @return result
          */
-        public ToolRunResult compile(Set<File> files, File outDir) {
-            var classpath = files.stream()
-                    .map(File::getAbsolutePath)
-                    .collect(Collectors.joining(File.pathSeparator));
-            var args = new String[]{
-                    "-d", outDir.getPath(),
-                    classpath
-            };
+        public ToolRunResult compile(Set<String> files,
+                                     String outDir,
+                                     String classpath) {
+            var args = collectArgs(files, outDir, classpath);
             var exitCode = tool.run(
                     new PrintStream(stdout(), false, ISO_8859_1),
                     new PrintStream(stderr(), false, ISO_8859_1),
                     args);
             return result(exitCode, args);
+        }
+
+        private static String[] collectArgs(Set<String> files,
+                                            String outDir,
+                                            String classpath) {
+            var extraArgs = classpath.isBlank() ? 2 : 4;
+            var result = new String[files.size() + extraArgs];
+            var i = 0;
+            result[i++] = "-d";
+            result[i++] = outDir;
+            if (!classpath.isBlank()) {
+                result[i++] = "-cp";
+                result[i++] = classpath;
+            }
+            for (var file : files) {
+                result[i++] = file;
+            }
+            return result;
         }
     }
 

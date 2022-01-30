@@ -30,7 +30,7 @@ public class JavacToolTest {
                 "    }\n" +
                 "}");
 
-        var result = Tools.Javac.create().compile(Set.of(javaSrc.toFile()), outDir);
+        var result = Tools.Javac.create().compile(Set.of(javaSrc.toString()), outDir.getPath(), "");
         verifyToolSuccessful("javac", result);
 
         assertThat(outDir).isDirectory();
