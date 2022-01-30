@@ -88,7 +88,7 @@ public final class JavapOutputParser {
                                 "Ignoring class from line '" + line + "'");
                     }
                 }
-            } else if (line.startsWith("Classfile jar:")) {
+            } else if (line.startsWith("Classfile ")) {
                 waitingForClassLine = true;
             }
         }

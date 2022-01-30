@@ -13,7 +13,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Set;
 import java.util.spi.ToolProvider;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -107,25 +109,29 @@ public abstract class Tools {
          * <p>
          * The output can be piped into {@link jbuild.java.JavapOutputParser} for parsing.
          *
-         * @param jarPath    path of jar file
+         * @param classpath  the classpath. May be empty.
          * @param classNames name of types to include
          * @return result
          */
-        public ToolRunResult run(String jarPath, Collection<String> classNames) {
-            var args = collectArgs(jarPath, classNames);
+        public ToolRunResult run(String classpath, Collection<String> classNames) {
+            var args = collectArgs(classpath, classNames);
             var exitCode = tool.run(stdout(), stderr(), args);
             return result(exitCode, args);
         }
 
-        private static String[] collectArgs(String jarPath, Collection<String> classNames) {
-            var result = new String[classNames.size() + 6];
-            result[0] = "-v";
-            result[1] = "-s";
-            result[2] = "-c";
-            result[3] = "-p";
-            result[4] = "-classpath";
-            result[5] = jarPath;
-            var i = 6;
+        private static String[] collectArgs(String classpath,
+                                            Collection<String> classNames) {
+            var extraArgs = classpath.isBlank() ? 4 : 6;
+            var result = new String[classNames.size() + extraArgs];
+            var i = 0;
+            result[i++] = "-v";
+            result[i++] = "-s";
+            result[i++] = "-c";
+            result[i++] = "-p";
+            if (!classpath.isBlank()) {
+                result[i++] = "-classpath";
+                result[i++] = classpath;
+            }
             for (var className : classNames) {
                 result[i] = className;
                 i++;
@@ -164,6 +170,41 @@ public abstract class Tools {
             return result(exitCode, new String[]{"tf", jarPath});
         }
 
+    }
+
+    public static final class Javac extends Tools {
+
+        private static final ToolProvider toolProvider = lookupTool("javac");
+
+        public static Javac create() {
+            return new Javac(toolProvider);
+        }
+
+        private Javac(ToolProvider tool) {
+            super(tool, new MemoryStreams());
+        }
+
+        /**
+         * Run the javac tool in order to compile all given files.
+         *
+         * @param files  files to compile
+         * @param outDir where to store compiled class files
+         * @return result
+         */
+        public ToolRunResult compile(Set<File> files, File outDir) {
+            var classpath = files.stream()
+                    .map(File::getAbsolutePath)
+                    .collect(Collectors.joining(File.pathSeparator));
+            var args = new String[]{
+                    "-d", outDir.getPath(),
+                    classpath
+            };
+            var exitCode = tool.run(
+                    new PrintStream(stdout(), false, ISO_8859_1),
+                    new PrintStream(stderr(), false, ISO_8859_1),
+                    args);
+            return result(exitCode, args);
+        }
     }
 
     private interface Streams {
