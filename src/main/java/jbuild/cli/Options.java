@@ -7,6 +7,7 @@ import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.maven.Scope;
 
+import java.io.File;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -396,3 +397,64 @@ final class VersionsOptions {
     }
 
 }
+
+final class CompileOptions {
+    final Set<String> inputDirectories;
+    final String outputDir;
+    final String classpath;
+
+    public CompileOptions(Set<String> inputDirectories, String outputDir, String classpath) {
+        this.inputDirectories = inputDirectories;
+        this.outputDir = outputDir;
+        this.classpath = classpath;
+    }
+
+    static CompileOptions parse(List<String> args) {
+        Set<String> inputDirectories = new LinkedHashSet<>();
+        String outputDir = null;
+        var classpath = new StringBuilder();
+
+        boolean waitingForClasspath = false, waitingForDirectory = false;
+
+        for (String arg : args) {
+            if (waitingForClasspath) {
+                waitingForClasspath = false;
+                if (classpath.length() > 0) {
+                    classpath.append(File.pathSeparatorChar);
+                }
+                classpath.append(arg);
+            } else if (waitingForDirectory) {
+                waitingForDirectory = false;
+                outputDir = arg;
+            } else if (arg.startsWith("-")) {
+                if (isEither(arg, "-cp", "--classpath")) {
+                    waitingForClasspath = true;
+                } else if (isEither(arg, "-d", "--directory")) {
+                    if (outputDir != null) {
+                        throw new JBuildException("cannot provide repository directory more than once" +
+                                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    }
+                    waitingForDirectory = true;
+                } else {
+                    throw new JBuildException("invalid compile option: " + arg +
+                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                }
+            } else {
+                inputDirectories.add(arg);
+            }
+        }
+
+        if (waitingForClasspath) {
+            throw new JBuildException("expecting value for '--classpath' option", USER_INPUT);
+        }
+        if (waitingForDirectory) {
+            throw new JBuildException("expecting value for '--directory' option", USER_INPUT);
+        }
+        if (outputDir == null) {
+            outputDir = "target";
+        }
+
+        return new CompileOptions(inputDirectories, outputDir, classpath.toString());
+    }
+}
+

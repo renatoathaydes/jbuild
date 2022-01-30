@@ -4,6 +4,7 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.artifact.http.DefaultHttpClient;
+import jbuild.commands.CompileCommandExecutor;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.DoctorCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
@@ -39,6 +40,7 @@ import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
 import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;
 
@@ -75,6 +77,18 @@ public final class Main {
             "        -d        output directory." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
+            "" + LINE_END +
+            "  * compile" + LINE_END +
+            "    Compile all Java source files found in the working directory or the given input directories." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild compile <options... | input-directory...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --classpath" + LINE_END +
+            "        -cp        java classpath (may be given more than once)." + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        output directory." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild compile -cp libs/jsr305-3.0.2.jar" + LINE_END +
             "" + LINE_END +
             "  * install" + LINE_END +
             "    Install Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
@@ -175,6 +189,9 @@ public final class Main {
         }
 
         switch (options.command) {
+            case "compile":
+                compile(options);
+                break;
             case "fetch":
                 fetchArtifacts(options);
                 break;
@@ -194,6 +211,18 @@ public final class Main {
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
         }
+    }
+
+    private void compile(Options options) {
+        var compileOptions = CompileOptions.parse(options.commandArgs);
+
+        var commandExecutor = new CompileCommandExecutor(log);
+
+        var result = commandExecutor.compile(
+                compileOptions.inputDirectories, compileOptions.outputDir, compileOptions.classpath
+        );
+
+        verifyToolSuccessful("javac", result);
     }
 
     private void doctor(Options options) throws ExecutionException, InterruptedException {
