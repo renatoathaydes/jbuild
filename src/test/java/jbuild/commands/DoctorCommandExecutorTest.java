@@ -182,27 +182,30 @@ public class DoctorCommandExecutorTest {
                     "Lgenerics/Base;",
                     "Lgenerics/BaseA;",
                     "Lgenerics/ComplexType;",
-                    "Lgenerics/Generics;"
+                    "Lgenerics/Generics;",
+                    "Lother/UsesEnum$1;"
             );
 
-            assertThat(out.get(1)).isEqualTo("Found 15 errors in classpath: " + otherClassesJarCopy);
+            assertThat(out.get(1)).isEqualTo("Found 17 errors in classpath: " + otherClassesJarCopy);
 
             assertThat(out.subList(2, out.size())).containsExactly(
-                    "  * Type 'Lfoo/Bar;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/EmptyInterface;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/ExampleLogger;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/Fields;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/FunctionalCode;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/MultiInterface;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/SomeEnum;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/Something;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/SomethingSpecific;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lfoo/Zort;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lgenerics/Base;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lgenerics/BaseA;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lgenerics/ComplexType;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lgenerics/Generics;', required by an entry-point, cannot be found in classpath",
-                    "  * Type 'Lgenerics/ManyGenerics;', required by an entry-point, cannot be found in classpath"
+                    "  * missing references: 'other-tests.jar!other.CallsSuperMethod -> foo.Something, foo.SomethingSpecific'",
+                    "  * missing references: 'other-tests.jar!other.CallsZortToCreateBar -> foo.Bar, foo.Zort'",
+                    "  * missing references: 'other-tests.jar!other.ExtendsBar -> foo.Bar'",
+                    "  * missing references: 'other-tests.jar!other.HasSomething -> foo.Something'",
+                    "  * missing references: 'other-tests.jar!other.ImplementsEmptyInterface -> foo.EmptyInterface'",
+                    "  * missing references: 'other-tests.jar!other.ReadsFieldOfZort -> foo.Bar, foo.Zort'",
+                    "  * missing references: 'other-tests.jar!other.UsesArrayOfFunctionalCode -> foo.FunctionalCode'",
+                    "  * missing references: 'other-tests.jar!other.UsesBar -> foo.Bar'",
+                    "  * missing references: 'other-tests.jar!other.UsesBaseA -> generics.BaseA'",
+                    "  * missing references: 'other-tests.jar!other.UsesBaseViaGenerics -> generics.Base'",
+                    "  * missing references: 'other-tests.jar!other.UsesComplexType -> foo.Zort, generics.ComplexType, generics.ManyGenerics'",
+                    "  * missing references: 'other-tests.jar!other.UsesComplexType$Param -> foo.EmptyInterface, generics.Generics'",
+                    "  * missing references: 'other-tests.jar!other.UsesEnum$1 -> foo.SomeEnum'",
+                    "  * missing references: 'other-tests.jar!other.UsesFields -> foo.Fields'",
+                    "  * missing references: 'other-tests.jar!other.UsesGenerics -> generics.BaseA, generics.Generics'",
+                    "  * missing references: 'other-tests.jar!other.UsesMethodHandleFromExampleLogger -> foo.ExampleLogger'",
+                    "  * missing references: 'other-tests.jar!other.UsesMultiInterface -> foo.MultiInterface'"
             );
         });
     }

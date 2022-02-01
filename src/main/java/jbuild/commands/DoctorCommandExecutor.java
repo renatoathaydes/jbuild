@@ -5,11 +5,11 @@ import jbuild.java.ClassGraph;
 import jbuild.java.Jar;
 import jbuild.java.JarSet;
 import jbuild.java.JarSetPermutations;
+import jbuild.java.TypeReference;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
-import jbuild.util.JavaTypeUtils;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +37,6 @@ import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
@@ -126,8 +124,10 @@ public final class DoctorCommandExecutor {
     private NonEmptyCollection<JarSet> findTypeCompleteClasspaths(boolean interactive,
                                                                   List<JarSet> jarSets,
                                                                   Set<Jar> entryPointJars,
-                                                                  Set<String> typeRequirements) {
-        log.verbosePrintln(() -> "Entry-points required types: " + String.join(", ", typeRequirements));
+                                                                  List<TypeReference> typeRequirements) {
+        log.verbosePrintln(() -> "Entry-points required types: " + String.join(", ",
+                typeRequirements.stream().flatMap(ref -> ref.typesTo.stream()).collect(toSet())));
+
         var filteredJarSets = jarSets.stream()
                 .map((jarSet) -> jarSet.filter(entryPointJars, typeRequirements)
                         .mapRight(errors -> new AbstractMap.SimpleEntry<>(jarSet, errors)))
@@ -196,7 +196,7 @@ public final class DoctorCommandExecutor {
         });
     }
 
-    private CompletionStage<Set<String>> computeEntryPointsTypeRequirements(
+    private CompletionStage<List<TypeReference>> computeEntryPointsTypeRequirements(
             Set<Jar> jarSet,
             Set<Pattern> typeExclusions) {
         // ensure the entry points have been parsed so we can check if all their type requirements can be fulfilled
@@ -205,14 +205,13 @@ public final class DoctorCommandExecutor {
                 .collect(toList()));
 
         return entryPoints.thenApplyAsync((jars) -> {
-            var requiredTypes = new HashSet<String>(512);
+            Stream<TypeReference> requirements = Stream.of();
             for (var entryPoint : jars) {
-                entryPoint.collectTypesReferredToInto(requiredTypes);
+                var requiredTypes = new ArrayList<TypeReference>(512);
+                entryPoint.collectTypesReferredToInto(requiredTypes, typeExclusions);
+                requirements = Stream.concat(requirements, requiredTypes.stream());
             }
-            return requiredTypes.stream()
-                    .filter(not(JavaTypeUtils::mayBeJavaStdLibType))
-                    .filter(type -> typeExclusions.stream().noneMatch(p -> p.matcher(type).matches()))
-                    .collect(toSet());
+            return requirements.collect(toList());
         });
     }
 

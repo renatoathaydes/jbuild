@@ -7,6 +7,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -89,23 +90,26 @@ public final class JarSet {
 
     public Either<JarSet, NonEmptyCollection<String>> filter(
             Set<Jar> entryJars,
-            Set<String> typeRequirements) {
+            List<TypeReference> typeReferences) {
         var errors = new HashSet<String>();
         var jarsToKeep = new HashSet<Jar>(jarFiles.size());
         jarsToKeep.addAll(entryJars);
-        for (var typeRequirement : typeRequirements) {
+        for (var typeRef : typeReferences) {
             var found = false;
+            jarLoop:
             for (var entry : typesByJar.entrySet()) {
                 var jar = entry.getKey();
                 var types = entry.getValue();
-                found = types.contains(typeRequirement);
-                if (found) {
-                    jarsToKeep.add(jar);
-                    break;
+                for (var to : typeRef.typesTo) {
+                    found = types.contains(to);
+                    if (found) {
+                        jarsToKeep.add(jar);
+                        break jarLoop;
+                    }
                 }
             }
             if (!found) {
-                errors.add("Type '" + typeRequirement + "', required by an entry-point, cannot be found in classpath");
+                errors.add("missing references: '" + typeRef + "'");
             }
         }
         if (errors.isEmpty()) {
