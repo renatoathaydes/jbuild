@@ -161,6 +161,20 @@ public abstract class Tools {
             return result(exitCode, new String[]{"tf", jarPath});
         }
 
+        /**
+         * Create a jar according to the provided options.
+         *
+         * @param options create jar options
+         * @return result
+         */
+        public ToolRunResult createJar(CreateJarOptions options) {
+            var args = options.toArgs().toArray(new String[0]);
+            var exitCode = tool.run(new PrintStream(stdout(), false, ISO_8859_1),
+                    new PrintStream(stderr(), false, ISO_8859_1),
+                    args);
+            return result(exitCode, args);
+        }
+
     }
 
     public static final class Javac extends Tools {
