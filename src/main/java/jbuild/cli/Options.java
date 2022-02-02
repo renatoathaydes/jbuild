@@ -6,6 +6,7 @@ import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.maven.Scope;
+import jbuild.util.Either;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -400,21 +401,24 @@ final class VersionsOptions {
 
 final class CompileOptions {
     final Set<String> inputDirectories;
-    final String outputDir;
+    final Either<String, String> outputDirOrJar;
     final String classpath;
 
-    public CompileOptions(Set<String> inputDirectories, String outputDir, String classpath) {
+    public CompileOptions(Set<String> inputDirectories,
+                          Either<String, String> outputDirOrJar,
+                          String classpath) {
         this.inputDirectories = inputDirectories;
-        this.outputDir = outputDir;
+        this.outputDirOrJar = outputDirOrJar;
         this.classpath = classpath;
     }
 
     static CompileOptions parse(List<String> args) {
         Set<String> inputDirectories = new LinkedHashSet<>();
         String outputDir = null;
+        String jar = null;
         var classpath = new StringBuilder();
 
-        boolean waitingForClasspath = false, waitingForDirectory = false;
+        boolean waitingForClasspath = false, waitingForDirectory = false, waitingForJar = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
@@ -426,6 +430,9 @@ final class CompileOptions {
             } else if (waitingForDirectory) {
                 waitingForDirectory = false;
                 outputDir = arg;
+            } else if (waitingForJar) {
+                waitingForJar = false;
+                jar = arg;
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
@@ -435,6 +442,12 @@ final class CompileOptions {
                                 LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                     }
                     waitingForDirectory = true;
+                } else if (isEither(arg, "-j", "--jar")) {
+                    if (jar != null) {
+                        throw new JBuildException("cannot provide jar more than once" +
+                                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    }
+                    waitingForJar = true;
                 } else {
                     throw new JBuildException("invalid compile option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -450,11 +463,19 @@ final class CompileOptions {
         if (waitingForDirectory) {
             throw new JBuildException("expecting value for '--directory' option", USER_INPUT);
         }
-        if (outputDir == null) {
-            outputDir = "target";
+        if (waitingForJar) {
+            throw new JBuildException("expecting value for '--jar' option", USER_INPUT);
         }
-
-        return new CompileOptions(inputDirectories, outputDir, classpath.toString());
+        if (outputDir != null && jar != null) {
+            throw new JBuildException("cannot specify both 'directory' and 'jar' options together." +
+                    LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+        }
+        if (outputDir == null && jar == null) {
+            jar = "lib.jar";
+        }
+        return new CompileOptions(inputDirectories,
+                outputDir != null ? Either.left(outputDir) : Either.right(jar),
+                classpath.toString());
     }
 }
 

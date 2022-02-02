@@ -84,9 +84,14 @@ public final class Main {
             "        jbuild compile <options... | input-directory...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --classpath" + LINE_END +
-            "        -cp        java classpath (may be given more than once)." + LINE_END +
+            "        -cp       Java classpath (may be given more than once)." + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory." + LINE_END +
+            "        --jar" + LINE_END +
+            "        -j        destination jar." + LINE_END +
+            "      Note:" + LINE_END +
+            "        The --directory and --jar options are mutually exclusive." + LINE_END +
+            "        By default, the equivalent of '-j lib.jar' is used." +
             "      Example:" + LINE_END +
             "        jbuild compile -cp libs/jsr305-3.0.2.jar" + LINE_END +
             "" + LINE_END +
@@ -219,7 +224,7 @@ public final class Main {
         var commandExecutor = new CompileCommandExecutor(log);
 
         var result = commandExecutor.compile(
-                compileOptions.inputDirectories, compileOptions.outputDir, compileOptions.classpath
+                compileOptions.inputDirectories, compileOptions.outputDirOrJar, compileOptions.classpath
         );
 
         verifyToolSuccessful("javac", result);
