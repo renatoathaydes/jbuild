@@ -59,6 +59,7 @@ Here's the list of Maven tags and concepts supported by JBuild:
 - [x] dependencies/dependency/[groupId, artifactId, version, scope, optional]
 - [x] dependencies/dependency/exclusions
 - [x] dependencyManagement
+- [ ] dependency version ranges
 - [x] project coordinates/packaging/parent
 - [x] project license
 - [x] project properties
