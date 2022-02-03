@@ -9,7 +9,6 @@ import jbuild.java.TypeReference;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
-import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
@@ -47,6 +46,7 @@ import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 import static jbuild.util.TextUtils.LINE_END;
 
 public final class DoctorCommandExecutor {
@@ -76,7 +76,7 @@ public final class DoctorCommandExecutor {
         return results.thenApply(this::showClasspathCheckResults);
     }
 
-    public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findValidClasspaths(
+    public CompletionStage<List<ClasspathCheckResult>> findValidClasspaths(
             File inputDir,
             boolean interactive,
             List<File> entryPoints,
@@ -188,7 +188,9 @@ public final class DoctorCommandExecutor {
         badResults.stream().limit(limit).forEach((badResult) -> {
             var errors = badResult.getValue().stream()
                     .collect(toCollection(TreeSet::new));
-            log.println(() -> "Found " + errors.size() + " errors in classpath: " + badResult.getKey().toClasspath());
+            log.println(() -> "Found " + errors.size() + " error" +
+                    (errors.size() == 1 ? "" : "s") +
+                    " in classpath: " + badResult.getKey().toClasspath());
             errors.stream().limit(limit).forEach(err -> log.println("  * " + err));
             if (errors.size() > limit) {
                 log.println("  ...");
@@ -215,7 +217,7 @@ public final class DoctorCommandExecutor {
         });
     }
 
-    private CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> findValidClasspaths(
+    private CompletionStage<List<ClasspathCheckResult>> findValidClasspaths(
             NonEmptyCollection<JarSet> jarSets,
             Set<File> entryJars,
             boolean interactive,
@@ -429,11 +431,9 @@ public final class DoctorCommandExecutor {
         var targetMethod = new Definition.MethodDefinition(method.name, method.type);
         var targetJar = classGraph.getJarByType().get(methodOwner);
         if (targetJar == null) {
-            return classGraph.existsJava(methodOwner, targetMethod) ? null :
-                    new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
-                            (methodDef == null ? "" : "method " + methodDef.descriptor() + " of ") +
-                            jar.getName() + "!" + type + " cannot be found as there is no such method in " + methodOwner,
-                            jar, null);
+            return classGraph.existsJava(methodOwner, targetMethod)
+                    ? null
+                    : missingMethod(type, jar, methodDef, methodKind, methodOwner, targetMethod, null);
         }
         if (jar.equals(targetJar)) return null; // do not check same-jar relations
         if (classGraph.exists(methodOwner, targetMethod)) {
@@ -448,56 +448,61 @@ public final class DoctorCommandExecutor {
             return "Could not find " + targetMethod.descriptor() + " in " + typeDef.typeName +
                     ", available methods are " + methods;
         });
-        return new ClassPathInconsistency(methodKind + " " + targetMethod.descriptor() + ", used in " +
-                (methodDef == null ? "" : "method " + methodDef.descriptor() + " of ") +
-                jar.getName() + "!" + type + " cannot be found as there is no such method in " +
-                targetJar + "!" + typeDef.typeName,
+        return missingMethod(type, jar, methodDef, methodKind, methodOwner, targetMethod, targetJar);
+    }
+
+    private static ClassPathInconsistency missingMethod(String type,
+                                                        File jar,
+                                                        Definition.MethodDefinition methodDef,
+                                                        String methodKind,
+                                                        String methodOwner,
+                                                        Definition.MethodDefinition targetMethod,
+                                                        File targetJar) {
+        return new ClassPathInconsistency(methodKind + " " +
+                describe(targetJar, typeNameToClassName(methodOwner), targetMethod) +
+                (methodDef == null ? "" : ", used in method " +
+                        describe(jar, typeNameToClassName(type), methodDef)) +
+                " does not exist",
                 jar, targetJar);
     }
 
-    private Void showClasspathCheckResults(Collection<Either<ClasspathCheckResult, Throwable>> results) {
+    private static String describe(File jar, String type, Definition.MethodDefinition methodDef) {
+        return (jar == null ? "" : jar.getName() + '!') +
+                type + '#' + methodDef.descriptor();
+    }
+
+    private Void showClasspathCheckResults(Collection<ClasspathCheckResult> results) {
         var success = results.stream()
-                .map(e -> e.map(ok -> ok.successful ? ok : null, err -> null))
+                .map(res -> res.successful ? res : null)
                 .filter(Objects::nonNull)
                 .findFirst();
 
         if (success.isPresent()) {
             showSuccessfulClasspath(success.get().jarSet);
-        } else {
-            log.println("No classpath permutation could be found to satisfy all entrypoints, " +
-                    "try a different classpath or entrypoint!");
+            return null;
+        }
 
-            var failures = results.stream()
-                    .map(e -> e.map(
-                            Either::<ClasspathCheckResult, Throwable>left,
-                            Either::<ClasspathCheckResult, Throwable>right))
-                    .collect(toList());
+        log.println("No classpath permutation could be found to satisfy all entrypoints, " +
+                "try a different classpath or entrypoint!");
 
-            for (var result : failures) {
-                result.use(failureResult -> {
-                    if (failureResult.aborted) return;
-                    log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
-                    var errorCount = failureResult.errors.size();
-                    log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
-                    var reportable = errorCount > 5 && !log.isVerbose()
-                            ? failureResult.errors.subList(0, 5)
-                            : failureResult.errors;
-                    for (var error : reportable) {
-                        log.println("  * " + error.message);
-                    }
-                    if (reportable.size() < failureResult.errors.size()) {
-                        log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>" + LINE_END);
-                    } else {
-                        log.println("");
-                    }
-                }, throwable -> {
-                    log.println(LINE_END + "Error trying to verify classpath consistency:");
-                    log.print(throwable);
-                });
-
+        for (var failureResult : results) {
+            if (failureResult.aborted) break;
+            log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
+            var errorCount = failureResult.errors.size();
+            log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
+            var reportable = errorCount > 5 && !log.isVerbose()
+                    ? failureResult.errors.subList(0, 5)
+                    : failureResult.errors;
+            for (var error : reportable) {
+                log.println("  * " + error.message);
+            }
+            if (reportable.size() < failureResult.errors.size()) {
+                log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>" + LINE_END);
+            } else {
+                log.println("");
             }
         }
-        return null;
+        throw new JBuildException("No valid classpath could be found", ACTION_ERROR);
     }
 
     private void showSuccessfulClasspath(JarSet jarSet) {
@@ -557,8 +562,8 @@ public final class DoctorCommandExecutor {
         private final int maxConcurrentCompletions;
         private final int totalCompletions;
         private final Deque<Supplier<CompletionStage<ClasspathCheckResult>>> completions;
-        private final List<Either<ClasspathCheckResult, Throwable>> results;
-        private final CompletableFuture<List<Either<ClasspathCheckResult, Throwable>>> futureResult;
+        private final List<ClasspathCheckResult> results;
+        private final CompletableFuture<List<ClasspathCheckResult>> futureResult;
 
 
         public LimitedConcurrencyAsyncCompleter(int maxConcurrentCompletions,
@@ -570,25 +575,34 @@ public final class DoctorCommandExecutor {
             this.futureResult = new CompletableFuture<>();
         }
 
-        public CompletionStage<List<Either<ClasspathCheckResult, Throwable>>> toList() {
+        public CompletionStage<List<ClasspathCheckResult>> toList() {
+            var aborted = new AtomicBoolean(false);
             for (var i = 0; i < maxConcurrentCompletions; i++) {
                 var nextStage = completions.poll();
                 if (nextStage == null) break;
-                runAsync(() -> next(nextStage));
+                runAsync(() -> next(aborted, nextStage));
             }
             return futureResult;
         }
 
-        private void next(Supplier<CompletionStage<ClasspathCheckResult>> stageSupplier) {
+        private void next(AtomicBoolean aborted,
+                          Supplier<CompletionStage<ClasspathCheckResult>> stageSupplier) {
             BiConsumer<ClasspathCheckResult, Throwable> onDone = (ok, err) -> {
+                if (aborted.get()) return;
                 synchronized (results) {
-                    results.add(err == null ? Either.left(ok) : Either.right(err));
+                    if (err == null) {
+                        results.add(ok);
+                    } else {
+                        aborted.set(true);
+                        futureResult.completeExceptionally(err);
+                        return;
+                    }
                 }
                 if (results.size() == totalCompletions) {
                     futureResult.complete(results);
                 } else {
                     var nextStage = completions.poll();
-                    if (nextStage != null) next(nextStage);
+                    if (nextStage != null) next(aborted, nextStage);
                 }
             };
 
