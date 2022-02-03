@@ -29,9 +29,8 @@ import static jbuild.TestSystemProperties.testJarsDir;
 import static jbuild.java.TestHelper.jar;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.fail;
 
-public class DoctorCommandExecutorTest {
+public class DoctorCommandExecutorRealJarsTest {
 
     @Test
     void shouldFindNoErrorsWhenTwoJarsAreAvailableButEntryPointDoesNotRequireTheOtherJar() {
@@ -43,9 +42,7 @@ public class DoctorCommandExecutorTest {
 
             assertThat(results.size()).isEqualTo(1);
 
-            var result = results.get(0).map(
-                    ok -> ok,
-                    err -> fail("could not find classpath permutations", err));
+            var result = results.get(0);
 
             assertThat(result.errors).isEmpty();
             assertThat(result.successful).isTrue();
@@ -68,9 +65,7 @@ public class DoctorCommandExecutorTest {
 
             assertThat(results.size()).isEqualTo(1);
 
-            var result = results.get(0).map(
-                    ok -> ok,
-                    err -> fail("could not find classpath permutations", err));
+            var result = results.get(0);
 
             assertThat(result.errors).isEmpty();
             assertThat(result.successful).isTrue();
@@ -89,7 +84,7 @@ public class DoctorCommandExecutorTest {
     void shouldFindNoErrorsWhenTwoJarsAreAvailableAndEntryPointRequiresTheOtherJar_DuplicateOtherJar()
             throws IOException {
         // copy jars to a temp folder then duplicate otherClassesJar
-        var classpathDir = Files.createTempDirectory(DoctorCommandExecutorTest.class.getSimpleName());
+        var classpathDir = Files.createTempDirectory(DoctorCommandExecutorRealJarsTest.class.getSimpleName());
         Path myClassesJarCopy = classpathDir.resolve(Paths.get(myClassesJar.getName()));
         Path otherClassesJarCopy = classpathDir.resolve(Paths.get(otherClassesJar.getName()));
         Path otherClassesJarCopy2 = classpathDir.resolve(Paths.get("other-classes-v2.jar"));
@@ -105,9 +100,7 @@ public class DoctorCommandExecutorTest {
 
             assertThat(results.size()).isEqualTo(1);
 
-            var result = results.get(0).map(
-                    ok -> ok,
-                    err -> fail("could not find classpath permutations", err));
+            var result = results.get(0);
 
             assertThat(result.errors).isEmpty();
             assertThat(result.successful).isTrue();
@@ -125,32 +118,15 @@ public class DoctorCommandExecutorTest {
     @Test
     void shouldErrorWhenEntryPointRequiresMissingJar() throws IOException {
         // copy only otherClassesJar to a temp folder
-        var classpathDir = Files.createTempDirectory(DoctorCommandExecutorTest.class.getSimpleName());
+        var classpathDir = Files.createTempDirectory(DoctorCommandExecutorRealJarsTest.class.getSimpleName());
         Path otherClassesJarCopy = classpathDir.resolve(Paths.get(otherClassesJar.getName()));
         Files.copy(otherClassesJar.toPath(), otherClassesJarCopy);
 
         expectError(true, (command) -> {
-            var results = command.findValidClasspaths(classpathDir.toFile(),
+            command.findValidClasspaths(classpathDir.toFile(),
                             false, List.of(otherClassesJarCopy.toFile()), Set.of())
                     .toCompletableFuture()
                     .get();
-
-            assertThat(results.size()).isEqualTo(1);
-
-            var result = results.get(0).map(
-                    ok -> ok,
-                    err -> fail("could not find classpath permutations", err));
-
-            assertThat(result.errors).isEmpty();
-            assertThat(result.successful).isTrue();
-            assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
-                    .containsExactlyInAnyOrder(jar(myClassesJar), jar(otherClassesJar));
-            assertThat(result.jarSet.getJarByType()).containsAllEntriesOf(Map.of(
-                    "LHello;", jar(myClassesJar),
-                    "Lfoo/Bar;", jar(myClassesJar),
-                    "Lother/ExtendsBar;", jar(otherClassesJar),
-                    "Lother/UsesBar;", jar(otherClassesJar)
-            ));
         }, (stdout, errorAssert) -> {
             errorAssert.hasRootCauseInstanceOf(JBuildException.class)
                     .getRootCause()
@@ -225,7 +201,7 @@ public class DoctorCommandExecutorTest {
         });
     }
 
-    private static void withErrorReporting(ThrowingConsumer<DoctorCommandExecutor> test) {
+    static void withErrorReporting(ThrowingConsumer<DoctorCommandExecutor> test) {
         var stdout = new ByteArrayOutputStream();
         var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout), true));
         try {
@@ -236,7 +212,7 @@ public class DoctorCommandExecutorTest {
         }
     }
 
-    private static void expectError(
+    static void expectError(
             boolean verbose,
             ThrowingConsumer<DoctorCommandExecutor> test,
             BiConsumer<Supplier<String>, AbstractThrowableAssert<?, ? extends Throwable>> assertError) {
