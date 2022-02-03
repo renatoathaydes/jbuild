@@ -12,8 +12,6 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -22,8 +20,6 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 
 public final class CompileCommandExecutor {
-
-    private static final FilenameFilter NO_FILTER = (dir, name) -> true;
 
     private final JBuildLog log;
 
@@ -49,7 +45,7 @@ public final class CompileCommandExecutor {
         if (jarFile == null || compileResult.exitCode() != 0) return compileResult;
 
         log.verbosePrintln(() -> "Compilation of class files successful. Creating jar at " + jarFile);
-        var jarContent = new FileSet(collectFiles(outputDir, NO_FILTER, true).collect(toSet()), outputDir);
+        var jarContent = new FileSet(Set.of(), outputDir);
         return Tools.Jar.create().createJar(new CreateJarOptions(
                 jarFile, "", false, "", jarContent, Map.of()
         ));
@@ -65,39 +61,33 @@ public final class CompileCommandExecutor {
 
     private Stream<String> collectSourceFiles(Set<String> inputDirectories) {
         return inputDirectories.stream()
-                .flatMap(dirPath -> collectFiles(dirPath, (dir, name) -> name.endsWith(".java"), false));
+                .flatMap(dirPath -> collectFiles(dirPath, (dir, name) -> name.endsWith(".java")));
     }
 
     private Stream<String> collectFiles(String dirPath,
-                                        FilenameFilter filter,
-                                        boolean relativize) {
+                                        FilenameFilter filter) {
         var dir = new File(dirPath);
         if (!dir.isDirectory()) {
             log.println(() -> "Ignoring non-existing input directory: " + dirPath);
             return Stream.of();
         }
-        var rootDir = relativize ? Paths.get(dirPath) : null;
         var children = dir.listFiles();
         if (children != null) {
             return Stream.of(children)
-                    .flatMap(child -> fileOrChildDirectories(rootDir, child, filter));
+                    .flatMap(child -> fileOrChildDirectories(child, filter));
         }
         return Stream.of();
     }
 
-    private Stream<String> fileOrChildDirectories(Path rootDir, File file, FilenameFilter filter) {
+    private Stream<String> fileOrChildDirectories(File file, FilenameFilter filter) {
         if (file.isFile() && filter.accept(file.getParentFile(), file.getName())) {
-            if (rootDir == null) {
-                return Stream.of(file.getPath());
-            } else {
-                return Stream.of(rootDir.relativize(file.toPath()).toString());
-            }
+            return Stream.of(file.getPath());
         }
         if (file.isDirectory()) {
             var children = file.listFiles();
             if (children != null) {
                 return Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(rootDir, child, filter));
+                        .flatMap(child -> fileOrChildDirectories(child, filter));
             }
         }
         return Stream.of();

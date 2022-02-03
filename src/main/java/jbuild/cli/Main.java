@@ -226,7 +226,7 @@ public final class Main {
         var result = commandExecutor.compile(
                 compileOptions.inputDirectories, compileOptions.outputDirOrJar, compileOptions.classpath
         );
-
+        // FIXME may not be javac
         verifyToolSuccessful("javac", result);
     }
 

@@ -55,11 +55,13 @@ public final class CreateJarOptions {
     }
 
     private static void addFileSetTo(List<String> result, FileSet fileSet) {
-        if (!fileSet.isEmpty()) {
-            if (!fileSet.rootDir.isBlank()) {
-                result.add("-C");
-                result.add(fileSet.rootDir);
-            }
+        if (!fileSet.rootDir.isBlank()) {
+            result.add("-C");
+            result.add(fileSet.rootDir);
+        }
+        if (fileSet.isEmpty()) {
+            result.add(".");
+        } else {
             result.addAll(fileSet.files);
         }
     }
