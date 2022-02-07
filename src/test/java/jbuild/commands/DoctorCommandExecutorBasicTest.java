@@ -5,6 +5,7 @@ import jbuild.errors.JBuildException;
 import jbuild.java.TestHelper;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -121,6 +122,112 @@ public class DoctorCommandExecutorBasicTest {
 
             assertThat(out.subList(2, out.size())).containsExactly(
                     "  * missing references: 'foo.jar!bar.Foo -> foo.Bar'"
+            );
+        });
+    }
+
+    @Disabled("not implemented yet")
+    @Test
+    void canFindTransitiveIncompatibility() throws IOException {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+
+        // this jar is used by messages.jar but won't be used by the final application!
+        var unusedJarPath = dir.resolve("messages.jar");
+        var unusedJar = unusedJarPath.toFile();
+        createJar(unusedJarPath, dir.resolve("unused"), Map.of(
+                        Paths.get("unused", "Unused.java"),
+                        "package unused;\n" +
+                                "public class Unused {}"),
+                "");
+
+        var messagesJarPath = dir.resolve("messages.jar");
+        var messagesJar = messagesJarPath.toFile();
+        createJar(messagesJarPath, dir.resolve("messages"), Map.of(
+                        Paths.get("messages", "Message.java"),
+                        "package messages;\n" +
+                                "public class Message {\n" +
+                                "  public String get() { return \"a message\"; }\n" +
+                                "}",
+                        Paths.get("messages", "Other.java"),
+                        "package messages;\n" +
+                                "import unused.Unused;\n" +
+                                "public class Other {\n" +
+                                "  public Unused get() { return new Unused(); }\n" +
+                                "}"),
+                unusedJar.getAbsolutePath());
+
+        var messageUserJarPath = dir.resolve("messages-user.jar");
+        var messageUserJar = messageUserJarPath.toFile();
+        createJar(messageUserJarPath, dir.resolve("messages-user"), Map.of(
+                        Paths.get("user", "MessageUser.java"),
+                        "package user;\n" +
+                                "import messages.Message;" +
+                                "public class MessageUser {\n" +
+                                "  final Message message;" +
+                                "  public MessageUser() {\n" +
+                                "    this.message = new Message();\n" +
+                                "  }\n" +
+                                "  public String getMessage() {\n" +
+                                "    return message.get();\n" +
+                                "  }\n" +
+                                "}"),
+                messagesJar.getAbsolutePath());
+
+        var appJarPath = dir.resolve("app.jar");
+        var appJar = appJarPath.toFile();
+        createJar(appJarPath, dir.resolve("app"), Map.of(
+                        Paths.get("app", "App.java"),
+                        "package app;\n" +
+                                "import user.MessageUser;\n" +
+                                "public class App {\n" +
+                                "  public static void main(String... args) {\n" +
+                                "    System.out.println(new MessageUser().getMessage());\n" +
+                                "  }\n" +
+                                "}"),
+                messageUserJar.getAbsolutePath());
+
+        // so far, everything should work
+        withErrorReporting((command) -> {
+            var results = command.findValidClasspaths(dir.toFile(),
+                            false, List.of(appJar), Set.of())
+                    .toCompletableFuture()
+                    .get();
+            // notice that unused.jar should not be included in the results
+            verifyOneGoodClasspath(results, List.of(appJar, messagesJar, messageUserJar));
+        });
+
+        // delete the transitive dependency jar, messages.jar
+        assert messagesJar.delete();
+
+        // checking the classpath should fail due to indirect dependency missing
+        // (Exception because a type requirement is missing)
+        expectError(true, (command) -> {
+            command.findValidClasspaths(dir.toFile(),
+                            false, List.of(appJar), Set.of())
+                    .toCompletableFuture()
+                    .get();
+        }, (stdout, errorAssert) -> {
+            errorAssert.hasRootCauseInstanceOf(JBuildException.class)
+                    .getRootCause()
+                    .hasMessage("None of the classpaths could provide all types required by the entry-points. " +
+                            "See log above for details.");
+
+            var out = stdout.get().lines()
+                    .dropWhile(line -> !line.startsWith("Entry-points required types:"))
+                    .collect(Collectors.toList());
+
+            assertThat(out).hasSizeGreaterThan(2);
+            assertThat(out.get(0)).startsWith("Entry-points required types: ");
+            var requiredTypes = Arrays.stream(out.get(0)
+                            .substring("Entry-points required types: ".length())
+                            .split(",\\s+"))
+                    .collect(toSet());
+            assertThat(requiredTypes).containsExactlyInAnyOrder("Lfoo/Bar;");
+
+            assertThat(out.get(1)).isEqualTo("Found 1 error in classpath: " + messageUserJar);
+
+            assertThat(out.subList(2, out.size())).containsExactly(
+                    "  * missing references: 'messages-user.jar!user.MessageUser -> messages.Message'"
             );
         });
     }
