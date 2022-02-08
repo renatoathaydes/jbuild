@@ -17,6 +17,10 @@ public final class Version implements Comparable<Version> {
         this.qualifier = qualifier;
     }
 
+    public Version(int major, int minor, int patch) {
+        this(major, minor, patch, "");
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -41,7 +45,7 @@ public final class Version implements Comparable<Version> {
 
     @Override
     public String toString() {
-        return major + '.' + minor + '.' + patch + (qualifier.isBlank() ? "" : '-' + qualifier);
+        return major + "." + minor + "." + patch + (qualifier.isBlank() ? "" : "-" + qualifier);
     }
 
     public static Version parse(String version) {
