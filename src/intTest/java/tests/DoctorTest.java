@@ -1,21 +1,20 @@
 package tests;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import util.JBuildTestRunner;
 
-import java.nio.file.Path;
+import java.io.IOException;
+import java.nio.file.Files;
 
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class DoctorTest extends JBuildTestRunner {
 
-    @TempDir
-    Path tempDir;
-
     @Test
-    void canCheckGuavaDependencies() {
+    void canCheckGuavaDependencies() throws IOException {
+        var tempDir = Files.createTempDirectory(DoctorTest.class.getName());
+
         // install the artifact in the tempDir
         var result = runWithIntTestRepo("install", "-d", tempDir.toString(), Artifacts.GUAVA);
         verifySuccessful("jbuild install", result);
@@ -36,7 +35,9 @@ public class DoctorTest extends JBuildTestRunner {
     }
 
     @Test
-    void canCheckGroovyDependencies() {
+    void canCheckGroovyDependencies() throws IOException {
+        var tempDir = Files.createTempDirectory(DoctorTest.class.getName());
+
         // install the artifact in the tempDir
         var result = runWithIntTestRepo("install", "-d", tempDir.toString(), Artifacts.GROOVY);
         verifySuccessful("jbuild install", result);
