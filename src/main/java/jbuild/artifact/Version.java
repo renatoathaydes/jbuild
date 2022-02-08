@@ -48,6 +48,26 @@ public final class Version implements Comparable<Version> {
         return major + "." + minor + "." + patch + (qualifier.isBlank() ? "" : "-" + qualifier);
     }
 
+    @Override
+    public int compareTo(Version other) {
+        if (major != other.major) {
+            return Integer.compare(major, other.major);
+        }
+        if (minor != other.minor) {
+            return Integer.compare(minor, other.minor);
+        }
+        if (patch != other.patch) {
+            return Integer.compare(patch, other.patch);
+        }
+        if (qualifier.isBlank()) {
+            return other.qualifier.isBlank() ? 0 : 1;
+        }
+        if (other.qualifier.isBlank()) {
+            return -1;
+        }
+        return qualifier.compareTo(other.qualifier);
+    }
+
     public static Version parse(String version) {
         var parts = version.split("[+.\\-]", 4);
         int major = 0, minor = 0, patch = 0;
@@ -79,20 +99,5 @@ public final class Version implements Comparable<Version> {
         }
         var qualifier = parts.length > 3 ? parts[3] : "";
         return new Version(major, minor, patch, qualifier);
-    }
-
-    @Override
-    public int compareTo(Version other) {
-        if (equals(other)) return 0;
-        if (major != other.major) {
-            return Integer.compare(major, other.major);
-        }
-        if (minor != other.minor) {
-            return Integer.compare(minor, other.minor);
-        }
-        if (patch != other.patch) {
-            return Integer.compare(patch, other.patch);
-        }
-        return qualifier.compareTo(other.qualifier);
     }
 }

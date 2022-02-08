@@ -31,6 +31,8 @@ public class VersionTest {
                 {new Version(0, 0, 0, ""), new Version(1, 0, 0, ""), new Version(2, 0, 0, "")},
                 {new Version(0, 1, 0, ""), new Version(0, 2, 0, ""), new Version(0, 3, 0, "")},
                 {new Version(0, 0, 10, ""), new Version(0, 0, 20, ""), new Version(0, 0, 30, "")},
+                {new Version(1, 0, 0, "alpha"), new Version(1, 0, 0, "zeta"), new Version(1, 0, 0, "")},
+                {new Version(0, 0, 0, "a"), new Version(0, 0, 0, "b"), new Version(0, 0, 0, "")},
                 {new Version(0, 0, 0, "a"), new Version(0, 0, 0, "b"), new Version(0, 0, 0, "c")},
                 {new Version(10, 3, 0, ""), new Version(20, 2, 0, ""), new Version(30, 1, 0, "")},
                 {new Version(10, 0, 3, ""), new Version(20, 0, 2, ""), new Version(30, 0, 1, "")},
