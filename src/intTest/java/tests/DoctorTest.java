@@ -19,6 +19,15 @@ public class DoctorTest extends JBuildTestRunner {
         var result = runWithIntTestRepo("install", "-d", tempDir.toString(), Artifacts.GUAVA);
         verifySuccessful("jbuild install", result);
 
+        // verify all installed jars are present as this test has been failing due to missing classes
+        var installedFiles = tempDir.toFile().list();
+        assertThat(installedFiles).isNotNull();
+        assertThat(installedFiles).containsExactlyInAnyOrder(
+                "checker-qual-3.12.0.jar", "guava-31.0.1-jre.jar",
+                "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar",
+                "error_prone_annotations-2.7.1.jar", "j2objc-annotations-1.3.jar",
+                "failureaccess-1.0.1.jar", "jsr305-3.0.2.jar");
+
         // verify that the jar is valid
         result = runWithIntTestRepo("doctor", tempDir.toString(), "-y", "-e", Artifacts.GUAVA_JAR_NAME);
 
