@@ -1,8 +1,9 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
+import jbuild.artifact.ArtifactMetadata;
 import jbuild.log.JBuildLog;
-import jbuild.maven.MavenMetadata;
+import jbuild.maven.MavenArtifactMetadata;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -16,12 +17,14 @@ final class VersionLogger {
         this.log = log;
     }
 
-    void log(Artifact artifact, MavenMetadata mavenMetadata) {
+    void log(Artifact artifact, ArtifactMetadata artifactMetadata) {
         log.println("Versions of " + artifact.getCoordinates() + ":");
 
-        var latest = mavenMetadata.getLatestVersion();
-        var release = mavenMetadata.getReleaseVersion();
-        var versions = mavenMetadata.getVersions();
+        var latest = artifactMetadata.getLatestVersion();
+        var release = (artifactMetadata instanceof MavenArtifactMetadata)
+                ? ((MavenArtifactMetadata) artifactMetadata).getReleaseVersion()
+                : "";
+        var versions = artifactMetadata.getVersions();
 
         if (!latest.isBlank()) {
             log.println("  * Latest: " + latest);
@@ -30,7 +33,7 @@ final class VersionLogger {
             log.println("  * Release: " + latest);
         }
 
-        mavenMetadata.getLastUpdated().ifPresent(updated -> {
+        artifactMetadata.getLastUpdated().ifPresent(updated -> {
             log.println("  * Last updated: " + ZonedDateTime.ofInstant(updated, ZoneId.systemDefault())
                     .format(DateTimeFormatter.RFC_1123_DATE_TIME));
         });

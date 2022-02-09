@@ -1,6 +1,7 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
+import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.artifact.http.DefaultHttpClient;
@@ -14,7 +15,6 @@ import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
-import jbuild.maven.MavenMetadata;
 import jbuild.util.Executable;
 import jbuild.util.FileUtils;
 import jbuild.util.NonEmptyCollection;
@@ -399,7 +399,7 @@ public final class Main {
 
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
-        var metadataByArtifact = new ConcurrentSkipListMap<Artifact, MavenMetadata>(comparing(Artifact::getCoordinates));
+        var metadataByArtifact = new ConcurrentSkipListMap<Artifact, ArtifactMetadata>(comparing(Artifact::getCoordinates));
 
         commandExecutor.getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
                 eitherCompletionStage.whenComplete((completion, err) -> {

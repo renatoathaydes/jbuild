@@ -1,10 +1,10 @@
 package jbuild.commands;
 
 import jbuild.artifact.Artifact;
+import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.http.DefaultHttpClient;
 import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
-import jbuild.maven.MavenMetadata;
 import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
@@ -47,11 +47,11 @@ public final class VersionsCommandExecutor {
         this(log, NonEmptyCollection.of(URI.create(MAVEN_CENTRAL_URL)), DefaultHttpClient.get());
     }
 
-    public Map<Artifact, CompletionStage<Either<MavenMetadata, NonEmptyCollection<Throwable>>>> getVersions(
+    public Map<Artifact, CompletionStage<Either<ArtifactMetadata, NonEmptyCollection<Throwable>>>> getVersions(
             Set<? extends Artifact> artifacts) {
         var results = new HashMap<
                 Artifact,
-                CompletionStage<Either<MavenMetadata, NonEmptyCollection<Throwable>>>>(artifacts.size());
+                CompletionStage<Either<ArtifactMetadata, NonEmptyCollection<Throwable>>>>(artifacts.size());
 
         for (var artifact : artifacts) {
             var remainingRepos = baseUrls.iterator();
@@ -61,7 +61,7 @@ public final class VersionsCommandExecutor {
         return results;
     }
 
-    private CompletionStage<Either<MavenMetadata, NonEmptyCollection<Throwable>>> fetchVersions(
+    private CompletionStage<Either<ArtifactMetadata, NonEmptyCollection<Throwable>>> fetchVersions(
             Artifact artifact,
             URI repository,
             Iterator<URI> remainingRepos,

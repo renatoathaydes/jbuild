@@ -95,11 +95,11 @@ public final class MavenUtils {
         }
     }
 
-    public static MavenMetadata parseMavenMetadata(InputStream stream)
+    public static MavenArtifactMetadata parseMavenMetadata(InputStream stream)
             throws ParserConfigurationException, IOException, SAXException {
         var db = XmlSingletons.INSTANCE.factory.newDocumentBuilder();
         try (stream) {
-            return new MavenMetadata(db.parse(stream));
+            return new MavenArtifactMetadata(db.parse(stream));
         }
     }
 
