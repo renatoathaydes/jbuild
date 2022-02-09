@@ -7,10 +7,10 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.maven.MavenUtils.parseMavenTimestamp;
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
@@ -53,14 +53,19 @@ public final class MavenArtifactMetadata implements ArtifactMetadata {
     }
 
     @Override
-    public List<String> getVersions() {
+    public Set<String> getVersions() {
         var versions = descendantOf(metadata, "versioning", "versions");
         if (versions.isEmpty()) {
-            return List.of();
+            return Set.of();
         }
         return childrenNamed("version", versions.get()).stream()
                 .map(Node::getTextContent)
-                .collect(toList());
+                .collect(toSet());
+    }
+
+    @Override
+    public ArtifactMetadata merge(ArtifactMetadata other) {
+        return new BasicArtifactMetadata(this).merge(other);
     }
 
 }

@@ -68,6 +68,14 @@ public final class Version implements Comparable<Version> {
         return qualifier.compareTo(other.qualifier);
     }
 
+    public boolean isAfter(Version version) {
+        return compareTo(version) > 0;
+    }
+
+    public boolean isBefore(Version version) {
+        return compareTo(version) < 0;
+    }
+
     public static Version parse(String version) {
         var parts = version.split("[+.\\-]", 4);
         int major = 0, minor = 0, patch = 0;

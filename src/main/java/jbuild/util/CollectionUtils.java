@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class CollectionUtils {
@@ -137,22 +136,6 @@ public final class CollectionUtils {
                     : valueCombiner.apply(e1, entry.getValue()));
         }
         return result;
-    }
-
-    public static <T> Set<T> difference(Set<T> set, Collection<T> exclusions) {
-        if (exclusions.isEmpty()) return set;
-        var exc = exclusions instanceof Set<?> ? ((Set<T>) exclusions) : new HashSet<>(exclusions);
-        return set.stream()
-                .filter(item -> !exc.contains(item))
-                .collect(Collectors.toSet());
-    }
-
-    public static <T> long countRemaining(Set<T> set, Collection<T> exclusions) {
-        if (exclusions.isEmpty()) return set.size();
-        var exc = exclusions instanceof Set<?> ? ((Set<T>) exclusions) : new HashSet<>(exclusions);
-        return set.stream()
-                .filter(item -> !exc.contains(item))
-                .count();
     }
 
     public static <K, A, B> Map<K, B> mapValues(Map<K, A> map, Function<A, B> transform) {

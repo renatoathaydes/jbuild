@@ -45,10 +45,12 @@ public final class MavenUtils {
     public static String standardArtifactPath(Artifact artifact, boolean usePlatformSeparator) {
         var fileName = artifact.toFileName();
         var sep = usePlatformSeparator ? File.separatorChar : '/';
+        return standardBasePath(artifact, usePlatformSeparator) + artifact.version + sep + fileName;
+    }
 
-        return artifact.groupId.replace('.', sep) + sep +
-                artifact.artifactId + sep +
-                artifact.version + sep + fileName;
+    public static CharSequence standardBasePath(Artifact artifact, boolean usePlatformSeparator) {
+        var sep = usePlatformSeparator ? File.separatorChar : '/';
+        return artifact.groupId.replace('.', sep) + sep + artifact.artifactId + sep;
     }
 
     private static boolean matches(Dependency dependency, Set<ArtifactKey> exclusions) {

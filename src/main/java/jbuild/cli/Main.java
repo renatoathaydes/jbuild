@@ -1,10 +1,8 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
-import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.ArtifactFileWriter;
-import jbuild.artifact.http.DefaultHttpClient;
 import jbuild.commands.CompileCommandExecutor;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.DoctorCommandExecutor;
@@ -15,25 +13,22 @@ import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
+import jbuild.util.Describable;
 import jbuild.util.Executable;
 import jbuild.util.FileUtils;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
-import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
@@ -397,16 +392,16 @@ public final class Main {
             return;
         }
 
+        var versionLogger = new VersionLogger(log);
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
-        var metadataByArtifact = new ConcurrentSkipListMap<Artifact, ArtifactMetadata>(comparing(Artifact::getCoordinates));
 
         commandExecutor.getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
                 eitherCompletionStage.whenComplete((completion, err) -> {
                     try {
                         if (err == null) {
                             completion.use(
-                                    ok -> metadataByArtifact.put(artifact, ok),
+                                    ok -> versionLogger.log(artifact, ok),
                                     errors -> reportErrors(anyError, errors));
                         } else {
                             reportErrors(anyError, artifact, Optional.empty(), err);
@@ -418,9 +413,6 @@ public final class Main {
 
         latch.await();
 
-        var versionLogger = new VersionLogger(log);
-        metadataByArtifact.forEach(versionLogger::log);
-
         var errorCause = anyError.get();
         if (errorCause != null) {
             throw new JBuildException("Could not fetch all versions successfully", errorCause);
@@ -428,21 +420,11 @@ public final class Main {
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {
-        if (options.repositories.isEmpty()) {
+        var retrievers = options.getRetrievers();
+        if (retrievers.isEmpty()) {
             return new VersionsCommandExecutor(log);
         }
-
-        var baseUris = options.repositories.stream()
-                .map(repo -> {
-                    if (repo.startsWith("http://") || repo.startsWith("https://")) {
-                        return URI.create(repo);
-                    } else {
-                        throw new JBuildException("the versions command only accepts HTTP(S) URIs, " +
-                                "invalid repository value: " + repo, USER_INPUT);
-                    }
-                }).collect(Collectors.toList());
-
-        return new VersionsCommandExecutor(log, NonEmptyCollection.of(baseUris), DefaultHttpClient.get());
+        return new VersionsCommandExecutor(log, NonEmptyCollection.of(retrievers));
     }
 
     private FetchCommandExecutor<ArtifactRetrievalError> createFetchCommandExecutor(Options options) {
@@ -492,14 +474,16 @@ public final class Main {
         }
     }
 
-    private void reportErrors(AtomicReference<ErrorCause> anyError, NonEmptyCollection<Throwable> errors) {
+    private void reportErrors(AtomicReference<ErrorCause> anyError, NonEmptyCollection<?> errors) {
         var errRefSet = false;
         log.println("The following errors have occurred:");
         for (var error : errors) {
             if (error instanceof JBuildException) {
                 anyError.set(((JBuildException) error).getErrorCause());
                 errRefSet = true;
-                log.println(() -> "  * " + error.getMessage());
+                log.println(() -> "  * " + ((JBuildException) error).getMessage());
+            } else if (error instanceof Describable) {
+                log.println(() -> "  * " + ((Describable) error).getDescription());
             } else {
                 log.println(() -> "  * " + error);
             }
