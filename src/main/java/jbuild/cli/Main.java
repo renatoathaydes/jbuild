@@ -21,7 +21,6 @@ import jbuild.util.NonEmptyCollection;
 import java.io.File;
 import java.time.Duration;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -221,8 +220,8 @@ public final class Main {
         var result = commandExecutor.compile(
                 compileOptions.inputDirectories, compileOptions.outputDirOrJar, compileOptions.classpath
         );
-        // FIXME may not be javac
-        verifyToolSuccessful("javac", result);
+        verifyToolSuccessful("javac", result.getCompileResult());
+        result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));
     }
 
     private void doctor(Options options) throws ExecutionException, InterruptedException {
@@ -264,9 +263,10 @@ public final class Main {
                         artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
                 .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
                     try {
-                        reportErrors(anyError, artifact, ok, err);
-                        if (anyError.get() == null && ok.isPresent()) {
+                        if (err == null && ok.isPresent()) {
                             treeLogger.log(ok.get());
+                        } else {
+                            reportErrors(anyError, artifact, err);
                         }
                     } finally {
                         latch.countDown();
@@ -361,7 +361,9 @@ public final class Main {
         createFetchCommandExecutor(options).fetchArtifacts(artifacts, fileWriter)
                 .forEach((artifact, completion) -> completion.whenComplete((ok, err) -> {
                     try {
-                        reportErrors(anyError, artifact, ok, err);
+                        if (err != null || ok.isEmpty()) {
+                            reportErrors(anyError, artifact, err);
+                        }
                     } finally {
                         latch.countDown();
                     }
@@ -404,7 +406,7 @@ public final class Main {
                                     ok -> versionLogger.log(artifact, ok),
                                     errors -> reportErrors(anyError, errors));
                         } else {
-                            reportErrors(anyError, artifact, Optional.empty(), err);
+                            reportErrors(anyError, artifact, err);
                         }
                     } finally {
                         latch.countDown();
@@ -454,23 +456,23 @@ public final class Main {
 
     private void reportErrors(AtomicReference<ErrorCause> anyError,
                               Artifact artifact,
-                              Optional<?> result,
                               Throwable err) {
-        if (err != null || result.isEmpty()) {
-            anyError.set(ErrorCause.UNKNOWN);
+        //noinspection SynchronizationOnLocalVariableOrMethodParameter
+        synchronized (anyError) {
+            if (anyError.get() == null) anyError.set(ErrorCause.UNKNOWN);
+        }
 
-            // exceptional completions are not reported by the executor, so we need to report here
-            if (err != null) {
-                log.print(() -> "An error occurred while processing " + artifact.getCoordinates() + ": ");
-                if (err instanceof JBuildException) {
-                    log.println(err.getMessage());
-                    anyError.set(((JBuildException) err).getErrorCause());
-                } else {
-                    log.println(err.toString());
-                }
-            } else { // ok is empty: non-exceptional error
-                log.println(() -> "Failed to handle " + artifact.getCoordinates());
+        // exceptional completions are not reported by the executor, so we need to report here
+        if (err != null) {
+            log.print(() -> "An error occurred while processing " + artifact.getCoordinates() + ": ");
+            if (err instanceof JBuildException) {
+                log.println(err.getMessage());
+                anyError.set(((JBuildException) err).getErrorCause());
+            } else {
+                log.println(err.toString());
             }
+        } else { // ok is empty: non-exceptional error
+            log.println(() -> "Failed to handle " + artifact.getCoordinates());
         }
     }
 

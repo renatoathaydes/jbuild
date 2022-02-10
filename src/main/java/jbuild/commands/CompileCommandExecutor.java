@@ -13,6 +13,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -27,9 +28,9 @@ public final class CompileCommandExecutor {
         this.log = log;
     }
 
-    public ToolRunResult compile(Set<String> inputDirectories,
-                                 Either<String, String> outputDirOrJar,
-                                 String classpath) {
+    public CompileCommandResult compile(Set<String> inputDirectories,
+                                        Either<String, String> outputDirOrJar,
+                                        String classpath) {
         if (inputDirectories.isEmpty()) {
             inputDirectories = Set.of(".");
         }
@@ -42,13 +43,16 @@ public final class CompileCommandExecutor {
         var jarFile = outputDirOrJar.map(outDir -> null, jar -> jar);
 
         var compileResult = Tools.Javac.create().compile(files, outputDir, classpath);
-        if (jarFile == null || compileResult.exitCode() != 0) return compileResult;
+        if (jarFile == null || compileResult.exitCode() != 0) {
+            return new CompileCommandResult(compileResult, null);
+        }
 
         log.verbosePrintln(() -> "Compilation of class files successful. Creating jar at " + jarFile);
         var jarContent = new FileSet(Set.of(), outputDir);
-        return Tools.Jar.create().createJar(new CreateJarOptions(
+        var jarResult = Tools.Jar.create().createJar(new CreateJarOptions(
                 jarFile, "", false, "", jarContent, Map.of()
         ));
+        return new CompileCommandResult(compileResult, jarResult);
     }
 
     private String getTempDirectory() {
@@ -93,4 +97,25 @@ public final class CompileCommandExecutor {
         return Stream.of();
     }
 
+    public static final class CompileCommandResult {
+        private final ToolRunResult compileResult;
+        private final ToolRunResult jarResult;
+
+        public CompileCommandResult(ToolRunResult compileResult, ToolRunResult jarResult) {
+            this.compileResult = compileResult;
+            this.jarResult = jarResult;
+        }
+
+        public boolean isSuccessful() {
+            return compileResult.exitCode() == 0 && (jarResult != null && jarResult.exitCode() == 0);
+        }
+
+        public ToolRunResult getCompileResult() {
+            return compileResult;
+        }
+
+        public Optional<ToolRunResult> getJarResult() {
+            return Optional.ofNullable(jarResult);
+        }
+    }
 }
