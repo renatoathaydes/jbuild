@@ -4,7 +4,7 @@ import jbuild.errors.CloseException;
 import jbuild.errors.JBuildException;
 
 import java.io.File;
-import java.io.FilenameFilter;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
@@ -72,7 +72,7 @@ public final class FileUtils {
         return completionStage;
     }
 
-    public static File[] allFilesInDir(File directory, FilenameFilter filter) {
+    public static File[] allFilesInDir(File directory, FileFilter filter) {
         if (!directory.isDirectory()) {
             throw new JBuildException("not a directory: " + directory, USER_INPUT);
         }

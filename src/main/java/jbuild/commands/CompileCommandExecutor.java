@@ -7,6 +7,8 @@ import jbuild.java.tools.ToolRunResult;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
+import jbuild.util.FileUtils;
+import jbuild.util.JarFileFilter;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -18,8 +20,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 
 public final class CompileCommandExecutor {
 
@@ -36,6 +40,11 @@ public final class CompileCommandExecutor {
             inputDirectories = computeDefaultSourceDirs();
         }
         var files = collectSourceFiles(inputDirectories).collect(toSet());
+        if (files.isEmpty()) {
+            throw new JBuildException("No source files found " +
+                    "(directories tried in order: src/main/java/, src/ and '.')", USER_INPUT);
+        }
+
         log.verbosePrintln(() -> "Found " + files.size() + " source file(s) to compile");
 
         var outputDir = outputDirOrJar.map(
@@ -43,7 +52,7 @@ public final class CompileCommandExecutor {
                 jar -> getTempDirectory());
         var jarFile = outputDirOrJar.map(outDir -> null, this::jarOrDefault);
 
-        var compileResult = Tools.Javac.create().compile(files, outputDir, classpath);
+        var compileResult = Tools.Javac.create().compile(files, outputDir, computeClasspath(classpath));
         if (jarFile == null || compileResult.exitCode() != 0) {
             return new CompileCommandResult(compileResult, null);
         }
@@ -56,11 +65,30 @@ public final class CompileCommandExecutor {
         return new CompileCommandResult(compileResult, jarResult);
     }
 
+    private String computeClasspath(String classpath) {
+        if (classpath.isBlank()) {
+            return "";
+        }
+        if (classpath.endsWith("*") || classpath.contains(File.pathSeparator)) {
+            return classpath;
+        }
+        var cp = new File(classpath);
+        if (cp.isDirectory()) {
+            // expand classpath to include any jars available in the directory
+            var jars = FileUtils.allFilesInDir(cp, JarFileFilter.getInstance());
+            if (jars.length > 0) {
+                return Stream.concat(Stream.of(classpath), Stream.of(jars).map(File::getPath))
+                        .collect(joining(File.pathSeparator));
+            }
+        }
+        return classpath;
+    }
+
     private String jarOrDefault(String jar) {
         if (jar.isBlank()) {
-            var dir = new File(".").getParentFile();
-            if (dir != null && dir.isDirectory()) {
-                var path = dir.getName() + ".jar";
+            var dir = System.getProperty("user.dir");
+            if (dir != null) {
+                var path = new File(dir).getName() + ".jar";
                 log.verbosePrintln(() -> "Using default jar name based on working dir: " + path);
                 return path;
             } else {

@@ -9,6 +9,7 @@ import jbuild.java.TypeReference;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
+import jbuild.util.JarFileFilter;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
@@ -81,7 +82,7 @@ public final class DoctorCommandExecutor {
             boolean interactive,
             List<File> entryPoints,
             Set<Pattern> typeExclusions) {
-        var jarFiles = allFilesInDir(inputDir, (dir, name) -> name.endsWith(".jar"));
+        var jarFiles = allFilesInDir(inputDir, JarFileFilter.getInstance());
         log.verbosePrintln(() -> "All provided jars: " + Arrays.toString(jarFiles));
 
         var entryJars = Stream.of(jarFiles)
