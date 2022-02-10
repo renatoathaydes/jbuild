@@ -17,7 +17,7 @@ final class VersionLogger {
         this.log = log;
     }
 
-    void log(Artifact artifact, ArtifactMetadata artifactMetadata) {
+    synchronized void log(Artifact artifact, ArtifactMetadata artifactMetadata) {
         log.println("Versions of " + artifact.getCoordinates() + ":");
 
         var latest = artifactMetadata.getLatestVersion();

@@ -94,7 +94,7 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
         });
     }
 
-    private List<File> directoriesUnder(Path dir) {
+    private static List<File> directoriesUnder(Path dir) {
         var files = dir.toFile().listFiles();
         if (files == null || files.length == 0) return List.of();
         return Arrays.stream(files).filter(File::isDirectory).collect(toList());
