@@ -5,7 +5,9 @@ import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.artifact.VersionRange;
 import jbuild.errors.HttpError;
+import jbuild.errors.JBuildException;
 import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 import org.xml.sax.SAXException;
@@ -21,6 +23,7 @@ import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionStage;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 import static jbuild.util.AsyncUtils.handlingAsync;
 
@@ -50,6 +53,10 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
     @Override
     public CompletionStage<ArtifactResolution<HttpError>> retrieve(Artifact artifact) {
+        if (VersionRange.isVersionRange(artifact.version)) {
+            var range = VersionRange.parse(artifact.version);
+            return retrieveFromVersionRange(artifact, range);
+        }
         URI requestPath;
         try {
             requestPath = new URI(standardArtifactPath(artifact, false));
@@ -74,8 +81,25 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
                 });
     }
 
+    private CompletionStage<ArtifactResolution<HttpError>> retrieveFromVersionRange(
+            Artifact artifact,
+            VersionRange range) {
+        return retrieveMetadata(artifact).thenComposeAsync(completion -> completion.map(
+                meta -> range.selectLatest(meta.getVersions())
+                        .map(version -> retrieve(artifact.withVersion(version)))
+                        .orElseGet(() -> completedStage(ArtifactResolution.failure(new HttpError(
+                                artifact, this,
+                                Either.right(new JBuildException(
+                                        "unsatisfiable version range: " + artifact.version +
+                                                " (available versions: " +
+                                                String.join(", ", meta.getVersions()) +
+                                                ")",
+                                        ACTION_ERROR)))))),
+                err -> completedStage(ArtifactResolution.failure(err))));
+    }
+
     @Override
-    public CompletionStage<Either<? extends ArtifactMetadata, HttpError>> fetchMetadata(Artifact artifact) {
+    public CompletionStage<Either<? extends ArtifactMetadata, HttpError>> retrieveMetadata(Artifact artifact) {
         var requestUri = buildMetadataUri(baseUrl, artifact);
         var request = HttpRequest.newBuilder(requestUri).build();
 

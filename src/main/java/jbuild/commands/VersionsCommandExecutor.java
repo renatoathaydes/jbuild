@@ -60,7 +60,7 @@ public final class VersionsCommandExecutor {
                     retriever.getDescription());
             var requestTime = System.currentTimeMillis();
 
-            retriever.fetchMetadata(artifact).whenComplete((completion, err) -> {
+            retriever.retrieveMetadata(artifact).whenComplete((completion, err) -> {
                 log.verbosePrintln(() -> artifact.getCoordinates() + " metadata request completed in " +
                         (System.currentTimeMillis() - requestTime) + " ms");
                 var count = counter.decrementAndGet();

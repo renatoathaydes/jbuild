@@ -3,6 +3,8 @@ package jbuild.artifact;
 import jbuild.util.NonEmptyCollection;
 
 import java.util.ArrayList;
+import java.util.Optional;
+import java.util.Set;
 
 public final class VersionRange {
 
@@ -19,11 +21,21 @@ public final class VersionRange {
         return false;
     }
 
+    public Optional<Version> selectLatest(Set<String> versions) {
+        return versions.stream().map(Version::parse).sorted()
+                .filter(this::contains)
+                .max(Version::compareTo);
+    }
+
     @Override
     public String toString() {
         return "VersionRange{" +
                 "intervals=" + intervals +
                 '}';
+    }
+
+    public static boolean isVersionRange(String version) {
+        return version.startsWith("[") || version.startsWith("(");
     }
 
     public static VersionRange parse(String range) {

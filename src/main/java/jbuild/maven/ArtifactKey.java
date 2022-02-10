@@ -39,6 +39,10 @@ public final class ArtifactKey {
         this.artifactId = artifactId;
     }
 
+    public String getCoordinates() {
+        return groupId + ':' + artifactId;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -64,5 +68,4 @@ public final class ArtifactKey {
                 ", artifactId='" + artifactId + '\'' +
                 '}';
     }
-
 }

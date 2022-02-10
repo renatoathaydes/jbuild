@@ -71,7 +71,7 @@ final class DependencyTreeLogger {
                 log.println("  - scope " + scope);
                 if (options.transitive) {
                     var chain = new DependencyChain(log);
-                    logTree(chain, scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), allLicenses, INDENT, scope);
+                    logTree(chain, tree.displayVersion(), scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), allLicenses, INDENT, scope);
                     dependencyCount = chain.size();
                     chain.logConflicts();
                 } else {
@@ -95,6 +95,7 @@ final class DependencyTreeLogger {
     }
 
     private void logTree(DependencyChain chain,
+                         String version,
                          Collection<Dependency> scopeDeps,
                          List<DependencyTree> children,
                          Set<License> pomLicenses,
@@ -125,7 +126,7 @@ final class DependencyTreeLogger {
                         chain.add(next);
                         var nextDeps = next.root.pom
                                 .getDependencies(scope.transitiveScopes(), options.optional);
-                        logTree(chain, nextDeps, next.dependencies,
+                        logTree(chain, next.displayVersion(), nextDeps, next.dependencies,
                                 next.root.pom.getLicenses(), allLicenses, indent + INDENT, scope);
                         chain.remove(next);
                     }

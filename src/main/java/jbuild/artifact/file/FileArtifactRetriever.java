@@ -6,6 +6,7 @@ import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.Version;
+import jbuild.artifact.VersionRange;
 import jbuild.errors.FileRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.util.Either;
@@ -21,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
@@ -56,6 +58,11 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
 
     @Override
     public CompletionStage<ArtifactResolution<FileRetrievalError>> retrieve(Artifact artifact) {
+        if (VersionRange.isVersionRange(artifact.version)) {
+            var range = VersionRange.parse(artifact.version);
+            return retrieveFromVersionRange(artifact, range);
+        }
+
         var path = standardArtifactPath(artifact, true);
         var file = rootDir.resolve(Paths.get(path));
         var requestTime = System.currentTimeMillis();
@@ -72,8 +79,24 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
         }
     }
 
+    private CompletionStage<ArtifactResolution<FileRetrievalError>> retrieveFromVersionRange(
+            Artifact artifact,
+            VersionRange range) {
+        return retrieveMetadata(artifact).thenComposeAsync(completion -> completion.map(
+                meta -> range.selectLatest(meta.getVersions())
+                        .map(version -> retrieve(artifact.withVersion(version)))
+                        .orElseGet(() -> completedStage(completeWith(artifact,
+                                new JBuildException(
+                                        "unsatisfiable version range: " + artifact.version +
+                                                " (available versions: " +
+                                                String.join(", ", meta.getVersions()) +
+                                                ")",
+                                        ACTION_ERROR)))),
+                err -> completedStage(ArtifactResolution.failure(err))));
+    }
+
     @Override
-    public CompletionStage<Either<? extends ArtifactMetadata, FileRetrievalError>> fetchMetadata(Artifact artifact) {
+    public CompletionStage<Either<? extends ArtifactMetadata, FileRetrievalError>> retrieveMetadata(Artifact artifact) {
         var path = standardBasePath(artifact, true).toString();
         var dir = rootDir.resolve(Paths.get(path));
         return CompletableFuture.supplyAsync(() -> {

@@ -50,6 +50,14 @@ public class Artifact {
         return new Artifact(groupId, artifactId, version, ext);
     }
 
+    public Artifact withVersion(Version ver) {
+        var verString = ver.toString();
+        if (verString.equals(version)) {
+            return this;
+        }
+        return new Artifact(groupId, artifactId, verString, extension);
+    }
+
     public static Artifact parseCoordinates(String artifact) {
         var coordinates = artifact.split(":");
         String groupId = "", artifactId = "";

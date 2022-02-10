@@ -3,6 +3,7 @@ package jbuild.cli;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactMetadata;
 import jbuild.log.JBuildLog;
+import jbuild.maven.ArtifactKey;
 import jbuild.maven.MavenArtifactMetadata;
 
 import java.time.ZoneId;
@@ -18,7 +19,7 @@ final class VersionLogger {
     }
 
     synchronized void log(Artifact artifact, ArtifactMetadata artifactMetadata) {
-        log.println("Versions of " + artifact.getCoordinates() + ":");
+        log.println("Versions of " + ArtifactKey.of(artifact).getCoordinates() + ":");
 
         var latest = artifactMetadata.getLatestVersion();
         var release = (artifactMetadata instanceof MavenArtifactMetadata)

@@ -23,6 +23,15 @@ public final class DependencyTree {
         this.dependencies = dependencies;
     }
 
+    public String displayVersion() {
+        var resolvedVersion = root.pom.getArtifact().version;
+        var requestedVersion = root.artifact.version;
+        if (!requestedVersion.equals(resolvedVersion)) {
+            return requestedVersion + " -> " + resolvedVersion;
+        }
+        return requestedVersion;
+    }
+
     /**
      * @return a Set containing the flattened elements of this dependency tree. Notice that the tree may contain
      * the same artifact with multiple versions as no version clash resolution is performed.

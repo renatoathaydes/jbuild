@@ -9,16 +9,22 @@ public final class Version implements Comparable<Version> {
     public final int minor;
     public final int patch;
     public final String qualifier;
+    public final String original;
 
-    public Version(int major, int minor, int patch, String qualifier) {
+    private Version(int major, int minor, int patch, String qualifier, String original) {
         this.major = major;
         this.minor = minor;
         this.patch = patch;
         this.qualifier = qualifier;
+        this.original = original;
+    }
+
+    public Version(int major, int minor, int patch, String qualifier) {
+        this(major, minor, patch, qualifier, "");
     }
 
     public Version(int major, int minor, int patch) {
-        this(major, minor, patch, "");
+        this(major, minor, patch, "", "");
     }
 
     @Override
@@ -45,6 +51,7 @@ public final class Version implements Comparable<Version> {
 
     @Override
     public String toString() {
+        if (!original.isBlank()) return original;
         return major + "." + minor + "." + patch + (qualifier.isBlank() ? "" : "-" + qualifier);
     }
 
@@ -91,21 +98,21 @@ public final class Version implements Comparable<Version> {
             minor = Integer.parseInt(parts[1]);
         } catch (NumberFormatException e) {
             var qualifier = version.substring(parts[0].length() + 1);
-            return new Version(major, 0, 0, qualifier);
+            return new Version(major, 0, 0, qualifier, version);
         }
         else {
-            return new Version(major, minor, patch, "");
+            return new Version(major, minor, patch, "", version);
         }
         if (parts.length > 2) try {
             patch = Integer.parseInt(parts[2]);
         } catch (NumberFormatException e) {
             var qualifier = version.substring(parts[0].length() + parts[1].length() + 2);
-            return new Version(major, minor, 0, qualifier);
+            return new Version(major, minor, 0, qualifier, version);
         }
         else {
-            return new Version(major, minor, patch, "");
+            return new Version(major, minor, patch, "", version);
         }
         var qualifier = parts.length > 3 ? parts[3] : "";
-        return new Version(major, minor, patch, qualifier);
+        return new Version(major, minor, patch, qualifier, version);
     }
 }
