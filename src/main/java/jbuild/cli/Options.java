@@ -3,6 +3,7 @@ package jbuild.cli;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
+import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.maven.Scope;
@@ -143,7 +144,7 @@ final class FetchOptions {
             }
         }
 
-        return new FetchOptions(unmodifiableSet(artifacts), outDir == null ? "out" : outDir);
+        return new FetchOptions(unmodifiableSet(artifacts), outDir == null ? "." : outDir);
     }
 
 }
@@ -292,7 +293,7 @@ final class InstallOptions {
         // if no scopes are included explicitly, use runtime
         if (scopes.isEmpty()) scopes = EnumSet.of(Scope.RUNTIME);
 
-        if (outDir == null && repoDir == null) outDir = "out";
+        if (outDir == null && repoDir == null) outDir = InstallCommandExecutor.LIBS_DIR;
         if (outDir != null && repoDir != null) {
             throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
                     LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -471,11 +472,11 @@ final class CompileOptions {
                     LINE_END + "Run jbuild --help for usage.", USER_INPUT);
         }
         if (outputDir == null && jar == null) {
-            jar = "lib.jar";
+            jar = "";
         }
         return new CompileOptions(inputDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
-                classpath.toString());
+                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
     }
 }
 

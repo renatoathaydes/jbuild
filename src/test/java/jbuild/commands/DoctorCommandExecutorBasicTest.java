@@ -270,6 +270,11 @@ public class DoctorCommandExecutorBasicTest {
                 Either.right(jar.toString()),
                 classpath);
 
-        verifyToolSuccessful("compile", result);
+        if (!result.isSuccessful()) {
+            verifyToolSuccessful("compile", result.getCompileResult());
+            if (result.getJarResult().isPresent()) {
+                verifyToolSuccessful("jar", result.getJarResult().get());
+            }
+        }
     }
 }

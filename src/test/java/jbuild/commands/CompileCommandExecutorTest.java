@@ -43,7 +43,8 @@ public class CompileCommandExecutorTest {
                 Either.left(buildDir.toString()),
                 "");
 
-        verifyToolSuccessful("compile", result);
+        verifyToolSuccessful("compile", result.getCompileResult());
+        assertThat(result.getJarResult()).isNotPresent();
 
         var fooClass = buildDir.resolve("Foo.class");
         var barClass = buildDir.resolve("Bar.class");
@@ -85,7 +86,8 @@ public class CompileCommandExecutorTest {
                 Either.left(buildDir.toString()),
                 "");
 
-        verifyToolSuccessful("compile", result);
+        verifyToolSuccessful("compile", result.getCompileResult());
+        assertThat(result.getJarResult()).isNotPresent();
 
         // then, compile Bar into a jar, using buildDir as its classpath
         result = command.compile(
@@ -93,7 +95,9 @@ public class CompileCommandExecutorTest {
                 Either.right(jar.toString()),
                 buildDir.toString());
 
-        verifyToolSuccessful("compile", result);
+        verifyToolSuccessful("compile", result.getCompileResult());
+        assertThat(result.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", result.getJarResult().get());
 
         var fooClass = buildDir.resolve("Foo.class");
         var buildFiles = buildDir.toFile().listFiles();

@@ -49,7 +49,7 @@ public final class Main {
             "This is work in progress!" + LINE_END +
             "" + LINE_END +
             "Usage:" + LINE_END +
-            "    jbuild <root-option> <cmd> <cmd-args...> " + LINE_END +
+            "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
             "Root Options:" + LINE_END +
             "    --repository" + LINE_END +
             "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
@@ -68,24 +68,25 @@ public final class Main {
             "        jbuild fetch <options... | artifact...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --directory" + LINE_END +
-            "        -d        output directory." + LINE_END +
+            "        -d        output directory (default: working directory)." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
             "" + LINE_END +
             "  * compile" + LINE_END +
-            "    Compile all Java source files found in the working directory or the given input directories." + LINE_END +
+            "    Compile all Java source files found the input directories." + LINE_END +
             "      Usage:" + LINE_END +
             "        jbuild compile <options... | input-directory...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --classpath" + LINE_END +
-            "        -cp       Java classpath (may be given more than once)." + LINE_END +
+            "        -cp       Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
             "        --directory" + LINE_END +
-            "        -d        output directory." + LINE_END +
+            "        -d        output directory, where to put class files on." + LINE_END +
             "        --jar" + LINE_END +
-            "        -j        destination jar." + LINE_END +
+            "        -j        destination jar (default: <working-directory>.jar)." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --jar options are mutually exclusive." + LINE_END +
-            "        By default, the equivalent of '-j lib.jar' is used." +
+            "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," +
+            "        with sources read from either src/main/java, src/ or the working-directory." +
             "      Example:" + LINE_END +
             "        jbuild compile -cp libs/jsr305-3.0.2.jar" + LINE_END +
             "" + LINE_END +
@@ -97,7 +98,7 @@ public final class Main {
             "        jbuild install <options... | artifact...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --directory" + LINE_END +
-            "        -d        (flat) output directory." + LINE_END +
+            "        -d        (flat) output directory (default: java-libs)." + LINE_END +
             "        --repository" + LINE_END +
             "        -r        (Maven repository root) output directory." + LINE_END +
             "        --optional" + LINE_END +
@@ -107,7 +108,7 @@ public final class Main {
             "                  The runtime scope is used by default." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +
-            "        By default, the equivalent of '-d out/' is used." +
+            "        By default, the equivalent of '-d java-libs/' is used." +
             "      Example:" + LINE_END +
             "        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0" + LINE_END +
             "" + LINE_END +
@@ -140,10 +141,10 @@ public final class Main {
             "        --yes" + LINE_END +
             "        -y        answer any question with 'yes'." + LINE_END +
             "      Example:" + LINE_END +
-            "        jbuild doctor my-dir -e app.jar" + LINE_END +
+            "        jbuild doctor java-libs -e app.jar" + LINE_END +
             "" + LINE_END +
             "  * versions" + LINE_END +
-            "    List the versions of the given artifacts that are available on Maven Central." + LINE_END +
+            "    List the versions of the given artifacts that are available on configured repositories." + LINE_END +
             "      Usage:" + LINE_END +
             "        jbuild versions <artifact...>" + LINE_END +
             "      Example:" + LINE_END +

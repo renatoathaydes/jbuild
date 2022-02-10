@@ -14,9 +14,9 @@ public class FetchOptionsTest {
     @Test
     void canParseFetchOptions() {
         verifyOptions(FetchOptions.parse(List.of()),
-                "out", List.of());
+                ".", List.of());
         verifyOptions(FetchOptions.parse(List.of("foo")),
-                "out", List.of("foo"));
+                ".", List.of("foo"));
         verifyOptions(FetchOptions.parse(List.of("-d", "target")),
                 "target", List.of());
         verifyOptions(FetchOptions.parse(List.of("-d", "target", "lib")),

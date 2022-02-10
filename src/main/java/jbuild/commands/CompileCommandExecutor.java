@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,7 +33,7 @@ public final class CompileCommandExecutor {
                                         Either<String, String> outputDirOrJar,
                                         String classpath) {
         if (inputDirectories.isEmpty()) {
-            inputDirectories = Set.of(".");
+            inputDirectories = computeDefaultSourceDirs();
         }
         var files = collectSourceFiles(inputDirectories).collect(toSet());
         log.verbosePrintln(() -> "Found " + files.size() + " source file(s) to compile");
@@ -40,7 +41,7 @@ public final class CompileCommandExecutor {
         var outputDir = outputDirOrJar.map(
                 outDir -> outDir,
                 jar -> getTempDirectory());
-        var jarFile = outputDirOrJar.map(outDir -> null, jar -> jar);
+        var jarFile = outputDirOrJar.map(outDir -> null, this::jarOrDefault);
 
         var compileResult = Tools.Javac.create().compile(files, outputDir, classpath);
         if (jarFile == null || compileResult.exitCode() != 0) {
@@ -53,6 +54,21 @@ public final class CompileCommandExecutor {
                 jarFile, "", false, "", jarContent, Map.of()
         ));
         return new CompileCommandResult(compileResult, jarResult);
+    }
+
+    private String jarOrDefault(String jar) {
+        if (jar.isBlank()) {
+            var dir = new File(".").getParentFile();
+            if (dir != null && dir.isDirectory()) {
+                var path = dir.getName() + ".jar";
+                log.verbosePrintln(() -> "Using default jar name based on working dir: " + path);
+                return path;
+            } else {
+                log.verbosePrintln("Using default jar name: lib.jar");
+                return "lib.jar";
+            }
+        }
+        return jar;
     }
 
     private String getTempDirectory() {
@@ -95,6 +111,21 @@ public final class CompileCommandExecutor {
             }
         }
         return Stream.of();
+    }
+
+    private Set<String> computeDefaultSourceDirs() {
+        var srcMainJava = Paths.get("src", "main", "java");
+        if (srcMainJava.toFile().isDirectory()) {
+            log.verbosePrintln(() -> "Using source directory: " + srcMainJava);
+            return Set.of(srcMainJava.toString());
+        }
+        var src = Paths.get("src");
+        if (src.toFile().isDirectory()) {
+            log.verbosePrintln(() -> "Using source directory: " + src);
+            return Set.of(src.toString());
+        }
+        log.verbosePrintln(() -> "Using working directory as source directory: " + Paths.get(".").toAbsolutePath());
+        return Set.of(".");
     }
 
     public static final class CompileCommandResult {

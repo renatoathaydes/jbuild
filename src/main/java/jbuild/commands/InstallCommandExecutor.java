@@ -27,6 +27,8 @@ import static jbuild.util.CollectionUtils.foldEither;
 
 public final class InstallCommandExecutor {
 
+    public static final String LIBS_DIR = "java-libs";
+
     private final JBuildLog log;
     private final FetchCommandExecutor<?> fetchCommand;
     private final ArtifactFileWriter writer;
