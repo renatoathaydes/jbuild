@@ -16,10 +16,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 import static jbuild.util.CollectionUtils.sorted;
 
@@ -140,7 +142,7 @@ final class DependencyTreeLogger {
         log.println("All licenses listed (see https://spdx.org/licenses/ for more information):");
         allLicenses.stream()
                 .map(DependencyTreeLogger::licenseString)
-                .sorted()
+                .collect(toCollection(TreeSet::new))
                 .forEach(license -> log.println("  * " + license));
     }
 
@@ -175,6 +177,7 @@ final class DependencyTreeLogger {
             case "Apache-1.1":
                 return "Apache-1.1";
             case "The Apache License, Version 2.0":
+            case "The Apache Software License, Version 2.0":
             case "Apache License, Version 2.0":
             case "Apache License 2.0":
             case "Apache 2":
