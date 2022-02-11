@@ -71,7 +71,7 @@ final class DependencyTreeLogger {
                 log.println("  - scope " + scope);
                 if (options.transitive) {
                     var chain = new DependencyChain(log);
-                    logTree(chain, tree.displayVersion(), scopeDeps, tree.dependencies, tree.root.pom.getLicenses(), allLicenses, INDENT, scope);
+                    logTree(chain, tree.dependencies, scopeDeps, allLicenses, INDENT, scope);
                     dependencyCount = chain.size();
                     chain.logConflicts();
                 } else {
@@ -90,32 +90,31 @@ final class DependencyTreeLogger {
 
     private void logChildren(Collection<Dependency> children) {
         for (var child : sorted(children, comparing(dep -> dep.artifact.getCoordinates()))) {
-            log.println(displayDependency(INDENT, child));
+            log.println(displayDependency(INDENT, child, null));
         }
     }
 
     private void logTree(DependencyChain chain,
-                         String version,
+                         List<DependencyTree> dependencies,
                          Collection<Dependency> scopeDeps,
-                         List<DependencyTree> children,
-                         Set<License> pomLicenses,
                          Set<License> allLicenses,
                          String indent,
                          Scope scope) {
-        var childByKey = children.stream()
+        var childByKey = dependencies.stream()
                 .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
                         NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
-            log.print(() -> displayDependency(indent, dep));
-
             var isNew = !chain.contains(dep);
 
             if (isNew) {
                 var nextBranch = childByKey.get(ArtifactKey.of(dep));
                 if (nextBranch == null) {
+                    log.print(() -> displayDependency(indent, dep, null));
                     log.println(" (X)");
                 } else {
+                    log.print(() -> displayDependency(indent, dep, nextBranch.first.displayVersion()));
+                    var pomLicenses = nextBranch.first.root.pom.getLicenses();
                     if (options.licenses && !pomLicenses.isEmpty()) {
                         allLicenses.addAll(pomLicenses);
                         log.println(() -> displayLicenses(pomLicenses));
@@ -126,12 +125,12 @@ final class DependencyTreeLogger {
                         chain.add(next);
                         var nextDeps = next.root.pom
                                 .getDependencies(scope.transitiveScopes(), options.optional);
-                        logTree(chain, next.displayVersion(), nextDeps, next.dependencies,
-                                next.root.pom.getLicenses(), allLicenses, indent + INDENT, scope);
+                        logTree(chain, next.dependencies, nextDeps, allLicenses, indent + INDENT, scope);
                         chain.remove(next);
                     }
                 }
             } else {
+                log.print(() -> displayDependency(indent, dep, null));
                 log.println(" (-)");
             }
         }
@@ -151,8 +150,9 @@ final class DependencyTreeLogger {
                 .collect(joining(", ", " [", "]"));
     }
 
-    private String displayDependency(String indent, Dependency dep) {
-        return indent + "* " + dep.artifact.getCoordinates() +
+    private String displayDependency(String indent, Dependency dep, String displayVersion) {
+        var version = displayVersion == null ? dep.artifact.version : displayVersion;
+        return indent + "* " + ArtifactKey.of(dep.artifact).getCoordinates() + ':' + version +
                 " [" + dep.scope + "]" +
                 (dep.optional ? "[optional]" : "");
     }
