@@ -3,6 +3,8 @@ package jbuild.artifact;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class VersionRangeTest {
@@ -75,6 +77,30 @@ public class VersionRangeTest {
         assertThat(versionRange.contains(higher))
                 .withFailMessage(higher + " should be outside " + range)
                 .isFalse();
+    }
+
+    static Object[][] latestVersionExamples() {
+        return new Object[][]{
+                {"[1,2]", Set.of("1"), Version.parse("1")},
+                {"[1,2]", Set.of("1", "2"), Version.parse("2")},
+                {"[1,2)", Set.of("1", "2"), Version.parse("1")},
+                {"[1,2)", Set.of("1.0", "1.1", "1.2", "2", "3"), Version.parse("1.2")},
+                {"(1,2)", Set.of("1", "2"), null},
+                {"(1,20)", Set.of("1", "2", "10", "5", "15", "18", "19", "30", "31", "100"), Version.parse("19")},
+                {"[1,2],[10,20]", Set.of("1", "2", "5", "8"), Version.parse("2")},
+                {"[1,2],[10,20]", Set.of("1", "2", "15", "5", "8"), Version.parse("15")},
+        };
+    }
+
+    @MethodSource("latestVersionExamples")
+    @ParameterizedTest
+    void canSelectLatest(String range, Set<String> versions, Version latest) {
+        var result = VersionRange.parse(range).selectLatest(versions);
+        if (latest == null) {
+            assertThat(result).isNotPresent();
+        } else {
+            assertThat(result).isPresent().get().isEqualTo(latest);
+        }
     }
 
 }
