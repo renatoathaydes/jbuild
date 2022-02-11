@@ -5,8 +5,11 @@ import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.DefaultArtifactRetrievers;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.artifact.Version;
+import jbuild.artifact.VersionRange;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.errors.ArtifactRetrievalError;
+import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
@@ -22,9 +25,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.TextUtils.durationText;
@@ -77,10 +84,40 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                                                              Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
                                                              FetchHandler<S> handler,
                                                              Iterable<S> currentResults) {
-        return retriever.retrieve(artifact)
+        CompletionStage<Artifact> exactVersion;
+        if (VersionRange.isVersionRange(artifact.version)) {
+            exactVersion = selectVersion(artifact, VersionRange.parse(artifact.version));
+        } else {
+            exactVersion = completedFuture(artifact);
+        }
+        return exactVersion.thenComposeAsync((exactArtifact) -> retriever.retrieve(exactArtifact)
                 .thenCompose(resolution -> handler.handle(artifact, resolution)
                         .thenCompose(res ->
-                                fetchIfNotDone(artifact, remainingRetrievers, handler, currentResults, res)));
+                                fetchIfNotDone(artifact, remainingRetrievers, handler, currentResults, res))));
+    }
+
+    private CompletionStage<Artifact> selectVersion(Artifact artifact, VersionRange range) {
+        log.verbosePrintln(() -> "Selecting version for artifact " + artifact.getCoordinates());
+        return awaitSuccessValues(retrievers.stream()
+                .map(r -> r.retrieveMetadata(artifact))
+                .collect(toList()))
+                .thenApplyAsync(results -> {
+                    var maxVersion = results.stream().flatMap(res -> res.map(
+                                    ok -> range.selectLatest(ok.getVersions()).stream(),
+                                    err -> Stream.of()))
+                            .max(Version::compareTo)
+                            .orElse(null);
+                    if (maxVersion == null) {
+                        log.verbosePrintln(() -> "Could not find any version satisfying " + artifact.getCoordinates());
+                        throw new JBuildException(
+                                "Could not find any version satisfying " + artifact.getCoordinates(),
+                                ACTION_ERROR);
+                    } else {
+                        log.verbosePrintln(() -> "Selected version for " +
+                                artifact.getCoordinates() + " -> " + maxVersion);
+                        return artifact.withVersion(maxVersion);
+                    }
+                });
     }
 
     private <S> CompletionStage<NonEmptyCollection<S>> fetchIfNotDone(Artifact artifact,
