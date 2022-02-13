@@ -2,6 +2,7 @@ package jbuild.cli;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactMetadata;
+import jbuild.artifact.Version;
 import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
 import jbuild.maven.MavenArtifactMetadata;
@@ -43,9 +44,10 @@ final class VersionLogger {
             log.println("  * no versions available");
         } else {
             log.println("  * All versions:");
-            for (var version : versions) {
-                log.println("    - " + version);
-            }
+            versions.stream()
+                    .map(Version::parse)
+                    .sorted()
+                    .forEach(version -> log.println("    - " + version));
         }
     }
 
