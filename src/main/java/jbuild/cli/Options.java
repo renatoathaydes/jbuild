@@ -111,6 +111,19 @@ final class Options {
 
 final class FetchOptions {
 
+    static final String NAME = "fetch";
+    static final String DESCRIPTION = "fetches Maven artifacts";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    Fetches Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        output directory (default: working directory)." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " -d libs org.apache.commons:commons-lang3:3.12.0";
+
     final Set<String> artifacts;
     final String outDir;
 
@@ -150,6 +163,26 @@ final class FetchOptions {
 }
 
 final class DepsOptions {
+
+    static final String NAME = "deps";
+    static final String DESCRIPTION = "lists dependencies of Maven artifacts";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    List the dependencies of the given artifacts." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --licenses" + LINE_END +
+            "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
+            "        --optional" + LINE_END +
+            "        -O        include optional dependencies." + LINE_END +
+            "        --scope" + LINE_END +
+            "        -s        scope to include (can be passed more than once)." + LINE_END +
+            "                  All scopes are listed by default." + LINE_END +
+            "        --transitive" + LINE_END +
+            "        -t        include transitive dependencies." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " com.google.guava:guava:31.0.1-jre junit:junit:4.13.2";
 
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
@@ -214,6 +247,31 @@ final class DepsOptions {
 }
 
 final class InstallOptions {
+
+    static final String NAME = "install";
+    static final String DESCRIPTION = "installs Maven artifacts and dependencies into a flat dir or local Maven repo";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    Install Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
+            "    Unlike fetch, install downloads artifacts and their dependencies, and can write" + LINE_END +
+            "    them into a flat directory or in the format of a Maven repository." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        (flat) output directory (default: java-libs)." + LINE_END +
+            "        --repository" + LINE_END +
+            "        -r        (Maven repository root) output directory." + LINE_END +
+            "        --optional" + LINE_END +
+            "        -O        include optional dependencies." + LINE_END +
+            "        --scope" + LINE_END +
+            "        -s        scope to include (can be passed more than once)." + LINE_END +
+            "                  The runtime scope is used by default." + LINE_END +
+            "      Note:" + LINE_END +
+            "        The --directory and --repository options are mutually exclusive." + LINE_END +
+            "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0";
 
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
@@ -306,6 +364,23 @@ final class InstallOptions {
 
 final class DoctorOptions {
 
+    static final String NAME = "doctor";
+    static final String DESCRIPTION = "finds type-safe classpath given a set of jars";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s)." + LINE_END +
+            "    This command requires user interaction by default." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options...> <dir>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --entrypoint" + LINE_END +
+            "        -e        entry-point jar within the directory, or the application jar" + LINE_END +
+            "                  (can be passed more than once)." + LINE_END +
+            "        --yes" + LINE_END +
+            "        -y        answer any question with 'yes'." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " java-libs -e app.jar";
+
     final String inputDir;
     final boolean interactive;
     final List<String> entryPoints;
@@ -377,6 +452,16 @@ final class DoctorOptions {
 
 final class VersionsOptions {
 
+    static final String NAME = "versions";
+    static final String DESCRIPTION = "list the versions of Maven artifacts";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    List the versions of the given artifacts that are available on configured repositories." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <artifact...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " junit:junit";
+
     final Set<String> artifacts;
 
     public VersionsOptions(Set<String> artifacts) {
@@ -401,6 +486,28 @@ final class VersionsOptions {
 }
 
 final class CompileOptions {
+
+    static final String NAME = "compile";
+    static final String DESCRIPTION = "compiles java source code";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    Compile all Java source files found the input directories." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | input-directory...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --classpath" + LINE_END +
+            "        -cp       Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        output directory, where to put class files on." + LINE_END +
+            "        --jar" + LINE_END +
+            "        -j        destination jar (default: <working-directory>.jar)." + LINE_END +
+            "      Note:" + LINE_END +
+            "        The --directory and --jar options are mutually exclusive." + LINE_END +
+            "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
+            "        with sources read from either src/main/java, src/ or the working-directory." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar";
+
     final Set<String> inputDirectories;
     final Either<String, String> outputDirOrJar;
     final String classpath;

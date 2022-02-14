@@ -41,115 +41,36 @@ import static jbuild.util.TextUtils.durationText;
 public final class Main {
 
     static final String JBUILD_VERSION = "0.0";
+    static final String JBUILD_HEADER = "------ JBuild CLI ------" + LINE_END +
+            "Version: " + JBUILD_VERSION + "" + LINE_END;
 
-    static final String USAGE = "------ JBuild CLI ------" + LINE_END +
-            "Version: " + JBUILD_VERSION + "" + LINE_END +
-            "" + LINE_END +
+    static final String USAGE =
             "Utility to build Java (JVM) applications." + LINE_END +
-            "This is work in progress!" + LINE_END +
-            "" + LINE_END +
-            "Usage:" + LINE_END +
-            "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
-            "Root Options:" + LINE_END +
-            "    --repository" + LINE_END +
-            "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
-            "    --verbose" + LINE_END +
-            "    -V        log verbose output." + LINE_END +
-            "    --version" + LINE_END +
-            "    -v        print JBuild version and exit." + LINE_END +
-            "    --help" + LINE_END +
-            "    -h        print this usage message." + LINE_END +
-            "" + LINE_END +
-            "Available commands:" + LINE_END +
-            "" + LINE_END +
-            "  * fetch" + LINE_END +
-            "    Fetches Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
-            "      Usage:" + LINE_END +
-            "        jbuild fetch <options... | artifact...>" + LINE_END +
-            "      Options:" + LINE_END +
-            "        --directory" + LINE_END +
-            "        -d        output directory (default: working directory)." + LINE_END +
-            "      Example:" + LINE_END +
-            "        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
-            "" + LINE_END +
-            "  * compile" + LINE_END +
-            "    Compile all Java source files found the input directories." + LINE_END +
-            "      Usage:" + LINE_END +
-            "        jbuild compile <options... | input-directory...>" + LINE_END +
-            "      Options:" + LINE_END +
-            "        --classpath" + LINE_END +
-            "        -cp       Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
-            "        --directory" + LINE_END +
-            "        -d        output directory, where to put class files on." + LINE_END +
-            "        --jar" + LINE_END +
-            "        -j        destination jar (default: <working-directory>.jar)." + LINE_END +
-            "      Note:" + LINE_END +
-            "        The --directory and --jar options are mutually exclusive." + LINE_END +
-            "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," +
-            "        with sources read from either src/main/java, src/ or the working-directory." +
-            "      Example:" + LINE_END +
-            "        jbuild compile -cp libs/jsr305-3.0.2.jar" + LINE_END +
-            "" + LINE_END +
-            "  * install" + LINE_END +
-            "    Install Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
-            "    Unlike fetch, install downloads artifacts and their dependencies, and can write" + LINE_END +
-            "    them into a flat directory or in the format of a Maven repository." + LINE_END +
-            "      Usage:" + LINE_END +
-            "        jbuild install <options... | artifact...>" + LINE_END +
-            "      Options:" + LINE_END +
-            "        --directory" + LINE_END +
-            "        -d        (flat) output directory (default: java-libs)." + LINE_END +
-            "        --repository" + LINE_END +
-            "        -r        (Maven repository root) output directory." + LINE_END +
-            "        --optional" + LINE_END +
-            "        -O        include optional dependencies." + LINE_END +
-            "        --scope" + LINE_END +
-            "        -s        scope to include (can be passed more than once)." + LINE_END +
-            "                  The runtime scope is used by default." + LINE_END +
-            "      Note:" + LINE_END +
-            "        The --directory and --repository options are mutually exclusive." + LINE_END +
-            "        By default, the equivalent of '-d java-libs/' is used." +
-            "      Example:" + LINE_END +
-            "        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0" + LINE_END +
-            "" + LINE_END +
-            "  * deps" + LINE_END +
-            "    List the dependencies of the given artifacts." + LINE_END +
-            "      Usage:" + LINE_END +
-            "        jbuild deps <options... | artifact...>" + LINE_END +
-            "      Options:" + LINE_END +
-            "        --licenses" + LINE_END +
-            "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
-            "        --optional" + LINE_END +
-            "        -O        include optional dependencies." + LINE_END +
-            "        --scope" + LINE_END +
-            "        -s        scope to include (can be passed more than once)." + LINE_END +
-            "                  All scopes are listed by default." + LINE_END +
-            "        --transitive" + LINE_END +
-            "        -t        include transitive dependencies." + LINE_END +
-            "      Example:" + LINE_END +
-            "        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2" + LINE_END +
-            "" + LINE_END +
-            "  * doctor" + LINE_END +
-            "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s)." + LINE_END +
-            "    This command requires user interaction by default." + LINE_END +
-            "      Usage:" + LINE_END +
-            "        jbuild doctor <options...> <dir>" + LINE_END +
-            "      Options:" + LINE_END +
-            "        --entrypoint" + LINE_END +
-            "        -e        entry-point jar within the directory, or the application jar" + LINE_END +
-            "                  (can be passed more than once)." + LINE_END +
-            "        --yes" + LINE_END +
-            "        -y        answer any question with 'yes'." + LINE_END +
-            "      Example:" + LINE_END +
-            "        jbuild doctor java-libs -e app.jar" + LINE_END +
-            "" + LINE_END +
-            "  * versions" + LINE_END +
-            "    List the versions of the given artifacts that are available on configured repositories." + LINE_END +
-            "      Usage:" + LINE_END +
-            "        jbuild versions <artifact...>" + LINE_END +
-            "      Example:" + LINE_END +
-            "        jbuild versions junit:junit" + LINE_END +
-            "";
+                    "<<<< This is work in progress! >>>>" + LINE_END +
+                    "" + LINE_END +
+                    "Usage:" + LINE_END +
+                    "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
+                    "Root Options:" + LINE_END +
+                    "    --repository" + LINE_END +
+                    "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
+                    "    --verbose" + LINE_END +
+                    "    -V        log verbose output." + LINE_END +
+                    "    --version" + LINE_END +
+                    "    -v        print JBuild version and exit." + LINE_END +
+                    "    --help" + LINE_END +
+                    "    -h        print this usage message." + LINE_END +
+                    "" + LINE_END +
+                    "Available commands:" + LINE_END +
+                    "" + LINE_END +
+                    "  * " + CompileOptions.NAME + " - " + CompileOptions.DESCRIPTION + LINE_END +
+                    "  * " + DepsOptions.NAME + " - " + DepsOptions.DESCRIPTION + LINE_END +
+                    "  * " + DoctorOptions.NAME + " - " + DoctorOptions.DESCRIPTION + LINE_END +
+                    "  * " + FetchOptions.NAME + " - " + FetchOptions.DESCRIPTION + LINE_END +
+                    "  * " + InstallOptions.NAME + " - " + InstallOptions.DESCRIPTION + LINE_END +
+                    "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
+                    "  * help - displays this help message or help for one of the other commands" + LINE_END +
+                    "" + LINE_END +
+                    "Type 'jbuild help <command>' for more information about a command.";
 
     public static void main(String[] args) {
         new Main(args, System::exit, (verbose) -> new JBuildLog(System.out, verbose));
@@ -170,46 +91,77 @@ public final class Main {
 
         log.verbosePrintln(() -> "Parsed CLI options in " + time(startTime));
 
+        if (options.help || options.command.equals("help")) {
+            showHelp(options);
+            return;
+        }
+
+        if (options.version || options.command.equals("version")) {
+            System.out.println(JBUILD_VERSION);
+            return;
+        }
+
         withErrorHandling(() -> run(options), startTime);
     }
 
     private void run(Options options) throws Exception {
-        if (options.help) {
-            log.println(USAGE);
-            return;
-        }
-
-        if (options.version) {
-            log.println(JBUILD_VERSION);
-            return;
-        }
-
         if (options.command.isBlank()) {
             throw new JBuildException("No command given to execute. Run jbuild --help for usage.", USER_INPUT);
         }
 
         switch (options.command) {
-            case "compile":
+            case CompileOptions.NAME:
                 compile(options);
                 break;
-            case "fetch":
+            case FetchOptions.NAME:
                 fetchArtifacts(options);
                 break;
-            case "deps":
+            case DepsOptions.NAME:
                 listDeps(options);
                 break;
-            case "install":
+            case InstallOptions.NAME:
                 installArtifacts(options);
                 break;
-            case "doctor":
+            case DoctorOptions.NAME:
                 doctor(options);
                 break;
-            case "versions":
+            case VersionsOptions.NAME:
                 listVersions(options);
                 break;
             default:
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
+        }
+    }
+
+    private void showHelp(Options options) {
+        System.out.println(JBUILD_HEADER);
+        if (options.commandArgs.isEmpty()) {
+            System.out.println(USAGE);
+        } else for (var arg : options.commandArgs) {
+            if (arg.startsWith("-")) continue; // ignore flags
+            switch (arg) {
+                case CompileOptions.NAME:
+                    System.out.println(CompileOptions.USAGE);
+                    break;
+                case DepsOptions.NAME:
+                    System.out.println(DepsOptions.USAGE);
+                    break;
+                case DoctorOptions.NAME:
+                    System.out.println(DoctorOptions.USAGE);
+                    break;
+                case FetchOptions.NAME:
+                    System.out.println(FetchOptions.USAGE);
+                    break;
+                case InstallOptions.NAME:
+                    System.out.println(InstallOptions.USAGE);
+                    break;
+                case VersionsOptions.NAME:
+                    System.out.println(VersionsOptions.USAGE);
+                    break;
+                default:
+                    System.out.println("Unknown command: " + arg);
+            }
         }
     }
 
