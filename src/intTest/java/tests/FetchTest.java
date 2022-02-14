@@ -3,8 +3,6 @@ package tests;
 import jbuild.artifact.Artifact;
 import jbuild.java.tools.Tools;
 import jbuild.maven.MavenUtils;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
@@ -19,34 +17,10 @@ import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 public class FetchTest extends JBuildTestRunner {
 
-    private static boolean outDirExists;
-
-    @BeforeAll
-    static void beforeAll() {
-        outDirExists = new File("out").isDirectory();
-    }
-
-    @SuppressWarnings("ResultOfMethodCallIgnored")
-    @AfterAll
-    static void afterAll() {
-        if (!outDirExists) {
-            var outDir = new File("out");
-            if (outDir.isDirectory()) {
-                var files = outDir.listFiles();
-                if (files != null) for (var file : files) {
-                    if (file.isDirectory()) {
-                        throw new IllegalStateException("Did not expect directory inside out/ dir");
-                    }
-                    file.delete();
-                }
-            }
-            outDir.delete();
-        }
-    }
-
     @Test
     void canFetchPom() throws Exception {
-        final var expectedFileLocation = new File("out", "opentest4j-1.2.0.pom");
+        final var expectedFileLocation = new File("opentest4j-1.2.0.pom");
+        expectedFileLocation.deleteOnExit();
 
         var result = runWithIntTestRepo("fetch", "org.opentest4j:opentest4j:1.2.0:pom");
         verifySuccessful("jbuild fetch", result);
@@ -85,7 +59,8 @@ public class FetchTest extends JBuildTestRunner {
 
     @Test
     void canFetchJarByDefault() {
-        final var expectedFileLocation = new File("out", "opentest4j-1.2.0.jar");
+        final var expectedFileLocation = new File("opentest4j-1.2.0.jar");
+        expectedFileLocation.deleteOnExit();
 
         var result = runWithIntTestRepo("fetch", "org.opentest4j:opentest4j:1.2.0");
         verifySuccessful("jbuild fetch", result);
