@@ -5,21 +5,21 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Set;
 
+import static jbuild.artifact.Version.MAX_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class VersionRangeTest {
 
+
     static Object[][] singleVersionRanges() {
         return new Object[][]{
-                new Object[]{"", new Version(0, 0, 0, ""), new Version(0, 0, 0, ""), true, true},
+                new Object[]{"", new Version(0, 0, 0, ""), MAX_VERSION, true, true},
                 new Object[]{"1", new Version(1, 0, 0, ""), new Version(1, 0, 0, ""), true, true},
                 new Object[]{"1.2.3", new Version(1, 2, 3, ""), new Version(1, 2, 3, ""), true, true},
                 new Object[]{"[,1]", new Version(0, 0, 0, ""), new Version(1, 0, 0, ""), true, true},
                 new Object[]{"[,2.3.4)", new Version(0, 0, 0, ""), new Version(2, 3, 4, ""), true, false},
-                new Object[]{"(,)", new Version(0, 0, 0, ""),
-                        new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, ""), false, false},
-                new Object[]{"(1.0,)", new Version(1, 0, 0, ""),
-                        new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, ""), false, false},
+                new Object[]{"(,)", new Version(0, 0, 0, ""), MAX_VERSION, false, false},
+                new Object[]{"(1.0,)", new Version(1, 0, 0, ""), MAX_VERSION, false, false},
                 new Object[]{"(1.0 , 2.0)", new Version(1, 0, 0, ""), new Version(2, 0, 0, ""), false, false},
                 new Object[]{" [10, 200 ]", new Version(10, 0, 0, ""), new Version(200, 0, 0, ""), true, true},
         };

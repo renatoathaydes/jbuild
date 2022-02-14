@@ -6,7 +6,13 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Set;
 
+import static jbuild.artifact.Version.MAX_VERSION;
+import static jbuild.artifact.Version.MIN_VERSION;
+
 public final class VersionRange {
+
+    public static final VersionRange ANYTHING = new VersionRange(NonEmptyCollection.of(
+            new Interval(MIN_VERSION, MAX_VERSION, true, true)));
 
     public final NonEmptyCollection<Interval> intervals;
 
@@ -39,6 +45,7 @@ public final class VersionRange {
     }
 
     public static VersionRange parse(String range) {
+        if (range.isBlank()) return ANYTHING;
         var intervals = new ArrayList<Interval>(2);
         var index = 0;
         while ((index = nextNonWhitespaceCharIndex(range, index)) < range.length()) {
@@ -87,10 +94,8 @@ public final class VersionRange {
         }
         var min = parts[0].trim();
         var max = parts[1].trim();
-        var minVer = min.isEmpty() ? new Version(0, 0, 0, "") : Version.parse(min);
-        var maxVer = max.isEmpty()
-                ? new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, "")
-                : Version.parse(max);
+        var minVer = min.isEmpty() ? MIN_VERSION : Version.parse(min);
+        var maxVer = max.isEmpty() ? MAX_VERSION : Version.parse(max);
         return new Interval(minVer, maxVer, minIncl, maxIncl);
     }
 

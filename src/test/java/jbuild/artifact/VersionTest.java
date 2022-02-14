@@ -5,13 +5,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.stream.Stream;
 
+import static jbuild.artifact.Version.MIN_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class VersionTest {
 
     static Stream<Object> versionExamples() {
         return Stream.of(
-                new Object[]{"", new Version(0, 0, 0, "")},
+                new Object[]{"", MIN_VERSION},
                 new Object[]{"1", new Version(1, 0, 0, "")},
                 new Object[]{"1.1", new Version(1, 1, 0, "")},
                 new Object[]{"1.1.1", new Version(1, 1, 1, "")},
@@ -28,11 +29,11 @@ public class VersionTest {
 
     static Version[][] sortedVersionExamples() {
         return new Version[][]{
-                {new Version(0, 0, 0, ""), new Version(1, 0, 0, ""), new Version(2, 0, 0, "")},
+                {MIN_VERSION, new Version(1, 0, 0, ""), new Version(2, 0, 0, "")},
                 {new Version(0, 1, 0, ""), new Version(0, 2, 0, ""), new Version(0, 3, 0, "")},
                 {new Version(0, 0, 10, ""), new Version(0, 0, 20, ""), new Version(0, 0, 30, "")},
                 {new Version(1, 0, 0, "alpha"), new Version(1, 0, 0, "zeta"), new Version(1, 0, 0, "")},
-                {new Version(0, 0, 0, "a"), new Version(0, 0, 0, "b"), new Version(0, 0, 0, "")},
+                {new Version(0, 0, 0, "a"), new Version(0, 0, 0, "b"), MIN_VERSION},
                 {new Version(0, 0, 0, "a"), new Version(0, 0, 0, "b"), new Version(0, 0, 0, "c")},
                 {new Version(10, 3, 0, ""), new Version(20, 2, 0, ""), new Version(30, 1, 0, "")},
                 {new Version(10, 0, 3, ""), new Version(20, 0, 2, ""), new Version(30, 0, 1, "")},

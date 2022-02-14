@@ -70,7 +70,19 @@ public final class Main {
                     "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
                     "  * help - displays this help message or help for one of the other commands" + LINE_END +
                     "" + LINE_END +
-                    "Type 'jbuild help <command>' for more information about a command.";
+                    "Type 'jbuild help <command>' for more information about a command." + LINE_END + LINE_END +
+                    "Artifact coordinates are given in the form <orgId>:<artifactId>[:<version>][:<ext>]" + LINE_END +
+                    "If the version is omitted, the latest available version is normally used." + LINE_END + LINE_END +
+                    "Examples:" + LINE_END +
+                    "  # install latest version of Guava and all its dependencies in directory 'java-libs/'" + LINE_END +
+                    "  jbuild install com.google.guava:guava" + LINE_END + LINE_END +
+                    "  # show all version of Spring available on the Spring repository" + LINE_END +
+                    "  jbuild versions -r https://repo.spring.io/artifactory/release/ org.springframework:spring-core" + LINE_END + LINE_END +
+                    "  # fetch the Guava POM" + LINE_END +
+                    "  jbuild fetch com.google.guava:guava:31.0.1-jre:pom" + LINE_END + LINE_END +
+                    "  # compile all Java sources in 'src/' or 'src/main/java' into a jar" + LINE_END +
+                    "  # using all jars in 'java-libs/' as the classpath" + LINE_END +
+                    "  jbuild compile";
 
     public static void main(String[] args) {
         new Main(args, System::exit, (verbose) -> new JBuildLog(System.out, verbose));

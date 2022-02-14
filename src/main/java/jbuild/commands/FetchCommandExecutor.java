@@ -85,7 +85,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                                                              FetchHandler<S> handler,
                                                              Iterable<S> currentResults) {
         CompletionStage<Artifact> exactVersion;
-        if (VersionRange.isVersionRange(artifact.version)) {
+        if (VersionRange.isVersionRange(artifact.version) || artifact.version.isBlank()) {
             exactVersion = selectVersion(artifact, VersionRange.parse(artifact.version));
         } else {
             exactVersion = completedFuture(artifact);

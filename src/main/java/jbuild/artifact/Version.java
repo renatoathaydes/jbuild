@@ -5,6 +5,9 @@ package jbuild.artifact;
  */
 public final class Version implements Comparable<Version> {
 
+    public static final Version MIN_VERSION = new Version(0, 0, 0, "");
+    public static final Version MAX_VERSION = new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, "");
+
     public final int major;
     public final int minor;
     public final int patch;

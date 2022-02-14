@@ -253,7 +253,7 @@ final class InstallOptions {
 
     static final String USAGE = "  ## " + NAME + LINE_END +
             "    Install Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
-            "    Unlike fetch, install downloads artifacts and their dependencies, and can write" + LINE_END +
+            "    Unlike " + FetchOptions.NAME + ", install downloads artifacts and their dependencies, and can write" + LINE_END +
             "    them into a flat directory or in the format of a Maven repository." + LINE_END +
             "      Usage:" + LINE_END +
             "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
