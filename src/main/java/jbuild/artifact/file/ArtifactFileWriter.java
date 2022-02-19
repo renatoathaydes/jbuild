@@ -41,7 +41,13 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
     public CompletionStage<Either<File, Describable>> write(ResolvedArtifact resolvedArtifact, boolean consume) {
         var completion = new CompletableFuture<Either<File, Describable>>();
         var file = computeFileLocation(resolvedArtifact);
-        if (!file.getParentFile().isDirectory() && !file.getParentFile().mkdirs()) {
+
+        // this may return false if the dir already exists or if running in parallel with another call that
+        // creates this dir before us, so we cannot check the result here.
+        //noinspection ResultOfMethodCallIgnored
+        file.getParentFile().mkdirs();
+
+        if (!file.getParentFile().isDirectory()) {
             return completedStage(
                     Either.right(Describable.of("unable to create directory at " + file.getParent())));
         }
