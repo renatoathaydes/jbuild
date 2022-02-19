@@ -465,6 +465,13 @@ public final class Main {
             exe.run();
         } catch (JBuildException e) {
             exitWithError(e.getMessage(), e.getErrorCause(), startTime);
+        } catch (ExecutionException e) {
+            var cause = e.getCause();
+            if (cause instanceof JBuildException) {
+                exitWithError(cause.getMessage(), ((JBuildException) cause).getErrorCause(), startTime);
+            }
+            e.printStackTrace(log.out);
+            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
         } catch (Exception e) {
             e.printStackTrace(log.out);
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
