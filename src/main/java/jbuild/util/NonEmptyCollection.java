@@ -1,9 +1,11 @@
 package jbuild.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -18,6 +20,21 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
     private NonEmptyCollection(T first, Iterable<T> all) {
         this.first = first;
         this.all = all;
+    }
+
+    public List<T> take(int count) {
+        var result = new ArrayList<T>(count);
+        var i = 0;
+        for (var item : this) {
+            if (i >= count) break;
+            result.add(item);
+            i++;
+        }
+        return result;
+    }
+
+    public List<T> toList() {
+        return stream().collect(Collectors.toList());
     }
 
     @Override

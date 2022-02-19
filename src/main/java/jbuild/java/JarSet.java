@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
+import static jbuild.util.CollectionUtils.filterValues;
 import static jbuild.util.CollectionUtils.mapValues;
 
 /**
@@ -65,6 +66,13 @@ public final class JarSet {
                 .collect(toSet());
     }
 
+    public JarSet filter(Set<File> jars) {
+        var foundJars = getJars(jars);
+        if (foundJars.size() == jarFiles.size()) return this;
+        if (foundJars.size() < jars.size()) throw new IllegalArgumentException("not all jars exist in this Set");
+        return new JarSet(filterValues(jarByType, foundJars::contains));
+    }
+
     public Set<File> getJarFiles() {
         return jarFiles;
     }
@@ -88,22 +96,16 @@ public final class JarSet {
         return false;
     }
 
-    public Either<JarSet, NonEmptyCollection<String>> filter(
-            Set<Jar> entryJars,
+    public Either<JarSet, NonEmptyCollection<String>> checkReferencesExist(
             List<TypeReference> typeReferences) {
         var errors = new HashSet<String>();
-        var jarsToKeep = new HashSet<Jar>(jarFiles.size());
-        jarsToKeep.addAll(entryJars);
         for (var typeRef : typeReferences) {
             var found = false;
             jarLoop:
-            for (var entry : typesByJar.entrySet()) {
-                var jar = entry.getKey();
-                var types = entry.getValue();
+            for (var types : typesByJar.values()) {
                 for (var to : typeRef.typesTo) {
                     found = types.contains(to);
                     if (found) {
-                        jarsToKeep.add(jar);
                         break jarLoop;
                     }
                 }
@@ -113,29 +115,13 @@ public final class JarSet {
             }
         }
         if (errors.isEmpty()) {
-            if (jarsToKeep.size() == typesByJar.size()) {
-                return Either.left(this); // keep all jars
-            }
-            return Either.left(createJarSet(jarsToKeep));
+            return Either.left(this);
         }
         return Either.right(NonEmptyCollection.of(errors));
     }
 
     public String toClasspath() {
         return String.join(File.pathSeparator, new HashSet<>(getJarPaths()));
-    }
-
-    private static JarSet createJarSet(HashSet<Jar> jars) {
-        Map<String, Jar> jarByType = new HashMap<>();
-        Map<Jar, Set<String>> typesByJar = new HashMap<>(jars.size());
-
-        for (var jar : jars) {
-            typesByJar.put(jar, jar.types);
-            for (var type : jar.types) {
-                jarByType.put(type, jar);
-            }
-        }
-        return new JarSet(jarByType, typesByJar);
     }
 
     private static Map<Jar, Set<String>> computeTypesByJar(Map<String, Jar> jarByType) {
@@ -153,5 +139,12 @@ public final class JarSet {
         return awaitSuccessValues(completions).thenApplyAsync((parsedJars) -> new ClassGraph(
                 parsedJars.stream().collect(Collectors.toMap(e -> e.file, e -> e.typeByName)),
                 mapValues(jarByType, jar -> jar.file)));
+    }
+
+    @Override
+    public String toString() {
+        return "JarSet{" +
+                "typesByJar=" + typesByJar +
+                '}';
     }
 }

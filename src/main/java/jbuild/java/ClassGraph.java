@@ -128,9 +128,21 @@ public final class ClassGraph {
         return result.collect(toSet());
     }
 
+    public TypeDefinitionLocation findTypeDefinitionLocation(String typeName) {
+        var jar = jarByType.get(typeName);
+        if (jar != null) {
+            var def = typesByJar.get(jar).get(typeName);
+            if (def == null) return null;
+            return new TypeDefinitionLocation(def, jar);
+        }
+        return null;
+    }
+
     public TypeDefinition findTypeDefinition(String typeName) {
         var jar = jarByType.get(typeName);
-        if (jar != null) return typesByJar.get(jar).get(typeName);
+        if (jar != null) {
+            return typesByJar.get(jar).get(typeName);
+        }
         return null;
     }
 
@@ -277,6 +289,16 @@ public final class ClassGraph {
         }
 
         return results;
+    }
+
+    public static final class TypeDefinitionLocation {
+        public final TypeDefinition typeDefinition;
+        public final File jar;
+
+        public TypeDefinitionLocation(TypeDefinition typeDefinition, File jar) {
+            this.typeDefinition = typeDefinition;
+            this.jar = jar;
+        }
     }
 
 }

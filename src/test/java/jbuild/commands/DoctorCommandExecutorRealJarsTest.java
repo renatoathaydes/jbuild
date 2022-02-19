@@ -44,7 +44,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
             var result = results.get(0);
 
-            assertThat(result.errors).isEmpty();
+            assertThat(result.getErrors()).isEmpty();
             assertThat(result.successful).isTrue();
             assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
                     .containsExactlyInAnyOrder(jar(myClassesJar));
@@ -67,7 +67,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
             var result = results.get(0);
 
-            assertThat(result.errors).isEmpty();
+            assertThat(result.getErrors()).isEmpty();
             assertThat(result.successful).isTrue();
             assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
                     .containsExactlyInAnyOrder(jar(myClassesJar), jar(otherClassesJar));
@@ -102,7 +102,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
             var result = results.get(0);
 
-            assertThat(result.errors).isEmpty();
+            assertThat(result.getErrors()).isEmpty();
             assertThat(result.successful).isTrue();
             assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
                     .containsExactlyInAnyOrder(jar(myClassesJarCopy.toFile()), jar(otherClassesJarCopy.toFile()));

@@ -376,6 +376,9 @@ final class DoctorOptions {
             "        --entrypoint" + LINE_END +
             "        -e        entry-point jar within the directory, or the application jar" + LINE_END +
             "                  (can be passed more than once)." + LINE_END +
+            "        --exclude-type" + LINE_END +
+            "        -x        exclude type from analysis, allowing it to be missing" + LINE_END +
+            "                  (can be passed more than once)." + LINE_END +
             "        --yes" + LINE_END +
             "        -y        answer any question with 'yes'." + LINE_END +
             "      Example:" + LINE_END +

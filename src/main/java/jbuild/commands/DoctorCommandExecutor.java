@@ -10,6 +10,7 @@ import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.JarFileFilter;
+import jbuild.util.NoOp;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
@@ -18,9 +19,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +33,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -116,7 +120,7 @@ public final class DoctorCommandExecutor {
 
             return computeEntryPointsTypeRequirements(entryPointJars, typeExclusions)
                     .thenApplyAsync(typeRequirements ->
-                            findTypeCompleteClasspaths(interactive, jarSets, entryPointJars, typeRequirements))
+                            findTypeCompleteClasspaths(interactive, jarSets, typeRequirements))
                     .thenComposeAsync((goodJarSets) ->
                             findValidClasspaths(goodJarSets, entryJars, interactive, typeExclusions));
         });
@@ -124,23 +128,22 @@ public final class DoctorCommandExecutor {
 
     private NonEmptyCollection<JarSet> findTypeCompleteClasspaths(boolean interactive,
                                                                   List<JarSet> jarSets,
-                                                                  Set<Jar> entryPointJars,
                                                                   List<TypeReference> typeRequirements) {
         log.verbosePrintln(() -> "Entry-points required types: " + String.join(", ",
                 typeRequirements.stream().flatMap(ref -> ref.typesTo.stream()).collect(toSet())));
 
         var filteredJarSets = jarSets.stream()
-                .map((jarSet) -> jarSet.filter(entryPointJars, typeRequirements)
+                .map((jarSet) -> jarSet.checkReferencesExist(typeRequirements)
                         .mapRight(errors -> new AbstractMap.SimpleEntry<>(jarSet, errors)))
                 .collect(toList());
 
         var badResults = filteredJarSets.stream()
-                .map(res -> res.map(ok -> null, err -> err))
+                .map(res -> res.map(NoOp.fun(), Function.identity()))
                 .filter(Objects::nonNull)
                 .collect(toList());
 
         var goodResults = filteredJarSets.stream()
-                .map(res -> res.map(ok -> ok, err -> null))
+                .map(res -> res.map(Function.identity(), NoOp.fun()))
                 .filter(Objects::nonNull)
                 .collect(toList());
 
@@ -286,39 +289,41 @@ public final class DoctorCommandExecutor {
                             .map(pair -> pair.getKey().getName() + " ✗ " + pair.getValue().getName())
                             .collect(joining(" | ")));
                 }
-                return completedStage(new ClasspathCheckResult(jarSet, true, List.of()));
+                return completedStage(new ClasspathCheckResult(jarSet, true, null));
             }
 
             log.verbosePrintln(() -> "Checking classpath: " + jarSet.toClasspath());
 
             return jarSet.toClassGraph().thenApply(graph -> {
                 var result = checkClasspathConsistency(graph, entryJars, typeExclusions);
-                if (result.isEmpty()) {
+                if (result.isOk()) {
                     abort.set(true); // success found!
-                } else {
-                    for (var classPathInconsistency : result) {
-                        if (classPathInconsistency.jarFrom != null && classPathInconsistency.jarTo != null) {
-                            badJarPairs.add(new AbstractMap.SimpleEntry<>(
-                                    classPathInconsistency.jarFrom, classPathInconsistency.jarTo));
-                        }
-                    }
-                    if (interactive) {
-                        log.println("Classpath is inconsistent!");
-                    }
-                    var badClasspaths = errorCount.incrementAndGet();
-                    log.println(() -> badClasspaths + " inconsistent classpath" +
-                            (badClasspaths == 1 ? "" : "s") + " checked so far.");
+                    return new ClasspathCheckResult(jarSet.filter(result.jars), false, null);
                 }
-                return new ClasspathCheckResult(jarSet, false, result);
+                for (var classPathInconsistency : result.inconsistencies) {
+                    if (classPathInconsistency.jarFrom != null && classPathInconsistency.jarTo != null) {
+                        badJarPairs.add(new AbstractMap.SimpleEntry<>(
+                                classPathInconsistency.jarFrom, classPathInconsistency.jarTo));
+                    }
+                }
+                if (interactive) {
+                    log.println("Classpath is inconsistent!");
+                }
+                var badClasspaths = errorCount.incrementAndGet();
+                log.println(() -> badClasspaths + " inconsistent classpath" +
+                        (badClasspaths == 1 ? "" : "s") + " checked so far.");
+                return new ClasspathCheckResult(jarSet, false, result.inconsistencies);
             });
         };
     }
 
-    private List<ClassPathInconsistency> checkClasspathConsistency(
+    private ConsistencyCheckResult checkClasspathConsistency(
             ClassGraph classGraph,
             Set<File> entryJars,
             Set<Pattern> typeExclusions) {
         var allErrors = new ArrayList<ClassPathInconsistency>();
+        var usedJars = new HashSet<File>(classGraph.getJarByType().size());
+        usedJars.addAll(entryJars);
 
         for (var jar : entryJars) {
             var startTime = System.currentTimeMillis();
@@ -328,36 +333,92 @@ public final class DoctorCommandExecutor {
                 if (isIgnored(type, typeExclusions)) continue;
                 var typeDef = entry.getValue();
                 typeDef.type.typesReferredTo().forEach(ref -> {
-                    if (!isIgnored(ref, typeExclusions) && !classGraph.exists(ref)) {
-                        allErrors.add(new ClassPathInconsistency(
-                                "Type " + ref + ", used in type signature of " +
-                                        jar.getName() + "!" + type + " cannot be found",
-                                jar, classGraph.getJarByType().get(ref)));
-                    }
+                    if (isIgnored(ref, typeExclusions)) return;
+                    addErrorOrUseJar(classGraph, ref, allErrors,
+                            usedJars, jar,
+                            () -> "Type " + ref + ", used in type signature of " + jar.getName() + "!" + type +
+                                    " cannot be found"
+                    );
                 });
                 for (var methodHandle : typeDef.usedMethodHandles) {
                     if (isIgnored(methodHandle.typeName, typeExclusions)) continue;
-                    var error = errorIfMethodDoesNotExist(type, jar, null, classGraph, methodHandle, "MethodHandle");
-                    if (error != null) allErrors.add(error);
+                    var error = errorIfMethodDoesNotExist(jar, type, null, classGraph, methodHandle, "MethodHandle");
+                    addErrorOrUseJar(classGraph, methodHandle, allErrors, usedJars, error, typeExclusions);
                 }
-                typeDef.methods.forEach((method, codes) -> {
-                    for (var code : codes) {
-                        var error = errorIfCodeRefDoesNotExist(classGraph, type, jar, method, code, typeExclusions);
-                        if (error != null) allErrors.add(error);
-                    }
-                });
+                typeDef.methods.forEach((method, codes) ->
+                        checkCode(classGraph, jar, typeDef.typeName, method, codes,
+                                allErrors, usedJars, typeExclusions));
+                for (var field : typeDef.fields) {
+                    var ref = field.type;
+                    if (isIgnored(ref, typeExclusions)) continue;
+                    addErrorOrUseJar(classGraph, ref, allErrors,
+                            usedJars, jar, () -> "Type " + ref + ", used in field " + field.name +
+                                    " of " + jar.getName() + "!" + type + " cannot be found"
+                    );
+                }
             }
 
             log.verbosePrintln(() -> "Checked " + jar.getName() + " classpath requirements in " +
                     (System.currentTimeMillis() - startTime) + " ms, ok? " + (allErrors.size() == initialErrorCount));
         }
 
-        return allErrors;
+        if (allErrors.isEmpty()) return ConsistencyCheckResult.success(usedJars);
+
+        return ConsistencyCheckResult.failure(NonEmptyCollection.of(allErrors));
+    }
+
+    private void addErrorOrUseJar(ClassGraph classGraph,
+                                  String typeName,
+                                  List<ClassPathInconsistency> allErrors,
+                                  Set<File> usedJars,
+                                  File jar,
+                                  Supplier<String> errorMessage) {
+        var def = classGraph.findTypeDefinitionLocation(typeName);
+        if (def == null && !classGraph.existsJava(typeName)) {
+            allErrors.add(new ClassPathInconsistency(
+                    errorMessage.get(), jar, classGraph.getJarByType().get(typeName)));
+        }
+        if (def != null) usedJars.add(def.jar);
+    }
+
+    private void addErrorOrUseJar(ClassGraph classGraph,
+                                  Code code,
+                                  List<ClassPathInconsistency> allErrors,
+                                  Set<File> usedJars,
+                                  ClassPathInconsistency error,
+                                  Set<Pattern> typeExclusions) {
+        if (error == null) {
+            var typeDefLocation = classGraph.findTypeDefinitionLocation(code.typeName);
+            assert typeDefLocation != null;
+            usedJars.add(typeDefLocation.jar);
+            // also check the referred method is consistent (the types are already checked)
+            var nextError = code.match(NoOp.fun(),
+                    NoOp.fun(),
+                    m -> errorIfMethodDoesNotExist(typeDefLocation.jar, m.typeName, null,
+                            classGraph, m, "Method"));
+            if (nextError != null) allErrors.add(nextError);
+        } else {
+            allErrors.add(error);
+        }
+    }
+
+    private void checkCode(ClassGraph classGraph,
+                           File jarFrom,
+                           String typeFrom,
+                           Definition.MethodDefinition method,
+                           Collection<Code> codes,
+                           List<ClassPathInconsistency> allErrors,
+                           Set<File> usedJars,
+                           Set<Pattern> typeExclusions) {
+        for (var code : codes) {
+            var error = errorIfCodeRefDoesNotExist(classGraph, jarFrom, typeFrom, method, code, typeExclusions);
+            addErrorOrUseJar(classGraph, code, allErrors, usedJars, error, typeExclusions);
+        }
     }
 
     private ClassPathInconsistency errorIfCodeRefDoesNotExist(ClassGraph classGraph,
-                                                              String typeFrom,
                                                               File jarFrom,
+                                                              String typeFrom,
                                                               Definition.MethodDefinition methodFrom,
                                                               Code target,
                                                               Set<Pattern> typeExclusions) {
@@ -366,9 +427,9 @@ public final class DoctorCommandExecutor {
         var error = errorIfTypeDoesNotExist(typeFrom, jarFrom, methodFrom, classGraph, typeName);
         if (error != null) return error;
         return target.match(
-                t -> null,
-                f -> errorIfFieldDoesNotExist(typeFrom, jarFrom, methodFrom, classGraph, f),
-                m -> errorIfMethodDoesNotExist(typeFrom, jarFrom, methodFrom, classGraph, m, "Method"));
+                NoOp.fun(),
+                f -> errorIfFieldDoesNotExist(jarFrom, typeFrom, methodFrom, classGraph, f),
+                m -> errorIfMethodDoesNotExist(jarFrom, typeFrom, methodFrom, classGraph, m, "Method"));
     }
 
     private static ClassPathInconsistency errorIfTypeDoesNotExist(String typeFrom,
@@ -387,8 +448,8 @@ public final class DoctorCommandExecutor {
         return null;
     }
 
-    private ClassPathInconsistency errorIfFieldDoesNotExist(String type,
-                                                            File jar,
+    private ClassPathInconsistency errorIfFieldDoesNotExist(File jar,
+                                                            String type,
                                                             Definition.MethodDefinition methodDef,
                                                             ClassGraph classGraph,
                                                             Code.Field field) {
@@ -422,14 +483,14 @@ public final class DoctorCommandExecutor {
                 jar, targetJar);
     }
 
-    private ClassPathInconsistency errorIfMethodDoesNotExist(String type,
-                                                             File jar,
+    private ClassPathInconsistency errorIfMethodDoesNotExist(File jar,
+                                                             String type,
                                                              Definition.MethodDefinition methodDef,
                                                              ClassGraph classGraph,
                                                              Code.Method method,
                                                              String methodKind) {
         var methodOwner = method.typeName;
-        var targetMethod = new Definition.MethodDefinition(method.name, method.type);
+        var targetMethod = method.toDefinition();
         var targetJar = classGraph.getJarByType().get(methodOwner);
         if (targetJar == null) {
             return classGraph.existsJava(methodOwner, targetMethod)
@@ -487,17 +548,18 @@ public final class DoctorCommandExecutor {
                 "try a different classpath or entrypoint!");
 
         for (var failureResult : results) {
-            if (failureResult.aborted) break;
+            if (failureResult.aborted || failureResult.getErrors().isEmpty()) break;
             log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
-            var errorCount = failureResult.errors.size();
+            var errors = failureResult.getErrors().get();
+            var errorCount = errors.stream().count();
             log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
             var reportable = errorCount > 5 && !log.isVerbose()
-                    ? failureResult.errors.subList(0, 5)
-                    : failureResult.errors;
+                    ? errors.take(5)
+                    : errors.toList();
             for (var error : reportable) {
                 log.println("  * " + error.message);
             }
-            if (reportable.size() < failureResult.errors.size()) {
+            if (reportable.size() < errorCount) {
                 log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>" + LINE_END);
             } else {
                 log.println("");
@@ -531,18 +593,57 @@ public final class DoctorCommandExecutor {
 
     public static final class ClasspathCheckResult {
 
-        public final List<ClassPathInconsistency> errors;
+        private final NonEmptyCollection<ClassPathInconsistency> errors;
         public final boolean aborted;
         public final JarSet jarSet;
         public final boolean successful;
 
         public ClasspathCheckResult(JarSet jarSet,
                                     boolean aborted,
-                                    List<ClassPathInconsistency> errors) {
+                                    NonEmptyCollection<ClassPathInconsistency> errors) {
             this.jarSet = jarSet;
             this.aborted = aborted;
             this.errors = errors;
-            successful = !aborted && errors.isEmpty();
+            successful = !aborted && errors == null;
+        }
+
+        public Optional<NonEmptyCollection<ClassPathInconsistency>> getErrors() {
+            return Optional.ofNullable(errors);
+        }
+
+        @Override
+        public String toString() {
+            return "ClasspathCheckResult{" +
+                    "errors=" + errors +
+                    ", aborted=" + aborted +
+                    ", jarSet=" + jarSet +
+                    ", successful=" + successful +
+                    '}';
+        }
+    }
+
+    private static final class ConsistencyCheckResult {
+        final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
+        final Set<File> jars;
+
+        static ConsistencyCheckResult success(Set<File> jars) {
+            assert jars != null;
+            return new ConsistencyCheckResult(null, jars);
+        }
+
+        static ConsistencyCheckResult failure(NonEmptyCollection<ClassPathInconsistency> inconsistencies) {
+            assert inconsistencies != null;
+            return new ConsistencyCheckResult(inconsistencies, null);
+        }
+
+        private ConsistencyCheckResult(NonEmptyCollection<ClassPathInconsistency> inconsistencies,
+                                       Set<File> jars) {
+            this.inconsistencies = inconsistencies;
+            this.jars = jars;
+        }
+
+        boolean isOk() {
+            return inconsistencies == null;
         }
     }
 

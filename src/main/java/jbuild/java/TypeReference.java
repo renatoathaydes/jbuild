@@ -60,7 +60,11 @@ public final class TypeReference {
                 addReferenceTypeTo(result, methodDef.getReturnType());
             }
             for (var methodDef : typeDef.usedMethodHandles) {
-                addReferenceTypesTo(result, methodDef.type, methodDef.typeName);
+                var def = methodDef.toDefinition();
+                addReferenceTypesTo(result, methodDef.typeName, def.getReturnType());
+                for (var typeName : def.getParameterTypes()) {
+                    addReferenceTypeTo(result, typeName);
+                }
             }
             for (var codes : typeDef.methods.values()) {
                 for (var code : codes) {
@@ -74,7 +78,6 @@ public final class TypeReference {
             if (!result.isEmpty()) {
                 typeReferences.add(new TypeReference(jar, typeDef.typeName, result));
             }
-
         }
 
         private void addReferenceTypesTo(Set<String> result, Iterable<String> types) {

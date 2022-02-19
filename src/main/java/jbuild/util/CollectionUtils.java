@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public final class CollectionUtils {
@@ -138,6 +139,16 @@ public final class CollectionUtils {
         return result;
     }
 
+    public static <K, T> Map<K, T> filterValues(Map<K, T> map, Predicate<T> keep) {
+        var result = new HashMap<K, T>();
+        for (var entry : map.entrySet()) {
+            if (keep.test(entry.getValue())) {
+                result.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return result;
+    }
+
     public static <K, A, B> Map<K, B> mapValues(Map<K, A> map, Function<A, B> transform) {
         var result = new HashMap<K, B>(map.size());
         for (var entry : map.entrySet()) {
@@ -168,7 +179,7 @@ public final class CollectionUtils {
     public static <T, E> Either<T, NonEmptyCollection<E>> foldEither(
             Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable) {
         {
-            var left = find(eitherIterable, e -> e.map(ok -> ok, err -> null));
+            var left = find(eitherIterable, e -> e.map(Function.identity(), NoOp.fun()));
             if (left.isPresent()) {
                 return Either.left(left.get());
             }
@@ -188,7 +199,7 @@ public final class CollectionUtils {
             BiFunction<T, T, T> combiner) {
         T leftResults = null;
         for (var either : eitherIterable) {
-            var value = either.map(l -> l, r -> null);
+            var value = either.map(Function.identity(), NoOp.fun());
             if (value == null) {
                 leftResults = null;
                 break;

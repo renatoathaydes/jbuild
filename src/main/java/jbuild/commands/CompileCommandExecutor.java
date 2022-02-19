@@ -9,6 +9,7 @@ import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import jbuild.util.FileUtils;
 import jbuild.util.JarFileFilter;
+import jbuild.util.NoOp;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -50,7 +51,7 @@ public final class CompileCommandExecutor {
         var outputDir = outputDirOrJar.map(
                 outDir -> outDir,
                 jar -> getTempDirectory());
-        var jarFile = outputDirOrJar.map(outDir -> null, this::jarOrDefault);
+        var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
 
         var compileResult = Tools.Javac.create().compile(files, outputDir, computeClasspath(classpath));
         if (jarFile == null || compileResult.exitCode() != 0) {

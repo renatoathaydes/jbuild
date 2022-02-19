@@ -5,7 +5,6 @@ import jbuild.errors.JBuildException;
 import jbuild.java.TestHelper;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -83,8 +82,9 @@ public class DoctorCommandExecutorBasicTest {
             assertThat(results).hasSize(1);
             var checkResult = results.get(0);
             assertThat(checkResult.successful).isFalse();
-            assertThat(checkResult.errors).hasSize(1);
-            assertThat(checkResult.errors).first()
+            assertThat(checkResult.getErrors()).isPresent();
+            assertThat(checkResult.getErrors().get()).hasSize(1);
+            assertThat(checkResult.getErrors().get()).first()
                     .extracting(e -> e.message)
                     .isEqualTo("Method bar.jar!foo.Bar#\"<init>\"::()V, " +
                             "used in method foo.jar!bar.Foo#\"<init>\"::()V " +
@@ -126,13 +126,12 @@ public class DoctorCommandExecutorBasicTest {
         });
     }
 
-    @Disabled("not implemented yet")
     @Test
     void canFindTransitiveIncompatibility() throws IOException {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
 
         // this jar is used by messages.jar but won't be used by the final application!
-        var unusedJarPath = dir.resolve("messages.jar");
+        var unusedJarPath = dir.resolve("unused.jar");
         var unusedJar = unusedJarPath.toFile();
         createJar(unusedJarPath, dir.resolve("unused"), Map.of(
                         Paths.get("unused", "Unused.java"),
@@ -238,8 +237,8 @@ public class DoctorCommandExecutorBasicTest {
 
         var result = results.get(0);
 
-        assertThat(result.errors).isEmpty();
-        assertThat(result.successful).isTrue();
+        assertThat(result.getErrors()).isEmpty();
+        assertThat(result.successful).withFailMessage(result::toString).isTrue();
         assertThat(Set.copyOf(result.jarSet.getJarByType().values()))
                 .containsExactlyInAnyOrderElementsOf(jars.stream()
                         .map(TestHelper::jar)

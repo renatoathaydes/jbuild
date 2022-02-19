@@ -108,6 +108,10 @@ public abstract class Code {
                     ", type='" + type + '\'' +
                     '}';
         }
+
+        public Definition.MethodDefinition toDefinition() {
+            return new Definition.MethodDefinition(name, type);
+        }
     }
 
     public static final class Type extends Code {

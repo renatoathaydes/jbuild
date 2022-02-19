@@ -8,6 +8,7 @@ import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
+import jbuild.util.NoOp;
 import jbuild.util.NonEmptyCollection;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapValues;
@@ -99,7 +101,7 @@ public class DepsCommandExecutorTest {
         var resultMap = new HashMap<Artifact, DependencyTree>();
 
         for (var entry : map.entrySet()) {
-            var error = entry.getValue().map(ok -> null, err -> err);
+            var error = entry.getValue().map(NoOp.fun(), Function.identity());
             if (error != null) {
                 return Either.right(error);
             } else {
