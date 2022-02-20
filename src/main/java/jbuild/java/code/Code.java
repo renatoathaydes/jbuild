@@ -1,9 +1,17 @@
 package jbuild.java.code;
 
+import jbuild.util.Describable;
+
+import java.util.function.Consumer;
 import java.util.function.Function;
 
-public abstract class Code {
+public abstract class Code implements Describable {
 
+    /**
+     * The name of the type which owns this code element.
+     * <p>
+     * In the case of a {@link Code.Type}, the name of the type itself.
+     */
     public final String typeName;
 
     private Code(String typeName) {
@@ -14,9 +22,34 @@ public abstract class Code {
                                 Function<Field, T> field,
                                 Function<Method, T> method);
 
+    public void use(Consumer<Type> onType,
+                    Consumer<Field> onField,
+                    Consumer<Method> onMethod) {
+        match(t -> {
+            onType.accept(t);
+            return null;
+        }, f -> {
+            onField.accept(f);
+            return null;
+        }, m -> {
+            onMethod.accept(m);
+            return null;
+        });
+    }
+
+    /**
+     * Field access code.
+     */
     public static final class Field extends Code {
 
+        /**
+         * Field name.
+         */
         public final String name;
+
+        /**
+         * Field type.
+         */
         public final String type;
 
         public Field(String typeName, String name, String type) {
@@ -30,6 +63,11 @@ public abstract class Code {
                            Function<Field, T> field,
                            Function<Method, T> method) {
             return field.apply(this);
+        }
+
+        @Override
+        public void describe(StringBuilder builder, boolean verbose) {
+            builder.append(name).append("::").append(type);
         }
 
         @Override
@@ -62,9 +100,21 @@ public abstract class Code {
         }
     }
 
+    /**
+     * A method invocation in code.
+     */
     public static final class Method extends Code {
 
+        /**
+         * Method name.
+         */
         public final String name;
+
+        /**
+         * Method type signature.
+         * <p>
+         * Use {@link Method#toDefinition()} to obtain the method's parameters and return type.
+         */
         public final String type;
 
         public Method(String typeName, String name, String type) {
@@ -78,6 +128,11 @@ public abstract class Code {
                            Function<Field, T> field,
                            Function<Method, T> method) {
             return method.apply(this);
+        }
+
+        @Override
+        public void describe(StringBuilder builder, boolean verbose) {
+            toDefinition().describe(builder, verbose);
         }
 
         @Override
@@ -109,11 +164,17 @@ public abstract class Code {
                     '}';
         }
 
+        /**
+         * @return this {@link Method} converted to a {@link Definition}.
+         */
         public Definition.MethodDefinition toDefinition() {
             return new Definition.MethodDefinition(name, type);
         }
     }
 
+    /**
+     * A type usage in code.
+     */
     public static final class Type extends Code {
 
         public Type(String typeName) {
@@ -125,6 +186,11 @@ public abstract class Code {
                            Function<Field, T> field,
                            Function<Method, T> method) {
             return type.apply(this);
+        }
+
+        @Override
+        public void describe(StringBuilder builder, boolean verbose) {
+            builder.append(typeName);
         }
 
         @Override

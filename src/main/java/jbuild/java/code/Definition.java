@@ -1,11 +1,13 @@
 package jbuild.java.code;
 
+import jbuild.util.Describable;
+
 import java.util.List;
 import java.util.function.Function;
 
 import static jbuild.util.JavaTypeUtils.parseMethodArgumentsTypes;
 
-public abstract class Definition {
+public abstract class Definition implements Describable {
 
     public final String name;
     public final String type;
@@ -18,8 +20,9 @@ public abstract class Definition {
     public abstract <T> T match(Function<FieldDefinition, T> matchField,
                                 Function<MethodDefinition, T> matchMethod);
 
-    public String descriptor() {
-        return name + "::" + type;
+    @Override
+    public void describe(StringBuilder builder, boolean verbose) {
+        builder.append(name).append("::").append(type);
     }
 
     @Override

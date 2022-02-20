@@ -3,6 +3,7 @@ package jbuild.java;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
+import jbuild.util.Describable;
 
 import java.io.File;
 import java.util.HashSet;
@@ -291,13 +292,19 @@ public final class ClassGraph {
         return results;
     }
 
-    public static final class TypeDefinitionLocation {
+    public static final class TypeDefinitionLocation implements Describable {
         public final TypeDefinition typeDefinition;
         public final File jar;
 
         public TypeDefinitionLocation(TypeDefinition typeDefinition, File jar) {
             this.typeDefinition = typeDefinition;
             this.jar = jar;
+        }
+
+        @Override
+        public void describe(StringBuilder builder, boolean verbose) {
+            builder.append(jar.getPath()).append('!')
+                    .append(typeNameToClassName(typeDefinition.typeName));
         }
     }
 

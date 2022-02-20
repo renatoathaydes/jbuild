@@ -246,7 +246,7 @@ public final class DoctorCommandExecutor {
         var errorCount = new AtomicInteger(0);
         var badJarPairs = ConcurrentHashMap.<Map.Entry<File, File>>newKeySet(8);
 
-        return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : 2,
+        return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : Runtime.getRuntime().availableProcessors(),
                 acceptableJarSets.stream()
                         .map(c -> checkClasspath(c, entryJars, typeExclusions, abort, interactive, errorCount, badJarPairs))
                         .collect(toList())
@@ -325,9 +325,11 @@ public final class DoctorCommandExecutor {
         var usedJars = new HashSet<File>(classGraph.getJarByType().size());
         usedJars.addAll(entryJars);
 
+        // TODO to be replaced with CallHierarchyVisitor
         for (var jar : entryJars) {
             var startTime = System.currentTimeMillis();
             var initialErrorCount = allErrors.size();
+
             for (var entry : classGraph.getTypesByJar().get(jar).entrySet()) {
                 var type = entry.getKey();
                 if (isIgnored(type, typeExclusions)) continue;
@@ -441,7 +443,7 @@ public final class DoctorCommandExecutor {
         if (!classGraph.getJarByType().containsKey(targetType) &&
                 !classGraph.existsJava(targetType)) {
             return new ClassPathInconsistency("Type " + targetType +
-                    ", used in method " + methodFrom.descriptor() + " of " +
+                    ", used in method " + methodFrom.getDescription() + " of " +
                     jarFrom.getName() + "!" + typeFrom + " cannot be found in the classpath",
                     jarFrom, null);
         }
@@ -458,8 +460,8 @@ public final class DoctorCommandExecutor {
         var targetJar = classGraph.getJarByType().get(fieldOwner);
         if (targetJar == null) {
             return classGraph.existsJava(fieldOwner, targetField) ? null :
-                    new ClassPathInconsistency("Field " + targetField.descriptor() +
-                            ", used in method " + methodDef.descriptor() + " of " +
+                    new ClassPathInconsistency("Field " + targetField.getDescription() +
+                            ", used in method " + methodDef.getDescription() + " of " +
                             jar.getName() + "!" + type + " cannot be found as there is no such field in " + fieldOwner,
                             jar, null);
         }
@@ -471,13 +473,13 @@ public final class DoctorCommandExecutor {
         assert typeDef != null;
         log.verbosePrintln(() -> {
             var fields = typeDef.fields.stream()
-                    .map(Definition.FieldDefinition::descriptor)
+                    .map(Definition.FieldDefinition::getDescription)
                     .collect(joining(", ", "[", "]"));
-            return "Could not find " + targetField.descriptor() + " in " + typeDef.typeName +
+            return "Could not find " + targetField.getDescription() + " in " + typeDef.typeName +
                     ", available fields are " + fields;
         });
-        return new ClassPathInconsistency("Field " + targetField.descriptor() +
-                ", used in method " + methodDef.descriptor() + " of " +
+        return new ClassPathInconsistency("Field " + targetField.getDescription() +
+                ", used in method " + methodDef.getDescription() + " of " +
                 jar.getName() + "!" + type + " cannot be found as there is no such field in " +
                 targetJar + "!" + typeDef.typeName,
                 jar, targetJar);
@@ -505,9 +507,9 @@ public final class DoctorCommandExecutor {
         assert typeDef != null;
         log.verbosePrintln(() -> {
             var methods = typeDef.methods.keySet().stream()
-                    .map(Definition.MethodDefinition::descriptor)
+                    .map(Definition.MethodDefinition::getDescription)
                     .collect(joining(", ", "[", "]"));
-            return "Could not find " + targetMethod.descriptor() + " in " + typeDef.typeName +
+            return "Could not find " + targetMethod.getDescription() + " in " + typeDef.typeName +
                     ", available methods are " + methods;
         });
         return missingMethod(type, jar, methodDef, methodKind, methodOwner, targetMethod, targetJar);
@@ -530,7 +532,7 @@ public final class DoctorCommandExecutor {
 
     private static String describe(File jar, String type, Definition.MethodDefinition methodDef) {
         return (jar == null ? "" : jar.getName() + '!') +
-                type + '#' + methodDef.descriptor();
+                type + '#' + methodDef.getDescription();
     }
 
     private Void showClasspathCheckResults(Collection<ClasspathCheckResult> results) {
@@ -657,6 +659,15 @@ public final class DoctorCommandExecutor {
             this.jarFrom = jarFrom;
             this.jarTo = jarTo;
         }
+
+        @Override
+        public String toString() {
+            return "ClassPathInconsistency{" +
+                    "message='" + message + '\'' +
+                    ", jarFrom=" + jarFrom +
+                    ", jarTo=" + jarTo +
+                    '}';
+        }
     }
 
     private static final class LimitedConcurrencyAsyncCompleter {
@@ -666,7 +677,6 @@ public final class DoctorCommandExecutor {
         private final Deque<Supplier<CompletionStage<ClasspathCheckResult>>> completions;
         private final List<ClasspathCheckResult> results;
         private final CompletableFuture<List<ClasspathCheckResult>> futureResult;
-
 
         public LimitedConcurrencyAsyncCompleter(int maxConcurrentCompletions,
                                                 List<Supplier<CompletionStage<ClasspathCheckResult>>> completions) {
