@@ -285,6 +285,7 @@ public final class JavapOutputParser {
                 case "String":
                     break;
                 case "Method":
+                case "InvokeDynamic":
                 case "InterfaceMethod":
                     // only look at method calls that have a receiver (i.e. not this)
                     if (parts[1].contains(".")) return parseMethod(parts[1], typeName);

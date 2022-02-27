@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.CollectionUtils.filterValues;
@@ -137,7 +137,7 @@ public final class JarSet {
             completions.add(jar.parsed());
         }
         return awaitSuccessValues(completions).thenApplyAsync((parsedJars) -> new ClassGraph(
-                parsedJars.stream().collect(Collectors.toMap(e -> e.file, e -> e.typeByName)),
+                parsedJars.stream().collect(toMap(e -> e.file, e -> e.typeByName)),
                 mapValues(jarByType, jar -> jar.file)));
     }
 

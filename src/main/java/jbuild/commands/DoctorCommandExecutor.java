@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.errors.JBuildException;
+import jbuild.java.CallHierarchyVisitor;
 import jbuild.java.ClassGraph;
 import jbuild.java.Jar;
 import jbuild.java.JarSet;
@@ -9,6 +10,7 @@ import jbuild.java.TypeReference;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
+import jbuild.util.Describable;
 import jbuild.util.JarFileFilter;
 import jbuild.util.NoOp;
 import jbuild.util.NonEmptyCollection;
@@ -50,8 +52,6 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.FileUtils.allFilesInDir;
-import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
-import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 import static jbuild.util.TextUtils.LINE_END;
 
 public final class DoctorCommandExecutor {
@@ -321,218 +321,23 @@ public final class DoctorCommandExecutor {
             ClassGraph classGraph,
             Set<File> entryJars,
             Set<Pattern> typeExclusions) {
-        var allErrors = new ArrayList<ClassPathInconsistency>();
         var usedJars = new HashSet<File>(classGraph.getJarByType().size());
         usedJars.addAll(entryJars);
 
-        // TODO to be replaced with CallHierarchyVisitor
-        for (var jar : entryJars) {
-            var startTime = System.currentTimeMillis();
-            var initialErrorCount = allErrors.size();
+        var callHierarchyVisitor = new CallHierarchyVisitor(classGraph, typeExclusions);
+        var visitor = new DoctorVisitor(log);
 
-            for (var entry : classGraph.getTypesByJar().get(jar).entrySet()) {
-                var type = entry.getKey();
-                if (isIgnored(type, typeExclusions)) continue;
-                var typeDef = entry.getValue();
-                typeDef.type.typesReferredTo().forEach(ref -> {
-                    if (isIgnored(ref, typeExclusions)) return;
-                    addErrorOrUseJar(classGraph, ref, allErrors,
-                            usedJars, jar,
-                            () -> "Type " + ref + ", used in type signature of " + jar.getName() + "!" + type +
-                                    " cannot be found"
-                    );
-                });
-                for (var methodHandle : typeDef.usedMethodHandles) {
-                    if (isIgnored(methodHandle.typeName, typeExclusions)) continue;
-                    var error = errorIfMethodDoesNotExist(jar, type, null, classGraph, methodHandle, "MethodHandle");
-                    addErrorOrUseJar(classGraph, methodHandle, allErrors, usedJars, error, typeExclusions);
-                }
-                typeDef.methods.forEach((method, codes) ->
-                        checkCode(classGraph, jar, typeDef.typeName, method, codes,
-                                allErrors, usedJars, typeExclusions));
-                for (var field : typeDef.fields) {
-                    var ref = field.type;
-                    if (isIgnored(ref, typeExclusions)) continue;
-                    addErrorOrUseJar(classGraph, ref, allErrors,
-                            usedJars, jar, () -> "Type " + ref + ", used in field " + field.name +
-                                    " of " + jar.getName() + "!" + type + " cannot be found"
-                    );
-                }
-            }
+        var startTime = System.currentTimeMillis();
+        callHierarchyVisitor.visit(entryJars, visitor);
+        log.verbosePrintln(() -> "Checked classpath requirements in " +
+                (System.currentTimeMillis() - startTime) + " ms, ok? " +
+                visitor.inconsistencies.isEmpty());
 
-            log.verbosePrintln(() -> "Checked " + jar.getName() + " classpath requirements in " +
-                    (System.currentTimeMillis() - startTime) + " ms, ok? " + (allErrors.size() == initialErrorCount));
-        }
+        usedJars.addAll(visitor.visitedJars);
 
-        if (allErrors.isEmpty()) return ConsistencyCheckResult.success(usedJars);
+        if (visitor.inconsistencies.isEmpty()) return ConsistencyCheckResult.success(usedJars);
 
-        return ConsistencyCheckResult.failure(NonEmptyCollection.of(allErrors));
-    }
-
-    private void addErrorOrUseJar(ClassGraph classGraph,
-                                  String typeName,
-                                  List<ClassPathInconsistency> allErrors,
-                                  Set<File> usedJars,
-                                  File jar,
-                                  Supplier<String> errorMessage) {
-        var def = classGraph.findTypeDefinitionLocation(typeName);
-        if (def == null && !classGraph.existsJava(typeName)) {
-            allErrors.add(new ClassPathInconsistency(
-                    errorMessage.get(), jar, classGraph.getJarByType().get(typeName)));
-        }
-        if (def != null) usedJars.add(def.jar);
-    }
-
-    private void addErrorOrUseJar(ClassGraph classGraph,
-                                  Code code,
-                                  List<ClassPathInconsistency> allErrors,
-                                  Set<File> usedJars,
-                                  ClassPathInconsistency error,
-                                  Set<Pattern> typeExclusions) {
-        if (error == null) {
-            var typeDefLocation = classGraph.findTypeDefinitionLocation(code.typeName);
-            assert typeDefLocation != null;
-            usedJars.add(typeDefLocation.jar);
-            // also check the referred method is consistent (the types are already checked)
-            var nextError = code.match(NoOp.fun(),
-                    NoOp.fun(),
-                    m -> errorIfMethodDoesNotExist(typeDefLocation.jar, m.typeName, null,
-                            classGraph, m, "Method"));
-            if (nextError != null) allErrors.add(nextError);
-        } else {
-            allErrors.add(error);
-        }
-    }
-
-    private void checkCode(ClassGraph classGraph,
-                           File jarFrom,
-                           String typeFrom,
-                           Definition.MethodDefinition method,
-                           Collection<Code> codes,
-                           List<ClassPathInconsistency> allErrors,
-                           Set<File> usedJars,
-                           Set<Pattern> typeExclusions) {
-        for (var code : codes) {
-            var error = errorIfCodeRefDoesNotExist(classGraph, jarFrom, typeFrom, method, code, typeExclusions);
-            addErrorOrUseJar(classGraph, code, allErrors, usedJars, error, typeExclusions);
-        }
-    }
-
-    private ClassPathInconsistency errorIfCodeRefDoesNotExist(ClassGraph classGraph,
-                                                              File jarFrom,
-                                                              String typeFrom,
-                                                              Definition.MethodDefinition methodFrom,
-                                                              Code target,
-                                                              Set<Pattern> typeExclusions) {
-        var typeName = cleanArrayTypeName(target.typeName);
-        if (isIgnored(typeName, typeExclusions)) return null;
-        var error = errorIfTypeDoesNotExist(typeFrom, jarFrom, methodFrom, classGraph, typeName);
-        if (error != null) return error;
-        return target.match(
-                NoOp.fun(),
-                f -> errorIfFieldDoesNotExist(jarFrom, typeFrom, methodFrom, classGraph, f),
-                m -> errorIfMethodDoesNotExist(jarFrom, typeFrom, methodFrom, classGraph, m, "Method"));
-    }
-
-    private static ClassPathInconsistency errorIfTypeDoesNotExist(String typeFrom,
-                                                                  File jarFrom,
-                                                                  Definition.MethodDefinition methodFrom,
-                                                                  ClassGraph classGraph,
-                                                                  String targetType) {
-
-        if (!classGraph.getJarByType().containsKey(targetType) &&
-                !classGraph.existsJava(targetType)) {
-            return new ClassPathInconsistency("Type " + targetType +
-                    ", used in method " + methodFrom.getDescription() + " of " +
-                    jarFrom.getName() + "!" + typeFrom + " cannot be found in the classpath",
-                    jarFrom, null);
-        }
-        return null;
-    }
-
-    private ClassPathInconsistency errorIfFieldDoesNotExist(File jar,
-                                                            String type,
-                                                            Definition.MethodDefinition methodDef,
-                                                            ClassGraph classGraph,
-                                                            Code.Field field) {
-        var fieldOwner = field.typeName;
-        var targetField = new Definition.FieldDefinition(field.name, field.type);
-        var targetJar = classGraph.getJarByType().get(fieldOwner);
-        if (targetJar == null) {
-            return classGraph.existsJava(fieldOwner, targetField) ? null :
-                    new ClassPathInconsistency("Field " + targetField.getDescription() +
-                            ", used in method " + methodDef.getDescription() + " of " +
-                            jar.getName() + "!" + type + " cannot be found as there is no such field in " + fieldOwner,
-                            jar, null);
-        }
-        if (jar.equals(targetJar)) return null; // do not check same-jar relations
-        if (classGraph.exists(fieldOwner, targetField)) {
-            return null;
-        }
-        var typeDef = classGraph.getTypeDefinition(fieldOwner);
-        assert typeDef != null;
-        log.verbosePrintln(() -> {
-            var fields = typeDef.fields.stream()
-                    .map(Definition.FieldDefinition::getDescription)
-                    .collect(joining(", ", "[", "]"));
-            return "Could not find " + targetField.getDescription() + " in " + typeDef.typeName +
-                    ", available fields are " + fields;
-        });
-        return new ClassPathInconsistency("Field " + targetField.getDescription() +
-                ", used in method " + methodDef.getDescription() + " of " +
-                jar.getName() + "!" + type + " cannot be found as there is no such field in " +
-                targetJar + "!" + typeDef.typeName,
-                jar, targetJar);
-    }
-
-    private ClassPathInconsistency errorIfMethodDoesNotExist(File jar,
-                                                             String type,
-                                                             Definition.MethodDefinition methodDef,
-                                                             ClassGraph classGraph,
-                                                             Code.Method method,
-                                                             String methodKind) {
-        var methodOwner = method.typeName;
-        var targetMethod = method.toDefinition();
-        var targetJar = classGraph.getJarByType().get(methodOwner);
-        if (targetJar == null) {
-            return classGraph.existsJava(methodOwner, targetMethod)
-                    ? null
-                    : missingMethod(type, jar, methodDef, methodKind, methodOwner, targetMethod, null);
-        }
-        if (jar.equals(targetJar)) return null; // do not check same-jar relations
-        if (classGraph.exists(methodOwner, targetMethod)) {
-            return null;
-        }
-        var typeDef = classGraph.getTypeDefinition(methodOwner);
-        assert typeDef != null;
-        log.verbosePrintln(() -> {
-            var methods = typeDef.methods.keySet().stream()
-                    .map(Definition.MethodDefinition::getDescription)
-                    .collect(joining(", ", "[", "]"));
-            return "Could not find " + targetMethod.getDescription() + " in " + typeDef.typeName +
-                    ", available methods are " + methods;
-        });
-        return missingMethod(type, jar, methodDef, methodKind, methodOwner, targetMethod, targetJar);
-    }
-
-    private static ClassPathInconsistency missingMethod(String type,
-                                                        File jar,
-                                                        Definition.MethodDefinition methodDef,
-                                                        String methodKind,
-                                                        String methodOwner,
-                                                        Definition.MethodDefinition targetMethod,
-                                                        File targetJar) {
-        return new ClassPathInconsistency(methodKind + " " +
-                describe(targetJar, typeNameToClassName(methodOwner), targetMethod) +
-                (methodDef == null ? "" : ", used in method " +
-                        describe(jar, typeNameToClassName(type), methodDef)) +
-                " does not exist",
-                jar, targetJar);
-    }
-
-    private static String describe(File jar, String type, Definition.MethodDefinition methodDef) {
-        return (jar == null ? "" : jar.getName() + '!') +
-                type + '#' + methodDef.getDescription();
+        return ConsistencyCheckResult.failure(NonEmptyCollection.of(visitor.inconsistencies));
     }
 
     private Void showClasspathCheckResults(Collection<ClasspathCheckResult> results) {
@@ -575,16 +380,6 @@ public final class DoctorCommandExecutor {
         log.println(jarSet.toClasspath());
     }
 
-    private static boolean isIgnored(String typeName, Set<Pattern> typeExclusions) {
-        if (typeExclusions.isEmpty()) return false;
-        for (var exclusion : typeExclusions) {
-            if (exclusion.matcher(typeName).matches()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static File getIfMatches(File jar, File entryPoint) {
         var match = entryPoint.getName().contains(File.separator)
                 ? jar.equals(entryPoint)
@@ -624,6 +419,90 @@ public final class DoctorCommandExecutor {
         }
     }
 
+    private static final class DoctorVisitor implements CallHierarchyVisitor.Visitor {
+
+        private final JBuildLog log;
+        final List<ClassPathInconsistency> inconsistencies = new ArrayList<>();
+        final Set<File> visitedJars = new HashSet<>();
+
+        public DoctorVisitor(JBuildLog log) {
+            this.log = log;
+        }
+
+        @Override
+        public void visit(List<Describable> referenceChain,
+                          ClassGraph.TypeDefinitionLocation typeDefinitionLocation) {
+            log.verbosePrintln(() -> "Visiting type " + typeDefinitionLocation.typeDefinition.typeName);
+            visitedJars.add(typeDefinitionLocation.jar);
+        }
+
+        @Override
+        public void visit(List<Describable> referenceChain, Definition definition) {
+            log.verbosePrintln(() -> "Visiting definition " + definition.getDescription());
+        }
+
+        @Override
+        public void visit(List<Describable> referenceChain, Code code) {
+            log.verbosePrintln(() -> "Visiting code usage " + code.getDescription());
+        }
+
+        @Override
+        public void onMissingType(List<Describable> referenceChain, String typeName) {
+            var from = describeChain(referenceChain);
+            inconsistencies.add(new ClassPathInconsistency("Type " + typeName + from +
+                    " cannot be found in the classpath"));
+        }
+
+        @Override
+        public void onMissingMethod(List<Describable> referenceChain,
+                                    ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
+                                    Code.Method method) {
+            var jarFrom = findJarFrom(referenceChain);
+            var from = describeChain(referenceChain);
+            inconsistencies.add(new ClassPathInconsistency("Method " +
+                    typeDefinitionLocation.getDescription() + "#" +
+                    method.getDescription() + from +
+                    " cannot be found in the classpath",
+                    jarFrom, typeDefinitionLocation.jar));
+        }
+
+        @Override
+        public void onMissingField(List<Describable> referenceChain,
+                                   ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
+                                   Code.Field field) {
+            var jarFrom = findJarFrom(referenceChain);
+            var from = describeChain(referenceChain);
+            inconsistencies.add(new ClassPathInconsistency("Field " +
+                    typeDefinitionLocation.getDescription() + "#" +
+                    field.name + from +
+                    " cannot be found in the classpath",
+                    jarFrom, typeDefinitionLocation.jar));
+        }
+
+        @Override
+        public void onMissingField(List<Describable> referenceChain,
+                                   String javaTypeName,
+                                   Code.Field field) {
+            inconsistencies.add(new ClassPathInconsistency("Field " +
+                    javaTypeName + "#" + field.name +
+                    " cannot be found in the classpath"));
+        }
+
+        private static String describeChain(List<Describable> referenceChain) {
+            return referenceChain.isEmpty() ? "" :
+                    ", referenced from " + referenceChain.stream().map(Describable::getDescription)
+                            .collect(joining(" -> ", "", ", "));
+        }
+
+        private static File findJarFrom(List<Describable> referenceChain) {
+            return referenceChain.stream()
+                    .filter(it -> it instanceof ClassGraph.TypeDefinitionLocation)
+                    .findFirst()
+                    .map(it -> ((ClassGraph.TypeDefinitionLocation) it).jar)
+                    .orElse(null);
+        }
+    }
+
     private static final class ConsistencyCheckResult {
         final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
         final Set<File> jars;
@@ -650,6 +529,7 @@ public final class DoctorCommandExecutor {
     }
 
     public static final class ClassPathInconsistency {
+
         public final String message;
         public final File jarFrom;
         public final File jarTo;
@@ -658,6 +538,10 @@ public final class DoctorCommandExecutor {
             this.message = message;
             this.jarFrom = jarFrom;
             this.jarTo = jarTo;
+        }
+
+        public ClassPathInconsistency(String message) {
+            this(message, null, null);
         }
 
         @Override

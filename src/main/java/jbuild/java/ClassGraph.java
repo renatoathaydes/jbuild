@@ -55,15 +55,13 @@ public final class ClassGraph {
         return typesByJar;
     }
 
+    /**
+     * @return mapping from types to the jar where the type is located
+     */
     public Map<String, File> getJarByType() {
         return jarByType;
     }
 
-    public TypeDefinition getTypeDefinition(String typeName) {
-        var jar = jarByType.get(typeName);
-        if (jar == null) return null;
-        return typesByJar.get(jar).get(typeName);
-    }
 
     /**
      * Get direct references to a {@link Code.Method} value from jars other than the ones where this code is defined.
@@ -129,6 +127,12 @@ public final class ClassGraph {
         return result.collect(toSet());
     }
 
+    /**
+     * Find and return the definition and location for the given type.
+     *
+     * @param typeName name of the type
+     * @return the type definition and location if it exists, null otherwise
+     */
     public TypeDefinitionLocation findTypeDefinitionLocation(String typeName) {
         var jar = jarByType.get(typeName);
         if (jar != null) {
@@ -139,6 +143,12 @@ public final class ClassGraph {
         return null;
     }
 
+    /**
+     * Find and return the definition for the given type.
+     *
+     * @param typeName name of the type
+     * @return the type definition if it exists, null otherwise
+     */
     public TypeDefinition findTypeDefinition(String typeName) {
         var jar = jarByType.get(typeName);
         if (jar != null) {
@@ -147,6 +157,12 @@ public final class ClassGraph {
         return null;
     }
 
+    /**
+     * Check if a certain type exists.
+     *
+     * @param typeName the type name
+     * @return true if the type exists, false otherwise
+     */
     public boolean exists(String typeName) {
         return findTypeDefinition(typeName) != null || existsJava(typeName);
     }
@@ -156,7 +172,7 @@ public final class ClassGraph {
      *
      * @param typeName   the type where the definition might exist
      * @param definition a definition being referenced from elsewhere
-     * @return true if the definition exists in the type
+     * @return true if the definition exists in the type, false otherwise
      */
     public boolean exists(String typeName, Definition definition) {
         if (typeName.startsWith("\"[")) return existsJavaArray(definition);
@@ -178,11 +194,26 @@ public final class ClassGraph {
         return false;
     }
 
+    /**
+     * Check if a certain type exists in the Java standard library,
+     * or is a primitive type, or is an array type whose elements' type would return {@code true}
+     * if passed to this method.
+     *
+     * @param typeName the type where the definition might exist
+     * @return true if the Java type exists
+     */
     public boolean existsJava(String typeName) {
         var type = cleanArrayTypeName(typeName);
         return getJavaType(type) != null || isPrimitiveJavaType(type);
     }
 
+    /**
+     * Check if a certain definition exists in the Java standard library.
+     *
+     * @param typeName   the type where the definition might exist
+     * @param definition a definition being referenced from elsewhere
+     * @return true if the definition exists in the standard library type, false otherwise
+     */
     public boolean existsJava(String typeName, Definition definition) {
         if (typeName.startsWith("\"[")) return existsJavaArray(definition);
         var type = getJavaType(typeName);
@@ -292,6 +323,9 @@ public final class ClassGraph {
         return results;
     }
 
+    /**
+     * A {@link TypeDefinition} with its location jar.
+     */
     public static final class TypeDefinitionLocation implements Describable {
         public final TypeDefinition typeDefinition;
         public final File jar;
@@ -303,7 +337,7 @@ public final class ClassGraph {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(jar.getPath()).append('!')
+            builder.append(jar.getName()).append('!')
                     .append(typeNameToClassName(typeDefinition.typeName));
         }
     }

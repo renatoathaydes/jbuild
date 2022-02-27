@@ -68,8 +68,8 @@ public final class TypeReference {
             for (var codes : typeDef.methods.values()) {
                 for (var code : codes) {
                     addReferenceTypeTo(result, code.typeName);
-                    code.match(
-                            NoOp.fun(),
+                    code.use(
+                            NoOp.ignore(),
                             f -> addReferenceTypeTo(result, f.type),
                             m -> addTypesReferredToFromMethodInto(result, m.toDefinition()));
                 }
@@ -79,11 +79,10 @@ public final class TypeReference {
             }
         }
 
-        private Void addTypesReferredToFromMethodInto(Set<String> result,
+        private void addTypesReferredToFromMethodInto(Set<String> result,
                                                       Definition.MethodDefinition methodDef) {
             addReferenceTypesTo(result, methodDef.getParameterTypes());
             addReferenceTypeTo(result, methodDef.getReturnType());
-            return null;
         }
 
         private void addReferenceTypesTo(Set<String> result, Iterable<String> types) {
@@ -92,14 +91,13 @@ public final class TypeReference {
             }
         }
 
-        private Void addReferenceTypeTo(Set<String> result, String type) {
+        private void addReferenceTypeTo(Set<String> result, String type) {
             var cleanType = cleanArrayTypeName(type);
             if (isReferenceType(cleanType)
                     && !mayBeJavaStdLibType(cleanType)
                     && typeExclusions.stream().noneMatch(p -> p.matcher(cleanType).matches())) {
                 result.add(cleanType);
             }
-            return null;
         }
 
     }

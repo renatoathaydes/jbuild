@@ -3,6 +3,7 @@ package jbuild.java;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,11 @@ public class ClassGraphTest {
 
         assertThat(classGraph.getTypesByJar().keySet())
                 .isEqualTo(Set.of(myClassesJar, otherClassesJar));
+    }
+
+    @AfterAll
+    static void afterAll() {
+        classGraph = null;
     }
 
     @Test

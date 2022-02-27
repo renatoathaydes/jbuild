@@ -5,6 +5,9 @@ import jbuild.util.Describable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * Code element that appears within method implementations.
+ */
 public abstract class Code implements Describable {
 
     /**
@@ -67,7 +70,8 @@ public abstract class Code implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(name).append("::").append(type);
+            builder.append(typeName).append('#')
+                    .append(name).append("::").append(type);
         }
 
         @Override
@@ -97,6 +101,10 @@ public abstract class Code implements Describable {
                     ", name='" + name + '\'' +
                     ", type='" + type + '\'' +
                     '}';
+        }
+
+        public Definition.FieldDefinition toDefinition() {
+            return new Definition.FieldDefinition(name, type);
         }
     }
 
@@ -132,7 +140,8 @@ public abstract class Code implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            toDefinition().describe(builder, verbose);
+            builder.append(typeName).append('#')
+                    .append(name).append("::").append(type);
         }
 
         @Override
@@ -173,7 +182,7 @@ public abstract class Code implements Describable {
     }
 
     /**
-     * A type usage in code.
+     * A type usage (cast or check) in code.
      */
     public static final class Type extends Code {
 

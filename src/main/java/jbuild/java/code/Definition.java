@@ -7,6 +7,9 @@ import java.util.function.Function;
 
 import static jbuild.util.JavaTypeUtils.parseMethodArgumentsTypes;
 
+/**
+ * A definition within a type (can be a field or a method).
+ */
 public abstract class Definition implements Describable {
 
     public final String name;
@@ -43,6 +46,9 @@ public abstract class Definition implements Describable {
         return result;
     }
 
+    /**
+     * A definition of a field.
+     */
     public static final class FieldDefinition extends Definition {
 
         public FieldDefinition(String name, String type) {
@@ -64,6 +70,9 @@ public abstract class Definition implements Describable {
         }
     }
 
+    /**
+     * A definition of a method.
+     */
     public static final class MethodDefinition extends Definition {
 
         // cache return type and parameter types on first usage
