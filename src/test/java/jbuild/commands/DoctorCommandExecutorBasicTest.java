@@ -86,9 +86,9 @@ public class DoctorCommandExecutorBasicTest {
             assertThat(checkResult.getErrors().get()).hasSize(1);
             assertThat(checkResult.getErrors().get()).first()
                     .extracting(e -> e.message)
-                    .isEqualTo("Method bar.jar!foo.Bar#\"<init>\"::()V, " +
-                            "used in method foo.jar!bar.Foo#\"<init>\"::()V " +
-                            "does not exist");
+                    .isEqualTo("Method bar.jar!foo.Bar#\"<init>\"()::void, " +
+                            "referenced from foo.jar!bar.Foo -> \"<init>\"()::void, " +
+                            "cannot be found in the classpath");
         });
 
         // delete the Bar jar
@@ -200,34 +200,16 @@ public class DoctorCommandExecutorBasicTest {
 
         // checking the classpath should fail due to indirect dependency missing
         // (Exception because a type requirement is missing)
-        expectError(true, (command) -> {
-            command.findValidClasspaths(dir.toFile(),
+        withErrorReporting((command) -> {
+            var result = command.findValidClasspaths(dir.toFile(),
                             false, List.of(appJar), Set.of())
                     .toCompletableFuture()
                     .get();
-        }, (stdout, errorAssert) -> {
-            errorAssert.hasRootCauseInstanceOf(JBuildException.class)
-                    .getRootCause()
-                    .hasMessage("None of the classpaths could provide all types required by the entry-points. " +
-                            "See log above for details.");
-
-            var out = stdout.get().lines()
-                    .dropWhile(line -> !line.startsWith("Entry-points required types:"))
-                    .collect(Collectors.toList());
-
-            assertThat(out).hasSizeGreaterThan(2);
-            assertThat(out.get(0)).startsWith("Entry-points required types: ");
-            var requiredTypes = Arrays.stream(out.get(0)
-                            .substring("Entry-points required types: ".length())
-                            .split(",\\s+"))
-                    .collect(toSet());
-            assertThat(requiredTypes).containsExactlyInAnyOrder("Lfoo/Bar;");
-
-            assertThat(out.get(1)).isEqualTo("Found 1 error in classpath: " + messageUserJar);
-
-            assertThat(out.subList(2, out.size())).containsExactly(
-                    "  * missing references: 'messages-user.jar!user.MessageUser -> messages.Message'"
-            );
+            assertThat(result).hasSize(1);
+            // TODO assert the appropriate error message
+            assertThat(result.get(0).getErrors()).isPresent()
+                    .get().extracting(e -> e.stream().map(it -> it.message).collect(toList()))
+                    .isEqualTo(List.of(""));
         });
     }
 

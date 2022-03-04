@@ -450,7 +450,7 @@ public final class DoctorCommandExecutor {
         public void onMissingType(List<Describable> referenceChain, String typeName) {
             var from = describeChain(referenceChain);
             inconsistencies.add(new ClassPathInconsistency("Type " + typeName + from +
-                    " cannot be found in the classpath"));
+                    ", cannot be found in the classpath"));
         }
 
         @Override
@@ -460,9 +460,9 @@ public final class DoctorCommandExecutor {
             var jarFrom = findJarFrom(referenceChain);
             var from = describeChain(referenceChain);
             inconsistencies.add(new ClassPathInconsistency("Method " +
-                    typeDefinitionLocation.getDescription() + "#" +
+                    typeDefinitionLocation.jar.getName() + "!" +
                     method.getDescription() + from +
-                    " cannot be found in the classpath",
+                    ", cannot be found in the classpath",
                     jarFrom, typeDefinitionLocation.jar));
         }
 
@@ -475,7 +475,7 @@ public final class DoctorCommandExecutor {
             inconsistencies.add(new ClassPathInconsistency("Field " +
                     typeDefinitionLocation.getDescription() + "#" +
                     field.name + from +
-                    " cannot be found in the classpath",
+                    ", cannot be found in the classpath",
                     jarFrom, typeDefinitionLocation.jar));
         }
 
@@ -491,7 +491,7 @@ public final class DoctorCommandExecutor {
         private static String describeChain(List<Describable> referenceChain) {
             return referenceChain.isEmpty() ? "" :
                     ", referenced from " + referenceChain.stream().map(Describable::getDescription)
-                            .collect(joining(" -> ", "", ", "));
+                            .collect(joining(" -> ", "", ""));
         }
 
         private static File findJarFrom(List<Describable> referenceChain) {

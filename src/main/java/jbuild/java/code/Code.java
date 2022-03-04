@@ -5,6 +5,8 @@ import jbuild.util.Describable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
+
 /**
  * Code element that appears within method implementations.
  */
@@ -140,8 +142,8 @@ public abstract class Code implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(typeName).append('#')
-                    .append(name).append("::").append(type);
+            builder.append(typeNameToClassName(typeName)).append('#');
+            toDefinition().describe(builder, verbose);
         }
 
         @Override

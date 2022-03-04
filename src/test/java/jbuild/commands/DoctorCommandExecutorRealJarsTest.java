@@ -218,6 +218,10 @@ public class DoctorCommandExecutorRealJarsTest {
             BiConsumer<Supplier<String>, AbstractThrowableAssert<?, ? extends Throwable>> assertError) {
         var stdout = new ByteArrayOutputStream();
         var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout), verbose));
-        assertError.accept(() -> stdout.toString(UTF_8), assertThatThrownBy(() -> test.accept(command)));
+        assertError.accept(() -> stdout.toString(UTF_8),
+                assertThatThrownBy(() -> {
+                    test.accept(command);
+                    System.out.println("NO ERROR WAS THROWN... LOG:\n" + stdout);
+                }));
     }
 }

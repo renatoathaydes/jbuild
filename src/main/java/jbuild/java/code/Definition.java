@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static jbuild.util.JavaTypeUtils.parseMethodArgumentsTypes;
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
  * A definition within a type (can be a field or a method).
@@ -116,6 +117,20 @@ public abstract class Definition implements Describable {
                 }
             }
             return parameterTypes;
+        }
+
+        @Override
+        public void describe(StringBuilder builder, boolean verbose) {
+            builder.append(name).append('(');
+            var paramCount = getParameterTypes().size();
+            for (var i = 0; i < paramCount; ) {
+                String parameterType = parameterTypes.get(i);
+                builder.append(typeNameToClassName(parameterType));
+                if (++i < paramCount) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(")::").append(typeNameToClassName(getReturnType()));
         }
 
         @Override

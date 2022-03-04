@@ -63,8 +63,6 @@ public final class JavaTypeUtils {
 
     /**
      * Convert a JVM internal type name to a name using the Java language conventional syntax.
-     * <p>
-     * This method only works with reference types. Primitive types are not supported.
      *
      * @param typeName JVM internal class name
      * @return Java language type name
@@ -73,7 +71,30 @@ public final class JavaTypeUtils {
         if (isReferenceType(typeName)) {
             return typeName.substring(1, typeName.length() - 1).replaceAll("/", ".");
         }
-        return typeName;
+        var type = cleanArrayTypeName(typeName);
+        if (type.length() > 1) return typeName;
+        switch (type.charAt(0)) {
+            case 'B':
+                return "byte";
+            case 'C':
+                return "char";
+            case 'D':
+                return "double";
+            case 'F':
+                return "float";
+            case 'I':
+                return "int";
+            case 'J':
+                return "long";
+            case 'S':
+                return "short";
+            case 'V':
+                return "void";
+            case 'Z':
+                return "boolean";
+            default:
+                return typeName;
+        }
     }
 
     /**
