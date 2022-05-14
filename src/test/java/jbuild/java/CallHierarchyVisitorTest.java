@@ -83,10 +83,10 @@ public class CallHierarchyVisitorTest {
 
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
                 new String[]{"type", "", "my-tests.jar!foo.ExampleLogger"},
-                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "\"<init>\"::(Ljava/io/PrintStream;)V"},
-                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "debug::(Ljava/lang/String;)V"},
-                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "info::(Ljava/lang/String;)V"},
-                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "out::Ljava/io/PrintStream;"}
+                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "\"<init>\"(java.io.PrintStream)::void"},
+                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "debug(java.lang.String)::void"},
+                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "info(java.lang.String)::void"},
+                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "out::java.io.PrintStream"}
         );
     }
 
@@ -101,15 +101,15 @@ public class CallHierarchyVisitorTest {
 
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
                 new String[]{"type", "", "my-tests.jar!foo.Zort"},
-                new String[]{"definition", "my-tests.jar!foo.Zort", "getBar::(Lfoo/Bar;)Lfoo/Bar;"},
-                new String[]{"definition", "my-tests.jar!foo.Zort", "\"<init>\"::()V"},
-                new String[]{"definition", "my-tests.jar!foo.Zort", "createBar::()Lfoo/Bar;"},
+                new String[]{"definition", "my-tests.jar!foo.Zort", "getBar(foo.Bar)::foo.Bar"},
+                new String[]{"definition", "my-tests.jar!foo.Zort", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!foo.Zort", "createBar()::foo.Bar"},
                 new String[]{"code",
-                        "my-tests.jar!foo.Zort -> createBar::()Lfoo/Bar;",
-                        "Lfoo/Bar;#\"<init>\"::()V"},
-                new String[]{"definition", "my-tests.jar!foo.Zort", "static{}::()V"},
-                new String[]{"code", "my-tests.jar!foo.Zort -> static{}::()V", "Lfoo/Bar;#\"<init>\"::()V"},
-                new String[]{"definition", "my-tests.jar!foo.Zort", "bar::Lfoo/Bar;"}
+                        "my-tests.jar!foo.Zort -> createBar()::foo.Bar",
+                        "foo.Bar#\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!foo.Zort", "static{}()::void"},
+                new String[]{"code", "my-tests.jar!foo.Zort -> static{}()::void", "foo.Bar#\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!foo.Zort", "bar::foo.Bar"}
         );
     }
 

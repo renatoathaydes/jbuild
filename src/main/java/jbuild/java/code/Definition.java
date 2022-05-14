@@ -26,7 +26,7 @@ public abstract class Definition implements Describable {
 
     @Override
     public void describe(StringBuilder builder, boolean verbose) {
-        builder.append(name).append("::").append(type);
+        builder.append(name).append("::").append(typeNameToClassName(type));
     }
 
     @Override
