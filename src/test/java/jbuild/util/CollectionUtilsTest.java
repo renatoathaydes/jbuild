@@ -154,6 +154,25 @@ public class CollectionUtilsTest {
                 .isEqualTo(Map.of("foo", "foobar", "bar", "barfoo"));
     }
 
+    @Test
+    void canTakeFewEntriesFromMap() {
+        assertThat(CollectionUtils.take(Map.of(), 0)).isEmpty();
+        assertThat(CollectionUtils.take(Map.of(), 1)).isEmpty();
+        assertThat(CollectionUtils.take(Map.of("foo", "bar"), 0)).isEmpty();
+        assertThat(CollectionUtils.take(Map.of("foo", "bar"), 1))
+                .isEqualTo(Map.of("foo", "bar"));
+        assertThat(CollectionUtils.take(Map.of("foo", "bar"), 2))
+                .isEqualTo(Map.of("foo", "bar"));
+        assertThat(CollectionUtils.take(Map.of("foo", "bar"), 20))
+                .isEqualTo(Map.of("foo", "bar"));
+        assertThat(CollectionUtils.take(Map.of("foo", "bar", "zort", "yes"), 2))
+                .isEqualTo(Map.of("foo", "bar", "zort", "yes"));
+        assertThat(CollectionUtils.take(Map.of("foo", "bar", "zort", "yes"), 1000))
+                .isEqualTo(Map.of("foo", "bar", "zort", "yes"));
+        assertThat(CollectionUtils.take(Map.of("foo", "bar", "zort", "yes", "boo", "blah"), 2))
+                .isEqualTo(Map.of("foo", "bar", "zort", "yes"));
+    }
+
     private static <T> List<T> listOf(Iterable<T> iter) {
         var result = new ArrayList<T>();
         for (T t : iter) {

@@ -232,4 +232,16 @@ public final class CollectionUtils {
     public static <T> Stream<T> streamOfOptional(Optional<T> opt) {
         return opt.isEmpty() ? Stream.of() : Stream.of(opt.get());
     }
+
+    public static <K, V> Map<K, V> take(Map<K, V> map, int count) {
+        if (map.size() <= count) return map;
+        if (count <= 0) return Map.of();
+        var result = new HashMap<K, V>(count);
+        int index = 0;
+        for (var entry : map.entrySet()) {
+            result.put(entry.getKey(), entry.getValue());
+            if (++index == count) break;
+        }
+        return result;
+    }
 }

@@ -10,6 +10,7 @@ import jbuild.java.TypeReference;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
+import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
 import jbuild.util.JarFileFilter;
 import jbuild.util.NoOp;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -354,20 +356,51 @@ public final class DoctorCommandExecutor {
         log.println("No classpath permutation could be found to satisfy all entrypoints, " +
                 "try a different classpath or entrypoint!");
 
+        return showClasspathErrors(results);
+    }
+
+    private <T> T showClasspathErrors(Collection<ClasspathCheckResult> results) {
         for (var failureResult : results) {
             if (failureResult.aborted || failureResult.getErrors().isEmpty()) break;
             log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
-            var errors = failureResult.getErrors().get();
-            var errorCount = errors.stream().count();
-            log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
-            var reportable = errorCount > 5 && !log.isVerbose()
-                    ? errors.take(5)
-                    : errors.toList();
-            for (var error : reportable) {
-                log.println("  * " + error.message);
+
+            var errorCount = 0;
+            var errorsGroupedByTarget = new HashMap<Describable, List<ClassPathInconsistency>>();
+            for (var inconsistency : failureResult.getErrors().get()) {
+                errorCount++;
+                errorsGroupedByTarget.computeIfAbsent(inconsistency.to,
+                        (k) -> new ArrayList<>()
+                ).add(inconsistency);
             }
-            if (reportable.size() < errorCount) {
-                log.println(() -> "  ... <enable verbose logging to see all " + errorCount + " errors>" + LINE_END);
+
+            log.println("✗ Found " + errorCount + " error" + (errorCount == 1 ? "" : "s") + ":");
+
+            var reportable = log.isVerbose()
+                    ? errorsGroupedByTarget
+                    : CollectionUtils.take(errorsGroupedByTarget, 5);
+
+            for (var error : reportable.entrySet()) {
+                var target = error.getKey().getDescription();
+                log.println("  * " + target + " not found, but referenced from:");
+                var problems = error.getValue().stream();
+                var isHidingProblems = false;
+                if (!log.isVerbose() && error.getValue().size() > 3) {
+                    problems = problems.limit(3);
+                    isHidingProblems = true;
+                }
+                problems.forEach(problem -> {
+                    // TODO show all info possible
+                    if (problem.referenceChain.isEmpty()) {
+                        var from = problem.jarFrom == null ? "?" : problem.jarFrom;
+                        log.println("    - " + from);
+                    } else {
+                        log.println("    - " + problem.referenceChain);
+                    }
+                });
+                if (isHidingProblems) log.println("    ...");
+            }
+            if (reportable.size() < errorsGroupedByTarget.size() && log.isVerbose()) {
+                log.println("  ... <enable verbose logging to see all " + errorCount + " errors>" + LINE_END);
             } else {
                 log.println("");
             }
@@ -448,9 +481,9 @@ public final class DoctorCommandExecutor {
 
         @Override
         public void onMissingType(List<Describable> referenceChain, String typeName) {
-            var from = describeChain(referenceChain);
-            inconsistencies.add(new ClassPathInconsistency("Type " + typeName + from +
-                    ", cannot be found in the classpath"));
+            inconsistencies.add(new ClassPathInconsistency(
+                    describeChain(referenceChain),
+                    new Code.Type(typeName), null, null));
         }
 
         @Override
@@ -458,12 +491,9 @@ public final class DoctorCommandExecutor {
                                     ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
                                     Code.Method method) {
             var jarFrom = findJarFrom(referenceChain);
-            var from = describeChain(referenceChain);
-            inconsistencies.add(new ClassPathInconsistency("Method " +
-                    typeDefinitionLocation.jar.getName() + "!" +
-                    method.getDescription() + from +
-                    ", cannot be found in the classpath",
-                    jarFrom, typeDefinitionLocation.jar));
+            inconsistencies.add(new ClassPathInconsistency(
+                    describeChain(referenceChain),
+                    method, jarFrom, typeDefinitionLocation.jar));
         }
 
         @Override
@@ -471,26 +501,23 @@ public final class DoctorCommandExecutor {
                                    ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
                                    Code.Field field) {
             var jarFrom = findJarFrom(referenceChain);
-            var from = describeChain(referenceChain);
-            inconsistencies.add(new ClassPathInconsistency("Field " +
-                    typeDefinitionLocation.getDescription() + "#" +
-                    field.name + from +
-                    ", cannot be found in the classpath",
-                    jarFrom, typeDefinitionLocation.jar));
+            inconsistencies.add(new ClassPathInconsistency(
+                    describeChain(referenceChain),
+                    field, jarFrom, typeDefinitionLocation.jar));
         }
 
         @Override
         public void onMissingField(List<Describable> referenceChain,
                                    String javaTypeName,
                                    Code.Field field) {
-            inconsistencies.add(new ClassPathInconsistency("Field " +
-                    javaTypeName + "#" + field.name +
-                    " cannot be found in the classpath"));
+            inconsistencies.add(new ClassPathInconsistency(
+                    describeChain(referenceChain),
+                    field, null, null));
         }
 
         private static String describeChain(List<Describable> referenceChain) {
             return referenceChain.isEmpty() ? "" :
-                    ", referenced from " + referenceChain.stream().map(Describable::getDescription)
+                    referenceChain.stream().map(Describable::getDescription)
                             .collect(joining(" -> ", "", ""));
         }
 
@@ -530,24 +557,25 @@ public final class DoctorCommandExecutor {
 
     public static final class ClassPathInconsistency {
 
-        public final String message;
+        public final String referenceChain;
+        public final Describable to;
         public final File jarFrom;
         public final File jarTo;
 
-        public ClassPathInconsistency(String message, File jarFrom, File jarTo) {
-            this.message = message;
+        public ClassPathInconsistency(String referenceChain,
+                                      Describable to,
+                                      File jarFrom,
+                                      File jarTo) {
+            this.referenceChain = referenceChain;
+            this.to = to;
             this.jarFrom = jarFrom;
             this.jarTo = jarTo;
-        }
-
-        public ClassPathInconsistency(String message) {
-            this(message, null, null);
         }
 
         @Override
         public String toString() {
             return "ClassPathInconsistency{" +
-                    "message='" + message + '\'' +
+                    "to='" + to + '\'' +
                     ", jarFrom=" + jarFrom +
                     ", jarTo=" + jarTo +
                     '}';

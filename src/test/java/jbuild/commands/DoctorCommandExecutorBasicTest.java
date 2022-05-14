@@ -3,6 +3,7 @@ package jbuild.commands;
 import jbuild.commands.DoctorCommandExecutor.ClasspathCheckResult;
 import jbuild.errors.JBuildException;
 import jbuild.java.TestHelper;
+import jbuild.java.code.Code;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import org.junit.jupiter.api.Test;
@@ -85,10 +86,17 @@ public class DoctorCommandExecutorBasicTest {
             assertThat(checkResult.getErrors()).isPresent();
             assertThat(checkResult.getErrors().get()).hasSize(1);
             assertThat(checkResult.getErrors().get()).first()
-                    .extracting(e -> e.message)
-                    .isEqualTo("Method bar.jar!foo.Bar#\"<init>\"()::void, " +
-                            "referenced from foo.jar!bar.Foo -> \"<init>\"()::void, " +
-                            "cannot be found in the classpath");
+                    .extracting(e -> e.to)
+                    .isEqualTo(new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"));
+            assertThat(checkResult.getErrors().get()).first()
+                    .extracting(e -> e.jarFrom.getName())
+                    .isEqualTo("foo.jar");
+            assertThat(checkResult.getErrors().get()).first()
+                    .extracting(e -> e.jarTo.getName())
+                    .isEqualTo("bar.jar");
+            assertThat(checkResult.getErrors().get()).first()
+                    .extracting(e -> e.referenceChain)
+                    .isEqualTo("foo.jar!bar.Foo -> \"<init>\"()::void");
         });
 
         // delete the Bar jar
@@ -185,6 +193,16 @@ public class DoctorCommandExecutorBasicTest {
                                 "}"),
                 messageUserJar.getAbsolutePath());
 
+        // unused.jar:
+        //    - unused.Unused
+        // messages.jar:
+        //    - messages.Message
+        //    - messages.Other (imports unused.Unused)
+        // messages-user.jar
+        //    - user.MessageUser (imports messages.Message)
+        // app.jar
+        //    - app.App (imports user.MessageUser)
+
         // so far, everything should work
         withErrorReporting((command) -> {
             var results = command.findValidClasspaths(dir.toFile(),
@@ -206,10 +224,13 @@ public class DoctorCommandExecutorBasicTest {
                     .toCompletableFuture()
                     .get();
             assertThat(result).hasSize(1);
-            // TODO assert the appropriate error message
             assertThat(result.get(0).getErrors()).isPresent()
-                    .get().extracting(e -> e.stream().map(it -> it.message).collect(toList()))
-                    .isEqualTo(List.of(""));
+                    .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))
+                    .isEqualTo(Set.of(
+                            "app.jar!app.App -> main(java.lang.String)::void -> user.MessageUser#\"<init>\"()::void",
+                            "app.jar!app.App -> main(java.lang.String)::void -> user.MessageUser#\"<init>\"()::void -> messages.Message#\"<init>\"()::void",
+                            "app.jar!app.App -> main(java.lang.String)::void -> user.MessageUser#getMessage()::java.lang.String -> messages.Message#get()::java.lang.String"
+                    ));
         });
     }
 
