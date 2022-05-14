@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
 
 group 'com.athaydes.jbuild'
@@ -7,6 +7,11 @@ version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+}
+
+java {
+    sourceCompatibility = '11'
+    targetCompatibility = '11'
 }
 
 configurations {
