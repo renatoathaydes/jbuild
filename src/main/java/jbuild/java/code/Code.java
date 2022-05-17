@@ -116,6 +116,17 @@ public abstract class Code implements Describable {
     public static final class Method extends Code {
 
         /**
+         * JVM instructions for method invocations.
+         */
+        public enum Instruction {
+            invokespecial, invokestatic, invokevirtual, invokeinterface, other;
+
+            public boolean isVirtual() {
+                return this == invokevirtual || this == invokeinterface;
+            }
+        }
+
+        /**
          * Method name.
          */
         public final String name;
@@ -127,10 +138,20 @@ public abstract class Code implements Describable {
          */
         public final String type;
 
+        /**
+         * The JVM instruction used in the method invocation.
+         */
+        public final Instruction instruction;
+
         public Method(String typeName, String name, String type) {
+            this(typeName, name, type, Instruction.other);
+        }
+
+        public Method(String typeName, String name, String type, Instruction instruction) {
             super(typeName);
             this.name = name;
             this.type = type;
+            this.instruction = instruction;
         }
 
         @Override

@@ -15,6 +15,11 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.java.code.Code.Method.Instruction.invokeinterface;
+import static jbuild.java.code.Code.Method.Instruction.invokespecial;
+import static jbuild.java.code.Code.Method.Instruction.invokestatic;
+import static jbuild.java.code.Code.Method.Instruction.invokevirtual;
+import static jbuild.java.code.Code.Method.Instruction.other;
 import static jbuild.util.JavaTypeUtils.classNameToTypeName;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
@@ -26,7 +31,7 @@ public final class JavapOutputParser {
 
     // example:
     //       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
-    private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:.*\\s//\\s([A-Za-z].+)");
+    private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:\\s*([a-zA-Z_-]+)[a-zA-Z\\d\\s#,:_]+\\s//\\s([A-Za-z].+)");
 
     private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
     private static final Pattern METHOD_SIGNATURE_LINE = Pattern.compile("Signature:\\s[0-9\\s#]+//\\s(.+)");
@@ -219,8 +224,9 @@ public final class JavapOutputParser {
             }
             var match = CODE_LINE.matcher(line);
             if (match.matches()) {
-                var parts = match.group(1).split("\\s");
-                var code = handleCommentParts(parts, typeName);
+                var jvmInstruction = match.group(1);
+                var parts = match.group(2).split("\\s");
+                var code = handleCommentParts(jvmInstruction, parts, typeName);
                 if (code != null) codes.add(code);
             }
         }
@@ -279,24 +285,43 @@ public final class JavapOutputParser {
         return methods;
     }
 
-    private Code handleCommentParts(String[] parts, String typeName) {
+    private Code handleCommentParts(String jvmInstruction, String[] parts, String typeName) {
         if (parts.length == 2) {
             switch (parts[0]) {
                 case "String":
                     break;
                 case "Method":
+                    // jvmInstruction: invokespecial|invokestatic|invokevirtual|invokeinterface
                 case "InvokeDynamic":
                 case "InterfaceMethod":
                     // only look at method calls that have a receiver (i.e. not this)
-                    if (parts[1].contains(".")) return parseMethod(parts[1], typeName);
+                    if (parts[1].contains(".")) return parseMethod(parts[1], typeName,
+                            methodInstruction(jvmInstruction));
                     break;
                 case "class":
+                    // jvmInstruction: checkcast|ldc|new
                     return parseClass(parts[1], typeName);
                 case "Field":
+                    // jvmInstruction: getstatic|putstatic
                     return parseField(parts[1], typeName);
             }
         }
         return null;
+    }
+
+    private Code.Method.Instruction methodInstruction(String jvmInstruction) {
+        switch (jvmInstruction) {
+            case "invokespecial":
+                return invokespecial;
+            case "invokestatic":
+                return invokestatic;
+            case "invokevirtual":
+                return invokevirtual;
+            case "invokeinterface":
+                return invokeinterface;
+            default:
+                return other;
+        }
     }
 
     private Code.Type parseClass(String classDef,
@@ -307,7 +332,8 @@ public final class JavapOutputParser {
     }
 
     private Code.Method parseMethod(String method,
-                                    String typeName) {
+                                    String typeName,
+                                    Code.Method.Instruction instruction) {
         var parts1 = method.split("\\.", 2);
         if (parts1.length != 2) {
             log.println(() -> "WARNING: unexpected javap method line, expected a '.' " +
@@ -322,7 +348,7 @@ public final class JavapOutputParser {
         }
         var type = classNameToTypeName(parts1[0]);
         if (shouldIgnoreClass(type, typeName)) return null;
-        return new Code.Method(type, parts2[0], parts2[1]);
+        return new Code.Method(type, parts2[0], parts2[1], instruction);
     }
 
     private Code.Field parseField(String field,
