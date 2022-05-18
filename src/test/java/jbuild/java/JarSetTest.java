@@ -167,11 +167,11 @@ public class JarSetTest {
         Jar j1 = jar("j1"), j2 = jar("j2");
         var set = new JarSet(Map.of("t1", j1, "t2", j2, "t3", j1));
 
-        assertThat(set.filter(Set.of(file("j1"))).getJarByType())
+        assertThat(set.filterFiles(Set.of(file("j1"))).getJarByType())
                 .isEqualTo(Map.of("t1", j1, "t3", j1));
-        assertThat(set.filter(Set.of(file("j1"), file("j2"))).getJarByType())
+        assertThat(set.filterFiles(Set.of(file("j1"), file("j2"))).getJarByType())
                 .isEqualTo(Map.of("t1", j1, "t2", j2, "t3", j1));
-        assertThat(set.filter(Set.of(file("j2"))).getJarByType())
+        assertThat(set.filterFiles(Set.of(file("j2"))).getJarByType())
                 .isEqualTo(Map.of("t2", j2));
     }
 

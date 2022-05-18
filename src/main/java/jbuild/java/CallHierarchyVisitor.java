@@ -101,16 +101,17 @@ public final class CallHierarchyVisitor {
                                String typeName,
                                Set<String> visitedTypes,
                                Visitor visitor) {
-        var isPrimitive = JavaTypeUtils.isPrimitiveJavaType(typeName);
-        if (isPrimitive || mayBeJavaStdLibType(typeName)) {
+        var cleanTypeName = JavaTypeUtils.cleanArrayTypeName(typeName);
+        var isPrimitive = JavaTypeUtils.isPrimitiveJavaType(cleanTypeName);
+        if (isPrimitive || mayBeJavaStdLibType(cleanTypeName)) {
             return new TypeInfo(null, isPrimitive ? PRIMITIVE : JAVA_STDLIB);
         }
-        var typeDef = classGraph.findTypeDefinitionLocation(typeName);
-        if (visitedTypes.contains(typeName)) {
+        var typeDef = classGraph.findTypeDefinitionLocation(cleanTypeName);
+        if (visitedTypes.contains(cleanTypeName)) {
             return (typeDef == null) ? null : new TypeInfo(typeDef, LIBRARY);
         }
         if (typeDef == null) {
-            if (typeFilter.test(typeName)) visitor.onMissingType(chain, typeName);
+            if (typeFilter.test(cleanTypeName)) visitor.onMissingType(chain, cleanTypeName);
             return null;
         }
         visitType(chain, typeDef, visitedTypes, visitor);
@@ -144,7 +145,7 @@ public final class CallHierarchyVisitor {
             chain.add(field);
             switch (typeInfo.kind) {
                 case PRIMITIVE:
-                    throw new IllegalArgumentException("Primitive type cannot have field: " + field);
+                    throw new IllegalStateException("Primitive type cannot have field: " + field);
                 case JAVA_STDLIB:
                     visitJavaField(chain, field.typeName, field, visitor);
                     break;
@@ -171,8 +172,7 @@ public final class CallHierarchyVisitor {
                                          ClassGraph.TypeDefinitionLocation typeDef,
                                          Code.Field field,
                                          Visitor visitor) {
-        var typeName = typeDef.typeDefinition.typeName;
-        if (classGraph.exists(typeName, field.toDefinition())) {
+        if (classGraph.exists(field)) {
             visitor.visit(chain, field);
         } else {
             visitor.onMissingField(chain, typeDef, field);
@@ -200,15 +200,16 @@ public final class CallHierarchyVisitor {
         var typeOwner = visitType(chain, method.typeName, visitedTypes, visitor);
         chain.remove(chain.size() - 1);
         if (typeOwner != null && typeOwner.kind == LIBRARY) {
-            var codes = typeOwner.typeDefinitionLocation.typeDefinition.methods
-                    .get(method.toDefinition());
+            var codes = classGraph.findImplementation(method);
             if (codes == null) {
                 visitor.onMissingMethod(chain, typeOwner.typeDefinitionLocation, method);
             } else {
                 visitor.visit(chain, method);
-                chain.add(method);
-                visitCodes(chain, codes, visitedTypes, visitor);
-                chain.remove(chain.size() - 1);
+                if (!codes.isEmpty()) {
+                    chain.add(method);
+                    visitCodes(chain, codes, visitedTypes, visitor);
+                    chain.remove(chain.size() - 1);
+                }
             }
         }
     }

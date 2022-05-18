@@ -97,11 +97,10 @@ public final class Jar {
             return typeByName.keySet();
         }
 
-        public void collectTypesReferredToInto(List<TypeReference> typeReferences, Set<Pattern> typeExclusions) {
-            var collector = new TypeReference.Collector(file, typeReferences, typeExclusions);
-            for (var typeDef : typeByName.values()) {
-                collector.collect(typeDef);
-            }
+        public void collectTypesReferredToInto(List<TypeReference> requiredTypes, Set<Pattern> typeExclusions) {
+
+            var collector = new TypeReference.Collector(this, requiredTypes, typeExclusions);
+            collector.collect();
         }
 
     }

@@ -3,6 +3,7 @@ package jbuild.util;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -165,12 +166,12 @@ public class CollectionUtilsTest {
                 .isEqualTo(Map.of("foo", "bar"));
         assertThat(CollectionUtils.take(Map.of("foo", "bar"), 20))
                 .isEqualTo(Map.of("foo", "bar"));
-        assertThat(CollectionUtils.take(Map.of("foo", "bar", "zort", "yes"), 2))
-                .isEqualTo(Map.of("foo", "bar", "zort", "yes"));
-        assertThat(CollectionUtils.take(Map.of("foo", "bar", "zort", "yes"), 1000))
-                .isEqualTo(Map.of("foo", "bar", "zort", "yes"));
-        assertThat(CollectionUtils.take(Map.of("foo", "bar", "zort", "yes", "boo", "blah"), 2))
-                .isEqualTo(Map.of("foo", "bar", "zort", "yes"));
+        assertThat(CollectionUtils.take(iterationOrderMap("foo", "bar", "zort", "yes"), 2))
+                .isEqualTo(iterationOrderMap("foo", "bar", "zort", "yes"));
+        assertThat(CollectionUtils.take(iterationOrderMap("foo", "bar", "zort", "yes"), 1000))
+                .isEqualTo(iterationOrderMap("foo", "bar", "zort", "yes"));
+        assertThat(CollectionUtils.take(iterationOrderMap("foo", "bar", "zort", "yes", "bor", "blah"), 2))
+                .isEqualTo(iterationOrderMap("foo", "bar", "zort", "yes"));
     }
 
     private static <T> List<T> listOf(Iterable<T> iter) {
@@ -179,5 +180,20 @@ public class CollectionUtilsTest {
             result.add(t);
         }
         return result;
+    }
+
+    private static <K, V> Map<K, V> iterationOrderMap(K k1, V v1, K k2, V v2) {
+        var map = new LinkedHashMap<K, V>(2);
+        map.put(k1, v1);
+        map.put(k2, v2);
+        return map;
+    }
+
+    private static <K, V> Map<K, V> iterationOrderMap(K k1, V v1, K k2, V v2, K k3, V v3) {
+        var map = new LinkedHashMap<K, V>(3);
+        map.put(k1, v1);
+        map.put(k2, v2);
+        map.put(k3, v3);
+        return map;
     }
 }

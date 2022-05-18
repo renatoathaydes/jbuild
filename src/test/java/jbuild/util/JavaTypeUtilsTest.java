@@ -35,4 +35,18 @@ public class JavaTypeUtilsTest {
         assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[[[Lfoo/Bar;[[[I"))
                 .isEqualTo(List.of("Lfoo/Bar;", "I"));
     }
+
+    @Test
+    void canCleanArrayTypeName() {
+        assertThat(JavaTypeUtils.cleanArrayTypeName("Lfoo/Bar;"))
+                .isEqualTo("Lfoo/Bar;");
+        assertThat(JavaTypeUtils.cleanArrayTypeName("[Lfoo/Bar;"))
+                .isEqualTo("Lfoo/Bar;");
+        assertThat(JavaTypeUtils.cleanArrayTypeName("[[Lfoo/Bar;"))
+                .isEqualTo("Lfoo/Bar;");
+        assertThat(JavaTypeUtils.cleanArrayTypeName("[[[Lfoo/Bar;"))
+                .isEqualTo("Lfoo/Bar;");
+        assertThat(JavaTypeUtils.cleanArrayTypeName("\"[[Lfoo/Bar;\""))
+                .isEqualTo("Lfoo/Bar;");
+    }
 }

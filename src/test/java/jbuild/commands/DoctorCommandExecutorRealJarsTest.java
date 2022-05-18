@@ -87,7 +87,7 @@ public class DoctorCommandExecutorRealJarsTest {
         var classpathDir = Files.createTempDirectory(DoctorCommandExecutorRealJarsTest.class.getSimpleName());
         Path myClassesJarCopy = classpathDir.resolve(Paths.get(myClassesJar.getName()));
         Path otherClassesJarCopy = classpathDir.resolve(Paths.get(otherClassesJar.getName()));
-        Path otherClassesJarCopy2 = classpathDir.resolve(Paths.get("other-classes-v2.jar"));
+        Path otherClassesJarCopy2 = classpathDir.resolve(Paths.get("other-tests-v2.jar"));
         Files.copy(myClassesJar.toPath(), myClassesJarCopy);
         Files.copy(otherClassesJar.toPath(), otherClassesJarCopy);
         Files.copy(otherClassesJar.toPath(), otherClassesJarCopy2);
@@ -140,8 +140,9 @@ public class DoctorCommandExecutorRealJarsTest {
             assertThat(out).hasSizeGreaterThan(3);
             assertThat(out.get(0)).startsWith("Entry-points required types: ");
             var requiredTypes = Arrays.stream(out.get(0)
-                            .substring("Entry-points required types: ".length())
+                            .substring("Entry-points required types: [".length())
                             .split(",\\s+"))
+                    .map(t -> t.replace("]", ""))
                     .collect(toSet());
             assertThat(requiredTypes).containsExactlyInAnyOrder(
                     "Lfoo/Bar;",
@@ -158,11 +159,11 @@ public class DoctorCommandExecutorRealJarsTest {
                     "Lgenerics/Base;",
                     "Lgenerics/BaseA;",
                     "Lgenerics/ComplexType;",
-                    "Lgenerics/Generics;",
-                    "Lother/UsesEnum$1;"
+                    "Lgenerics/Generics;"
             );
 
-            assertThat(out.get(1)).isEqualTo("Found 17 errors in classpath: " + otherClassesJarCopy);
+            assertThat(out.get(1)).isEqualTo(
+                    "Found 41 missing type references in classpath: " + otherClassesJarCopy);
 
             assertThat(out.subList(2, out.size())).containsExactly(
                     "  * missing references: 'other-tests.jar!other.CallsSuperMethod -> foo.Something, foo.SomethingSpecific'",

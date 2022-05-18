@@ -22,8 +22,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,26 +117,28 @@ public final class DoctorCommandExecutor {
                 throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
             }
 
+            var nonEmptyJarSets = NonEmptyCollection.of(jarSets);
+
             // all jarSets contain the entry point jars, so we peek them from the first available one
-            var entryPointJars = jarSets.iterator().next().getJars(entryJars);
+            var entryPointJars = nonEmptyJarSets.first.getJars(entryJars);
 
             return computeEntryPointsTypeRequirements(entryPointJars, typeExclusions)
                     .thenApplyAsync(typeRequirements ->
-                            findTypeCompleteClasspaths(interactive, jarSets, typeRequirements))
+                            findTypeCompleteClasspaths(interactive, nonEmptyJarSets, typeRequirements))
                     .thenComposeAsync((goodJarSets) ->
                             findValidClasspaths(goodJarSets, entryJars, interactive, typeExclusions));
         });
     }
 
-    private NonEmptyCollection<JarSet> findTypeCompleteClasspaths(boolean interactive,
-                                                                  List<JarSet> jarSets,
-                                                                  List<TypeReference> typeRequirements) {
-        log.verbosePrintln(() -> "Entry-points required types: " + String.join(", ",
-                typeRequirements.stream().flatMap(ref -> ref.typesTo.stream()).collect(toSet())));
+    private Collection<JarSet> findTypeCompleteClasspaths(boolean interactive,
+                                                          NonEmptyCollection<JarSet> jarSets,
+                                                          List<TypeReference> typeRequirements) {
+        log.verbosePrintln(() -> "Entry-points required types: " +
+                typeRequirements.stream().map(ref -> ref.typeTo).collect(toSet()));
 
         var filteredJarSets = jarSets.stream()
-                .map((jarSet) -> jarSet.checkReferencesExist(typeRequirements)
-                        .mapRight(errors -> new AbstractMap.SimpleEntry<>(jarSet, errors)))
+                .map(jarSet -> jarSet.checkReferencesExist(typeRequirements)
+                        .mapRight(err -> new AbstractMap.SimpleEntry<>(jarSet, err)))
                 .collect(toList());
 
         var badResults = filteredJarSets.stream()
@@ -173,7 +175,7 @@ public final class DoctorCommandExecutor {
             throw new JBuildException("None of the classpaths could provide all types required by the " +
                     "entry-points. See log above for details.", ACTION_ERROR);
         }
-        return NonEmptyCollection.of(goodResults);
+        return goodResults;
     }
 
     private List<JarSet> eliminateJarSetsMissingEntrypoints(Set<File> entryJars, List<JarSet> jarSets) {
@@ -188,16 +190,17 @@ public final class DoctorCommandExecutor {
                 }).collect(toList());
     }
 
-    private void showErrors(List<AbstractMap.SimpleEntry<JarSet, NonEmptyCollection<String>>> badResults,
+    private void showErrors(List<AbstractMap.SimpleEntry<JarSet, NonEmptyCollection<TypeReference>>> badResults,
                             boolean verbose) {
         var limit = verbose ? Integer.MAX_VALUE : 5;
         badResults.stream().limit(limit).forEach((badResult) -> {
             var errors = badResult.getValue().stream()
                     .collect(toCollection(TreeSet::new));
-            log.println(() -> "Found " + errors.size() + " error" +
+            log.println(() -> "Found " + errors.size() + " missing type reference" +
                     (errors.size() == 1 ? "" : "s") +
                     " in classpath: " + badResult.getKey().toClasspath());
-            errors.stream().limit(limit).forEach(err -> log.println("  * " + err));
+            errors.stream().limit(limit).forEach(err ->
+                    log.println(() -> "  * " + err.getDescription()));
             if (errors.size() > limit) {
                 log.println("  ...");
             }
@@ -205,42 +208,31 @@ public final class DoctorCommandExecutor {
     }
 
     private CompletionStage<List<TypeReference>> computeEntryPointsTypeRequirements(
-            Set<Jar> jarSet,
+            Set<Jar> entryPointJars,
             Set<Pattern> typeExclusions) {
         // ensure the entry points have been parsed so we can check if all their type requirements can be fulfilled
-        var entryPoints = awaitSuccessValues(jarSet.stream()
+        var entryPoints = awaitSuccessValues(entryPointJars.stream()
                 .map(Jar::parsed)
                 .collect(toList()));
 
         return entryPoints.thenApplyAsync((jars) -> {
-            Stream<TypeReference> requirements = Stream.of();
+            var requiredTypes = new ArrayList<TypeReference>(512);
             for (var entryPoint : jars) {
-                var requiredTypes = new ArrayList<TypeReference>(512);
                 entryPoint.collectTypesReferredToInto(requiredTypes, typeExclusions);
-                requirements = Stream.concat(requirements, requiredTypes.stream());
             }
-            return requirements.collect(toList());
+            return requiredTypes;
         });
     }
 
     private CompletionStage<List<ClasspathCheckResult>> findValidClasspaths(
-            NonEmptyCollection<JarSet> jarSets,
+            Collection<JarSet> jarSets,
             Set<File> entryJars,
             boolean interactive,
             Set<Pattern> typeExclusions) {
-        var acceptableJarSets = jarSets.stream()
-                .filter(jarset -> jarset.containsAll(entryJars))
-                .collect(toList());
-
-        if (acceptableJarSets.isEmpty()) {
-            throw new JBuildException("Out of " + jarSets.stream().count() + " classpath permutations found, " +
-                    "none includes all the entry points.", ACTION_ERROR);
-        }
-
-        if (acceptableJarSets.size() == 1) {
+        if (jarSets.size() == 1) {
             log.println("Found a single classpath permutation, checking its consistency.");
         } else {
-            log.println(() -> "Detected conflicts in classpath, resulting in " + acceptableJarSets.size() +
+            log.println(() -> "Detected conflicts in classpath, resulting in " + jarSets.size() +
                     " possible classpath permutations. Trying to find a consistent permutation.");
         }
 
@@ -249,7 +241,7 @@ public final class DoctorCommandExecutor {
         var badJarPairs = ConcurrentHashMap.<Map.Entry<File, File>>newKeySet(8);
 
         return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : Runtime.getRuntime().availableProcessors(),
-                acceptableJarSets.stream()
+                jarSets.stream()
                         .map(c -> checkClasspath(c, entryJars, typeExclusions, abort, interactive, errorCount, badJarPairs))
                         .collect(toList())
         ).toList();
@@ -300,7 +292,7 @@ public final class DoctorCommandExecutor {
                 var result = checkClasspathConsistency(graph, entryJars, typeExclusions);
                 if (result.isOk()) {
                     abort.set(true); // success found!
-                    return new ClasspathCheckResult(jarSet.filter(result.jars), false, null);
+                    return new ClasspathCheckResult(jarSet.filterFiles(result.jars), false, null);
                 }
                 for (var classPathInconsistency : result.inconsistencies) {
                     if (classPathInconsistency.jarFrom != null && classPathInconsistency.jarTo != null) {
@@ -365,7 +357,7 @@ public final class DoctorCommandExecutor {
             log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
 
             var errorCount = 0;
-            var errorsGroupedByTarget = new HashMap<Describable, List<ClassPathInconsistency>>();
+            var errorsGroupedByTarget = new LinkedHashMap<Describable, List<ClassPathInconsistency>>();
             for (var inconsistency : failureResult.getErrors().get()) {
                 errorCount++;
                 errorsGroupedByTarget.computeIfAbsent(inconsistency.to,
@@ -578,6 +570,7 @@ public final class DoctorCommandExecutor {
                     "to='" + to + '\'' +
                     ", jarFrom=" + jarFrom +
                     ", jarTo=" + jarTo +
+                    ", chain=" + referenceChain +
                     '}';
         }
     }

@@ -121,8 +121,9 @@ public class DoctorCommandExecutorBasicTest {
             assertThat(out).hasSizeGreaterThan(2);
             assertThat(out.get(0)).startsWith("Entry-points required types: ");
             var requiredTypes = Arrays.stream(out.get(0)
-                            .substring("Entry-points required types: ".length())
+                            .substring("Entry-points required types: [".length())
                             .split(",\\s+"))
+                    .map(t -> t.replace("]", ""))
                     .collect(toSet());
             assertThat(requiredTypes).containsExactlyInAnyOrder("Lfoo/Bar;");
 

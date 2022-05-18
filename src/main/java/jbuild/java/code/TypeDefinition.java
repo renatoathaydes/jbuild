@@ -1,6 +1,8 @@
 package jbuild.java.code;
 
 import jbuild.java.JavaType;
+import jbuild.util.Describable;
+import jbuild.util.JavaTypeUtils;
 
 import java.util.Map;
 import java.util.Set;
@@ -13,7 +15,7 @@ import static java.util.stream.Collectors.toSet;
  * Includes the type's non-private API, method definitions,
  * fields and method handles used in the logic of this type.
  */
-public final class TypeDefinition {
+public final class TypeDefinition implements Describable {
 
     public final JavaType type;
     public final String typeName;
@@ -37,6 +39,11 @@ public final class TypeDefinition {
         this.implementedInterfaces = type.interfaces.stream()
                 .map(bound -> bound.name)
                 .collect(toSet());
+    }
+
+    @Override
+    public void describe(StringBuilder builder, boolean verbose) {
+        builder.append(JavaTypeUtils.typeNameToClassName(typeName));
     }
 
     @Override

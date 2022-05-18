@@ -6,13 +6,10 @@ import jbuild.java.code.TypeDefinition;
 import jbuild.util.Describable;
 
 import java.io.File;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.toSet;
-import static jbuild.util.CollectionUtils.streamOfOptional;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
@@ -62,71 +59,6 @@ public final class ClassGraph {
         return jarByType;
     }
 
-
-    /**
-     * Get direct references to a {@link Code.Method} value from jars other than the ones where this code is defined.
-     *
-     * @param code value
-     * @return direct references to the code, excluding references from the same jar where the code is defined
-     */
-    public Set<CodeReference> referencesTo(Code.Method code) {
-        return referencesToCode(code)
-                .collect(toSet());
-    }
-
-    /**
-     * Get direct references to a {@link Code.Field} value from jars other than the ones where this code is defined.
-     *
-     * @param code value
-     * @return direct references to the code, excluding references from the same jar where the code is defined
-     */
-    public Set<CodeReference> referencesTo(Code.Field code) {
-        return referencesToCode(code)
-                .collect(toSet());
-    }
-
-    /**
-     * Get all references to a {@link Code.Type} value from jars other than the ones where this code is defined.
-     * <p>
-     * References to the type's methods and fields are also included in the result.
-     *
-     * @param code value
-     * @return references to the code, excluding references from the same jar where the code is defined
-     */
-    public Set<CodeReference> referencesTo(Code.Type code) {
-        var jar = jarByType.get(code.typeName);
-        if (jar == null) return Set.of();
-
-        var visitedDefinitions = new HashSet<>();
-
-        // start with the direct references to the type
-        var result = referencesToCode(code);
-
-        // now find all indirect references to the type via its methods and fields
-
-        var type = typesByJar.get(jar).get(code.typeName);
-
-        for (var field : type.fields) {
-            var isNew = visitedDefinitions.add(field);
-            if (isNew) {
-                result = Stream.concat(result,
-                        referencesToCode(new Code.Field(type.typeName, field.name, field.type)));
-            }
-        }
-
-        for (var method : type.methods.keySet()) {
-            var isNew = visitedDefinitions.add(method);
-            if (isNew) {
-                // references to constructors are via the "<init>" name, not the type name
-                var methodName = method.isConstructor() ? "\"<init>\"" : method.name;
-                result = Stream.concat(result,
-                        referencesToCode(new Code.Method(type.typeName, methodName, method.type)));
-            }
-        }
-
-        return result.collect(toSet());
-    }
-
     /**
      * Find and return the definition and location for the given type.
      *
@@ -157,6 +89,35 @@ public final class ClassGraph {
         return null;
     }
 
+    public Set<Code> findImplementation(Code.Method method) {
+        return findImplementation(method.typeName, method.toDefinition(), method.instruction.isVirtual());
+    }
+
+    public Set<Code> findImplementation(String typeName,
+                                        Definition.MethodDefinition method,
+                                        boolean isVirtualCall) {
+        var typeDef = findTypeDefinition(typeName);
+        if (typeDef == null) {
+            var javaType = getJavaType(typeName);
+            if (javaType != null && javaMethodExists(javaType, method)) {
+                return Collections.emptySet();
+            }
+            return null;
+        }
+
+        var impl = typeDef.methods.get(method);
+        if (impl != null) return impl;
+
+        if (!isVirtualCall) return null;
+
+        // try to find the method on the parent types
+        for (var parentType : typeDef.type.getParentTypes()) {
+            impl = findImplementation(parentType.name, method, true);
+            if (impl != null) return impl;
+        }
+        return null;
+    }
+
     /**
      * Check if a certain type exists.
      *
@@ -165,6 +126,16 @@ public final class ClassGraph {
      */
     public boolean exists(String typeName) {
         return findTypeDefinition(typeName) != null || existsJava(typeName);
+    }
+
+    /**
+     * Check if a certain field exists.
+     *
+     * @param field a field usage
+     * @return true if the field exists, false otherwise
+     */
+    public boolean exists(Code.Field field) {
+        return exists(field.typeName, field.toDefinition());
     }
 
     /**
@@ -178,18 +149,14 @@ public final class ClassGraph {
         if (typeName.startsWith("\"[")) return existsJavaArray(definition);
         var typeDef = findTypeDefinition(typeName);
         if (typeDef == null) return existsJava(typeName, definition);
-        var result = definition.match(
+        var found = definition.match(
                 typeDef.fields::contains,
                 typeDef.methods::containsKey);
-        if (result) return true;
+        if (found) return true;
 
         for (var parentType : typeDef.type.getParentTypes()) {
             typeName = parentType.name;
-            typeDef = findTypeDefinition(typeName);
-            if (typeDef != null && definition.match(
-                    typeDef.fields::contains,
-                    typeDef.methods::containsKey)) return true;
-            if (typeDef == null && existsJava(typeName, definition)) return true;
+            if (exists(typeName, definition)) return true;
         }
         return false;
     }
@@ -240,6 +207,7 @@ public final class ClassGraph {
         for (var javaField : type.getFields()) {
             if (javaField.getName().equals(field.name)) {
                 var fieldType = toTypeDescriptor(javaField.getType());
+                // FIXME does this handle arrays?
                 if (fieldType.equals(field.type)) {
                     return true;
                 }
@@ -272,55 +240,6 @@ public final class ClassGraph {
             }
         }
         return false;
-    }
-
-    private Stream<CodeReference> referencesToCode(Code code) {
-        var jar = jarByType.get(code.typeName);
-        if (jar == null) return Stream.of();
-        return typesByJar.keySet().stream()
-                .filter(j -> !j.equals(jar))
-                .flatMap(j -> refs(j, code));
-    }
-
-    private Stream<CodeReference> refs(File jarFrom, Code to) {
-        return typesByJar.get(jarFrom).values().stream()
-                .flatMap(type -> refs(jarFrom, type, to));
-    }
-
-    private Stream<CodeReference> refs(File jarFrom, TypeDefinition typeFrom, Code to) {
-        var results = Stream.concat(
-                typeFrom.usedMethodHandles.stream()
-                        .filter(to::equals)
-                        .map(code -> new CodeReference(jarFrom, typeFrom.typeName, null, to)),
-                typeFrom.methods.entrySet().stream()
-                        .flatMap(entry -> streamOfOptional(entry.getValue().stream()
-                                .filter(to::equals)
-                                .findAny()
-                                .map(code -> new CodeReference(jarFrom, typeFrom.typeName, entry.getKey(), to)))));
-
-        // find references to a type in fields and type signatures, even when the type is not used in code
-        if (to instanceof Code.Type) {
-            results = Stream.concat(
-                    results,
-                    typeFrom.methods.keySet().stream()
-                            .filter(method -> method.getReturnType().equals(to.typeName) ||
-                                    method.getParameterTypes().contains(to.typeName))
-                            .map(method -> new CodeReference(jarFrom, typeFrom.typeName, method, to)));
-
-            results = Stream.concat(
-                    results,
-                    typeFrom.fields.stream()
-                            .filter(field -> field.type.equals(to.typeName))
-                            .map(field -> new CodeReference(jarFrom, typeFrom.typeName, field, to)));
-
-            if (typeFrom.type.typesReferredTo().anyMatch(to.typeName::equals)) {
-                results = Stream.concat(
-                        results,
-                        Stream.of(new CodeReference(jarFrom, typeFrom.typeName, null, to)));
-            }
-        }
-
-        return results;
     }
 
     /**

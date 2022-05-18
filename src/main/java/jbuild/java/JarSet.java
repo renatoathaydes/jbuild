@@ -66,11 +66,15 @@ public final class JarSet {
                 .collect(toSet());
     }
 
-    public JarSet filter(Set<File> jars) {
-        var foundJars = getJars(jars);
-        if (foundJars.size() == jarFiles.size()) return this;
-        if (foundJars.size() < jars.size()) throw new IllegalArgumentException("not all jars exist in this Set");
-        return new JarSet(filterValues(jarByType, foundJars::contains));
+    public JarSet filterFiles(Set<File> jarFiles) {
+        var jars = getJars(jarFiles);
+        if (jars.size() < jarFiles.size()) throw new IllegalArgumentException("not all jars exist in this Set");
+        return filter(jars);
+    }
+
+    public JarSet filter(Set<Jar> jars) {
+        if (jars.size() == jarFiles.size()) return this;
+        return new JarSet(filterValues(jarByType, jars::contains));
     }
 
     public Set<File> getJarFiles() {
@@ -96,28 +100,32 @@ public final class JarSet {
         return false;
     }
 
-    public Either<JarSet, NonEmptyCollection<String>> checkReferencesExist(
+    /**
+     * Check if all the given {@link TypeReference}s exist in this {@link JarSet}.
+     * <p>
+     * If any type requirement is missing, the missing type references are returned.
+     *
+     * @param typeReferences type requirements
+     * @return this JarSet if all type requirements are met, or the missing type references otherwise.
+     */
+    public Either<JarSet, NonEmptyCollection<TypeReference>> checkReferencesExist(
             List<TypeReference> typeReferences) {
-        var errors = new HashSet<String>();
+        if (typeReferences.isEmpty()) return Either.left(this);
+        var missingTypeRefs = new HashSet<TypeReference>();
         for (var typeRef : typeReferences) {
             var found = false;
-            jarLoop:
             for (var types : typesByJar.values()) {
-                for (var to : typeRef.typesTo) {
-                    found = types.contains(to);
-                    if (found) {
-                        break jarLoop;
-                    }
-                }
+                found = types.contains(typeRef.typeTo);
+                if (found) break;
             }
             if (!found) {
-                errors.add("missing references: '" + typeRef + "'");
+                missingTypeRefs.add(typeRef);
             }
         }
-        if (errors.isEmpty()) {
+        if (missingTypeRefs.isEmpty()) {
             return Either.left(this);
         }
-        return Either.right(NonEmptyCollection.of(errors));
+        return Either.right(NonEmptyCollection.of(missingTypeRefs));
     }
 
     public String toClasspath() {

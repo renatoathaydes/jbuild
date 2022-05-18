@@ -2,103 +2,147 @@ package jbuild.java;
 
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
-import jbuild.util.JavaTypeUtils;
+import jbuild.util.Describable;
 import jbuild.util.NoOp;
 
 import java.io.File;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static java.util.stream.Collectors.joining;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isReferenceType;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
-public final class TypeReference {
+public final class TypeReference implements Describable, Comparable<TypeReference> {
 
     public final File jar;
-    public final String typeFrom;
-    public final Set<String> typesTo;
+    public final Describable from;
+    public final String typeTo;
 
-    public TypeReference(File jar, String typeFrom, Set<String> typesTo) {
+    public TypeReference(File jar, Describable from, String typeTo) {
         this.jar = jar;
-        this.typeFrom = typeFrom;
-        this.typesTo = typesTo;
+        this.from = from;
+        this.typeTo = typeTo;
+    }
+
+    @Override
+    public void describe(StringBuilder builder, boolean verbose) {
+        builder.append(jar.getName()).append('!');
+        from.describe(builder, verbose);
+        builder.append(" -> ").append(typeNameToClassName(typeTo));
+    }
+
+    @Override
+    public int compareTo(TypeReference other) {
+        var result = jar.getName().compareTo(other.jar.getName());
+        if (result == 0) {
+            result = from.getDescription().compareTo(other.from.getDescription());
+        }
+        if (result == 0) {
+            result = typeTo.compareTo(other.typeTo);
+        }
+        return result;
     }
 
     @Override
     public String toString() {
-        return jar.getName() + '!' + typeNameToClassName(typeFrom) + " -> " + typesTo.stream()
-                .map(JavaTypeUtils::typeNameToClassName)
-                .sorted()
-                .collect(joining(", "));
+        return "TypeReference{" +
+                "jar=" + jar +
+                ", from='" + from + '\'' +
+                ", typeTo=" + typeTo +
+                '}';
     }
 
     static final class Collector {
 
-        private final File jar;
+        private final Jar.ParsedJar jar;
         private final List<TypeReference> typeReferences;
         private final Set<Pattern> typeExclusions;
 
-        public Collector(File jar,
-                         List<TypeReference> typeReferences,
+        public Collector(Jar.ParsedJar jar,
+                         List<TypeReference> requiredTypes,
                          Set<Pattern> typeExclusions) {
             this.jar = jar;
-            this.typeReferences = typeReferences;
+            this.typeReferences = requiredTypes;
             this.typeExclusions = typeExclusions;
         }
 
+        void collect() {
+            for (var typeDef : jar.typeByName.values()) {
+                collect(typeDef);
+            }
+        }
+
         void collect(TypeDefinition typeDef) {
-            var result = new HashSet<String>();
-            addReferenceTypesTo(result, () -> typeDef.type.typesReferredTo().iterator());
+            addReferenceTypes(null, typeDef, () -> typeDef.type.typesReferredTo().iterator());
             for (var field : typeDef.fields) {
-                addReferenceTypeTo(result, field.type);
+                addReferenceType(typeDef, field, field.type);
             }
             for (var methodDef : typeDef.methods.keySet()) {
-                addTypesReferredToFromMethodInto(result, methodDef);
+                addTypesReferredToFromMethod(typeDef, methodDef);
             }
             for (var method : typeDef.usedMethodHandles) {
-                addReferenceTypeTo(result, method.typeName);
-                var def = method.toDefinition();
-                addTypesReferredToFromMethodInto(result, def);
+                addReferenceType(typeDef, method, method.typeName);
+                addTypesReferredToFromMethod(typeDef, method.toDefinition());
             }
-            for (var codes : typeDef.methods.values()) {
+            for (var entry : typeDef.methods.entrySet()) {
+                var method = entry.getKey();
+                var codes = entry.getValue();
                 for (var code : codes) {
-                    addReferenceTypeTo(result, code.typeName);
+                    addReferenceType(typeDef, method, code.typeName);
                     code.use(
                             NoOp.ignore(),
-                            f -> addReferenceTypeTo(result, f.type),
-                            m -> addTypesReferredToFromMethodInto(result, m.toDefinition()));
+                            f -> addReferenceType(typeDef, method, f.type),
+                            m -> {
+                                var methodCall = m.toDefinition();
+                                addReferenceTypes(typeDef, method, methodCall.getParameterTypes());
+                                addReferenceType(typeDef, method, methodCall.getReturnType());
+                            });
                 }
             }
-            if (!result.isEmpty()) {
-                typeReferences.add(new TypeReference(jar, typeDef.typeName, result));
-            }
         }
 
-        private void addTypesReferredToFromMethodInto(Set<String> result,
-                                                      Definition.MethodDefinition methodDef) {
-            addReferenceTypesTo(result, methodDef.getParameterTypes());
-            addReferenceTypeTo(result, methodDef.getReturnType());
+        private void addTypesReferredToFromMethod(TypeDefinition typeDef,
+                                                  Definition.MethodDefinition methodDef) {
+            addReferenceTypes(typeDef, methodDef, methodDef.getParameterTypes());
+            addReferenceType(typeDef, methodDef, methodDef.getReturnType());
         }
 
-        private void addReferenceTypesTo(Set<String> result, Iterable<String> types) {
+        private void addReferenceTypes(TypeDefinition typeDef, Describable from, Iterable<String> types) {
             for (var type : types) {
-                addReferenceTypeTo(result, type);
+                addReferenceType(typeDef, from, type);
             }
         }
 
-        private void addReferenceTypeTo(Set<String> result, String type) {
-            var cleanType = cleanArrayTypeName(type);
-            if (isReferenceType(cleanType)
+        private void addReferenceType(TypeDefinition typeDef, Describable from, String typeTo) {
+            var cleanType = cleanArrayTypeName(typeTo);
+            if (!jar.typeByName.containsKey(cleanType) &&
+                    isReferenceType(cleanType)
                     && !mayBeJavaStdLibType(cleanType)
                     && typeExclusions.stream().noneMatch(p -> p.matcher(cleanType).matches())) {
-                result.add(cleanType);
+                var fromRef = typeDef == null ? from : new TypeMember(typeDef, from);
+                typeReferences.add(new TypeReference(jar.file, fromRef, cleanType));
             }
         }
 
+    }
+
+    private static final class TypeMember implements Describable {
+        private final TypeDefinition typeDefinition;
+        private final Describable member;
+
+        public TypeMember(TypeDefinition typeDefinition, Describable member) {
+            this.typeDefinition = typeDefinition;
+            this.member = member;
+        }
+
+        @Override
+        public void describe(StringBuilder builder, boolean verbose) {
+            typeDefinition.describe(builder, verbose);
+            builder.append("::");
+            member.describe(builder, verbose);
+        }
     }
 }
