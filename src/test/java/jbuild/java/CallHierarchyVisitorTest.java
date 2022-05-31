@@ -62,7 +62,7 @@ public class CallHierarchyVisitorTest {
     @Test
     void canVisitEmptyClass() {
         var visitor = new CallHierarchyVisitor(classGraph,
-                Set.of(), Set.of(Pattern.compile("Lfoo/EmptyInterface;")));
+                Set.of(), Set.of(Pattern.compile("foo.EmptyInterface")));
 
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
@@ -75,7 +75,7 @@ public class CallHierarchyVisitorTest {
     @Test
     void canVisitSimpleClass() {
         var visitor = new CallHierarchyVisitor(classGraph,
-                Set.of(), Set.of(Pattern.compile("Lfoo/ExampleLogger;")));
+                Set.of(), Set.of(Pattern.compile("foo.ExampleLogger")));
 
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
@@ -91,13 +91,153 @@ public class CallHierarchyVisitorTest {
     }
 
     @Test
-    void canVisitMoreComplexClass() {
+    void canVisitRecursiveClass() {
         var visitor = new CallHierarchyVisitor(classGraph,
-                Set.of(), Set.of(Pattern.compile("Lfoo/Zort;")));
+                Set.of(), Set.of(Pattern.compile("recursion.Recursive")));
 
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
-        assertThat(testVisitor.calls).hasSize(8);
+        assertThat(testVisitor.calls).hasSize(3);
+
+        assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"type", "", "my-tests.jar!recursion.Recursive"},
+                new String[]{"definition", "my-tests.jar!recursion.Recursive", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.Recursive", "factorial(int)::int"}
+        );
+    }
+
+    @Test
+    void canVisitInterRecursiveClasses() {
+        var visitor = new CallHierarchyVisitor(classGraph,
+                Set.of(), Set.of(Pattern.compile("recursion.P[i|o]ng")));
+
+        visitor.visit(Set.of(myClassesJar), testVisitor);
+
+        assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"type", "", "my-tests.jar!recursion.Ping"},
+                new String[]{"type", "", "my-tests.jar!recursion.Pong"},
+                new String[]{"definition", "my-tests.jar!recursion.Ping", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.Ping", "ping(recursion.Pong)::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.Ping -> ping(recursion.Pong)::void",
+                        "recursion.Pong#pong(recursion.Ping)::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.Ping -> ping(recursion.Pong)::void " +
+                                "-> recursion.Pong#pong(recursion.Ping)::void",
+                        "recursion.Ping#ping(recursion.Pong)::void"},
+                new String[]{"definition", "my-tests.jar!recursion.Pong", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.Pong", "pong(recursion.Ping)::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.Pong -> pong(recursion.Ping)::void",
+                        "recursion.Ping#ping(recursion.Pong)::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.Pong -> pong(recursion.Ping)::void " +
+                                "-> recursion.Ping#ping(recursion.Pong)::void",
+                        "recursion.Pong#pong(recursion.Ping)::void"}
+        );
+    }
+
+    @Test
+    void canVisitInterRecursiveClassesThirdDegree() {
+        var visitor = new CallHierarchyVisitor(classGraph, Set.of(),
+                Set.of(Pattern.compile("recursion\\.TicTacToe.*")));
+
+        visitor.visit(Set.of(myClassesJar), testVisitor);
+
+        assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"type", "", "my-tests.jar!recursion.TicTacToe"},
+                new String[]{"type", "", "my-tests.jar!recursion.TicTacToe$Tic"},
+                new String[]{"type", "", "my-tests.jar!recursion.TicTacToe$Tac"},
+                new String[]{"type", "", "my-tests.jar!recursion.TicTacToe$Toe"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe$Tac", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe$Tac", "tac()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tac -> tac()::void",
+                        "recursion.TicTacToe$Toe#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tac -> tac()::void",
+                        "recursion.TicTacToe$Toe#toe()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tac -> tac()::void -> recursion.TicTacToe$Toe#toe()::void",
+                        "recursion.TicTacToe$Tic#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tac -> tac()::void -> recursion.TicTacToe$Toe#toe()::void",
+                        "recursion.TicTacToe$Tic#tic()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tac -> tac()::void -> recursion.TicTacToe$Toe#toe()::void -> recursion.TicTacToe$Tic#tic()::void",
+                        "recursion.TicTacToe$Tac#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tac -> tac()::void -> recursion.TicTacToe$Toe#toe()::void -> recursion.TicTacToe$Tic#tic()::void",
+                        "recursion.TicTacToe$Tac#tac()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe", "go()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe -> go()::void",
+                        "recursion.TicTacToe$Tic#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe -> go()::void",
+                        "recursion.TicTacToe$Tic#tic()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe -> go()::void -> recursion.TicTacToe$Tic#tic()::void",
+                        "recursion.TicTacToe$Tac#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe -> go()::void -> recursion.TicTacToe$Tic#tic()::void",
+                        "recursion.TicTacToe$Tac#tac()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe -> go()::void -> recursion.TicTacToe$Tic#tic()::void -> recursion.TicTacToe$Tac#tac()::void",
+                        "recursion.TicTacToe$Toe#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe -> go()::void -> recursion.TicTacToe$Tic#tic()::void -> recursion.TicTacToe$Tac#tac()::void",
+                        "recursion.TicTacToe$Toe#toe()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe$Tic", "tic()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tic -> tic()::void",
+                        "recursion.TicTacToe$Tac#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tic -> tic()::void",
+                        "recursion.TicTacToe$Tac#tac()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tic -> tic()::void -> recursion.TicTacToe$Tac#tac()::void",
+                        "recursion.TicTacToe$Toe#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tic -> tic()::void -> recursion.TicTacToe$Tac#tac()::void",
+                        "recursion.TicTacToe$Toe#toe()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tic -> tic()::void -> recursion.TicTacToe$Tac#tac()::void -> recursion.TicTacToe$Toe#toe()::void",
+                        "recursion.TicTacToe$Tic#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Tic -> tic()::void -> recursion.TicTacToe$Tac#tac()::void -> recursion.TicTacToe$Toe#toe()::void",
+                        "recursion.TicTacToe$Tic#tic()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe$Tic", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe$Toe", "\"<init>\"()::void"},
+                new String[]{"definition", "my-tests.jar!recursion.TicTacToe$Toe", "toe()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Toe -> toe()::void",
+                        "recursion.TicTacToe$Tic#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Toe -> toe()::void",
+                        "recursion.TicTacToe$Tic#tic()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Toe -> toe()::void -> recursion.TicTacToe$Tic#tic()::void",
+                        "recursion.TicTacToe$Tac#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Toe -> toe()::void -> recursion.TicTacToe$Tic#tic()::void",
+                        "recursion.TicTacToe$Tac#tac()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Toe -> toe()::void -> recursion.TicTacToe$Tic#tic()::void -> recursion.TicTacToe$Tac#tac()::void",
+                        "recursion.TicTacToe$Toe#\"<init>\"()::void"},
+                new String[]{"code",
+                        "my-tests.jar!recursion.TicTacToe$Toe -> toe()::void -> recursion.TicTacToe$Tic#tic()::void -> recursion.TicTacToe$Tac#tac()::void",
+                        "recursion.TicTacToe$Toe#toe()::void"}
+        );
+    }
+
+    @Test
+    void canVisitMoreComplexClass() {
+        var visitor = new CallHierarchyVisitor(classGraph,
+                Set.of(), Set.of(Pattern.compile("foo.Zort")));
+
+        visitor.visit(Set.of(myClassesJar), testVisitor);
 
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
                 new String[]{"type", "", "my-tests.jar!foo.Zort"},

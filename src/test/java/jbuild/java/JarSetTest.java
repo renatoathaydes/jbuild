@@ -190,7 +190,7 @@ public class JarSetTest {
             throw new RuntimeException(e);
         }
 
-        var sets = new JarSetPermutations(log)
+        var sets = JarSetPermutations.create(log)
                 .computePermutations(mapValues(jarsByType, files -> files.stream()
                         .map(jarByFile::get).collect(Collectors.toSet())));
 

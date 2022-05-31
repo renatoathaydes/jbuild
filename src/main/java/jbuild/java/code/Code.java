@@ -226,6 +226,11 @@ public abstract class Code implements Describable {
         }
 
         @Override
+        public String getDescription() {
+            return typeName;
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;

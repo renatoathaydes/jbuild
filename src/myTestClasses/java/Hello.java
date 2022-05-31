@@ -16,6 +16,7 @@ public class Hello {
     }
 
     public boolean foo() {
+        aPrivateMethod();
         return isOk;
     }
 
@@ -25,5 +26,9 @@ public class Hello {
 
     private void aPrivateMethod() {
 
+    }
+
+    public static void main(String[] args) {
+        System.out.println(CONST);
     }
 }

@@ -43,39 +43,107 @@ public final class CallHierarchyVisitor {
         this(classGraph, typeExclusions, Set.of());
     }
 
+    /**
+     * Visit the types in the given entry jars, taking into consideration the
+     * type inclusions and exclusions for this visitor.
+     *
+     * @param entryJars whose types to visit
+     * @param visitor   to use
+     */
     public void visit(Set<File> entryJars, Visitor visitor) {
         Set<String> visitedTypes = new HashSet<>();
+        var typeLocations = new ArrayList<ClassGraph.TypeDefinitionLocation>();
+
         for (var jar : entryJars) {
-            for (var typeDef : classGraph.getTypesByJar().get(jar).values()) {
-                var chain = new ArrayList<Describable>();
-                visit(chain, new ClassGraph.TypeDefinitionLocation(typeDef, jar), visitedTypes, visitor);
+            var types = classGraph.getTypesByJar().get(jar);
+
+            // visit type locations first
+            for (var typeDef : types.values()) {
+                var typeLocation = new ClassGraph.TypeDefinitionLocation(typeDef, jar);
+                if (typeFilter.test(typeLocation.className)) {
+                    typeLocations.add(typeLocation);
+                    visitor.visit(List.of(), typeLocation);
+                }
             }
+        }
+
+        // visit types again including members and referenced types
+        var chain = new ArrayList<Describable>();
+        for (var typeLocation : typeLocations) {
+            visitAll(chain, typeLocation, visitedTypes, visitor);
         }
     }
 
-    private void visit(List<Describable> chain,
-                       ClassGraph.TypeDefinitionLocation typeDef,
-                       Set<String> visitedTypes,
-                       Visitor visitor) {
-        if (!visitType(chain, typeDef, visitedTypes, visitor)) return;
-        var typeDefinition = typeDef.typeDefinition;
-        chain.add(typeDef);
+    public boolean visit(Code code, Visitor visitor) {
+        var typeLocation = classGraph.findTypeDefinitionLocation(code.typeName);
+        if (typeLocation != null) {
+            visitCodes(new ArrayList<>(), Set.of(code), new HashSet<>(), new HashSet<>(), visitor);
+            return true;
+        }
+        return false;
+    }
 
-        typeDefinition.methods.forEach((method, codes) -> {
-            visitMethodDefinition(chain, visitedTypes, method, visitor);
-            visitor.visit(chain, method);
-            chain.add(method);
-            visitCodes(chain, codes, visitedTypes, visitor);
-            chain.remove(chain.size() - 1);
-        });
+    private void visitAll(List<Describable> chain,
+                          ClassGraph.TypeDefinitionLocation typeLocation,
+                          Set<String> visitedTypes,
+                          Visitor visitor) {
+        visitType(chain, typeLocation, visitedTypes, visitor);
+        var typeDefinition = typeLocation.typeDefinition;
+        chain.add(typeLocation);
 
         for (var field : typeDefinition.fields) {
             visitFieldDefinition(chain, visitedTypes, field, visitor);
         }
 
-        visitCodes(chain, typeDefinition.usedMethodHandles, visitedTypes, visitor);
+        typeDefinition.methods.forEach((method, codes) -> {
+            visitMethodDefinition(chain, visitedTypes, method, visitor);
+            visitor.visit(chain, method);
+            chain.add(method);
+            visitCodes(chain, codes, visitedTypes, new HashSet<>(), visitor);
+            chain.remove(chain.size() - 1);
+        });
+
+        visitCodes(chain, typeDefinition.usedMethodHandles, visitedTypes, new HashSet<>(), visitor);
 
         chain.remove(chain.size() - 1);
+    }
+
+    private void visitType(List<Describable> chain,
+                           ClassGraph.TypeDefinitionLocation typeLocation,
+                           Set<String> visitedTypes,
+                           Visitor visitor) {
+        if (!visitedTypes.add(typeLocation.typeDefinition.typeName)
+                || !typeFilter.test(typeLocation.className)) {
+            return;
+        }
+        chain.add(typeLocation);
+        typeLocation.typeDefinition.type.typesReferredTo().forEach((type) ->
+                visitTypeName(chain, type, visitedTypes, visitor, false));
+        chain.remove(chain.size() - 1);
+    }
+
+    private TypeInfo visitTypeName(List<Describable> chain,
+                                   String typeName,
+                                   Set<String> visitedTypes,
+                                   Visitor visitor,
+                                   boolean returnTypeInfo) {
+        var cleanTypeName = JavaTypeUtils.cleanArrayTypeName(typeName);
+        var isPrimitive = JavaTypeUtils.isPrimitiveJavaType(cleanTypeName);
+        if (isPrimitive || mayBeJavaStdLibType(cleanTypeName)) {
+            return returnTypeInfo
+                    ? new TypeInfo(null, isPrimitive ? PRIMITIVE : JAVA_STDLIB)
+                    : null;
+        }
+        var typeLocation = classGraph.findTypeDefinitionLocation(cleanTypeName);
+        if (visitedTypes.contains(cleanTypeName)) {
+            return (typeLocation == null || !returnTypeInfo) ? null : new TypeInfo(typeLocation, LIBRARY);
+        }
+        if (typeLocation == null) {
+            if (typeFilter.test(cleanTypeName)) visitor.onMissingType(chain, cleanTypeName);
+            return null;
+        }
+        visitType(chain, typeLocation, visitedTypes, visitor);
+        return returnTypeInfo ? new TypeInfo(typeLocation, LIBRARY) : null;
     }
 
     private void visitFieldDefinition(List<Describable> chain,
@@ -84,55 +152,20 @@ public final class CallHierarchyVisitor {
                                       Visitor visitor) {
         visitor.visit(chain, field);
         chain.add(field);
-        visitType(chain, field.type, visitedTypes, visitor);
+        visitTypeName(chain, field.type, visitedTypes, visitor, false);
         chain.remove(chain.size() - 1);
     }
 
-    private void visitCodes(List<Describable> chain, Set<? extends Code> codes,
-                            Set<String> visitedTypes, Visitor visitor) {
+    private void visitCodes(List<Describable> chain,
+                            Set<? extends Code> codes,
+                            Set<String> visitedTypes,
+                            Set<Code.Method> visitedMethods,
+                            Visitor visitor) {
         for (var code : codes) {
-            code.use(t -> visitType(chain, t.typeName, visitedTypes, visitor),
+            code.use(t -> visitTypeName(chain, t.typeName, visitedTypes, visitor, false),
                     f -> visitFieldUsage(chain, f, visitedTypes, visitor),
-                    m -> visitMethodUsage(chain, visitedTypes, m, visitor));
+                    m -> visitMethodUsage(chain, visitedTypes, visitedMethods, m, visitor));
         }
-    }
-
-    private TypeInfo visitType(List<Describable> chain,
-                               String typeName,
-                               Set<String> visitedTypes,
-                               Visitor visitor) {
-        var cleanTypeName = JavaTypeUtils.cleanArrayTypeName(typeName);
-        var isPrimitive = JavaTypeUtils.isPrimitiveJavaType(cleanTypeName);
-        if (isPrimitive || mayBeJavaStdLibType(cleanTypeName)) {
-            return new TypeInfo(null, isPrimitive ? PRIMITIVE : JAVA_STDLIB);
-        }
-        var typeDef = classGraph.findTypeDefinitionLocation(cleanTypeName);
-        if (visitedTypes.contains(cleanTypeName)) {
-            return (typeDef == null) ? null : new TypeInfo(typeDef, LIBRARY);
-        }
-        if (typeDef == null) {
-            if (typeFilter.test(cleanTypeName)) visitor.onMissingType(chain, cleanTypeName);
-            return null;
-        }
-        visitType(chain, typeDef, visitedTypes, visitor);
-        return new TypeInfo(typeDef, LIBRARY);
-    }
-
-    private boolean visitType(List<Describable> chain,
-                              ClassGraph.TypeDefinitionLocation typeDef,
-                              Set<String> visitedTypes,
-                              Visitor visitor) {
-        var typeName = typeDef.typeDefinition.typeName;
-        if (visitedTypes.contains(typeName) || !typeFilter.test(typeName)) {
-            return false;
-        }
-        visitedTypes.add(typeName);
-        visitor.visit(chain, typeDef);
-        chain.add(typeDef);
-        typeDef.typeDefinition.type.typesReferredTo().forEach((type) ->
-                visitType(chain, type, visitedTypes, visitor));
-        chain.remove(chain.size() - 1);
-        return true;
     }
 
     private void visitFieldUsage(List<Describable> chain,
@@ -140,7 +173,7 @@ public final class CallHierarchyVisitor {
                                  Set<String> visitedTypes,
                                  Visitor visitor) {
 
-        var typeInfo = visitType(chain, field.typeName, visitedTypes, visitor);
+        var typeInfo = visitTypeName(chain, field.typeName, visitedTypes, visitor, true);
         if (typeInfo != null) {
             chain.add(field);
             switch (typeInfo.kind) {
@@ -150,7 +183,7 @@ public final class CallHierarchyVisitor {
                     visitJavaField(chain, field.typeName, field, visitor);
                     break;
                 case LIBRARY:
-                    visitTypeReferenceField(chain, typeInfo.typeDefinitionLocation, field, visitor);
+                    visitFieldUsage(chain, typeInfo.typeDefinitionLocation, field, visitor);
                     break;
             }
             chain.remove(chain.size() - 1);
@@ -168,10 +201,10 @@ public final class CallHierarchyVisitor {
         }
     }
 
-    private void visitTypeReferenceField(List<Describable> chain,
-                                         ClassGraph.TypeDefinitionLocation typeDef,
-                                         Code.Field field,
-                                         Visitor visitor) {
+    private void visitFieldUsage(List<Describable> chain,
+                                 ClassGraph.TypeDefinitionLocation typeDef,
+                                 Code.Field field,
+                                 Visitor visitor) {
         if (classGraph.exists(field)) {
             visitor.visit(chain, field);
         } else {
@@ -184,9 +217,9 @@ public final class CallHierarchyVisitor {
                                        Definition.MethodDefinition methodDef,
                                        Visitor visitor) {
         chain.add(methodDef);
-        visitType(chain, methodDef.getReturnType(), visitedTypes, visitor);
+        visitTypeName(chain, methodDef.getReturnType(), visitedTypes, visitor, false);
         for (var parameterType : methodDef.getParameterTypes()) {
-            visitType(chain, parameterType, visitedTypes, visitor);
+            visitTypeName(chain, parameterType, visitedTypes, visitor, false);
         }
         chain.remove(chain.size() - 1);
     }
@@ -194,11 +227,14 @@ public final class CallHierarchyVisitor {
 
     private void visitMethodUsage(List<Describable> chain,
                                   Set<String> visitedTypes,
+                                  Set<Code.Method> visitedMethods,
                                   Code.Method method,
                                   Visitor visitor) {
+        if (!visitedMethods.add(method)) return;
         chain.add(method);
-        var typeOwner = visitType(chain, method.typeName, visitedTypes, visitor);
+        var typeOwner = visitTypeName(chain, method.typeName, visitedTypes, visitor, true);
         chain.remove(chain.size() - 1);
+        visitMethodDefinition(chain, visitedTypes, method.toDefinition(), visitor);
         if (typeOwner != null && typeOwner.kind == LIBRARY) {
             var codes = classGraph.findImplementation(method);
             if (codes == null) {
@@ -207,7 +243,7 @@ public final class CallHierarchyVisitor {
                 visitor.visit(chain, method);
                 if (!codes.isEmpty()) {
                     chain.add(method);
-                    visitCodes(chain, codes, visitedTypes, visitor);
+                    visitCodes(chain, codes, visitedTypes, visitedMethods, visitor);
                     chain.remove(chain.size() - 1);
                 }
             }
@@ -309,5 +345,4 @@ public final class CallHierarchyVisitor {
                             String javaTypeName,
                             Code.Field field);
     }
-
 }

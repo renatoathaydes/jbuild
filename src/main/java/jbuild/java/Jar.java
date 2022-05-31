@@ -112,19 +112,25 @@ public final class Jar {
 
         private final JBuildLog log;
         private final ExecutorService executorService;
+        private final JavapOutputParser javapOutputParser;
 
         public Loader(JBuildLog log,
-                      ExecutorService executorService) {
+                      ExecutorService executorService,
+                      JavapOutputParser javapOutputParser) {
             this.log = log;
             this.executorService = executorService;
+            this.javapOutputParser = javapOutputParser;
         }
 
         public Loader(JBuildLog log) {
-            this.log = log;
-            this.executorService = Executors.newFixedThreadPool(
+            this(log, createExecutor(), new JavapOutputParser(log));
+
+        }
+
+        public static ExecutorService createExecutor() {
+            return Executors.newFixedThreadPool(
                     Math.max(4, Runtime.getRuntime().availableProcessors()),
                     new JarLoaderThreadFactory());
-
         }
 
         public CompletionStage<Jar> lazyLoad(File jarFile) {
@@ -167,7 +173,6 @@ public final class Jar {
             var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
             log.verbosePrintln(() -> "javap " + jar + " completed in " + totalTime.get() + "ms");
             verifyToolSuccessful("javap", toolResult);
-            var javapOutputParser = new JavapOutputParser(log);
             startTime = System.currentTimeMillis();
             Map<String, TypeDefinition> typeDefs;
             try (var stdoutStream = toolResult.getStdoutLines();

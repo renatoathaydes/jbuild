@@ -34,13 +34,16 @@ import static jbuild.util.CollectionUtils.mapValues;
 public final class JarSetPermutations {
 
     private final JBuildLog log;
+    private final Jar.Loader jarLoader;
 
-    public JarSetPermutations(JBuildLog log) {
+    public JarSetPermutations(JBuildLog log,
+                              Jar.Loader jarLoader) {
         this.log = log;
+        this.jarLoader = jarLoader;
     }
 
     public static JarSetPermutations create(JBuildLog log) {
-        return new JarSetPermutations(log);
+        return new JarSetPermutations(log, new Jar.Loader(log));
     }
 
     /**
@@ -51,8 +54,6 @@ public final class JarSetPermutations {
      * @return all permutations of {@link JarSet} that are possible without internal conflicts
      */
     public CompletionStage<List<JarSet>> fromJars(File... jarFiles) {
-        var jarLoader = new Jar.Loader(log);
-
         var jarsCompletion = awaitSuccessValues(Arrays.stream(jarFiles)
                 .map(jarLoader::lazyLoad)
                 .collect(toList()));

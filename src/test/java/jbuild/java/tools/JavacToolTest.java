@@ -37,7 +37,7 @@ public class JavacToolTest {
         assertThat(expectedClassFile).isNotEmptyFile();
 
         // verify that the class file was generated as expected
-        var types = javapParse(outDir.toString(), "my.JavaClass");
+        var types = javapParse(outDir.toString(), false, "my.JavaClass");
         assertThat(types.keySet()).containsExactlyInAnyOrder("Lmy/JavaClass;");
     }
 
