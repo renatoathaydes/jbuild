@@ -49,13 +49,56 @@ public class JavapOutputParserTest {
         assertThat(result.methods.keySet())
                 .containsExactlyInAnyOrderElementsOf(Set.of(
                         new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"),
+                        new Definition.MethodDefinition("main", "([Ljava/lang/String;)V"),
                         new Definition.MethodDefinition("foo", "()Z"),
                         new Definition.MethodDefinition("aPrivateMethod", "()V"),
                         new Definition.MethodDefinition("theFloat", "(FJ)F"),
                         new Definition.MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"))).isEmpty();
+        assertThat(result.methods.get(new Definition.MethodDefinition("main", "([Ljava/lang/String;)V"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("foo", "()Z"))).isEmpty();
+        assertThat(result.methods.get(new Definition.MethodDefinition("aPrivateMethod", "()V"))).isEmpty();
+        assertThat(result.methods.get(new Definition.MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
+        assertThat(result.methods.get(new Definition.MethodDefinition("getMessage", "()Ljava/lang/String;"))).isEmpty();
+    }
+
+    @Test
+    void canParseBasicClassVerbose() {
+        var types = javapParseVerbose(myClassesJar, "Hello");
+        var result = types.get("LHello;");
+
+        assertThat(result.typeName).isEqualTo("LHello;");
+        assertThat(result.implementedInterfaces).isEmpty();
+        assertThat(result.type.getParentTypes()).isEmpty();
+
+        assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
+                new Definition.FieldDefinition("isOk", "Z"),
+                new Definition.FieldDefinition("message", "Ljava/lang/String;"),
+                new Definition.FieldDefinition("CONST", "Ljava/lang/String;"),
+                new Definition.FieldDefinition("aFloat", "F"),
+                new Definition.FieldDefinition("protectedInt", "I")
+        ));
+
+        assertThat(result.usedMethodHandles).isEmpty();
+
+        assertThat(result.methods.keySet())
+                .containsExactlyInAnyOrderElementsOf(Set.of(
+                        new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"),
+                        new Definition.MethodDefinition("main", "([Ljava/lang/String;)V"),
+                        new Definition.MethodDefinition("foo", "()Z"),
+                        new Definition.MethodDefinition("aPrivateMethod", "()V"),
+                        new Definition.MethodDefinition("theFloat", "(FJ)F"),
+                        new Definition.MethodDefinition("getMessage", "()Ljava/lang/String;")));
+
+        assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V")))
+                .isEqualTo(Set.of(new Code.Method("Ljava/lang/Object;", "\"<init>\"", "()V")));
+        assertThat(result.methods.get(new Definition.MethodDefinition("main", "([Ljava/lang/String;)V")))
+                .isEqualTo(Set.of(
+                        new Code.Field("Ljava/lang/System;", "out", "Ljava/io/PrintStream;"),
+                        new Code.Method("Ljava/io/PrintStream;", "println", "(Ljava/lang/String;)V")));
+        assertThat(result.methods.get(new Definition.MethodDefinition("foo", "()Z")))
+                .isEqualTo(Set.of(new Code.Method("LHello;", "aPrivateMethod", "()V")));
         assertThat(result.methods.get(new Definition.MethodDefinition("aPrivateMethod", "()V"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("getMessage", "()Ljava/lang/String;"))).isEmpty();
@@ -258,7 +301,7 @@ public class JavapOutputParserTest {
 
         // make sure contents of each class didn't mix up
         assertThat(hello.methods.keySet().stream().map(it -> it.name).collect(toSet()))
-                .containsExactlyInAnyOrderElementsOf(Set.of("\"<init>\"", "getMessage", "foo", "theFloat", "aPrivateMethod"));
+                .containsExactlyInAnyOrderElementsOf(Set.of("\"<init>\"", "main", "getMessage", "foo", "theFloat", "aPrivateMethod"));
         assertThat(hello.implementedInterfaces).isEmpty();
         assertThat(hello.type.getParentTypes()).isEmpty();
 
@@ -523,12 +566,21 @@ public class JavapOutputParserTest {
     }
 
     public static Map<String, TypeDefinition> javapParse(File classpath, String... classNames) {
-        return javapParse(classpath.getPath(), classNames);
+        return javapParse(classpath.getPath(), false, classNames);
     }
 
-    public static Map<String, TypeDefinition> javapParse(String classpath, String... classNames) {
+    public static Map<String, TypeDefinition> javapParseVerbose(File classpath, String... classNames) {
+        return javapParse(classpath.getPath(), true, classNames);
+    }
+
+    public static Map<String, TypeDefinition> javapParse(String classpath,
+                                                         boolean verbose,
+                                                         String... classNames) {
         var out = new ByteArrayOutputStream();
-        var parser = new JavapOutputParser(new JBuildLog(new PrintStream(out), false));
+        var parser = new JavapOutputParser(
+                new JBuildLog(new PrintStream(out), false),
+                new JavaTypeParser(false),
+                verbose);
         return parser.processJavapOutput(javap(classpath, classNames));
     }
 

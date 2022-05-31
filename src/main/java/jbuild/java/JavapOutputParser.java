@@ -38,15 +38,18 @@ public final class JavapOutputParser {
 
     private final JBuildLog log;
     private final JavaTypeParser typeParser;
+    private final boolean includeJavaAndPrivateCalls;
 
     public JavapOutputParser(JBuildLog log) {
-        this(log, new JavaTypeParser(false));
+        this(log, new JavaTypeParser(false), false);
     }
 
     public JavapOutputParser(JBuildLog log,
-                             JavaTypeParser typeParser) {
+                             JavaTypeParser typeParser,
+                             boolean includeJavaAndPrivateCalls) {
         this.log = log;
         this.typeParser = typeParser;
+        this.includeJavaAndPrivateCalls = includeJavaAndPrivateCalls;
     }
 
     /**
@@ -226,7 +229,7 @@ public final class JavapOutputParser {
             if (match.matches()) {
                 var jvmInstruction = match.group(1);
                 var parts = match.group(2).split("\\s");
-                var code = handleCommentParts(jvmInstruction, parts, typeName);
+                var code = handleCommentParts(jvmInstruction, parts, typeName, line);
                 if (code != null) codes.add(code);
             }
         }
@@ -285,18 +288,17 @@ public final class JavapOutputParser {
         return methods;
     }
 
-    private Code handleCommentParts(String jvmInstruction, String[] parts, String typeName) {
+    private Code handleCommentParts(String jvmInstruction, String[] parts, String typeName, String line) {
         if (parts.length == 2) {
             switch (parts[0]) {
                 case "String":
                     break;
                 case "Method":
                     // jvmInstruction: invokespecial|invokestatic|invokevirtual|invokeinterface
-                case "InvokeDynamic":
                 case "InterfaceMethod":
-                    // only look at method calls that have a receiver (i.e. not this)
-                    if (parts[1].contains(".")) return parseMethod(parts[1], typeName,
-                            methodInstruction(jvmInstruction));
+                    if (shouldParseMethodCall(parts)) return parseMethod(
+                            parts[1], typeName,
+                            methodInstruction(jvmInstruction), line);
                     break;
                 case "class":
                     // jvmInstruction: checkcast|ldc|new
@@ -333,21 +335,30 @@ public final class JavapOutputParser {
 
     private Code.Method parseMethod(String method,
                                     String typeName,
-                                    Code.Method.Instruction instruction) {
+                                    Code.Method.Instruction instruction,
+                                    String line) {
         var parts1 = method.split("\\.", 2);
-        if (parts1.length != 2) {
+        var receiverIsThisType = parts1.length == 1;
+        String type, methodPart;
+        if (receiverIsThisType) {
+            type = typeName;
+            methodPart = parts1[0];
+        } else if (parts1.length != 2) {
             log.println(() -> "WARNING: unexpected javap method line, expected a '.' " +
-                    "after the name: '" + method + "'");
+                    "after the name: '" + method + "'" + "\nLine: " + line);
             return null;
+        } else {
+            type = classNameToTypeName(parts1[0]);
+            methodPart = parts1[1];
         }
-        var parts2 = parts1[1].split(":");
+        var parts2 = methodPart.split(":");
         if (parts2.length != 2) {
             log.println(() -> "WARNING: unexpected javap method line, expected a ':' " +
-                    "between name and type signature: '" + method + "'");
+                    "between name and type signature: '" + method + "'" + "\nLine: " + line);
             return null;
         }
-        var type = classNameToTypeName(parts1[0]);
-        if (shouldIgnoreClass(type, typeName)) return null;
+
+        if (!receiverIsThisType && shouldIgnoreClass(type, typeName)) return null;
         return new Code.Method(type, parts2[0], parts2[1], instruction);
     }
 
@@ -423,9 +434,17 @@ public final class JavapOutputParser {
      * @param className name of the current class being parsed
      * @return true if this type should be ignored for the purposes of this library, false otherwise
      */
-    private static boolean shouldIgnoreClass(String type, String className) {
+    private boolean shouldIgnoreClass(String type, String className) {
+        if (includeJavaAndPrivateCalls) return false;
         type = cleanArrayTypeName(type);
         return mayBeJavaStdLibType(type) || type.equals(className);
+    }
+
+    private boolean shouldParseMethodCall(String[] parts) {
+        if (includeJavaAndPrivateCalls) return true;
+
+        // only look at method calls that have a receiver (i.e. not this)
+        return parts[1].contains(".");
     }
 
     private static String methodOrConstructorName(String typeName, String methodName) {
