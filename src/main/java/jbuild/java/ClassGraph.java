@@ -99,7 +99,7 @@ public final class ClassGraph {
         var typeDef = findTypeDefinition(typeName);
         if (typeDef == null) {
             var javaType = getJavaType(typeName);
-            if (javaType != null && javaMethodExists(javaType, method)) {
+            if (javaType != null && javaMethodExists(javaType, method, isVirtualCall)) {
                 return Collections.emptySet();
             }
             return null;
@@ -155,8 +155,7 @@ public final class ClassGraph {
         if (found) return true;
 
         for (var parentType : typeDef.type.getParentTypes()) {
-            typeName = parentType.name;
-            if (exists(typeName, definition)) return true;
+            if (exists(parentType.name, definition)) return true;
         }
         return false;
     }
@@ -185,7 +184,7 @@ public final class ClassGraph {
         if (typeName.startsWith("\"[")) return existsJavaArray(definition);
         var type = getJavaType(typeName);
         if (type == null) return false;
-        return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m));
+        return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m, false));
     }
 
     private boolean existsJavaArray(Definition definition) {
@@ -216,12 +215,14 @@ public final class ClassGraph {
         return false;
     }
 
-    private static boolean javaMethodExists(Class<?> type, Definition.MethodDefinition method) {
-        if (method.name.equals("\"<init>\"")) {
+    private static boolean javaMethodExists(Class<?> type,
+                                            Definition.MethodDefinition method,
+                                            boolean isVirtualCall) {
+        if (!isVirtualCall && method.name.equals("\"<init>\"")) {
             return javaConstructorExists(type, method.type);
         }
 
-        for (var javaMethod : type.getMethods()) {
+        for (var javaMethod : isVirtualCall ? type.getMethods() : type.getDeclaredMethods()) {
             if (javaMethod.getName().equals(method.name)) {
                 var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
                 if (methodType.equals(method.type)) {
@@ -248,16 +249,17 @@ public final class ClassGraph {
     public static final class TypeDefinitionLocation implements Describable {
         public final TypeDefinition typeDefinition;
         public final File jar;
+        public final String className;
 
         public TypeDefinitionLocation(TypeDefinition typeDefinition, File jar) {
             this.typeDefinition = typeDefinition;
             this.jar = jar;
+            this.className = typeNameToClassName(typeDefinition.typeName);
         }
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(jar.getName()).append('!')
-                    .append(typeNameToClassName(typeDefinition.typeName));
+            builder.append(jar.getName()).append('!').append(className);
         }
     }
 

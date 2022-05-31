@@ -1,5 +1,6 @@
 package jbuild.java;
 
+import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.AfterAll;
@@ -14,6 +15,9 @@ import java.util.concurrent.TimeUnit;
 
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
+import static jbuild.java.code.Code.Method.Instruction.invokestatic;
+import static jbuild.java.code.Code.Method.Instruction.invokevirtual;
+import static jbuild.java.code.Code.Method.Instruction.other;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
@@ -56,6 +60,43 @@ public class ClassGraphTest {
         assertThat(classGraph.exists("Lfoo/Bar;",
                 new Definition.MethodDefinition("not", "()V"))
         ).isFalse();
+    }
+
+    @Test
+    void testVirtualMethodInvocationCanBeFound() {
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Lfoo/SomethingSpecific;", "some", "()Ljava/lang/String;", invokevirtual))
+        ).isNotNull();
+        // non-invokevirtual call shouldn't be found
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Lfoo/SomethingSpecific;", "some", "()Ljava/lang/String;", invokestatic))
+        ).isNull();
+    }
+
+    @Test
+    void testJavaVirtualMethodInvocationCanBeFound() {
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Ljava/util/HashMap;", "equals", "(Ljava/lang/Object;)Z", invokevirtual))
+        ).isNotNull().isEmpty();
+        // non-invokevirtual call shouldn't be found
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Ljava/util/HashMap;", "equals", "(Ljava/lang/Object;)Z", invokestatic))
+        ).isNull();
+    }
+
+    @Test
+    void testJavaConstructorExists() {
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Ljava/util/HashMap;", "\"<init>\"", "(I)V", other))
+        ).isNotNull().isEmpty();
+        // constructor cannot be invoked with invokevirtual
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Ljava/util/HashMap;", "\"<init>\"", "(I)V", invokevirtual))
+        ).isNull();
+        // constructor just doesn't exist
+        assertThat(classGraph.findImplementation(
+                new Code.Method("Ljava/util/HashMap;", "\"<init>\"", "(F)V", other))
+        ).isNull();
     }
 
     @Test
@@ -115,6 +156,7 @@ public class ClassGraphTest {
                 "[[Lcom/sun/crypto/provider/SunJCE;");
         for (String example : examples) {
             assertThat(classGraph.existsJava(example)).withFailMessage(example + " should exist").isTrue();
+            assertThat(classGraph.exists(example)).withFailMessage(example + " should exist").isTrue();
         }
     }
 

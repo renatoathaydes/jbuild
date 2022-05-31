@@ -249,7 +249,27 @@ public final class JavaTypeUtils {
      */
     public static String toTypeDescriptor(Class<?> type) {
         var name = type.getName();
-        if (name.equals("void")) return "V";
+        switch (name) {
+            case "byte":
+                return "B";
+            case "char":
+                return "C";
+            case "double":
+                return "D";
+            case "float":
+                return "F";
+            case "int":
+                return "I";
+            case "long":
+                return "J";
+            case "short":
+                return "S";
+            case "boolean":
+                return "Z";
+            case "void":
+                return "V";
+        }
+
         return classNameToTypeName(type.getName());
     }
 
