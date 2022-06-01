@@ -1,0 +1,36 @@
+version: '3'
+
+# https://taskfile.dev/
+
+vars:
+  JAVA_SRC: src/main/java
+  CLASSES: out/classes
+  JAR: out/jbuild.jar
+
+tasks:
+  clean:
+    ignore_error: true
+    cmds:
+      - rm -rf out
+
+  compile:
+    cmds:
+      - javac -cp "{{.JAVA_SRC}}" -d "{{.CLASSES}}" $(find "{{.JAVA_SRC}}" -name "*.java")
+    sources:
+      - "{{.JAVA_SRC}}/**/*.java"
+    generates:
+      - "{{.CLASSES}}/**/*.class"
+
+  jar:
+    deps: [ compile ]
+    cmds:
+      - jar -c -f "{{.JAR}}" -e jbuild.cli.Main -C "{{.CLASSES}}" .
+    sources:
+      - "{{.CLASSES}}/**/*.class"
+    generates:
+      - "{{.JAR}}"
+
+  run:
+    deps: [ jar ]
+    cmds:
+      - java -jar "{{.JAR}}" {{.CLI_ARGS}}
