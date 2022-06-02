@@ -225,7 +225,7 @@ public class DoctorCommandExecutorBasicTest {
             var main = "app.jar!app.App -> main(java.lang.String)::void -> ";
 
             assertThat(result.get(0).getErrors()).isPresent()
-                    .get().extracting(e -> e.stream().map(ClassPathInconsistency::referenceChain).collect(toSet()))
+                    .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))
                     .isEqualTo(Set.of(
                             main + "user.MessageUser#\"<init>\"()::void",
                             main + "user.MessageUser#getMessage()::java.lang.String " +
@@ -250,10 +250,10 @@ public class DoctorCommandExecutorBasicTest {
         if (inconsistencies == null) return "Optional.empty()";
         var result = "";
         for (var error : inconsistencies) {
-            result = "\n" + error.referenceChain() +
-                    "\nJarFrom=" + (error.jarFrom() == null ? "null" : error.jarFrom().getName()) +
-                    "\nTo=" + error.to() +
-                    "\nJarTo=" + (error.jarTo() == null ? "null" : error.jarTo().getName());
+            result = "\n" + error.referenceChain +
+                    "\nJarFrom=" + (error.jarFrom == null ? "null" : error.jarFrom.getName()) +
+                    "\nTo=" + error.to +
+                    "\nJarTo=" + (error.jarTo == null ? "null" : error.jarTo.getName());
         }
         return result;
     }

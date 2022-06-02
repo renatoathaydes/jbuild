@@ -113,17 +113,15 @@ public final class DoctorCommandExecutor {
             return awaitValues(checkResults).thenApplyAsync(results -> {
                 var bad = results.stream().map(e -> e.map(l -> null, r -> r))
                         .filter(Objects::nonNull)
-                        .toList();
+                        .collect(toList());
 
                 if (!bad.isEmpty()) {
                     throw new RuntimeException("ERRORS:" + bad, bad.get(0));
                 }
 
-                var good = results.stream().map(e -> e.map(l -> l, r -> null))
+                return results.stream().map(e -> e.map(l -> l, r -> null))
                         .filter(Objects::nonNull)
-                        .toList();
-
-                return good;
+                        .collect(toList());
             });
         });
     }
@@ -332,9 +330,16 @@ public final class DoctorCommandExecutor {
         }
     }
 
-    private record ConsistencyCheckResult(
-            NonEmptyCollection<ClassPathInconsistency> inconsistencies,
-            Set<File> jars) {
+    private static final class ConsistencyCheckResult {
+
+        public final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
+        public final Set<File> jars;
+
+        ConsistencyCheckResult(NonEmptyCollection<ClassPathInconsistency> inconsistencies,
+                               Set<File> jars) {
+            this.inconsistencies = inconsistencies;
+            this.jars = jars;
+        }
 
         static ConsistencyCheckResult success(Set<File> jars) {
             assert jars != null;
@@ -351,11 +356,48 @@ public final class DoctorCommandExecutor {
         }
     }
 
-    public record ClassPathInconsistency(
-            String referenceChain,
-            Describable to,
-            File jarFrom,
-            File jarTo) {
+    public static final class ClassPathInconsistency {
+
+        public final String referenceChain;
+        public final Describable to;
+        public final File jarFrom;
+        public final File jarTo;
+
+        public ClassPathInconsistency(
+                String referenceChain,
+                Describable to,
+                File jarFrom,
+                File jarTo) {
+            this.referenceChain = referenceChain;
+            this.to = to;
+            this.jarFrom = jarFrom;
+            this.jarTo = jarTo;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (ClassPathInconsistency) obj;
+            return Objects.equals(this.referenceChain, that.referenceChain) &&
+                    Objects.equals(this.to, that.to) &&
+                    Objects.equals(this.jarFrom, that.jarFrom) &&
+                    Objects.equals(this.jarTo, that.jarTo);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(referenceChain, to, jarFrom, jarTo);
+        }
+
+        @Override
+        public String toString() {
+            return "ClassPathInconsistency[" +
+                    "referenceChain=" + referenceChain + ", " +
+                    "to=" + to + ", " +
+                    "jarFrom=" + jarFrom + ", " +
+                    "jarTo=" + jarTo + ']';
+        }
 
     }
 
