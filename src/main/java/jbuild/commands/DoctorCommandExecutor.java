@@ -3,56 +3,37 @@ package jbuild.commands;
 import jbuild.errors.JBuildException;
 import jbuild.java.CallHierarchyVisitor;
 import jbuild.java.ClassGraph;
-import jbuild.java.Jar;
 import jbuild.java.JarSet;
 import jbuild.java.JarSetPermutations;
-import jbuild.java.TypeReference;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
 import jbuild.util.JarFileFilter;
-import jbuild.util.NoOp;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static java.util.concurrent.CompletableFuture.completedStage;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.commands.InteractivityHelper.askYesOrNoQuestion;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
-import static jbuild.util.AsyncUtils.awaitSuccessValues;
+import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.TextUtils.LINE_END;
 
@@ -83,7 +64,7 @@ public final class DoctorCommandExecutor {
         return results.thenApply(this::showClasspathCheckResults);
     }
 
-    public CompletionStage<List<ClasspathCheckResult>> findValidClasspaths(
+    public CompletionStage<? extends Collection<ClasspathCheckResult>> findValidClasspaths(
             File inputDir,
             boolean interactive,
             List<File> entryPoints,
@@ -117,65 +98,34 @@ public final class DoctorCommandExecutor {
                 throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
             }
 
-            var nonEmptyJarSets = NonEmptyCollection.of(jarSets);
+            var checkResults = jarSets.stream().map(jarSet -> jarSet.toClassGraph().thenApplyAsync(classGraph -> {
+                        var callHVisitor = new CallHierarchyVisitor(classGraph, typeExclusions, Set.of());
+                        var docVisitor = new DoctorVisitor(log);
+                        callHVisitor.visit(entryJars, docVisitor);
+                        if (docVisitor.inconsistencies.isEmpty()) {
+                            log.verbosePrintln(() -> "Visited: " + docVisitor.visitedJars);
+                            return ConsistencyCheckResult.success(docVisitor.visitedJars);
+                        }
+                        return ConsistencyCheckResult.failure(NonEmptyCollection.of(docVisitor.inconsistencies));
+                    }).thenApplyAsync(results -> ClasspathCheckResult.of(results, jarSet)))
+                    .collect(toList());
 
-            // all jarSets contain the entry point jars, so we peek them from the first available one
-            var entryPointJars = nonEmptyJarSets.first.getJars(entryJars);
+            return awaitValues(checkResults).thenApplyAsync(results -> {
+                var bad = results.stream().map(e -> e.map(l -> null, r -> r))
+                        .filter(Objects::nonNull)
+                        .toList();
 
-            return computeEntryPointsTypeRequirements(entryPointJars, typeExclusions)
-                    .thenApplyAsync(typeRequirements ->
-                            findTypeCompleteClasspaths(interactive, nonEmptyJarSets, typeRequirements))
-                    .thenComposeAsync((goodJarSets) ->
-                            findValidClasspaths(goodJarSets, entryJars, interactive, typeExclusions));
-        });
-    }
-
-    private Collection<JarSet> findTypeCompleteClasspaths(boolean interactive,
-                                                          NonEmptyCollection<JarSet> jarSets,
-                                                          List<TypeReference> typeRequirements) {
-        log.verbosePrintln(() -> "Entry-points required types: " +
-                typeRequirements.stream().map(ref -> ref.typeTo).collect(toSet()));
-
-        var filteredJarSets = jarSets.stream()
-                .map(jarSet -> jarSet.checkReferencesExist(typeRequirements)
-                        .mapRight(err -> new AbstractMap.SimpleEntry<>(jarSet, err)))
-                .collect(toList());
-
-        var badResults = filteredJarSets.stream()
-                .map(res -> res.map(NoOp.fun(), Function.identity()))
-                .filter(Objects::nonNull)
-                .collect(toList());
-
-        var goodResults = filteredJarSets.stream()
-                .map(res -> res.map(Function.identity(), NoOp.fun()))
-                .filter(Objects::nonNull)
-                .collect(toList());
-
-        if (log.isVerbose() && !goodResults.isEmpty()) {
-            if (badResults.isEmpty()) {
-                log.verbosePrintln("All " + goodResults.size() + " classpath(s) contain the types " +
-                        "required by the entry-points");
-            } else {
-                log.verbosePrintln("Eliminated " + badResults.size() + " classpath(s) " +
-                        "due to missing types required by the entry-points, " +
-                        "but found " + goodResults.size() + " that can provide the required types");
-            }
-        }
-        if (goodResults.isEmpty()) {
-            if (interactive) {
-                var answer = askYesOrNoQuestion("Failed to find any classpath that can provide " +
-                        "all required types. Do you want to see the problems for each " +
-                        "attempted classpath");
-                if (answer) {
-                    showErrors(badResults, true);
+                if (!bad.isEmpty()) {
+                    throw new RuntimeException("ERRORS:" + bad, bad.get(0));
                 }
-            } else {
-                showErrors(badResults, log.isVerbose());
-            }
-            throw new JBuildException("None of the classpaths could provide all types required by the " +
-                    "entry-points. See log above for details.", ACTION_ERROR);
-        }
-        return goodResults;
+
+                var good = results.stream().map(e -> e.map(l -> l, r -> null))
+                        .filter(Objects::nonNull)
+                        .toList();
+
+                return good;
+            });
+        });
     }
 
     private List<JarSet> eliminateJarSetsMissingEntrypoints(Set<File> entryJars, List<JarSet> jarSets) {
@@ -190,149 +140,6 @@ public final class DoctorCommandExecutor {
                 }).collect(toList());
     }
 
-    private void showErrors(List<AbstractMap.SimpleEntry<JarSet, NonEmptyCollection<TypeReference>>> badResults,
-                            boolean verbose) {
-        var limit = verbose ? Integer.MAX_VALUE : 5;
-        badResults.stream().limit(limit).forEach((badResult) -> {
-            var errors = badResult.getValue().stream()
-                    .collect(toCollection(TreeSet::new));
-            log.println(() -> "Found " + errors.size() + " missing type reference" +
-                    (errors.size() == 1 ? "" : "s") +
-                    " in classpath: " + badResult.getKey().toClasspath());
-            errors.stream().limit(limit).forEach(err ->
-                    log.println(() -> "  * " + err.getDescription()));
-            if (errors.size() > limit) {
-                log.println("  ...");
-            }
-        });
-    }
-
-    private CompletionStage<List<TypeReference>> computeEntryPointsTypeRequirements(
-            Set<Jar> entryPointJars,
-            Set<Pattern> typeExclusions) {
-        // ensure the entry points have been parsed so we can check if all their type requirements can be fulfilled
-        var entryPoints = awaitSuccessValues(entryPointJars.stream()
-                .map(Jar::parsed)
-                .collect(toList()));
-
-        return entryPoints.thenApplyAsync((jars) -> {
-            var requiredTypes = new ArrayList<TypeReference>(512);
-            for (var entryPoint : jars) {
-                entryPoint.collectTypesReferredToInto(requiredTypes, typeExclusions);
-            }
-            return requiredTypes;
-        });
-    }
-
-    private CompletionStage<List<ClasspathCheckResult>> findValidClasspaths(
-            Collection<JarSet> jarSets,
-            Set<File> entryJars,
-            boolean interactive,
-            Set<Pattern> typeExclusions) {
-        if (jarSets.size() == 1) {
-            log.println("Found a single classpath permutation, checking its consistency.");
-        } else {
-            log.println(() -> "Detected conflicts in classpath, resulting in " + jarSets.size() +
-                    " possible classpath permutations. Trying to find a consistent permutation.");
-        }
-
-        var abort = new AtomicBoolean(false);
-        var errorCount = new AtomicInteger(0);
-        var badJarPairs = ConcurrentHashMap.<Map.Entry<File, File>>newKeySet(8);
-
-        return new LimitedConcurrencyAsyncCompleter(interactive ? 1 : Runtime.getRuntime().availableProcessors(),
-                jarSets.stream()
-                        .map(c -> checkClasspath(c, entryJars, typeExclusions, abort, interactive, errorCount, badJarPairs))
-                        .collect(toList())
-        ).toList();
-    }
-
-    private Supplier<CompletionStage<ClasspathCheckResult>> checkClasspath(
-            JarSet jarSet,
-            Set<File> entryJars,
-            Set<Pattern> typeExclusions,
-            AtomicBoolean abort,
-            boolean interactive,
-            AtomicInteger errorCount,
-            Set<Map.Entry<File, File>> badJarPairs) {
-        return () -> {
-            boolean skip = false, isInconsistent = false;
-            if (abort.get()) {
-                log.verbosePrintln(() -> "Aborting check of classpath: " + jarSet.toClasspath());
-                skip = true;
-            } else {
-                isInconsistent = jarSet.containsAny(badJarPairs);
-                if (isInconsistent) skip = true;
-            }
-
-            if (interactive && !skip) {
-                log.println("Next classpath:" + LINE_END + jarSet.toClasspath());
-                var keepGoing = askYesOrNoQuestion("Do you want to check this classpath");
-                if (!keepGoing) {
-                    abort.set(true);
-                    skip = true;
-                }
-            }
-
-            if (skip) {
-                if (isInconsistent) {
-                    var badClasspaths = errorCount.incrementAndGet();
-                    log.println(() -> badClasspaths + " inconsistent classpath" +
-                            (badClasspaths == 1 ? "" : "s") + " checked so far... " +
-                            "latest classpath contained known incompatible jars: " + badJarPairs.stream()
-                            .map(pair -> pair.getKey().getName() + " ✗ " + pair.getValue().getName())
-                            .collect(joining(" | ")));
-                }
-                return completedStage(new ClasspathCheckResult(jarSet, true, null));
-            }
-
-            log.verbosePrintln(() -> "Checking classpath: " + jarSet.toClasspath());
-
-            return jarSet.toClassGraph().thenApply(graph -> {
-                var result = checkClasspathConsistency(graph, entryJars, typeExclusions);
-                if (result.isOk()) {
-                    abort.set(true); // success found!
-                    return new ClasspathCheckResult(jarSet.filterFiles(result.jars), false, null);
-                }
-                for (var classPathInconsistency : result.inconsistencies) {
-                    if (classPathInconsistency.jarFrom != null && classPathInconsistency.jarTo != null) {
-                        badJarPairs.add(new AbstractMap.SimpleEntry<>(
-                                classPathInconsistency.jarFrom, classPathInconsistency.jarTo));
-                    }
-                }
-                if (interactive) {
-                    log.println("Classpath is inconsistent!");
-                }
-                var badClasspaths = errorCount.incrementAndGet();
-                log.println(() -> badClasspaths + " inconsistent classpath" +
-                        (badClasspaths == 1 ? "" : "s") + " checked so far.");
-                return new ClasspathCheckResult(jarSet, false, result.inconsistencies);
-            });
-        };
-    }
-
-    private ConsistencyCheckResult checkClasspathConsistency(
-            ClassGraph classGraph,
-            Set<File> entryJars,
-            Set<Pattern> typeExclusions) {
-        var usedJars = new HashSet<File>(classGraph.getJarByType().size());
-        usedJars.addAll(entryJars);
-
-        var callHierarchyVisitor = new CallHierarchyVisitor(classGraph, typeExclusions);
-        var visitor = new DoctorVisitor(log);
-
-        var startTime = System.currentTimeMillis();
-        callHierarchyVisitor.visit(entryJars, visitor);
-        log.verbosePrintln(() -> "Checked classpath requirements in " +
-                (System.currentTimeMillis() - startTime) + " ms, ok? " +
-                visitor.inconsistencies.isEmpty());
-
-        usedJars.addAll(visitor.visitedJars);
-
-        if (visitor.inconsistencies.isEmpty()) return ConsistencyCheckResult.success(usedJars);
-
-        return ConsistencyCheckResult.failure(NonEmptyCollection.of(visitor.inconsistencies));
-    }
 
     private Void showClasspathCheckResults(Collection<ClasspathCheckResult> results) {
         var success = results.stream()
@@ -429,6 +236,12 @@ public final class DoctorCommandExecutor {
             successful = !aborted && errors == null;
         }
 
+        public static ClasspathCheckResult of(ConsistencyCheckResult result, JarSet jarSet) {
+            var jars = result.isOk() ? jarSet.filterFiles(result.jars) : jarSet;
+            var errors = result.isOk() ? null : result.inconsistencies;
+            return new ClasspathCheckResult(jars, false, errors);
+        }
+
         public Optional<NonEmptyCollection<ClassPathInconsistency>> getErrors() {
             return Optional.ofNullable(errors);
         }
@@ -450,8 +263,15 @@ public final class DoctorCommandExecutor {
         final List<ClassPathInconsistency> inconsistencies = new ArrayList<>();
         final Set<File> visitedJars = new HashSet<>();
 
+        private File currentJar;
+
         public DoctorVisitor(JBuildLog log) {
             this.log = log;
+        }
+
+        @Override
+        public void startJar(File jar) {
+            currentJar = jar;
         }
 
         @Override
@@ -475,27 +295,25 @@ public final class DoctorCommandExecutor {
         public void onMissingType(List<Describable> referenceChain, String typeName) {
             inconsistencies.add(new ClassPathInconsistency(
                     describeChain(referenceChain),
-                    new Code.Type(typeName), null, null));
+                    new Code.Type(typeName), currentJar, null));
         }
 
         @Override
         public void onMissingMethod(List<Describable> referenceChain,
                                     ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
                                     Code.Method method) {
-            var jarFrom = findJarFrom(referenceChain);
             inconsistencies.add(new ClassPathInconsistency(
                     describeChain(referenceChain),
-                    method, jarFrom, typeDefinitionLocation.jar));
+                    method, currentJar, typeDefinitionLocation.jar));
         }
 
         @Override
         public void onMissingField(List<Describable> referenceChain,
                                    ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
                                    Code.Field field) {
-            var jarFrom = findJarFrom(referenceChain);
             inconsistencies.add(new ClassPathInconsistency(
                     describeChain(referenceChain),
-                    field, jarFrom, typeDefinitionLocation.jar));
+                    field, currentJar, typeDefinitionLocation.jar));
         }
 
         @Override
@@ -512,19 +330,11 @@ public final class DoctorCommandExecutor {
                     referenceChain.stream().map(Describable::getDescription)
                             .collect(joining(" -> ", "", ""));
         }
-
-        private static File findJarFrom(List<Describable> referenceChain) {
-            return referenceChain.stream()
-                    .filter(it -> it instanceof ClassGraph.TypeDefinitionLocation)
-                    .findFirst()
-                    .map(it -> ((ClassGraph.TypeDefinitionLocation) it).jar)
-                    .orElse(null);
-        }
     }
 
-    private static final class ConsistencyCheckResult {
-        final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
-        final Set<File> jars;
+    private record ConsistencyCheckResult(
+            NonEmptyCollection<ClassPathInconsistency> inconsistencies,
+            Set<File> jars) {
 
         static ConsistencyCheckResult success(Set<File> jars) {
             assert jars != null;
@@ -536,99 +346,17 @@ public final class DoctorCommandExecutor {
             return new ConsistencyCheckResult(inconsistencies, null);
         }
 
-        private ConsistencyCheckResult(NonEmptyCollection<ClassPathInconsistency> inconsistencies,
-                                       Set<File> jars) {
-            this.inconsistencies = inconsistencies;
-            this.jars = jars;
-        }
-
         boolean isOk() {
             return inconsistencies == null;
         }
     }
 
-    public static final class ClassPathInconsistency {
-
-        public final String referenceChain;
-        public final Describable to;
-        public final File jarFrom;
-        public final File jarTo;
-
-        public ClassPathInconsistency(String referenceChain,
-                                      Describable to,
-                                      File jarFrom,
-                                      File jarTo) {
-            this.referenceChain = referenceChain;
-            this.to = to;
-            this.jarFrom = jarFrom;
-            this.jarTo = jarTo;
-        }
-
-        @Override
-        public String toString() {
-            return "ClassPathInconsistency{" +
-                    "to='" + to + '\'' +
-                    ", jarFrom=" + jarFrom +
-                    ", jarTo=" + jarTo +
-                    ", chain=" + referenceChain +
-                    '}';
-        }
-    }
-
-    private static final class LimitedConcurrencyAsyncCompleter {
-
-        private final int maxConcurrentCompletions;
-        private final int totalCompletions;
-        private final Deque<Supplier<CompletionStage<ClasspathCheckResult>>> completions;
-        private final List<ClasspathCheckResult> results;
-        private final CompletableFuture<List<ClasspathCheckResult>> futureResult;
-
-        public LimitedConcurrencyAsyncCompleter(int maxConcurrentCompletions,
-                                                List<Supplier<CompletionStage<ClasspathCheckResult>>> completions) {
-            this.maxConcurrentCompletions = maxConcurrentCompletions;
-            this.totalCompletions = completions.size();
-            this.completions = new ConcurrentLinkedDeque<>(completions);
-            this.results = new ArrayList<>(completions.size());
-            this.futureResult = new CompletableFuture<>();
-        }
-
-        public CompletionStage<List<ClasspathCheckResult>> toList() {
-            var aborted = new AtomicBoolean(false);
-            for (var i = 0; i < maxConcurrentCompletions; i++) {
-                var nextStage = completions.poll();
-                if (nextStage == null) break;
-                runAsync(() -> next(aborted, nextStage));
-            }
-            return futureResult;
-        }
-
-        private void next(AtomicBoolean aborted,
-                          Supplier<CompletionStage<ClasspathCheckResult>> stageSupplier) {
-            BiConsumer<ClasspathCheckResult, Throwable> onDone = (ok, err) -> {
-                if (aborted.get()) return;
-                synchronized (results) {
-                    if (err == null) {
-                        results.add(ok);
-                    } else {
-                        aborted.set(true);
-                        futureResult.completeExceptionally(err);
-                        return;
-                    }
-                }
-                if (results.size() == totalCompletions) {
-                    futureResult.complete(results);
-                } else {
-                    var nextStage = completions.poll();
-                    if (nextStage != null) next(aborted, nextStage);
-                }
-            };
-
-            try {
-                stageSupplier.get().whenComplete(onDone);
-            } catch (Throwable e) {
-                onDone.accept(null, e);
-            }
-        }
+    public record ClassPathInconsistency(
+            String referenceChain,
+            Describable to,
+            File jarFrom,
+            File jarTo) {
 
     }
+
 }

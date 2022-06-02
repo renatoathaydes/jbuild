@@ -8,7 +8,6 @@ import jbuild.util.CachedSupplier;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -18,7 +17,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
@@ -96,13 +94,6 @@ public final class Jar {
         public Set<String> getTypes() {
             return typeByName.keySet();
         }
-
-        public void collectTypesReferredToInto(List<TypeReference> requiredTypes, Set<Pattern> typeExclusions) {
-
-            var collector = new TypeReference.Collector(this, requiredTypes, typeExclusions);
-            collector.collect();
-        }
-
     }
 
     /**
@@ -112,19 +103,15 @@ public final class Jar {
 
         private final JBuildLog log;
         private final ExecutorService executorService;
-        private final JavapOutputParser javapOutputParser;
 
         public Loader(JBuildLog log,
-                      ExecutorService executorService,
-                      JavapOutputParser javapOutputParser) {
+                      ExecutorService executorService) {
             this.log = log;
             this.executorService = executorService;
-            this.javapOutputParser = javapOutputParser;
         }
 
         public Loader(JBuildLog log) {
-            this(log, createExecutor(), new JavapOutputParser(log));
-
+            this(log, createExecutor());
         }
 
         public static ExecutorService createExecutor() {
@@ -173,6 +160,7 @@ public final class Jar {
             var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
             log.verbosePrintln(() -> "javap " + jar + " completed in " + totalTime.get() + "ms");
             verifyToolSuccessful("javap", toolResult);
+            var javapOutputParser = new JavapOutputParser(log);
             startTime = System.currentTimeMillis();
             Map<String, TypeDefinition> typeDefs;
             try (var stdoutStream = toolResult.getStdoutLines();

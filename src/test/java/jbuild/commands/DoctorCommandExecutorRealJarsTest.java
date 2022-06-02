@@ -14,6 +14,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.TestSystemProperties.myClassesJar;
@@ -36,10 +38,10 @@ public class DoctorCommandExecutorRealJarsTest {
     @Test
     void shouldFindNoErrorsWhenTwoJarsAreAvailableButEntryPointDoesNotRequireTheOtherJar() {
         withErrorReporting((command) -> {
-            var results = command.findValidClasspaths(testJarsDir,
+            var results = new ArrayList<>(command.findValidClasspaths(testJarsDir,
                             false, List.of(myClassesJar), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
 
             assertThat(results.size()).isEqualTo(1);
 
@@ -59,10 +61,10 @@ public class DoctorCommandExecutorRealJarsTest {
     @Test
     void shouldFindNoErrorsWhenTwoJarsAreAvailableAndEntryPointRequiresTheOtherJar() {
         withErrorReporting((command) -> {
-            var results = command.findValidClasspaths(testJarsDir,
+            var results = new ArrayList<>(command.findValidClasspaths(testJarsDir,
                             false, List.of(otherClassesJar), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
 
             assertThat(results.size()).isEqualTo(1);
 
@@ -94,10 +96,10 @@ public class DoctorCommandExecutorRealJarsTest {
         Files.copy(otherClassesJar.toPath(), otherClassesJarCopy2);
 
         withErrorReporting((command) -> {
-            var results = command.findValidClasspaths(classpathDir.toFile(),
+            var results = new ArrayList<>(command.findValidClasspaths(classpathDir.toFile(),
                             false, List.of(otherClassesJarCopy.toFile()), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
 
             assertThat(results.size()).isEqualTo(1);
 
@@ -206,7 +208,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
     static void withErrorReporting(ThrowingConsumer<DoctorCommandExecutor> test) {
         var stdout = new ByteArrayOutputStream();
-        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout), true));
+        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout, true, ISO_8859_1), true));
         try {
             test.accept(command);
         } catch (Throwable t) {
@@ -220,7 +222,7 @@ public class DoctorCommandExecutorRealJarsTest {
             ThrowingConsumer<DoctorCommandExecutor> test,
             BiConsumer<Supplier<String>, AbstractThrowableAssert<?, ? extends Throwable>> assertError) {
         var stdout = new ByteArrayOutputStream();
-        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout), verbose));
+        var command = new DoctorCommandExecutor(new JBuildLog(new PrintStream(stdout, true, UTF_8), verbose));
         assertError.accept(() -> stdout.toString(UTF_8),
                 assertThatThrownBy(() -> {
                     test.accept(command);

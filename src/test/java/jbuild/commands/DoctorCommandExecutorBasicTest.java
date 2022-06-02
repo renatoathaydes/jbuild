@@ -1,30 +1,29 @@
 package jbuild.commands;
 
+import jbuild.commands.DoctorCommandExecutor.ClassPathInconsistency;
 import jbuild.commands.DoctorCommandExecutor.ClasspathCheckResult;
-import jbuild.errors.JBuildException;
 import jbuild.java.TestHelper;
 import jbuild.java.code.Code;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
-import org.junit.jupiter.api.Disabled;
+import jbuild.util.NonEmptyCollection;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.commands.DoctorCommandExecutorRealJarsTest.expectError;
 import static jbuild.commands.DoctorCommandExecutorRealJarsTest.withErrorReporting;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,7 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DoctorCommandExecutorBasicTest {
 
     @Test
-    @Disabled("Implementing error messages")
     void canFindMissingTypeInClasspath() throws IOException {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
@@ -59,10 +57,10 @@ public class DoctorCommandExecutorBasicTest {
 
         // so far, everything should work
         withErrorReporting((command) -> {
-            var results = command.findValidClasspaths(dir.toFile(),
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
                             false, List.of(fooJar), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
             verifyOneGoodClasspath(results, List.of(fooJar, barJar));
         });
 
@@ -78,62 +76,58 @@ public class DoctorCommandExecutorBasicTest {
 
         // now, checking the classpath should fail
         withErrorReporting((command) -> {
-            var results = command.findValidClasspaths(dir.toFile(),
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
                             false, List.of(fooJar), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
             assertThat(results).hasSize(1);
             var checkResult = results.get(0);
             assertThat(checkResult.successful).isFalse();
             assertThat(checkResult.getErrors()).isPresent();
             assertThat(checkResult.getErrors().get()).hasSize(1);
-            assertThat(checkResult.getErrors().get()).first()
-                    .extracting(e -> e.to)
-                    .isEqualTo(new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"));
-            assertThat(checkResult.getErrors().get()).first()
-                    .extracting(e -> e.jarFrom.getName())
-                    .isEqualTo("foo.jar");
-            assertThat(checkResult.getErrors().get()).first()
-                    .extracting(e -> e.jarTo.getName())
-                    .isEqualTo("bar.jar");
-            assertThat(checkResult.getErrors().get()).first()
-                    .extracting(e -> e.referenceChain)
-                    .isEqualTo("foo.jar!bar.Foo -> \"<init>\"()::void");
+
+            assertThat(errorString(checkResult.getErrors().orElse(null)))
+                    .isEqualTo(
+                            errorString(NonEmptyCollection.of(
+                                    new ClassPathInconsistency(
+                                            "foo.jar!bar.Foo -> \"<init>\"()::void",
+                                            new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"),
+                                            new File("foo.jar"),
+                                            new File("bar.jar")
+                                    ))));
         });
 
         // delete the Bar jar
         assert barJar.delete();
 
-        // again, checking the classpath should fail (Exception because a type requirement is missing)
-        expectError(true, (command) -> {
-            command.findValidClasspaths(dir.toFile(),
+        // type references are now missing
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
                             false, List.of(fooJar), Set.of())
                     .toCompletableFuture()
-                    .get();
-        }, (stdout, errorAssert) -> {
-            errorAssert.hasRootCauseInstanceOf(JBuildException.class)
-                    .getRootCause()
-                    .hasMessage("None of the classpaths could provide all types required by the entry-points. " +
-                            "See log above for details.");
+                    .get());
 
-            var out = stdout.get().lines()
-                    .dropWhile(line -> !line.startsWith("Entry-points required types:"))
-                    .collect(Collectors.toList());
-
-            assertThat(out).hasSizeGreaterThan(2);
-            assertThat(out.get(0)).startsWith("Entry-points required types: ");
-            var requiredTypes = Arrays.stream(out.get(0)
-                            .substring("Entry-points required types: [".length())
-                            .split(",\\s+"))
-                    .map(t -> t.replace("]", ""))
-                    .collect(toSet());
-            assertThat(requiredTypes).containsExactlyInAnyOrder("Lfoo/Bar;");
-
-            assertThat(out.get(1)).isEqualTo("Found 1 error in classpath: " + fooJar);
-
-            assertThat(out.subList(2, out.size())).containsExactly(
-                    "  * missing references: 'foo.jar!bar.Foo -> foo.Bar'"
-            );
+            assertThat(results).hasSize(1);
+            var checkResult = results.get(0);
+            assertThat(checkResult.successful).isFalse();
+            assertThat(errorString(checkResult.getErrors().orElse(null)))
+                    .isEqualTo(errorString(NonEmptyCollection.of(List.of(
+                            new ClassPathInconsistency(
+                                    "foo.jar!bar.Foo -> bar::foo.Bar",
+                                    new Code.Type("Lfoo/Bar;"),
+                                    new File("foo.jar"),
+                                    null
+                            ), new ClassPathInconsistency(
+                                    "foo.jar!bar.Foo -> \"<init>\"()::void",
+                                    new Code.Type("Lfoo/Bar;"),
+                                    new File("foo.jar"),
+                                    null
+                            ), new ClassPathInconsistency(
+                                    "foo.jar!bar.Foo -> \"<init>\"()::void -> foo.Bar#\"<init>\"()::void",
+                                    new Code.Type("Lfoo/Bar;"),
+                                    new File("foo.jar"),
+                                    null
+                            )))));
         });
     }
 
@@ -208,10 +202,10 @@ public class DoctorCommandExecutorBasicTest {
 
         // so far, everything should work
         withErrorReporting((command) -> {
-            var results = command.findValidClasspaths(dir.toFile(),
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
                             false, List.of(appJar), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
             // notice that unused.jar should not be included in the results
             verifyOneGoodClasspath(results, List.of(appJar, messagesJar, messageUserJar));
         });
@@ -222,19 +216,46 @@ public class DoctorCommandExecutorBasicTest {
         // checking the classpath should fail due to indirect dependency missing
         // (Exception because a type requirement is missing)
         withErrorReporting((command) -> {
-            var result = command.findValidClasspaths(dir.toFile(),
+            var result = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
                             false, List.of(appJar), Set.of())
                     .toCompletableFuture()
-                    .get();
+                    .get());
             assertThat(result).hasSize(1);
+
+            var main = "app.jar!app.App -> main(java.lang.String)::void -> ";
+
             assertThat(result.get(0).getErrors()).isPresent()
-                    .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))
+                    .get().extracting(e -> e.stream().map(ClassPathInconsistency::referenceChain).collect(toSet()))
                     .isEqualTo(Set.of(
-                            "app.jar!app.App -> main(java.lang.String)::void -> user.MessageUser#\"<init>\"()::void",
-                            "app.jar!app.App -> main(java.lang.String)::void -> user.MessageUser#\"<init>\"()::void -> messages.Message#\"<init>\"()::void",
-                            "app.jar!app.App -> main(java.lang.String)::void -> user.MessageUser#getMessage()::java.lang.String -> messages.Message#get()::java.lang.String"
+                            main + "user.MessageUser#\"<init>\"()::void",
+                            main + "user.MessageUser#getMessage()::java.lang.String " +
+                                    "-> messages.Message#get()::java.lang.String",
+                            main + "user.MessageUser#\"<init>\"()::void " +
+                                    "-> messages.Message#\"<init>\"()::void",
+                            main + "messages-user.jar!user.MessageUser " +
+                                    "-> \"<init>\"()::void -> messages.Message#\"<init>\"()::void",
+                            main + "messages-user.jar!user.MessageUser " +
+                                    "-> message::messages.Message",
+                            main + "messages-user.jar!user.MessageUser " +
+                                    "-> \"<init>\"()::void",
+                            main + "messages-user.jar!user.MessageUser " +
+                                    "-> getMessage()::java.lang.String " +
+                                    "-> messages.Message#get()::java.lang.String"
                     ));
         });
+    }
+
+    private static String errorString(
+            NonEmptyCollection<ClassPathInconsistency> inconsistencies) {
+        if (inconsistencies == null) return "Optional.empty()";
+        var result = "";
+        for (var error : inconsistencies) {
+            result = "\n" + error.referenceChain() +
+                    "\nJarFrom=" + (error.jarFrom() == null ? "null" : error.jarFrom().getName()) +
+                    "\nTo=" + error.to() +
+                    "\nJarTo=" + (error.jarTo() == null ? "null" : error.jarTo().getName());
+        }
+        return result;
     }
 
     private static void verifyOneGoodClasspath(List<ClasspathCheckResult> results,
@@ -259,7 +280,7 @@ public class DoctorCommandExecutorBasicTest {
             var src = rootDir.resolve(path);
             src.toFile().getParentFile().mkdirs();
             try {
-                Files.writeString(src, source);
+                Files.writeString(src, source, StandardCharsets.UTF_8);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -262,6 +263,10 @@ public class CallHierarchyVisitorTest {
     static final class TestVisitor implements CallHierarchyVisitor.Visitor {
 
         final List<String[]> calls = new ArrayList<>();
+
+        @Override
+        public void startJar(File jar) {
+        }
 
         @Override
         public void visit(List<Describable> referenceChain,

@@ -55,6 +55,7 @@ public final class CallHierarchyVisitor {
         var typeLocations = new ArrayList<ClassGraph.TypeDefinitionLocation>();
 
         for (var jar : entryJars) {
+            visitor.startJar(jar);
             var types = classGraph.getTypesByJar().get(jar);
 
             // visit type locations first
@@ -116,6 +117,7 @@ public final class CallHierarchyVisitor {
                 || !typeFilter.test(typeLocation.className)) {
             return;
         }
+        visitor.visit(chain, typeLocation);
         chain.add(typeLocation);
         typeLocation.typeDefinition.type.typesReferredTo().forEach((type) ->
                 visitTypeName(chain, type, visitedTypes, visitor, false));
@@ -142,7 +144,7 @@ public final class CallHierarchyVisitor {
             if (typeFilter.test(cleanTypeName)) visitor.onMissingType(chain, cleanTypeName);
             return null;
         }
-        visitType(chain, typeLocation, visitedTypes, visitor);
+        visitAll(chain, typeLocation, visitedTypes, visitor);
         return returnTypeInfo ? new TypeInfo(typeLocation, LIBRARY) : null;
     }
 
@@ -297,6 +299,12 @@ public final class CallHierarchyVisitor {
     }
 
     public interface Visitor {
+        /**
+         * Start visiting jar.
+         *
+         * @param jar file to be visited
+         */
+        void startJar(File jar);
 
         /**
          * Visit a type definition.
@@ -344,5 +352,6 @@ public final class CallHierarchyVisitor {
         void onMissingField(List<Describable> referenceChain,
                             String javaTypeName,
                             Code.Field field);
+
     }
 }
