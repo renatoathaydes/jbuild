@@ -41,7 +41,7 @@ public final class JavapOutputParser {
     private final boolean includeJavaAndPrivateCalls;
 
     public JavapOutputParser(JBuildLog log) {
-        this(log, new JavaTypeParser(false), false);
+        this(log, new JavaTypeParser(log.isVerbose()), false);
     }
 
     public JavapOutputParser(JBuildLog log,
@@ -82,8 +82,8 @@ public final class JavapOutputParser {
                             log.println("WARNING: did not find generic type signature after Classfile section started. " +
                                     "Ignoring class from line '" + line + "'");
                         }
-                    } else if (!line.startsWith(" ")) {
-                        log.println("WARNING: did not find class name after Classfile section started. " +
+                    } else {
+                        log.println("WARNING: could not parse generic type from class name after Classfile section started. " +
                                 "Ignoring class from line '" + line + "'");
                     }
                 } else {
@@ -91,8 +91,8 @@ public final class JavapOutputParser {
                     if (type != null) {
                         var typeDef = processBody(type.typeId, lines);
                         result.put(type.typeId.name, typeDef.toTypeDefinition(type));
-                    } else if (!line.startsWith(" ")) {
-                        log.println("WARNING: did not find class name after Classfile section started. " +
+                    } else {
+                        log.println("WARNING: could not parse type from class name after Classfile section started. " +
                                 "Ignoring class from line '" + line + "'");
                     }
                 }

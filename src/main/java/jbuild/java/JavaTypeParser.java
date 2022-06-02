@@ -225,11 +225,11 @@ public final class JavaTypeParser {
                                              Iterable<JavaType.TypeParam> previousParams) {
         String name;
         List<JavaType.TypeParam> params = List.of();
-
+        final var startIndex = index;
         var word = nextWord();
         if (word.isEmpty()) {
-            if (throwOnError) throw new RuntimeException("expected type bound but got '" +
-                    currentChar() + "' at index " + index);
+            if (throwOnError) throw new RuntimeException("expected type bound but reached " +
+                    "end of line at index " + index + " (start=" + startIndex + "): '" + line + "'");
             return null;
         }
 

@@ -21,6 +21,15 @@ public class JavaTypeParserTest {
     }
 
     @Test
+    void canParseSimpleClassName() {
+        var type = parser.parse("public class user.MessageUser");
+
+        assertThat(type)
+                .isEqualTo(new JavaType(new JavaType.TypeId("Luser/MessageUser;", JavaType.Kind.CLASS),
+                        List.of(), List.of(), List.of()));
+    }
+
+    @Test
     void canParseBasicInterface() {
         var type = parser.parse("interface Super");
 
