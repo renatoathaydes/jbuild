@@ -2,6 +2,9 @@ version: '3'
 
 # https://taskfile.dev/
 
+# Manually publishing to Maven Central:
+# https://mccue.dev/pages/6-1-22-upload-to-maven-central
+
 vars:
   JAVA_SRC: src/main/java
   CLASSES: out/classes
@@ -15,7 +18,7 @@ tasks:
 
   compile:
     cmds:
-      - javac -cp "{{.JAVA_SRC}}" -d "{{.CLASSES}}" $(find "{{.JAVA_SRC}}" -name "*.java")
+      - javac --release 11 -cp "{{.JAVA_SRC}}" -d "{{.CLASSES}}" $(find "{{.JAVA_SRC}}" -name "*.java")
     sources:
       - "{{.JAVA_SRC}}/**/*.java"
     generates:
