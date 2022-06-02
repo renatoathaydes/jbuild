@@ -43,6 +43,10 @@ public final class CallHierarchyVisitor {
         this(classGraph, typeExclusions, Set.of());
     }
 
+    public CallHierarchyVisitor(ClassGraph classGraph) {
+        this(classGraph, Set.of(), Set.of());
+    }
+
     /**
      * Visit the types in the given entry jars, taking into consideration the
      * type inclusions and exclusions for this visitor.
