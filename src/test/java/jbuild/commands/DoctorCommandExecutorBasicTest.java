@@ -76,15 +76,11 @@ public class DoctorCommandExecutorBasicTest {
 
         // now, checking the classpath should fail
         withErrorReporting((command) -> {
-            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            List.of(fooJar), Set.of())
-                    .toCompletableFuture()
-                    .get());
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(), List.of(fooJar), Set.of())
+                    .toCompletableFuture().get());
             assertThat(results).hasSize(1);
             var checkResult = results.get(0);
             assertThat(checkResult.successful).isFalse();
-            assertThat(checkResult.getErrors()).isPresent();
-            assertThat(checkResult.getErrors().get()).hasSize(1);
 
             assertThat(errorString(checkResult.getErrors().orElse(null)))
                     .isEqualTo(

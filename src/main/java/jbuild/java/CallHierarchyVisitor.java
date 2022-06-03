@@ -153,9 +153,8 @@ public final class CallHierarchyVisitor {
             return (typeLocation == null || !returnTypeInfo) ? null : new TypeInfo(typeLocation, LIBRARY);
         }
         if (typeLocation == null) {
-            var className = typeNameToClassName(cleanTypeName);
-            if (typeFilter.test(className)) {
-                visitor.onMissingType(chain, className);
+            if (typeFilter.test(typeNameToClassName(cleanTypeName))) {
+                visitor.onMissingType(chain, typeName);
             }
             return null;
         }
@@ -254,7 +253,11 @@ public final class CallHierarchyVisitor {
         if (typeOwner != null && typeOwner.kind == LIBRARY) {
             var codes = classGraph.findImplementation(method);
             if (codes == null) {
-                visitor.onMissingMethod(chain, typeOwner.typeDefinitionLocation, method);
+                // do not report error if parent types are excluded as we can't know for sure if the method doesn't exist
+                var cannotDetermineForSure = method.instruction.isVirtual() && isAnyParentTypeExcluded(typeOwner);
+                if (!cannotDetermineForSure) {
+                    visitor.onMissingMethod(chain, typeOwner.typeDefinitionLocation, method);
+                }
             } else {
                 visitor.visit(chain, method);
                 if (!codes.isEmpty()) {
@@ -264,6 +267,12 @@ public final class CallHierarchyVisitor {
                 }
             }
         }
+    }
+
+    private boolean isAnyParentTypeExcluded(TypeInfo typeOwner) {
+        return typeOwner.typeDefinitionLocation.typeDefinition.type.typesReferredTo()
+                .map(JavaTypeUtils::typeNameToClassName)
+                .anyMatch(className -> !typeFilter.test(className));
     }
 
     private static final class TypeInclusions implements Predicate<String> {
