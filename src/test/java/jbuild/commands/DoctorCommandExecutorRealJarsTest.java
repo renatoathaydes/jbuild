@@ -39,7 +39,7 @@ public class DoctorCommandExecutorRealJarsTest {
     void shouldFindNoErrorsWhenTwoJarsAreAvailableButEntryPointDoesNotRequireTheOtherJar() {
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(testJarsDir,
-                            false, List.of(myClassesJar), Set.of())
+                            List.of(myClassesJar), Set.of())
                     .toCompletableFuture()
                     .get());
 
@@ -62,7 +62,7 @@ public class DoctorCommandExecutorRealJarsTest {
     void shouldFindNoErrorsWhenTwoJarsAreAvailableAndEntryPointRequiresTheOtherJar() {
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(testJarsDir,
-                            false, List.of(otherClassesJar), Set.of())
+                            List.of(otherClassesJar), Set.of())
                     .toCompletableFuture()
                     .get());
 
@@ -97,7 +97,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(classpathDir.toFile(),
-                            false, List.of(otherClassesJarCopy.toFile()), Set.of())
+                            List.of(otherClassesJarCopy.toFile()), Set.of())
                     .toCompletableFuture()
                     .get());
 
@@ -128,7 +128,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
         expectError(true, (command) -> {
             command.findValidClasspaths(classpathDir.toFile(),
-                            false, List.of(otherClassesJarCopy.toFile()), Set.of())
+                            List.of(otherClassesJarCopy.toFile()), Set.of())
                     .toCompletableFuture()
                     .get();
         }, (stdout, errorAssert) -> {
@@ -195,7 +195,7 @@ public class DoctorCommandExecutorRealJarsTest {
     void shouldErrorIfEntryPointCannotBeFound() {
         expectError(false, (command) -> {
             command.findValidClasspaths(testJarsDir,
-                            false, List.of(new File("does-not-exist.jar")), Set.of())
+                            List.of(new File("does-not-exist.jar")), Set.of())
                     .toCompletableFuture()
                     .get();
         }, (stdout, errorAssert) -> {

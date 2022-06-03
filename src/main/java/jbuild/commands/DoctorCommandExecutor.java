@@ -53,12 +53,10 @@ public final class DoctorCommandExecutor {
     }
 
     public CompletionStage<?> run(String inputDir,
-                                  boolean interactive,
                                   List<String> entryPoints,
                                   Set<Pattern> typeExclusions) {
         var results = findValidClasspaths(
                 new File(inputDir),
-                interactive,
                 entryPoints.stream().map(File::new).collect(toList()),
                 typeExclusions);
         return results.thenApply(this::showClasspathCheckResults);
@@ -66,7 +64,6 @@ public final class DoctorCommandExecutor {
 
     public CompletionStage<? extends Collection<ClasspathCheckResult>> findValidClasspaths(
             File inputDir,
-            boolean interactive,
             List<File> entryPoints,
             Set<Pattern> typeExclusions) {
         var jarFiles = allFilesInDir(inputDir, JarFileFilter.getInstance());

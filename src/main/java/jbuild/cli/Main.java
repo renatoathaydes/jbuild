@@ -201,7 +201,7 @@ public final class Main {
         var commandExecutor = new DoctorCommandExecutor(log);
 
         commandExecutor.run(
-                fixOptions.inputDir, fixOptions.interactive, fixOptions.entryPoints, fixOptions.typeExclusions
+                fixOptions.inputDir, fixOptions.entryPoints, fixOptions.typeExclusions
         ).toCompletableFuture().get();
     }
 

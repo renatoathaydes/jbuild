@@ -58,7 +58,7 @@ public class DoctorCommandExecutorBasicTest {
         // so far, everything should work
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            false, List.of(fooJar), Set.of())
+                            List.of(fooJar), Set.of())
                     .toCompletableFuture()
                     .get());
             verifyOneGoodClasspath(results, List.of(fooJar, barJar));
@@ -77,7 +77,7 @@ public class DoctorCommandExecutorBasicTest {
         // now, checking the classpath should fail
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            false, List.of(fooJar), Set.of())
+                            List.of(fooJar), Set.of())
                     .toCompletableFuture()
                     .get());
             assertThat(results).hasSize(1);
@@ -103,7 +103,7 @@ public class DoctorCommandExecutorBasicTest {
         // type references are now missing
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            false, List.of(fooJar), Set.of())
+                            List.of(fooJar), Set.of())
                     .toCompletableFuture()
                     .get());
 
@@ -203,7 +203,7 @@ public class DoctorCommandExecutorBasicTest {
         // so far, everything should work
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            false, List.of(appJar), Set.of())
+                            List.of(appJar), Set.of())
                     .toCompletableFuture()
                     .get());
             // notice that unused.jar should not be included in the results
@@ -217,7 +217,7 @@ public class DoctorCommandExecutorBasicTest {
         // (Exception because a type requirement is missing)
         withErrorReporting((command) -> {
             var result = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            false, List.of(appJar), Set.of())
+                            List.of(appJar), Set.of())
                     .toCompletableFuture()
                     .get());
             assertThat(result).hasSize(1);

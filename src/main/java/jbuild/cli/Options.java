@@ -379,29 +379,23 @@ final class DoctorOptions {
             "        --exclude-type" + LINE_END +
             "        -x        exclude type from analysis, allowing it to be missing" + LINE_END +
             "                  (can be passed more than once)." + LINE_END +
-            "        --yes" + LINE_END +
-            "        -y        answer any question with 'yes'." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " java-libs -e app.jar";
 
     final String inputDir;
-    final boolean interactive;
     final List<String> entryPoints;
     final Set<Pattern> typeExclusions;
 
     public DoctorOptions(String inputDir,
-                         boolean interactive,
                          List<String> entryPoints,
                          Set<Pattern> typeExclusions) {
         this.inputDir = inputDir;
-        this.interactive = interactive;
         this.entryPoints = unmodifiableList(entryPoints);
         this.typeExclusions = unmodifiableSet(typeExclusions);
     }
 
     static DoctorOptions parse(List<String> args) {
         String inputDir = null;
-        var interactive = true;
         var entryPoints = new ArrayList<String>(4);
         var typeExclusions = new HashSet<String>(4);
         boolean expectEntryPoint = false, expectTypeExclusion = false;
@@ -414,9 +408,7 @@ final class DoctorOptions {
                 expectTypeExclusion = false;
                 typeExclusions.add(arg);
             } else if (arg.startsWith("-")) {
-                if (isEither(arg, "-y", "--yes")) {
-                    interactive = false;
-                } else if (isEither(arg, "-e", "--entrypoint")) {
+                if (isEither(arg, "-e", "--entrypoint")) {
                     expectEntryPoint = true;
                 } else if (isEither(arg, "-x", "--exclude-type")) {
                     expectTypeExclusion = true;
@@ -449,7 +441,7 @@ final class DoctorOptions {
             }
         }
 
-        return new DoctorOptions(inputDir, interactive, entryPoints, exclusions);
+        return new DoctorOptions(inputDir, entryPoints, exclusions);
     }
 }
 
