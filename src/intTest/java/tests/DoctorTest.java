@@ -29,7 +29,7 @@ public class DoctorTest extends JBuildTestRunner {
                 "failureaccess-1.0.1.jar", "jsr305-3.0.2.jar");
 
         // verify that the jar is valid
-        result = runWithIntTestRepo("doctor", tempDir.toString(), "-y", "-e", Artifacts.GUAVA_JAR_NAME);
+        result = runWithIntTestRepo("doctor", tempDir.toString(), "-e", Artifacts.GUAVA_JAR_NAME);
 
         verifySuccessful("jbuild deps", result);
 
@@ -52,17 +52,17 @@ public class DoctorTest extends JBuildTestRunner {
         verifySuccessful("jbuild install", result);
 
         // verify that the jar is valid
-        result = runWithIntTestRepo("doctor", tempDir.toString(), "-y",
+        result = runWithIntTestRepo("doctor", tempDir.toString(),
                 "-e", Artifacts.GROOVY_JAR_NAME,
-                "-x", "Lorg\\/apache\\/ivy\\/.*",
-                "-x", "Lorg\\/stringtemplate\\/.*",
-                "-x", "Lorg\\/abego\\/.*",
-                "-x", "Lgroovyjarjarantlr4\\/.*",
-                "-x", "Lorg\\/fusesource\\/jansi\\/.*",
-                "-x", "Lversion;",
-                "-x", "Lcom\\/ibm\\/icu\\/.*",
-                "-x", "Lcom\\/thoughtworks\\/xstream\\/.*",
-                "-x", "Lgroovyjarjarasm\\/asm\\/util\\/ASMifierSupport;");
+                "-x", "org\\.apache\\.ivy\\..*",
+                "-x", "org\\.stringtemplate\\..*",
+                "-x", "org\\.abego\\..*",
+                "-x", "groovyjarjarantlr4\\..*",
+                "-x", "org\\.fusesource\\.jansi\\..*",
+                "-x", "version",
+                "-x", "com\\.ibm\\.icu\\..*",
+                "-x", "com\\.thoughtworks\\.xstream\\..*",
+                "-x", "groovyjarjarasm\\.asm\\.util\\.ASMifierSupport");
 
         verifySuccessful("jbuild deps", result);
 

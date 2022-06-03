@@ -356,13 +356,13 @@ public final class DoctorCommandExecutor {
     public static final class ClassPathInconsistency {
 
         public final String referenceChain;
-        public final Describable to;
+        public final Code to;
         public final File jarFrom;
         public final File jarTo;
 
         public ClassPathInconsistency(
                 String referenceChain,
-                Describable to,
+                Code to,
                 File jarFrom,
                 File jarTo) {
             this.referenceChain = referenceChain;

@@ -231,16 +231,7 @@ public class DoctorCommandExecutorBasicTest {
                             main + "user.MessageUser#getMessage()::java.lang.String " +
                                     "-> messages.Message#get()::java.lang.String",
                             main + "user.MessageUser#\"<init>\"()::void " +
-                                    "-> messages.Message#\"<init>\"()::void",
-                            main + "messages-user.jar!user.MessageUser " +
-                                    "-> \"<init>\"()::void -> messages.Message#\"<init>\"()::void",
-                            main + "messages-user.jar!user.MessageUser " +
-                                    "-> message::messages.Message",
-                            main + "messages-user.jar!user.MessageUser " +
-                                    "-> \"<init>\"()::void",
-                            main + "messages-user.jar!user.MessageUser " +
-                                    "-> getMessage()::java.lang.String " +
-                                    "-> messages.Message#get()::java.lang.String"
+                                    "-> messages.Message#\"<init>\"()::void"
                     ));
         });
     }

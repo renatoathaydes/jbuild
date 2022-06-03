@@ -18,6 +18,7 @@ import static jbuild.java.CallHierarchyVisitor.TypeInfo.Kind.JAVA_STDLIB;
 import static jbuild.java.CallHierarchyVisitor.TypeInfo.Kind.LIBRARY;
 import static jbuild.java.CallHierarchyVisitor.TypeInfo.Kind.PRIMITIVE;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 public final class CallHierarchyVisitor {
 
@@ -66,8 +67,8 @@ public final class CallHierarchyVisitor {
             for (var typeDef : types.values()) {
                 var typeLocation = new ClassGraph.TypeDefinitionLocation(typeDef, jar);
                 if (typeFilter.test(typeLocation.className)) {
+                    visitType(new ArrayList<>(), typeLocation, visitedTypes, visitor);
                     typeLocations.add(typeLocation);
-                    visitor.visit(List.of(), typeLocation);
                 }
             }
         }
@@ -93,6 +94,7 @@ public final class CallHierarchyVisitor {
                           Set<String> visitedTypes,
                           Visitor visitor) {
         visitType(chain, typeLocation, visitedTypes, visitor);
+        visitTypesReferredTo(chain, typeLocation, visitedTypes, visitor);
         var typeDefinition = typeLocation.typeDefinition;
         chain.add(typeLocation);
 
@@ -122,6 +124,12 @@ public final class CallHierarchyVisitor {
             return;
         }
         visitor.visit(chain, typeLocation);
+    }
+
+    private void visitTypesReferredTo(List<Describable> chain,
+                                      ClassGraph.TypeDefinitionLocation typeLocation,
+                                      Set<String> visitedTypes,
+                                      Visitor visitor) {
         chain.add(typeLocation);
         typeLocation.typeDefinition.type.typesReferredTo().forEach((type) ->
                 visitTypeName(chain, type, visitedTypes, visitor, false));
@@ -145,10 +153,13 @@ public final class CallHierarchyVisitor {
             return (typeLocation == null || !returnTypeInfo) ? null : new TypeInfo(typeLocation, LIBRARY);
         }
         if (typeLocation == null) {
-            if (typeFilter.test(cleanTypeName)) visitor.onMissingType(chain, cleanTypeName);
+            var className = typeNameToClassName(cleanTypeName);
+            if (typeFilter.test(className)) {
+                visitor.onMissingType(chain, className);
+            }
             return null;
         }
-        visitAll(chain, typeLocation, visitedTypes, visitor);
+        visitType(chain, typeLocation, visitedTypes, visitor);
         return returnTypeInfo ? new TypeInfo(typeLocation, LIBRARY) : null;
     }
 
@@ -229,7 +240,6 @@ public final class CallHierarchyVisitor {
         }
         chain.remove(chain.size() - 1);
     }
-
 
     private void visitMethodUsage(List<Describable> chain,
                                   Set<String> visitedTypes,

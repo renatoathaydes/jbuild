@@ -67,10 +67,9 @@ public class CallHierarchyVisitorTest {
 
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
-        assertThat(testVisitor.calls).hasSize(1);
-
-        assertThat(testVisitor.calls.get(0))
-                .containsExactly("type", "", "my-tests.jar!foo.EmptyInterface");
+        assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"jar", "", "my-tests.jar"},
+                new String[]{"type", "", "my-tests.jar!foo.EmptyInterface"});
     }
 
     @Test
@@ -80,9 +79,8 @@ public class CallHierarchyVisitorTest {
 
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
-        assertThat(testVisitor.calls).hasSize(5);
-
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"jar", "", "my-tests.jar"},
                 new String[]{"type", "", "my-tests.jar!foo.ExampleLogger"},
                 new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "\"<init>\"(java.io.PrintStream)::void"},
                 new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "debug(java.lang.String)::void"},
@@ -98,9 +96,8 @@ public class CallHierarchyVisitorTest {
 
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
-        assertThat(testVisitor.calls).hasSize(3);
-
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"jar", "", "my-tests.jar"},
                 new String[]{"type", "", "my-tests.jar!recursion.Recursive"},
                 new String[]{"definition", "my-tests.jar!recursion.Recursive", "\"<init>\"()::void"},
                 new String[]{"definition", "my-tests.jar!recursion.Recursive", "factorial(int)::int"}
@@ -115,6 +112,7 @@ public class CallHierarchyVisitorTest {
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"jar", "", "my-tests.jar"},
                 new String[]{"type", "", "my-tests.jar!recursion.Ping"},
                 new String[]{"type", "", "my-tests.jar!recursion.Pong"},
                 new String[]{"definition", "my-tests.jar!recursion.Ping", "\"<init>\"()::void"},
@@ -146,6 +144,7 @@ public class CallHierarchyVisitorTest {
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"jar", "", "my-tests.jar"},
                 new String[]{"type", "", "my-tests.jar!recursion.TicTacToe"},
                 new String[]{"type", "", "my-tests.jar!recursion.TicTacToe$Tic"},
                 new String[]{"type", "", "my-tests.jar!recursion.TicTacToe$Tac"},
@@ -241,6 +240,7 @@ public class CallHierarchyVisitorTest {
         visitor.visit(Set.of(myClassesJar), testVisitor);
 
         assertThat(testVisitor.calls).containsExactlyInAnyOrder(
+                new String[]{"jar", "", "my-tests.jar"},
                 new String[]{"type", "", "my-tests.jar!foo.Zort"},
                 new String[]{"definition", "my-tests.jar!foo.Zort", "getBar(foo.Bar)::foo.Bar"},
                 new String[]{"definition", "my-tests.jar!foo.Zort", "\"<init>\"()::void"},
@@ -266,6 +266,7 @@ public class CallHierarchyVisitorTest {
 
         @Override
         public void startJar(File jar) {
+            calls.add(new String[]{"jar", "", jar.getName()});
         }
 
         @Override
