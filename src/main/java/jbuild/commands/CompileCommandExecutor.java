@@ -36,6 +36,7 @@ public final class CompileCommandExecutor {
 
     public CompileCommandResult compile(Set<String> inputDirectories,
                                         Either<String, String> outputDirOrJar,
+                                        String mainClass,
                                         String classpath) {
         if (inputDirectories.isEmpty()) {
             inputDirectories = computeDefaultSourceDirs();
@@ -61,7 +62,7 @@ public final class CompileCommandExecutor {
         log.verbosePrintln(() -> "Compilation of class files successful. Creating jar at " + jarFile);
         var jarContent = new FileSet(Set.of(), outputDir);
         var jarResult = Tools.Jar.create().createJar(new CreateJarOptions(
-                jarFile, "", false, "", jarContent, Map.of()
+                jarFile, mainClass, false, "", jarContent, Map.of()
         ));
         return new CompileCommandResult(compileResult, jarResult);
     }

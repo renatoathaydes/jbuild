@@ -496,6 +496,8 @@ final class CompileOptions {
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --jar" + LINE_END +
             "        -j        destination jar (default: <working-directory>.jar)." + LINE_END +
+            "        --main-class" + LINE_END +
+            "        -m        application's main class." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --jar options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
@@ -505,23 +507,28 @@ final class CompileOptions {
 
     final Set<String> inputDirectories;
     final Either<String, String> outputDirOrJar;
+    final String mainClass;
     final String classpath;
 
     public CompileOptions(Set<String> inputDirectories,
                           Either<String, String> outputDirOrJar,
+                          String mainClass,
                           String classpath) {
         this.inputDirectories = inputDirectories;
         this.outputDirOrJar = outputDirOrJar;
+        this.mainClass = mainClass;
         this.classpath = classpath;
     }
 
     static CompileOptions parse(List<String> args) {
         Set<String> inputDirectories = new LinkedHashSet<>();
-        String outputDir = null;
-        String jar = null;
+        String outputDir = null, jar = null, mainClass = null;
         var classpath = new StringBuilder();
 
-        boolean waitingForClasspath = false, waitingForDirectory = false, waitingForJar = false;
+        boolean waitingForClasspath = false,
+                waitingForDirectory = false,
+                waitingForJar = false,
+                waitingForMainClass = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
@@ -536,6 +543,9 @@ final class CompileOptions {
             } else if (waitingForJar) {
                 waitingForJar = false;
                 jar = arg;
+            } else if (waitingForMainClass) {
+                waitingForMainClass = false;
+                mainClass = arg;
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
@@ -551,6 +561,12 @@ final class CompileOptions {
                                 LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                     }
                     waitingForJar = true;
+                } else if (isEither(arg, "-m", "--main-class")) {
+                    if (mainClass != null) {
+                        throw new JBuildException("cannot provide main-class more than once" +
+                                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    }
+                    waitingForMainClass = true;
                 } else {
                     throw new JBuildException("invalid compile option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -569,6 +585,9 @@ final class CompileOptions {
         if (waitingForJar) {
             throw new JBuildException("expecting value for '--jar' option", USER_INPUT);
         }
+        if (waitingForMainClass) {
+            throw new JBuildException("expecting value for '--main-class' option", USER_INPUT);
+        }
         if (outputDir != null && jar != null) {
             throw new JBuildException("cannot specify both 'directory' and 'jar' options together." +
                     LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -578,6 +597,7 @@ final class CompileOptions {
         }
         return new CompileOptions(inputDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
+                mainClass,
                 classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
     }
 }
