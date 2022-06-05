@@ -369,7 +369,6 @@ final class DoctorOptions {
 
     static final String USAGE = "  ## " + NAME + LINE_END +
             "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s)." + LINE_END +
-            "    This command requires user interaction by default." + LINE_END +
             "      Usage:" + LINE_END +
             "        jbuild " + NAME + " <options...> <dir>" + LINE_END +
             "      Options:" + LINE_END +
@@ -442,6 +441,41 @@ final class DoctorOptions {
         }
 
         return new DoctorOptions(inputDir, entryPoints, exclusions);
+    }
+}
+
+final class RequirementsOptions {
+
+    static final String NAME = "requirements";
+    static final String DESCRIPTION = "finds type requirements of jar(s)";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    " + LINE_END +
+            "    Determines the Java types required by a set of jars." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <jar...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " app.jar lib.jar";
+
+    final Set<String> jars;
+
+    public RequirementsOptions(Set<String> jars) {
+        this.jars = unmodifiableSet(jars);
+    }
+
+    static RequirementsOptions parse(List<String> args) {
+        var jars = new LinkedHashSet<String>(4);
+
+        for (var arg : args) {
+            if (arg.startsWith("-")) {
+                throw new JBuildException("invalid " + NAME + " option: " + arg +
+                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+            } else {
+                jars.add(arg);
+            }
+        }
+
+        return new RequirementsOptions(jars);
     }
 }
 

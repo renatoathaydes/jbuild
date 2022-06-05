@@ -154,7 +154,7 @@ public final class CallHierarchyVisitor {
         }
         if (typeLocation == null) {
             if (typeFilter.test(typeNameToClassName(cleanTypeName))) {
-                visitor.onMissingType(chain, typeName);
+                visitor.onMissingType(chain, cleanTypeName);
             }
             return null;
         }

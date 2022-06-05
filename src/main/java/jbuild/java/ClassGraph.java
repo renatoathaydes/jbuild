@@ -261,6 +261,11 @@ public final class ClassGraph {
         public void describe(StringBuilder builder, boolean verbose) {
             builder.append(jar.getName()).append('!').append(className);
         }
+
+        @Override
+        public String toString() {
+            return getDescription();
+        }
     }
 
 }

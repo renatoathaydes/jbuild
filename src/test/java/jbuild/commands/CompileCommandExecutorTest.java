@@ -41,6 +41,7 @@ public class CompileCommandExecutorTest {
         var result = command.compile(
                 Set.of(src1.toString(), src2.toString()),
                 Either.left(buildDir.toString()),
+                "",
                 "");
 
         verifyToolSuccessful("compile", result.getCompileResult());
@@ -84,6 +85,7 @@ public class CompileCommandExecutorTest {
         var result = command.compile(
                 Set.of(src1.toString()),
                 Either.left(buildDir.toString()),
+                "",
                 "");
 
         verifyToolSuccessful("compile", result.getCompileResult());
@@ -93,6 +95,7 @@ public class CompileCommandExecutorTest {
         result = command.compile(
                 Set.of(src2.toString()),
                 Either.right(jar.toString()),
+                "",
                 buildDir.toString());
 
         verifyToolSuccessful("compile", result.getCompileResult());

@@ -281,6 +281,7 @@ public class DoctorCommandExecutorBasicTest {
         var result = command.compile(
                 Set.of(rootDir.toString()),
                 Either.right(jar.toString()),
+                "",
                 classpath);
 
         if (!result.isSuccessful()) {

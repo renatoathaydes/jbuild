@@ -8,6 +8,7 @@ import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.DoctorCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
+import jbuild.commands.RequirementsCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
@@ -67,6 +68,7 @@ public final class Main {
                     "  * " + DoctorOptions.NAME + " - " + DoctorOptions.DESCRIPTION + LINE_END +
                     "  * " + FetchOptions.NAME + " - " + FetchOptions.DESCRIPTION + LINE_END +
                     "  * " + InstallOptions.NAME + " - " + InstallOptions.DESCRIPTION + LINE_END +
+                    "  * " + RequirementsOptions.NAME + " - " + RequirementsOptions.DESCRIPTION + LINE_END +
                     "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
                     "  * help - displays this help message or help for one of the other commands" + LINE_END +
                     "" + LINE_END +
@@ -140,6 +142,9 @@ public final class Main {
             case VersionsOptions.NAME:
                 listVersions(options);
                 break;
+            case RequirementsOptions.NAME:
+                requirements(options);
+                break;
             default:
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
@@ -168,6 +173,9 @@ public final class Main {
                 case InstallOptions.NAME:
                     System.out.println(InstallOptions.USAGE);
                     break;
+                case RequirementsOptions.NAME:
+                    System.out.println(RequirementsOptions.USAGE);
+                    break;
                 case VersionsOptions.NAME:
                     System.out.println(VersionsOptions.USAGE);
                     break;
@@ -191,9 +199,9 @@ public final class Main {
     }
 
     private void doctor(Options options) throws ExecutionException, InterruptedException {
-        var fixOptions = DoctorOptions.parse(options.commandArgs);
+        var docOptions = DoctorOptions.parse(options.commandArgs);
 
-        if (fixOptions.entryPoints.isEmpty()) {
+        if (docOptions.entryPoints.isEmpty()) {
             log.println("No entry points provided, nothing to do. Please provide the entry points (jars) " +
                     "to check the classpath with the option -e, see usage for details.");
             return;
@@ -202,7 +210,7 @@ public final class Main {
         var commandExecutor = new DoctorCommandExecutor(log);
 
         commandExecutor.run(
-                fixOptions.inputDir, fixOptions.entryPoints, fixOptions.typeExclusions
+                docOptions.inputDir, docOptions.entryPoints, docOptions.typeExclusions
         ).toCompletableFuture().get();
     }
 
@@ -385,6 +393,11 @@ public final class Main {
         if (errorCause != null) {
             throw new JBuildException("Could not fetch all versions successfully", errorCause);
         }
+    }
+
+    private void requirements(Options options) throws ExecutionException, InterruptedException {
+        var command = RequirementsCommandExecutor.createDefault(log);
+        command.execute(RequirementsOptions.parse(options.commandArgs).jars).toCompletableFuture().get();
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

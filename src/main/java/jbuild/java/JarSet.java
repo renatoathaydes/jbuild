@@ -1,16 +1,13 @@
 package jbuild.java;
 
-import jbuild.util.Either;
-import jbuild.util.NonEmptyCollection;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -42,6 +39,11 @@ public final class JarSet {
 
     public JarSet(Map<String, Jar> jarByType) {
         this(jarByType, computeTypesByJar(jarByType));
+    }
+
+    public static JarSet of(Jar jar) {
+        return new JarSet(jar.types.stream()
+                .collect(toMap(Function.identity(), ignore -> jar)));
     }
 
     public Map<String, Jar> getJarByType() {
@@ -98,34 +100,6 @@ public final class JarSet {
             }
         }
         return false;
-    }
-
-    /**
-     * Check if all the given {@link TypeReference}s exist in this {@link JarSet}.
-     * <p>
-     * If any type requirement is missing, the missing type references are returned.
-     *
-     * @param typeReferences type requirements
-     * @return this JarSet if all type requirements are met, or the missing type references otherwise.
-     */
-    public Either<JarSet, NonEmptyCollection<TypeReference>> checkReferencesExist(
-            List<TypeReference> typeReferences) {
-        if (typeReferences.isEmpty()) return Either.left(this);
-        var missingTypeRefs = new HashSet<TypeReference>();
-        for (var typeRef : typeReferences) {
-            var found = false;
-            for (var types : typesByJar.values()) {
-                found = types.contains(typeRef.typeTo);
-                if (found) break;
-            }
-            if (!found) {
-                missingTypeRefs.add(typeRef);
-            }
-        }
-        if (missingTypeRefs.isEmpty()) {
-            return Either.left(this);
-        }
-        return Either.right(NonEmptyCollection.of(missingTypeRefs));
     }
 
     public String toClasspath() {
