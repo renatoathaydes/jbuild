@@ -7,7 +7,7 @@
 > This project is NOT READY for general usage, consider it in ALPHA for the moment!
 
 JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management and
-application, as opposed to libraries, classpath verification.
+application's classpath verification.
 
 It consists of a simple CLI, so it can be used as a very handy command-line utility, but can also be used as a Java
 library, allowing JVM applications to manage other Java projects and dependencies themselves.
@@ -30,7 +30,7 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [ ] show full call hierarchy of jar/class/method.
 - [ ] find unused jars/classes/methods, given a classpath and jar entry-points.
 - [ ] automatically prune classpath, removing unused jars.
-- [ ] compile and package Java applications.
+- [x] compile and package Java applications.
 - [ ] execute JUnit tests.
 
 ## Non-features
@@ -59,7 +59,7 @@ Here's the list of Maven tags and concepts supported by JBuild:
 - [x] dependencies/dependency/[groupId, artifactId, version, scope, optional]
 - [x] dependencies/dependency/exclusions
 - [x] dependencyManagement
-- [ ] dependency version ranges
+- [x] dependency version ranges
 - [x] project coordinates/packaging/parent
 - [x] project license
 - [x] project properties
@@ -89,7 +89,7 @@ Currently implemented detections:
 - [x] references to a super-type method by virtual invocation.
 - [x] references to a method via `MethodHandle` (used a lot with the stream API).
 - [x] indirect type references via generics (if the type is actually used, it's detected by the other detections).
-- [ ] transitive code references.
+- [x] transitive code references.
 
 ## CLI
 
@@ -98,10 +98,10 @@ Currently implemented detections:
 Version: 0.0
 
 Utility to build Java (JVM) applications.
-This is work in progress!
+<<<< This is work in progress! >>>>
 
 Usage:
-    jbuild <root-option> <cmd> <cmd-args...> 
+    jbuild <root-options...> <cmd> <cmd-args...> 
 Root Options:
     --repository
      -r       Maven repository to use to locate artifacts (file location or HTTP URL).
@@ -114,74 +114,33 @@ Root Options:
 
 Available commands:
 
-  * fetch
-    Fetches Maven artifacts from the local Maven repo or Maven Central.
-      Usage:
-        jbuild fetch <options... | artifact...>
-      Options:
-        --directory
-        -d        output directory.
-      Example:
-        jbuild fetch -d libs org.apache.commons:commons-lang3:3.12.0
+  * compile - compiles java source code
+  * deps - lists dependencies of Maven artifacts
+  * doctor - finds type-safe classpath given a set of jars
+  * fetch - fetches Maven artifacts
+  * install - installs Maven artifacts and dependencies into a flat dir or local Maven repo
+  * requirements - finds type requirements of jar(s)
+  * versions - list the versions of Maven artifacts
+  * help - displays this help message or help for one of the other commands
 
-  * install
-    Install Maven artifacts from the local Maven repo or Maven Central.
-    Unlike fetch, install downloads artifacts and their dependencies, and can write
-    them into a flat directory or in the format of a Maven repository.
-      Usage:
-        jbuild install <options... | artifact...>
-      Options:
-        --directory
-        -d        (flat) output directory.
-        --repository
-        -r        (Maven repository root) output directory.
-        --optional
-        -O        include optional dependencies.
-        --scope
-        -s        scope to include (can be passed more than once).
-                  The runtime scope is used by default.
-      Note:
-        The --directory and --repository options are mutually exclusive.
-        By default, the equivalent of '-d out/' is used.      Example:
-        jbuild install -s compile org.apache.commons:commons-lang3:3.12.0
+Type 'jbuild help <command>' for more information about a command.
 
-  * deps
-    List the dependencies of the given artifacts.
-      Usage:
-        jbuild deps <options... | artifact...>
-      Options:
-        --licenses
-        -l        show licenses of all artifacts (requires --transitive option).
-        --optional
-        -O        include optional dependencies.
-        --scope
-        -s        scope to include (can be passed more than once).
-                  All scopes are listed by default.
-        --transitive
-        -t        include transitive dependencies.
-      Example:
-        jbuild deps com.google.guava:guava:31.0.1-jre junit:junit:4.13.2
+Artifact coordinates are given in the form <orgId>:<artifactId>[:<version>][:<ext>]
+If the version is omitted, the latest available version is normally used.
 
-  * doctor
-    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s).
-    This command requires user interaction by default.
-      Usage:
-        jbuild doctor <options...> <dir>
-      Options:
-        --entrypoint
-        -e        entry-point jar within the directory, or the application jar
-                  (can be passed more than once).
-        --yes
-        -y        answer any question with 'yes'.
-      Example:
-        jbuild doctor my-dir -e app.jar
+Examples:
+  # install latest version of Guava and all its dependencies in directory 'java-libs/'
+  jbuild install com.google.guava:guava
 
-  * versions
-    List the versions of the given artifacts that are available on Maven Central.
-      Usage:
-        jbuild versions <artifact...>
-      Example:
-        jbuild versions junit:junit
+  # show all version of Spring available on the Spring repository
+  jbuild versions -r https://repo.spring.io/artifactory/release/ org.springframework:spring-core
+
+  # fetch the Guava POM
+  jbuild fetch com.google.guava:guava:31.0.1-jre:pom
+
+  # compile all Java sources in 'src/' or 'src/main/java' into a jar
+  # using all jars in 'java-libs/' as the classpath
+  jbuild compile
 ```
 
 ## Java API
