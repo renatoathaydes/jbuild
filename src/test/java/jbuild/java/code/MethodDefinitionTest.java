@@ -18,6 +18,9 @@ public class MethodDefinitionTest {
 
         method = new Definition.MethodDefinition("foo", "(Ljava/lang/String;I)Ljava/lang/Character;");
         assertThat(method.getReturnType()).isEqualTo("Ljava/lang/Character;");
+
+        method = new Definition.MethodDefinition("foo", "([Ljava/lang/String;I)[[Ljava/lang/Character;");
+        assertThat(method.getReturnType()).isEqualTo("[[Ljava/lang/Character;");
     }
 
     @Test
@@ -30,5 +33,14 @@ public class MethodDefinitionTest {
 
         method = new Definition.MethodDefinition("foo", "(Ljava/lang/String;I)Ljava/lang/Character;");
         assertThat(method.getParameterTypes()).isEqualTo(List.of("Ljava/lang/String;", "I"));
+    }
+
+    @Test
+    void describe() {
+        var method = new Definition.MethodDefinition("foo", "()V");
+        assertThat(method.getDescription()).isEqualTo("foo()::void");
+
+        method = new Definition.MethodDefinition("split", "([[Ljava/lang/String;I)[Ljava/lang/String;");
+        assertThat(method.getDescription()).isEqualTo("split(java.lang.String[][], int)::java.lang.String[]");
     }
 }

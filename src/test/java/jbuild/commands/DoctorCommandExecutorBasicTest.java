@@ -218,7 +218,7 @@ public class DoctorCommandExecutorBasicTest {
                     .get());
             assertThat(result).hasSize(1);
 
-            var main = "app.jar!app.App -> main(java.lang.String)::void -> ";
+            var main = "app.jar!app.App -> main(java.lang.String[])::void -> ";
 
             assertThat(result.get(0).getErrors()).isPresent()
                     .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))

@@ -186,6 +186,7 @@ public final class JavaTypeUtils {
 
     private static List<String> parseTypeList(char[] chars) {
         int index = 0;
+        int arrayDimension = 0;
         var result = new ArrayList<String>(4);
 
         while (index < chars.length) {
@@ -201,12 +202,17 @@ public final class JavaTypeUtils {
                 case 'S':
                 case 'V':
                 case 'Z': {
-                    result.add(Character.toString(chars[index]));
+                    if (arrayDimension > 0) {
+                        result.add(toString(chars, index - arrayDimension, index));
+                        arrayDimension = 0;
+                    } else {
+                        result.add(Character.toString(chars[index]));
+                    }
                     index++;
                     break;
                 }
                 case '[': {
-                    // array types are ignored
+                    arrayDimension++;
                     index++;
                     break;
                 }
@@ -218,9 +224,10 @@ public final class JavaTypeUtils {
                                 ACTION_ERROR);
 
                     }
-                    var type = toString(chars, index, typeEnd);
+                    var type = toString(chars, index - arrayDimension, typeEnd);
                     result.add(type);
-                    index += type.length();
+                    arrayDimension = 0;
+                    index = typeEnd + 1;
                     break;
                 }
                 default:

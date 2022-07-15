@@ -237,6 +237,13 @@ public class ClassGraphTest {
     }
 
     @Test
+    void checkArrayFieldExists() {
+        assertThat(classGraph.exists("Lgenerics/ComplexType;",
+                new Definition.FieldDefinition("strings", "[Ljava/lang/String;")))
+                .isTrue();
+    }
+
+    @Test
     void canCheckConstructorExistsInJavaType() {
         assertThat(classGraph.existsJava("Ljavax/security/auth/x500/X500Principal;",
                 new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"))

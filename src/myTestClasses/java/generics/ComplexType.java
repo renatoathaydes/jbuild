@@ -9,7 +9,7 @@ import java.util.function.Function;
 public abstract class ComplexType<T extends Generics<? extends BaseA> & EmptyInterface>
         extends Generics<Base>
         implements Callable<Generics<BaseA>>, Runnable, Function<String, Generics<Base>> {
-    String[] strings;
+    public String[] strings;
     long[][] longs;
     public Zort[][][] zorts;
 }

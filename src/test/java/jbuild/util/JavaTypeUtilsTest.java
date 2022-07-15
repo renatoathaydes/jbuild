@@ -29,11 +29,11 @@ public class JavaTypeUtilsTest {
     @Test
     void canParseArrayType() {
         assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[Lfoo/Bar;"))
-                .isEqualTo(List.of("Lfoo/Bar;"));
+                .isEqualTo(List.of("[Lfoo/Bar;"));
         assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[I"))
-                .isEqualTo(List.of("I"));
+                .isEqualTo(List.of("[I"));
         assertThat(JavaTypeUtils.parseMethodArgumentsTypes("[[[Lfoo/Bar;[[[I"))
-                .isEqualTo(List.of("Lfoo/Bar;", "I"));
+                .isEqualTo(List.of("[[[Lfoo/Bar;", "[[[I"));
     }
 
     @Test
