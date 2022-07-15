@@ -90,10 +90,6 @@ public class ClassGraphTest {
         assertThat(classGraph.findImplementation(
                 new Code.Method("Ljava/util/HashMap;", "\"<init>\"", "(I)V", other))
         ).isNotNull().isEmpty();
-        // constructor cannot be invoked with invokevirtual
-        assertThat(classGraph.findImplementation(
-                new Code.Method("Ljava/util/HashMap;", "\"<init>\"", "(I)V", invokevirtual))
-        ).isNull();
         // constructor just doesn't exist
         assertThat(classGraph.findImplementation(
                 new Code.Method("Ljava/util/HashMap;", "\"<init>\"", "(F)V", other))
@@ -155,6 +151,46 @@ public class ClassGraphTest {
     void canCheckMethodExistsInSuperInterface() {
         assertThat(classGraph.exists("Lfoo/MultiInterface;",
                 new Definition.MethodDefinition("run", "()V"))
+        ).isTrue();
+    }
+
+    @Test
+    void canCheckMethodExistsInSuperInterfaceOfAbstractClass() {
+        assertThat(classGraph.exists("Lfoo/AbstractMulti;",
+                new Definition.MethodDefinition("run", "()V"))
+        ).isTrue();
+
+        assertThat(classGraph.exists("Lfoo/AbstractMulti;",
+                new Definition.MethodDefinition("close", "()V"))
+        ).isTrue();
+    }
+
+    @Test
+    void canCheckMethodExistsInJavaSuperInterfaceOfAbstractClass() {
+        assertThat(classGraph.exists("Lfoo/AbstractMulti;",
+                new Definition.MethodDefinition("get", "(I)Ljava/lang/Object;"))
+        ).isTrue();
+    }
+
+    @Test
+    void canCheckMethodExistsInSuperInterfaceOfExtensionOfAbstractClass() {
+        assertThat(classGraph.exists("Lfoo/ExtendsAbstractMulti;",
+                new Definition.MethodDefinition("run", "()V"))
+        ).isTrue();
+
+        assertThat(classGraph.exists("Lfoo/ExtendsAbstractMulti;",
+                new Definition.MethodDefinition("close", "()V"))
+        ).isTrue();
+
+        assertThat(classGraph.exists("Lfoo/ExtendsAbstractMulti;",
+                new Definition.MethodDefinition("get", "(I)Ljava/lang/Object;"))
+        ).isTrue();
+    }
+
+    @Test
+    void canCheckMethodExistsInSuperInterfaceGeneric() {
+        assertThat(classGraph.exists("Lgenerics/GenericParameter;",
+                new Definition.MethodDefinition("apply", "(Ljava/lang/Object;)Ljava/lang/Object;"))
         ).isTrue();
     }
 

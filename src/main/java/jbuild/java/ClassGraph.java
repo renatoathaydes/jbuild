@@ -218,7 +218,7 @@ public final class ClassGraph {
     private static boolean javaMethodExists(Class<?> type,
                                             Definition.MethodDefinition method,
                                             boolean isVirtualCall) {
-        if (!isVirtualCall && method.name.equals("\"<init>\"")) {
+        if (method.name.equals("\"<init>\"")) {
             return javaConstructorExists(type, method.type);
         }
 
