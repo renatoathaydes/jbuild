@@ -49,16 +49,37 @@ public final class JavaTypeUtils {
         var result = new StringBuilder(className.length() + 4);
         if (className.endsWith("]")) {
             var firstBracket = className.indexOf('[');
-            var lastBracket = className.lastIndexOf('[');
-            for (int i = 0; i < 1 + lastBracket - firstBracket; i += 2) {
+            for (int i = 0; i < className.length() - firstBracket; i += 2) {
                 result.append('[');
             }
             className = className.substring(0, firstBracket);
         }
-        return result.append('L')
-                .append(className.replaceAll("\\.", "/"))
-                .append(';')
-                .toString();
+        return result.append(typeName(className)).toString();
+    }
+
+    private static String typeName(String basicClassName) {
+        switch (basicClassName) {
+            case "byte":
+                return "B";
+            case "char":
+                return "C";
+            case "double":
+                return "D";
+            case "float":
+                return "F";
+            case "int":
+                return "I";
+            case "long":
+                return "J";
+            case "short":
+                return "S";
+            case "void":
+                return "V";
+            case "boolean":
+                return "Z";
+            default:
+                return "L" + basicClassName.replaceAll("\\.", "/") + ';';
+        }
     }
 
     /**
@@ -68,12 +89,28 @@ public final class JavaTypeUtils {
      * @return Java language type name
      */
     public static String typeNameToClassName(String typeName) {
-        if (isReferenceType(typeName)) {
-            return typeName.substring(1, typeName.length() - 1).replaceAll("/", ".");
+        var typeInfo = TypeInfo.from(typeName);
+        var simpleClassName = className(typeInfo.basicTypeName, typeInfo.isReferenceType);
+        if (typeInfo.arrayDimensions == 0) return simpleClassName;
+        return simpleClassName + arrayTypeSuffix(typeInfo.arrayDimensions);
+    }
+
+    private static CharSequence arrayTypeSuffix(int dimensions) {
+        switch (dimensions) {
+            case 1:
+                return "[]";
+            case 2:
+                return "[][]";
+            default:
+                return "[]".repeat(dimensions);
         }
-        var type = cleanArrayTypeName(typeName);
-        if (type.length() > 1) return typeName;
-        switch (type.charAt(0)) {
+    }
+
+    private static String className(String basicTypeName, boolean isReferenceType) {
+        if (isReferenceType) {
+            return basicTypeName.substring(1, basicTypeName.length() - 1).replaceAll("/", ".");
+        }
+        switch (basicTypeName.charAt(0)) {
             case 'B':
                 return "byte";
             case 'C':
@@ -93,7 +130,7 @@ public final class JavaTypeUtils {
             case 'Z':
                 return "boolean";
             default:
-                return typeName;
+                return basicTypeName;
         }
     }
 
@@ -104,7 +141,12 @@ public final class JavaTypeUtils {
      * @return true if type name starts with 'L' and ends with ';', false otherwise.
      */
     public static boolean isReferenceType(String typeName) {
-        return typeName.startsWith("L") && typeName.endsWith(";");
+        var startIndex = 0;
+        for (char c : typeName.toCharArray()) {
+            if (c == '[') startIndex++;
+            else break;
+        }
+        return typeName.substring(startIndex).startsWith("L") && typeName.endsWith(";");
     }
 
     /**
@@ -284,6 +326,28 @@ public final class JavaTypeUtils {
                                                 Class<?>... parameterTypes) {
         return Arrays.stream(parameterTypes).map(JavaTypeUtils::toTypeDescriptor)
                 .collect(joining("", "(", ")")) + toTypeDescriptor(returnType);
+    }
+
+    private static final class TypeInfo {
+        final String basicTypeName;
+        final int arrayDimensions;
+        final boolean isReferenceType;
+
+        public TypeInfo(String basicTypeName, int arrayDimensions, boolean isReferenceType) {
+            this.basicTypeName = basicTypeName;
+            this.arrayDimensions = arrayDimensions;
+            this.isReferenceType = isReferenceType;
+        }
+
+        static TypeInfo from(String typeName) {
+            var arrayDimensions = 0;
+            for (char c : typeName.toCharArray()) {
+                if (c == '[') arrayDimensions++;
+                else break;
+            }
+            var isReferenceType = typeName.charAt(arrayDimensions) == 'L';
+            return new TypeInfo(typeName.substring(arrayDimensions), arrayDimensions, isReferenceType);
+        }
     }
 
 }

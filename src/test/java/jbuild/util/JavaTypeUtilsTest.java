@@ -49,4 +49,28 @@ public class JavaTypeUtilsTest {
         assertThat(JavaTypeUtils.cleanArrayTypeName("\"[[Lfoo/Bar;\""))
                 .isEqualTo("Lfoo/Bar;");
     }
+
+    @Test
+    void classNameToTypeName() {
+        assertThat(JavaTypeUtils.classNameToTypeName("int")).isEqualTo("I");
+        assertThat(JavaTypeUtils.classNameToTypeName("float")).isEqualTo("F");
+        assertThat(JavaTypeUtils.classNameToTypeName("java.lang.String")).isEqualTo("Ljava/lang/String;");
+        assertThat(JavaTypeUtils.classNameToTypeName("Foo")).isEqualTo("LFoo;");
+        assertThat(JavaTypeUtils.classNameToTypeName("int[]")).isEqualTo("[I");
+        assertThat(JavaTypeUtils.classNameToTypeName("int[][][][]")).isEqualTo("[[[[I");
+        assertThat(JavaTypeUtils.classNameToTypeName("Foo[]")).isEqualTo("[LFoo;");
+        assertThat(JavaTypeUtils.classNameToTypeName("Foo[][]")).isEqualTo("[[LFoo;");
+    }
+
+    @Test
+    void typeNameToClassName() {
+        assertThat(JavaTypeUtils.typeNameToClassName("I")).isEqualTo("int");
+        assertThat(JavaTypeUtils.typeNameToClassName("F")).isEqualTo("float");
+        assertThat(JavaTypeUtils.typeNameToClassName("Ljava/lang/String;")).isEqualTo("java.lang.String");
+        assertThat(JavaTypeUtils.typeNameToClassName("LFoo;")).isEqualTo("Foo");
+        assertThat(JavaTypeUtils.typeNameToClassName("[I")).isEqualTo("int[]");
+        assertThat(JavaTypeUtils.typeNameToClassName("[[[[I")).isEqualTo("int[][][][]");
+        assertThat(JavaTypeUtils.typeNameToClassName("[LFoo;")).isEqualTo("Foo[]");
+        assertThat(JavaTypeUtils.typeNameToClassName("[[LFoo;")).isEqualTo("Foo[][]");
+    }
 }
