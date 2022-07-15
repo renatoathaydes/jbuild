@@ -2,9 +2,9 @@ package jbuild.commands;
 
 import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
+import jbuild.util.NonEmptyCollection;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowingConsumer;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +24,6 @@ import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.Collectors.toSet;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
 import static jbuild.TestSystemProperties.testJarsDir;
@@ -119,75 +117,59 @@ public class DoctorCommandExecutorRealJarsTest {
     }
 
     @Test
-    @Disabled("Implementing error messages")
     void shouldErrorWhenEntryPointRequiresMissingJar() throws IOException {
         // copy only otherClassesJar to a temp folder
         var classpathDir = Files.createTempDirectory(DoctorCommandExecutorRealJarsTest.class.getSimpleName());
         Path otherClassesJarCopy = classpathDir.resolve(Paths.get(otherClassesJar.getName()));
         Files.copy(otherClassesJar.toPath(), otherClassesJarCopy);
 
-        expectError(true, (command) -> {
-            command.findValidClasspaths(classpathDir.toFile(),
+        withErrorReporting((command) -> {
+            var results = command.findValidClasspaths(classpathDir.toFile(),
                             List.of(otherClassesJarCopy.toFile()), Set.of())
                     .toCompletableFuture()
                     .get();
-        }, (stdout, errorAssert) -> {
-            errorAssert.hasRootCauseInstanceOf(JBuildException.class)
-                    .getRootCause()
-                    .hasMessage("None of the classpaths could provide all types required by the entry-points. " +
-                            "See log above for details.");
 
-            var out = stdout.get().lines()
-                    .dropWhile(line -> !line.startsWith("Entry-points required types:"))
-                    .collect(Collectors.toList());
+            assertThat(results.size()).isEqualTo(1);
 
-            assertThat(out).hasSizeGreaterThan(3);
-            assertThat(out.get(0)).startsWith("Entry-points required types: ");
-            var requiredTypes = Arrays.stream(out.get(0)
-                            .substring("Entry-points required types: [".length())
-                            .split(",\\s+"))
-                    .map(t -> t.replace("]", ""))
-                    .collect(toSet());
-            assertThat(requiredTypes).containsExactlyInAnyOrder(
-                    "Lfoo/Bar;",
+            var result = results.iterator().next();
+
+            var jarFromSet = result.getErrors().stream()
+                    .flatMap(NonEmptyCollection::stream)
+                    .map(error -> error.jarFrom.getName())
+                    .collect(Collectors.toSet());
+
+            assertThat(jarFromSet).containsExactly(otherClassesJar.getName());
+
+            var jarToSet = result.getErrors().stream()
+                    .flatMap(NonEmptyCollection::stream)
+                    .map(error -> error.jarTo == null ? "null" : error.jarTo.getName())
+                    .collect(Collectors.toSet());
+
+            // the jarTo must be null because there's no way of knowing where the missing types should come from
+            assertThat(jarToSet).containsExactly("null");
+
+            var codeToSet = result.getErrors().stream()
+                    .flatMap(NonEmptyCollection::stream)
+                    .map(error -> error.to.typeName)
+                    .collect(Collectors.toSet());
+
+            assertThat(codeToSet).containsExactly("Lfoo/Bar;",
                     "Lfoo/FunctionalCode;",
+                    "Lgenerics/ManyGenerics;",
                     "Lfoo/SomethingSpecific;",
+                    "Lgenerics/Base;",
                     "Lfoo/ExampleLogger;",
                     "Lfoo/Zort;",
+                    "Lgenerics/BaseA;",
                     "Lfoo/MultiInterface;",
                     "Lfoo/Something;",
+                    "Lgenerics/ComplexType;",
                     "Lfoo/Fields;",
                     "Lfoo/SomeEnum;",
-                    "Lfoo/EmptyInterface;",
-                    "Lgenerics/ManyGenerics;",
-                    "Lgenerics/Base;",
-                    "Lgenerics/BaseA;",
-                    "Lgenerics/ComplexType;",
-                    "Lgenerics/Generics;"
-            );
+                    "Lgenerics/Generics;",
+                    "Lfoo/EmptyInterface;");
 
-            assertThat(out.get(1)).isEqualTo(
-                    "Found 41 missing type references in classpath: " + otherClassesJarCopy);
-
-            assertThat(out.subList(2, out.size())).containsExactly(
-                    "  * missing references: 'other-tests.jar!other.CallsSuperMethod -> foo.Something, foo.SomethingSpecific'",
-                    "  * missing references: 'other-tests.jar!other.CallsZortToCreateBar -> foo.Bar, foo.Zort'",
-                    "  * missing references: 'other-tests.jar!other.ExtendsBar -> foo.Bar'",
-                    "  * missing references: 'other-tests.jar!other.HasSomething -> foo.Something'",
-                    "  * missing references: 'other-tests.jar!other.ImplementsEmptyInterface -> foo.EmptyInterface'",
-                    "  * missing references: 'other-tests.jar!other.ReadsFieldOfZort -> foo.Bar, foo.Zort'",
-                    "  * missing references: 'other-tests.jar!other.UsesArrayOfFunctionalCode -> foo.FunctionalCode'",
-                    "  * missing references: 'other-tests.jar!other.UsesBar -> foo.Bar'",
-                    "  * missing references: 'other-tests.jar!other.UsesBaseA -> generics.BaseA'",
-                    "  * missing references: 'other-tests.jar!other.UsesBaseViaGenerics -> generics.Base'",
-                    "  * missing references: 'other-tests.jar!other.UsesComplexType -> foo.Zort, generics.ComplexType, generics.ManyGenerics'",
-                    "  * missing references: 'other-tests.jar!other.UsesComplexType$Param -> foo.EmptyInterface, generics.Generics'",
-                    "  * missing references: 'other-tests.jar!other.UsesEnum$1 -> foo.SomeEnum'",
-                    "  * missing references: 'other-tests.jar!other.UsesFields -> foo.Fields'",
-                    "  * missing references: 'other-tests.jar!other.UsesGenerics -> generics.BaseA, generics.Generics'",
-                    "  * missing references: 'other-tests.jar!other.UsesMethodHandleFromExampleLogger -> foo.ExampleLogger'",
-                    "  * missing references: 'other-tests.jar!other.UsesMultiInterface -> foo.MultiInterface'"
-            );
+            assertThat(result.successful).isFalse();
         });
     }
 
