@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
+import static jbuild.java.code.Code.Method.Instruction.invokespecial;
 import static jbuild.java.code.Code.Method.Instruction.invokestatic;
 import static jbuild.java.code.Code.Method.Instruction.invokevirtual;
 import static jbuild.java.code.Code.Method.Instruction.other;
@@ -128,6 +129,26 @@ public class ClassGraphTest {
         assertThat(classGraph.exists("Lgenerics/BaseA;",
                 new Definition.MethodDefinition("string", "()Ljava/lang/String;"))
         ).isTrue();
+
+        assertThat(classGraph.findImplementation(new Code.Method("Lgenerics/BaseA;",
+                "string",
+                "()Ljava/lang/String;",
+                invokevirtual)
+        )).isNotNull();
+    }
+
+    @Test
+    void canCheckMethodExistsInSuperSuperClass() {
+        // method defined in super-class of super-class of SubBaseA
+        assertThat(classGraph.exists("Lgenerics/SubBaseA;",
+                new Definition.MethodDefinition("string", "()Ljava/lang/String;"))
+        ).isTrue();
+
+        assertThat(classGraph.findImplementation(new Code.Method("Lgenerics/SubBaseA;",
+                "string",
+                "()Ljava/lang/String;",
+                invokespecial)
+        )).isNotNull();
     }
 
     @Test

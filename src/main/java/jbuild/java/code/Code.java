@@ -122,7 +122,7 @@ public abstract class Code implements Describable {
             invokespecial, invokestatic, invokevirtual, invokeinterface, other;
 
             public boolean isVirtual() {
-                return this == invokevirtual || this == invokeinterface;
+                return this == invokespecial || this == invokevirtual || this == invokeinterface;
             }
         }
 
