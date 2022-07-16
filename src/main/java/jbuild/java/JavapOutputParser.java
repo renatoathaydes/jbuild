@@ -38,8 +38,8 @@ public final class JavapOutputParser {
     //       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
     private static final Pattern CODE_LINE = Pattern.compile("\\s*\\d+:\\s*([a-zA-Z_-]+)[a-zA-Z\\d\\s#,:_]+\\s//\\s([A-Za-z].+)");
 
-    private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s+.*//\\s+(.*)");
-    private static final Pattern METHOD_SIGNATURE_LINE = Pattern.compile("Signature:\\s[0-9\\s#]+//\\s(.+)");
+    private static final Pattern METHOD_HANDLE_LINE = Pattern.compile("\\s*#\\d+\\s=\\sMethodHandle\\s[a-zA-Z\\d_@$#!?:\\-\\s]*//\\s+(.*)");
+    private static final Pattern METHOD_SIGNATURE_LINE = Pattern.compile("Signature:\\s[\\d\\s#]+//\\s(.+)");
 
     private final JBuildLog log;
     private final JavaTypeParser typeParser;
