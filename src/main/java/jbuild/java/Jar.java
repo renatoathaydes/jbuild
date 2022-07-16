@@ -8,18 +8,28 @@ import jbuild.util.CachedSupplier;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.errors.JBuildException.ErrorCause.TIMEOUT;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 
 /**
@@ -153,15 +163,82 @@ public final class Jar {
         private ParsedJar load(File jar, Set<String> classNames) {
             var startTime = System.currentTimeMillis();
             log.verbosePrintln(() -> "Parsing jar " + jar.getAbsolutePath() + " with " + classNames.size() + " classes");
-            var javap = classNames.size() > 4_000 // can run out of memory when parsing so many classes
-                    ? Tools.Javap.createFileBacked()
-                    : Tools.Javap.create();
+
+            var partitions = partitionClasses(classNames);
+            var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
+            log.verbosePrintln(() -> "Partitioned jar types into " + partitions.size() +
+                    " partitions in " + totalTime.get() + "ms");
+
+            startTime = System.currentTimeMillis();
+            final var typeDefs = new HashMap<String, TypeDefinition>(classNames.size());
+            CompletableFuture<?>[] partitionFutures = new CompletableFuture[partitions.size()];
+
+            for (var i = 0; i < partitions.size(); i++) {
+                final var partitionIndex = i;
+                partitionFutures[partitionIndex] = CompletableFuture.runAsync(() -> {
+                    var partionTypes = parse(jar, partitions.get(partitionIndex), partitionIndex);
+                    synchronized (typeDefs) {
+                        typeDefs.putAll(partionTypes);
+                    }
+                }, executorService);
+            }
+
+            try {
+                CompletableFuture.allOf(partitionFutures).get(5, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                throw new JBuildException("Interrupted while parsing bytecode in " + jar.getName(), ACTION_ERROR);
+            } catch (ExecutionException e) {
+                throw new JBuildException("Unexpected error parsing bytecode in " +
+                        jar.getName() + ": " + e.getCause(), ACTION_ERROR);
+            } catch (TimeoutException e) {
+                throw new JBuildException("Timeout while parsing bytecode in " + jar.getName(), TIMEOUT);
+            }
+
+            totalTime.set(System.currentTimeMillis() - startTime);
+            log.verbosePrintln(() -> "Finished processing all " + partitions.size() +
+                    " partitions in " + totalTime.get() + "ms");
+
+            return new ParsedJar(jar, typeDefs);
+        }
+
+        private static List<? extends Collection<String>> partitionClasses(Set<String> classNames) {
+            final int partionSize = 1_000;
+            List<Collection<String>> partitions;
+            if (classNames.size() > partionSize + 100) {
+                var classesIterator = classNames.iterator();
+                int partitionCount = classNames.size() / partionSize;
+                partitions = new ArrayList<>(partitionCount + 1);
+                for (int i = 0; i < partitionCount; i++) {
+                    var partition = new ArrayList<String>(partionSize);
+                    partitions.add(partition);
+                    for (int j = 0; j < partionSize; j++) {
+                        partition.add(classesIterator.next());
+                    }
+                }
+                // last partition
+                {
+                    var partition = new ArrayList<String>(classNames.size() % partionSize);
+                    partitions.add(partition);
+                    while (classesIterator.hasNext()) {
+                        partition.add(classesIterator.next());
+                    }
+                }
+            } else {
+                partitions = List.of(classNames);
+            }
+            return partitions;
+        }
+
+        private Map<String, TypeDefinition> parse(File jar, Collection<String> classNames, int partitionIndex) {
+            var startTime = System.currentTimeMillis();
+            var javap = Tools.Javap.create();
             var toolResult = javap.run(jar.getAbsolutePath(), classNames);
             var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
-            log.verbosePrintln(() -> "javap " + jar + " completed in " + totalTime.get() + "ms");
+            log.verbosePrintln(() -> "javap " + jar + " (partition " + partitionIndex +
+                    ") completed in " + totalTime.get() + "ms");
             verifyToolSuccessful("javap", toolResult);
-            var javapOutputParser = new JavapOutputParser(log);
             startTime = System.currentTimeMillis();
+            var javapOutputParser = new JavapOutputParser(log);
             Map<String, TypeDefinition> typeDefs;
             try (var stdoutStream = toolResult.getStdoutLines();
                  var ignored = toolResult.getStderrLines()) {
@@ -170,8 +247,9 @@ public final class Jar {
                 throw new JBuildException(e.getMessage() + " (jar: " + jar + ")", e.getErrorCause());
             }
             totalTime.set(System.currentTimeMillis() - startTime);
-            log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar + " in " + totalTime.get() + "ms");
-            return new ParsedJar(jar, typeDefs);
+            log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar +
+                    " (partition " + partitionIndex + ") in " + totalTime.get() + "ms");
+            return typeDefs;
         }
 
     }

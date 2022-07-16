@@ -153,7 +153,8 @@ public class DoctorCommandExecutorRealJarsTest {
                     .map(error -> error.to.typeName)
                     .collect(Collectors.toSet());
 
-            assertThat(codeToSet).containsExactly("Lfoo/Bar;",
+            assertThat(codeToSet).containsExactlyInAnyOrder(
+                    "Lfoo/Bar;",
                     "Lfoo/FunctionalCode;",
                     "Lgenerics/ManyGenerics;",
                     "Lfoo/SomethingSpecific;",

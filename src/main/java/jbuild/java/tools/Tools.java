@@ -2,10 +2,7 @@ package jbuild.java.tools;
 
 import jbuild.errors.JBuildException;
 
-import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
@@ -13,7 +10,6 @@ import java.util.spi.ToolProvider;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.util.TextUtils.LINE_END;
 
 /**
@@ -79,17 +75,6 @@ public abstract class Tools {
 
         public static Javap create() {
             return new Javap(toolProvider, new MemoryStreams());
-        }
-
-        public static Javap createFileBacked() {
-            Path stdout, stderr;
-            try {
-                stdout = Files.createTempFile(Javap.class.getName(), ".txt");
-                stderr = Files.createTempFile(Javap.class.getName(), ".txt");
-            } catch (IOException e) {
-                throw new JBuildException("Cannot create temp files for javap stdout/stderr", IO_WRITE);
-            }
-            return new Javap(toolProvider, new FileStreams(stdout.toFile(), stderr.toFile()));
         }
 
         private Javap(ToolProvider tool, Streams streams) {
