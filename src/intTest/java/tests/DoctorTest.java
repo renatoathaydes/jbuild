@@ -72,7 +72,7 @@ public class DoctorTest extends JBuildTestRunner {
                 .collect(toList());
         assertThat(warnings).isEmpty();
 
-        assertThat(result.getStdout()).contains("Found a single classpath permutation, checking its consistency." + LE +
+        assertThat(result.getStdout()).contains(
                 "All entrypoint type dependencies are satisfied by the classpath below:");
         assertThat(result.getStdout()).contains(LE + "JBuild success in");
     }

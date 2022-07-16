@@ -168,7 +168,7 @@ public class ClassGraphTest {
     @Test
     void canCheckMethodExistsInJavaSuperInterfaceOfAbstractClass() {
         assertThat(classGraph.exists("Lfoo/AbstractMulti;",
-                new Definition.MethodDefinition("get", "(I)Ljava/lang/Object;"))
+                new Definition.MethodDefinition("get", "(Ljava/lang/Object;)Ljava/lang/Object;"))
         ).isTrue();
     }
 
@@ -183,7 +183,12 @@ public class ClassGraphTest {
         ).isTrue();
 
         assertThat(classGraph.exists("Lfoo/ExtendsAbstractMulti;",
-                new Definition.MethodDefinition("get", "(I)Ljava/lang/Object;"))
+                new Definition.MethodDefinition("get", "(Ljava/lang/Object;)Ljava/lang/Object;"))
+        ).isTrue();
+
+        assertThat(classGraph.exists("Lfoo/ExtendsAbstractMulti;",
+                new Definition.MethodDefinition("getOrDefault",
+                        "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))
         ).isTrue();
     }
 

@@ -135,7 +135,6 @@ public final class DoctorCommandExecutor {
                 }).collect(toList());
     }
 
-
     private Void showClasspathCheckResults(Collection<ClasspathCheckResult> results) {
         var success = results.stream()
                 .map(res -> res.successful ? res : null)

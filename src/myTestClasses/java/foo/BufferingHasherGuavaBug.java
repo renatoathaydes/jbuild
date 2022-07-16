@@ -1,6 +1,9 @@
 package foo;
 
 import java.io.ByteArrayOutputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Map;
 
 /**
  * ClassGraph had an issue due to a Guava method not being found:
@@ -13,6 +16,8 @@ import java.io.ByteArrayOutputStream;
  */
 public class BufferingHasherGuavaBug {
 
+    private GroovyBug groovyBug;
+
     public final class BufferingHasher {
         ExposedByteArrayOutputStream stream;
 
@@ -21,8 +26,25 @@ public class BufferingHasherGuavaBug {
             return this;
         }
     }
+
+    abstract class GroovyBug extends URLClassLoader {
+        public GroovyBug(URL[] urls) {
+            super(urls);
+        }
+
+        public Class defineClass(String name, byte[] data) {
+            return super.defineClass(name, data, 0, data.length);
+        }
+    }
 }
 
 class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
 
+    public void use(ExtendsAbstractMulti multi) {
+        // calling interface method via abstract class
+        multi.putAll(Map.of("yes", true));
+
+        // calling default interface method
+        multi.getOrDefault("something", false);
+    }
 }

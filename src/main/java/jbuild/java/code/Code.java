@@ -86,7 +86,7 @@ public abstract class Code implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(typeName).append(instruction.isStatic() ? '$' : '#')
+            builder.append(typeName).append(instruction.isStatic() ? ':' : '#')
                     .append(name).append("::").append(type);
         }
 
@@ -179,7 +179,7 @@ public abstract class Code implements Describable {
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
             builder.append(typeNameToClassName(typeName))
-                    .append(instruction.isStatic() ? '$' : '#');
+                    .append(instruction.isStatic() ? ':' : '#');
             toDefinition().describe(builder, verbose);
         }
 

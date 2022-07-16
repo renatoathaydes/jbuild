@@ -8,10 +8,13 @@ import jbuild.util.Describable;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
@@ -98,13 +101,9 @@ public final class ClassGraph {
 
     public Set<Code> findImplementation(String typeName,
                                         Definition.MethodDefinition method) {
-        var typeDef = findTypeDefinition(typeName);
+        var typeDef = typeName.startsWith("[") ? null : findTypeDefinition(typeName);
         if (typeDef == null) {
-            var javaType = getJavaType(typeName);
-            if (javaType != null && javaMethodExists(javaType, method)) {
-                return Collections.emptySet();
-            }
-            return null;
+            return existsJava(typeName, method) ? Set.of() : null;
         }
 
         var impl = typeDef.methods.get(method);
@@ -206,7 +205,6 @@ public final class ClassGraph {
         for (var javaField : type.getFields()) {
             if (javaField.getName().equals(field.name)) {
                 var fieldType = toTypeDescriptor(javaField.getType());
-                // FIXME does this handle arrays?
                 if (fieldType.equals(field.type)) {
                     return true;
                 }
@@ -221,18 +219,42 @@ public final class ClassGraph {
             return javaConstructorExists(type, method.type);
         }
         var wantsStatic = method.isStatic;
-        Iterable<Method> methods = () -> Arrays.stream(type.getMethods())
-                .filter(m -> Modifier.isStatic(m.getModifiers()) == wantsStatic)
-                .iterator();
-        for (var javaMethod : methods) {
-            if (javaMethod.getName().equals(method.name)) {
+        Predicate<Method> staticPredicate = m -> Modifier.isStatic(m.getModifiers()) == wantsStatic;
+
+        // public, accessible methods
+        return isMethodIn(Arrays.stream(type.getMethods()).filter(staticPredicate), method)
+                // all private, protected methods from super types
+                || isMethodIn(
+                typeHierarchyOf(type).stream()
+                        .flatMap(t -> Arrays.stream(t.getDeclaredMethods()))
+                        .filter(staticPredicate),
+                method);
+    }
+
+    private static boolean isMethodIn(Stream<Method> methods, Definition.MethodDefinition methodDefinition) {
+        Iterable<Method> iterator = methods::iterator;
+        var targetName = methodDefinition.name;
+        var targetType = methodDefinition.type;
+        for (var javaMethod : iterator) {
+            if (javaMethod.getName().equals(targetName)) {
                 var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
-                if (methodType.equals(method.type)) {
+                if (methodType.equals(targetType)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    private static List<Class<?>> typeHierarchyOf(Class<?> type) {
+        var result = new ArrayList<Class<?>>(4);
+        result.add(type);
+        var superType = type.getSuperclass();
+        while (superType != null) {
+            result.add(superType);
+            superType = superType.getSuperclass();
+        }
+        return result;
     }
 
     private static boolean javaConstructorExists(Class<?> type, String constructorType) {

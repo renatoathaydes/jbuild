@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -427,16 +428,29 @@ public final class JavapOutputParser {
                     typeStart++;
                     var type = classNameToTypeName(line.substring(classStart, nameStart - 1));
                     if (shouldIgnoreClass(type, typeName)) return null;
+                    var jvmInstruction = parseMethodHandleJvmInstruction(line);
                     return new Code.Method(
                             type,
                             line.substring(nameStart, typeStart - 1),
-                            line.substring(typeStart));
+                            line.substring(typeStart),
+                            jvmInstruction);
                 }
             }
         }
 
         log.println(() -> "WARNING: unable to find method handle on line '" + line + "'");
         return null;
+    }
+
+    private Code.Method.Instruction parseMethodHandleJvmInstruction(String line) {
+        // Example: REF_invokeVirtual java/lang/Object.toString:()Ljava/lang/String;
+        if (line.startsWith("REF_")) {
+            var firstSpaceIndex = line.indexOf(' ');
+            if (firstSpaceIndex > 0) {
+                return methodInstruction(line.substring("REF_".length(), firstSpaceIndex).toLowerCase(Locale.ROOT));
+            }
+        }
+        return other;
     }
 
     private String extractFieldName(String line) {

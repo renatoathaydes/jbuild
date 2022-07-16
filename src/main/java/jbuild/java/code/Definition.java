@@ -28,7 +28,6 @@ public abstract class Definition implements Describable {
 
     @Override
     public void describe(StringBuilder builder, boolean verbose) {
-        if (isStatic) builder.append("static ");
         builder.append(name).append("::").append(typeNameToClassName(type));
     }
 
@@ -135,7 +134,6 @@ public abstract class Definition implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            if (isStatic && !"static{}".equals(name)) builder.append("static ");
             builder.append(name).append('(');
             var paramCount = getParameterTypes().size();
             for (var i = 0; i < paramCount; ) {
