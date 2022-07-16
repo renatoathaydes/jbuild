@@ -73,4 +73,14 @@ public class JavaTypeUtilsTest {
         assertThat(JavaTypeUtils.typeNameToClassName("[LFoo;")).isEqualTo("Foo[]");
         assertThat(JavaTypeUtils.typeNameToClassName("[[LFoo;")).isEqualTo("Foo[][]");
     }
+
+    @Test
+    void toTypeDescriptor() {
+        assertThat(JavaTypeUtils.toTypeDescriptor(int.class)).isEqualTo("I");
+        assertThat(JavaTypeUtils.toTypeDescriptor(Integer.class)).isEqualTo("Ljava/lang/Integer;");
+        assertThat(JavaTypeUtils.toTypeDescriptor(List.class)).isEqualTo("Ljava/util/List;");
+        assertThat(JavaTypeUtils.toTypeDescriptor(int[].class)).isEqualTo("[I");
+        assertThat(JavaTypeUtils.toTypeDescriptor(Long[].class)).isEqualTo("[Ljava/lang/Long;");
+        assertThat(JavaTypeUtils.toTypeDescriptor(Boolean[][].class)).isEqualTo("[[Ljava/lang/Boolean;");
+    }
 }

@@ -297,28 +297,13 @@ public final class JavaTypeUtils {
      * @return the type name / descriptor.
      */
     public static String toTypeDescriptor(Class<?> type) {
-        var name = type.getName();
-        switch (name) {
-            case "byte":
-                return "B";
-            case "char":
-                return "C";
-            case "double":
-                return "D";
-            case "float":
-                return "F";
-            case "int":
-                return "I";
-            case "long":
-                return "J";
-            case "short":
-                return "S";
-            case "boolean":
-                return "Z";
-            case "void":
-                return "V";
+        if (type.isArray()) {
+            if (type.getComponentType().isPrimitive()) {
+                return type.getName(); // it's already a type name in this case, oddly...
+            }
+            // the JVM returns an almost type name in this case, but with dots instead of '/'!
+            return type.getName().replaceAll("\\.", "/");
         }
-
         return classNameToTypeName(type.getName());
     }
 
