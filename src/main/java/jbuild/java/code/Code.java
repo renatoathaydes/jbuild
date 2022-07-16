@@ -86,7 +86,7 @@ public abstract class Code implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(typeName).append('#')
+            builder.append(typeName).append(instruction.isStatic() ? '$' : '#')
                     .append(name).append("::").append(type);
         }
 
@@ -134,7 +134,11 @@ public abstract class Code implements Describable {
          * JVM instructions for method invocations.
          */
         public enum Instruction {
-            invokespecial, invokestatic, invokevirtual, invokeinterface, other
+            invokespecial, invokestatic, invokevirtual, invokeinterface, other;
+
+            public boolean isStatic() {
+                return this == invokestatic;
+            }
         }
 
         /**
@@ -174,7 +178,8 @@ public abstract class Code implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
-            builder.append(typeNameToClassName(typeName)).append('#');
+            builder.append(typeNameToClassName(typeName))
+                    .append(instruction.isStatic() ? '$' : '#');
             toDefinition().describe(builder, verbose);
         }
 
