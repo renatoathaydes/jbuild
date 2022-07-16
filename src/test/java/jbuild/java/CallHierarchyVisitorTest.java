@@ -83,6 +83,7 @@ public class CallHierarchyVisitorTest {
                 new String[]{"jar", "", "my-tests.jar"},
                 new String[]{"type", "", "my-tests.jar!foo.ExampleLogger"},
                 new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "\"<init>\"(java.io.PrintStream)::void"},
+                new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "getName()::java.lang.String"},
                 new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "debug(java.lang.String)::void"},
                 new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "info(java.lang.String)::void"},
                 new String[]{"definition", "my-tests.jar!foo.ExampleLogger", "out::java.io.PrintStream"}

@@ -146,7 +146,7 @@ public final class ClassGraph {
      * @return true if the definition exists in the type, false otherwise
      */
     public boolean exists(String typeName, Definition definition) {
-        if (typeName.startsWith("\"[")) return existsJavaArray(definition);
+        if (typeName.startsWith("[")) return existsJavaArray(definition);
         var typeDef = findTypeDefinition(typeName);
         if (typeDef == null) return existsJava(typeName, definition);
         var found = definition.match(
@@ -181,7 +181,7 @@ public final class ClassGraph {
      * @return true if the definition exists in the standard library type, false otherwise
      */
     public boolean existsJava(String typeName, Definition definition) {
-        if (typeName.startsWith("\"[")) return existsJavaArray(definition);
+        if (typeName.startsWith("[")) return existsJavaArray(definition);
         var type = getJavaType(typeName);
         if (type == null) return false;
         return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m, false));

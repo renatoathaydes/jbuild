@@ -157,7 +157,6 @@ public class MavenUtilsTest {
     @Test
     void canFindImportsOfPom() throws Exception {
         var commonsLang3 = readPom("commons-lang3-3.12.0.pom");
-        System.out.println("commonsLang3: " + commonsLang3);
 
         assertThat(importsOf(commonsLang3))
                 .isEqualTo(Set.of(new Artifact("org.junit", "junit-bom", "5.7.1")));

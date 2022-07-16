@@ -75,4 +75,12 @@ public final class TextUtils {
         if (index < 0) return "";
         return text.substring(0, index + 1);
     }
+
+    public static String unquote(String text) {
+        if (text.isEmpty() || text.charAt(0) != '"') {
+            return text;
+        }
+        var end = text.charAt(text.length() - 1) == '"' ? text.length() - 1 : text.length();
+        return text.substring(1, end);
+    }
 }

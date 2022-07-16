@@ -217,6 +217,7 @@ public class JavapOutputParserTest {
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.MethodDefinition("\"<init>\"", "()V"),
                 new Definition.MethodDefinition("some", "()Ljava/lang/String;"),
+                new Definition.MethodDefinition("foo", "([B)I"),
                 new Definition.MethodDefinition("varargs", "([Ljava/lang/String;)I")));
     }
 

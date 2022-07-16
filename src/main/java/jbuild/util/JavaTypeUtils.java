@@ -45,7 +45,7 @@ public final class JavaTypeUtils {
         if (className.startsWith("\"")
                 // avoid converting already converted type names
                 || (isReferenceType(className))
-        ) return className;
+        ) return TextUtils.unquote(className);
         var result = new StringBuilder(className.length() + 4);
         if (className.endsWith("]")) {
             var firstBracket = className.indexOf('[');
@@ -142,11 +142,12 @@ public final class JavaTypeUtils {
      */
     public static boolean isReferenceType(String typeName) {
         var startIndex = 0;
-        for (char c : typeName.toCharArray()) {
+        for (var i = 0; i < typeName.length(); i++) {
+            char c = typeName.charAt(i);
             if (c == '[') startIndex++;
             else break;
         }
-        return typeName.substring(startIndex).startsWith("L") && typeName.endsWith(";");
+        return typeName.charAt(startIndex) == 'L' && typeName.endsWith(";");
     }
 
     /**
