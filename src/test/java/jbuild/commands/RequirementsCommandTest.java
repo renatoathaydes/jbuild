@@ -64,7 +64,6 @@ public class RequirementsCommandTest {
                 "Lfoo/Zort;",
                 "Lgenerics/BaseA;",
                 "Lgenerics/Base;",
-                "Lgenerics/ManyGenerics;",
                 "Lgenerics/ComplexType;",
                 "Lfoo/Fields;"
         );

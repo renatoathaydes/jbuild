@@ -156,7 +156,6 @@ public class DoctorCommandExecutorRealJarsTest {
             assertThat(codeToSet).containsExactlyInAnyOrder(
                     "Lfoo/Bar;",
                     "Lfoo/FunctionalCode;",
-                    "Lgenerics/ManyGenerics;",
                     "Lfoo/SomethingSpecific;",
                     "Lgenerics/Base;",
                     "Lfoo/ExampleLogger;",

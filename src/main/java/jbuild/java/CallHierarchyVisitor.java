@@ -11,12 +11,14 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import static jbuild.java.CallHierarchyVisitor.TypeInfo.Kind.JAVA_STDLIB;
 import static jbuild.java.CallHierarchyVisitor.TypeInfo.Kind.LIBRARY;
 import static jbuild.java.CallHierarchyVisitor.TypeInfo.Kind.PRIMITIVE;
+import static jbuild.util.AsyncUtils.returning;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
@@ -94,22 +96,34 @@ public final class CallHierarchyVisitor {
                           Set<String> visitedTypes,
                           Visitor visitor) {
         visitType(chain, typeLocation, visitedTypes, visitor);
-        visitTypesReferredTo(chain, typeLocation, visitedTypes, visitor);
+        var ok = visitTypesReferredTo(chain, typeLocation, visitedTypes, visitor);
+        if (!ok) {
+            // abort visiting, types are missing so there's no point
+            return;
+        }
         var typeDefinition = typeLocation.typeDefinition;
         chain.add(typeLocation);
 
         for (var field : typeDefinition.fields) {
-            visitFieldDefinition(chain, visitedTypes, field, visitor);
+            ok &= visitFieldDefinition(chain, visitedTypes, field, visitor);
         }
-
-        typeDefinition.methods.forEach((method, codes) -> {
-            visitMethodDefinition(chain, visitedTypes, method, visitor);
+        if (!ok) {
+            // abort visiting, types are missing so there's no point
+            return;
+        }
+        for (var entry : typeDefinition.methods.entrySet()) {
+            Definition.MethodDefinition method = entry.getKey();
+            Set<Code> codes = entry.getValue();
+            ok &= visitMethodDefinition(chain, visitedTypes, method, visitor);
             visitor.visit(chain, method);
             chain.add(method);
             visitCodes(chain, codes, visitedTypes, new HashSet<>(), visitor);
             chain.remove(chain.size() - 1);
-        });
-
+        }
+        if (!ok) {
+            // abort visiting, types are missing so there's no point
+            return;
+        }
         visitCodes(chain, typeDefinition.usedMethodHandles, visitedTypes, new HashSet<>(), visitor);
 
         chain.remove(chain.size() - 1);
@@ -126,31 +140,34 @@ public final class CallHierarchyVisitor {
         visitor.visit(chain, typeLocation);
     }
 
-    private void visitTypesReferredTo(List<Describable> chain,
-                                      ClassGraph.TypeDefinitionLocation typeLocation,
-                                      Set<String> visitedTypes,
-                                      Visitor visitor) {
+    private boolean visitTypesReferredTo(List<Describable> chain,
+                                         ClassGraph.TypeDefinitionLocation typeLocation,
+                                         Set<String> visitedTypes,
+                                         Visitor visitor) {
         chain.add(typeLocation);
-        typeLocation.typeDefinition.type.typesReferredTo().forEach((type) ->
-                visitTypeName(chain, type, visitedTypes, visitor, false));
+        var allTypesOk = new AtomicBoolean(true);
+        typeLocation.typeDefinition.type.typesReferredTo().forEach((type) -> {
+            var typeInfo = visitTypeName(chain, type, visitedTypes, visitor);
+            if (typeInfo == null) {
+                allTypesOk.set(false);
+            }
+        });
         chain.remove(chain.size() - 1);
+        return allTypesOk.get();
     }
 
     private TypeInfo visitTypeName(List<Describable> chain,
                                    String typeName,
                                    Set<String> visitedTypes,
-                                   Visitor visitor,
-                                   boolean returnTypeInfo) {
+                                   Visitor visitor) {
         var cleanTypeName = JavaTypeUtils.cleanArrayTypeName(typeName);
         var isPrimitive = JavaTypeUtils.isPrimitiveJavaType(cleanTypeName);
         if (isPrimitive || mayBeJavaStdLibType(cleanTypeName)) {
-            return returnTypeInfo
-                    ? new TypeInfo(null, isPrimitive ? PRIMITIVE : JAVA_STDLIB)
-                    : null;
+            return new TypeInfo(null, isPrimitive ? PRIMITIVE : JAVA_STDLIB);
         }
         var typeLocation = classGraph.findTypeDefinitionLocation(cleanTypeName);
         if (visitedTypes.contains(cleanTypeName)) {
-            return (typeLocation == null || !returnTypeInfo) ? null : new TypeInfo(typeLocation, LIBRARY);
+            return typeLocation == null ? null : new TypeInfo(typeLocation, LIBRARY);
         }
         if (typeLocation == null) {
             if (typeFilter.test(typeNameToClassName(cleanTypeName))) {
@@ -159,17 +176,18 @@ public final class CallHierarchyVisitor {
             return null;
         }
         visitType(chain, typeLocation, visitedTypes, visitor);
-        return returnTypeInfo ? new TypeInfo(typeLocation, LIBRARY) : null;
+        return new TypeInfo(typeLocation, LIBRARY);
     }
 
-    private void visitFieldDefinition(List<Describable> chain,
-                                      Set<String> visitedTypes,
-                                      Definition.FieldDefinition field,
-                                      Visitor visitor) {
+    private boolean visitFieldDefinition(List<Describable> chain,
+                                         Set<String> visitedTypes,
+                                         Definition.FieldDefinition field,
+                                         Visitor visitor) {
         visitor.visit(chain, field);
         chain.add(field);
-        visitTypeName(chain, field.type, visitedTypes, visitor, false);
+        var ok = visitTypeName(chain, field.type, visitedTypes, visitor) != null;
         chain.remove(chain.size() - 1);
+        return ok;
     }
 
     private void visitCodes(List<Describable> chain,
@@ -178,9 +196,13 @@ public final class CallHierarchyVisitor {
                             Set<Code.Method> visitedMethods,
                             Visitor visitor) {
         for (var code : codes) {
-            code.use(t -> visitTypeName(chain, t.typeName, visitedTypes, visitor, false),
-                    f -> visitFieldUsage(chain, f, visitedTypes, visitor),
-                    m -> visitMethodUsage(chain, visitedTypes, visitedMethods, m, visitor));
+            var ok = code.match(t -> visitTypeName(chain, t.typeName, visitedTypes, visitor) != null,
+                    returning(true, f -> visitFieldUsage(chain, f, visitedTypes, visitor)),
+                    returning(true, m -> visitMethodUsage(chain, visitedTypes, visitedMethods, m, visitor)));
+            if (!ok) {
+                // give up, the method is already broken
+                return;
+            }
         }
     }
 
@@ -189,7 +211,7 @@ public final class CallHierarchyVisitor {
                                  Set<String> visitedTypes,
                                  Visitor visitor) {
 
-        var typeInfo = visitTypeName(chain, field.typeName, visitedTypes, visitor, true);
+        var typeInfo = visitTypeName(chain, field.typeName, visitedTypes, visitor);
         if (typeInfo != null) {
             chain.add(field);
             switch (typeInfo.kind) {
@@ -228,16 +250,17 @@ public final class CallHierarchyVisitor {
         }
     }
 
-    private void visitMethodDefinition(List<Describable> chain,
-                                       Set<String> visitedTypes,
-                                       Definition.MethodDefinition methodDef,
-                                       Visitor visitor) {
+    private boolean visitMethodDefinition(List<Describable> chain,
+                                          Set<String> visitedTypes,
+                                          Definition.MethodDefinition methodDef,
+                                          Visitor visitor) {
         chain.add(methodDef);
-        visitTypeName(chain, methodDef.getReturnType(), visitedTypes, visitor, false);
+        var ok = visitTypeName(chain, methodDef.getReturnType(), visitedTypes, visitor) != null;
         for (var parameterType : methodDef.getParameterTypes()) {
-            visitTypeName(chain, parameterType, visitedTypes, visitor, false);
+            ok &= visitTypeName(chain, parameterType, visitedTypes, visitor) != null;
         }
         chain.remove(chain.size() - 1);
+        return ok;
     }
 
     private void visitMethodUsage(List<Describable> chain,
@@ -247,10 +270,11 @@ public final class CallHierarchyVisitor {
                                   Visitor visitor) {
         if (!visitedMethods.add(method)) return;
         chain.add(method);
-        var typeOwner = visitTypeName(chain, method.typeName, visitedTypes, visitor, true);
+        var typeOwner = visitTypeName(chain, method.typeName, visitedTypes, visitor);
         chain.remove(chain.size() - 1);
-        visitMethodDefinition(chain, visitedTypes, method.toDefinition(), visitor);
-        if (typeOwner != null && typeOwner.kind == LIBRARY) {
+        var ok = typeOwner != null &&
+                visitMethodDefinition(chain, visitedTypes, method.toDefinition(), visitor);
+        if (ok && typeOwner.kind == LIBRARY) {
             var codes = classGraph.findImplementation(method);
             if (codes == null) {
                 // do not report error if parent types are excluded as we can't know for sure if the method doesn't exist

@@ -10,11 +10,19 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 
 public final class AsyncUtils {
+
+    public static <T, V> Function<T, V> returning(V value, Consumer<T> consumer) {
+        return (T t) -> {
+            consumer.accept(t);
+            return value;
+        };
+    }
 
     public static <K, V> CompletionStage<Map<K, Either<V, Throwable>>> awaitValues(
             Map<K, ? extends CompletionStage<V>> map) {

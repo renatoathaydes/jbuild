@@ -114,16 +114,6 @@ public class DoctorCommandExecutorBasicTest {
                                     new Code.Type("Lfoo/Bar;"),
                                     new File("foo.jar"),
                                     null
-                            ), new ClassPathInconsistency(
-                                    "foo.jar!bar.Foo -> \"<init>\"()::void",
-                                    new Code.Type("Lfoo/Bar;"),
-                                    new File("foo.jar"),
-                                    null
-                            ), new ClassPathInconsistency(
-                                    "foo.jar!bar.Foo -> \"<init>\"()::void -> foo.Bar#\"<init>\"()::void",
-                                    new Code.Type("Lfoo/Bar;"),
-                                    new File("foo.jar"),
-                                    null
                             )))));
         });
     }
@@ -226,9 +216,7 @@ public class DoctorCommandExecutorBasicTest {
                     .isEqualTo(Set.of(
                             main + "user.MessageUser#\"<init>\"()::void",
                             main + "user.MessageUser#getMessage()::java.lang.String " +
-                                    "-> messages.Message#get()::java.lang.String",
-                            main + "user.MessageUser#\"<init>\"()::void " +
-                                    "-> messages.Message#\"<init>\"()::void"
+                                    "-> messages.Message#get()::java.lang.String"
                     ));
         });
     }
