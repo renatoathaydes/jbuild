@@ -112,28 +112,30 @@ public final class Jar {
     public static final class Loader {
 
         private final JBuildLog log;
-        private final ExecutorService executorService;
+        private final ExecutorService loaderExecutorService;
+        private final ExecutorService parserExecutorService;
 
         public Loader(JBuildLog log,
-                      ExecutorService executorService) {
+                      ExecutorService loaderExecutorService,
+                      ExecutorService parserExecutorService) {
             this.log = log;
-            this.executorService = executorService;
+            this.loaderExecutorService = loaderExecutorService;
+            this.parserExecutorService = parserExecutorService;
         }
 
         public Loader(JBuildLog log) {
-            this(log, createExecutor());
+            this(log, createExecutor(), createExecutor());
         }
 
         public static ExecutorService createExecutor() {
             return Executors.newFixedThreadPool(
-                    // must have enough Threads to start loading new jars while parsing previous ones
-                    Math.max(4, 2 * Runtime.getRuntime().availableProcessors()),
+                    Math.max(4, Runtime.getRuntime().availableProcessors()),
                     new JarLoaderThreadFactory());
         }
 
         public CompletionStage<Jar> lazyLoad(File jarFile) {
             return jarClassesIn(jarFile).thenApplyAsync(classes ->
-                    lazyLoad(jarFile, classes), executorService);
+                    lazyLoad(jarFile, classes), loaderExecutorService);
         }
 
         private Jar lazyLoad(File jar, Set<String> classNames) {
@@ -145,7 +147,7 @@ public final class Jar {
             // the Jar constructor caches the supplier.
             return new Jar(jar, typeNames, () -> supplyAsync(
                     () -> load(jar, classNames),
-                    executorService));
+                    loaderExecutorService));
         }
 
         private CompletionStage<Set<String>> jarClassesIn(File jar) {
@@ -158,7 +160,7 @@ public final class Jar {
                         .map(line -> line.replace('/', '.')
                                 .substring(0, line.length() - ".class".length()))
                         .collect(toSet());
-            }, executorService);
+            }, loaderExecutorService);
         }
 
         private ParsedJar load(File jar, Set<String> classNames) {
@@ -181,7 +183,7 @@ public final class Jar {
                     synchronized (typeDefs) {
                         typeDefs.putAll(partionTypes);
                     }
-                }, executorService);
+                }, parserExecutorService);
             }
 
             try {
