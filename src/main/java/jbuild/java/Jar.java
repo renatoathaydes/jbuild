@@ -126,7 +126,8 @@ public final class Jar {
 
         public static ExecutorService createExecutor() {
             return Executors.newFixedThreadPool(
-                    Math.max(4, Runtime.getRuntime().availableProcessors()),
+                    // must have enough Threads to start loading new jars while parsing previous ones
+                    Math.max(4, 2 * Runtime.getRuntime().availableProcessors()),
                     new JarLoaderThreadFactory());
         }
 
@@ -191,6 +192,8 @@ public final class Jar {
                 throw new JBuildException("Unexpected error parsing bytecode in " +
                         jar.getName() + ": " + e.getCause(), ACTION_ERROR);
             } catch (TimeoutException e) {
+                log.println("Timeout parsing bytecode in " + jar.getName() + ": " +
+                        (e.getMessage() == null ? "took too long" : e.getMessage()));
                 throw new JBuildException("Timeout while parsing bytecode in " + jar.getName(), TIMEOUT);
             }
 
