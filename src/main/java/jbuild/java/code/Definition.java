@@ -15,10 +15,12 @@ public abstract class Definition implements Describable {
 
     public final String name;
     public final String type;
+    public final boolean isStatic;
 
-    private Definition(String name, String type) {
+    private Definition(String name, String type, boolean isStatic) {
         this.name = name;
         this.type = type;
+        this.isStatic = isStatic;
     }
 
     public abstract <T> T match(Function<FieldDefinition, T> matchField,
@@ -26,6 +28,7 @@ public abstract class Definition implements Describable {
 
     @Override
     public void describe(StringBuilder builder, boolean verbose) {
+        if (isStatic) builder.append("static ");
         builder.append(name).append("::").append(typeNameToClassName(type));
     }
 
@@ -36,6 +39,7 @@ public abstract class Definition implements Describable {
 
         Definition that = (Definition) o;
 
+        if (isStatic != that.isStatic) return false;
         if (!name.equals(that.name)) return false;
         return type.equals(that.type);
     }
@@ -44,6 +48,7 @@ public abstract class Definition implements Describable {
     public int hashCode() {
         int result = name.hashCode();
         result = 31 * result + type.hashCode();
+        result = 31 * result + (isStatic ? 1 : 0);
         return result;
     }
 
@@ -52,8 +57,12 @@ public abstract class Definition implements Describable {
      */
     public static final class FieldDefinition extends Definition {
 
+        public FieldDefinition(String name, String type, boolean isStatic) {
+            super(name, type, isStatic);
+        }
+
         public FieldDefinition(String name, String type) {
-            super(name, type);
+            super(name, type, false);
         }
 
         @Override
@@ -67,6 +76,7 @@ public abstract class Definition implements Describable {
             return "FieldDefinition{" +
                     "name='" + name + '\'' +
                     ", type='" + type + '\'' +
+                    ", isStatic='" + isStatic + '\'' +
                     '}';
         }
     }
@@ -80,8 +90,12 @@ public abstract class Definition implements Describable {
         private String returnType;
         private List<String> parameterTypes;
 
+        public MethodDefinition(String name, String type, boolean isStatic) {
+            super(name, type, isStatic);
+        }
+
         public MethodDefinition(String name, String type) {
-            super(name, type);
+            this(name, type, false);
         }
 
         @Override
@@ -121,6 +135,7 @@ public abstract class Definition implements Describable {
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
+            if (isStatic && !"static{}".equals(name)) builder.append("static ");
             builder.append(name).append('(');
             var paramCount = getParameterTypes().size();
             for (var i = 0; i < paramCount; ) {
@@ -138,6 +153,7 @@ public abstract class Definition implements Describable {
             return "MethodDefinition{" +
                     "name='" + name + '\'' +
                     ", type='" + type + '\'' +
+                    ", isStatic='" + isStatic + '\'' +
                     '}';
         }
     }

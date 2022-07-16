@@ -25,6 +25,7 @@ import java.util.Set;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.DoctorCommandExecutorRealJarsTest.withErrorReporting;
+import static jbuild.java.code.Code.Method.Instruction.invokespecial;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,7 +88,7 @@ public class DoctorCommandExecutorBasicTest {
                             errorString(NonEmptyCollection.of(
                                     new ClassPathInconsistency(
                                             "foo.jar!bar.Foo -> \"<init>\"()::void",
-                                            new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V"),
+                                            new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V", invokespecial),
                                             new File("foo.jar"),
                                             new File("bar.jar")
                                     ))));
@@ -218,7 +219,7 @@ public class DoctorCommandExecutorBasicTest {
                     .get());
             assertThat(result).hasSize(1);
 
-            var main = "app.jar!app.App -> main(java.lang.String[])::void -> ";
+            var main = "app.jar!app.App -> static main(java.lang.String[])::void -> ";
 
             assertThat(result.get(0).getErrors()).isPresent()
                     .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))

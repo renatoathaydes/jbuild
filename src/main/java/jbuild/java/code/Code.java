@@ -48,6 +48,17 @@ public abstract class Code implements Describable {
     public static final class Field extends Code {
 
         /**
+         * JVM instructions for method invocations.
+         */
+        public enum Instruction {
+            getstatic, putstatic, getfield, putfield, other;
+
+            public boolean isStatic() {
+                return this == getstatic || this == putstatic;
+            }
+        }
+
+        /**
          * Field name.
          */
         public final String name;
@@ -57,10 +68,13 @@ public abstract class Code implements Describable {
          */
         public final String type;
 
-        public Field(String typeName, String name, String type) {
+        public final Instruction instruction;
+
+        public Field(String typeName, String name, String type, Instruction instruction) {
             super(typeName);
             this.name = name;
             this.type = type;
+            this.instruction = instruction;
         }
 
         @Override
@@ -102,11 +116,12 @@ public abstract class Code implements Describable {
                     "typeName='" + typeName + '\'' +
                     ", name='" + name + '\'' +
                     ", type='" + type + '\'' +
+                    ", instruction='" + instruction.name() + '\'' +
                     '}';
         }
 
         public Definition.FieldDefinition toDefinition() {
-            return new Definition.FieldDefinition(name, type);
+            return new Definition.FieldDefinition(name, type, instruction.isStatic());
         }
     }
 
@@ -119,11 +134,7 @@ public abstract class Code implements Describable {
          * JVM instructions for method invocations.
          */
         public enum Instruction {
-            invokespecial, invokestatic, invokevirtual, invokeinterface, other;
-
-            public boolean isVirtual() {
-                return this == invokespecial || this == invokevirtual || this == invokeinterface;
-            }
+            invokespecial, invokestatic, invokevirtual, invokeinterface, other
         }
 
         /**
@@ -193,6 +204,7 @@ public abstract class Code implements Describable {
                     "typeName='" + typeName + '\'' +
                     ", name='" + name + '\'' +
                     ", type='" + type + '\'' +
+                    ", instruction='" + instruction + '\'' +
                     '}';
         }
 
@@ -200,7 +212,7 @@ public abstract class Code implements Describable {
          * @return this {@link Method} converted to a {@link Definition}.
          */
         public Definition.MethodDefinition toDefinition() {
-            return new Definition.MethodDefinition(name, type);
+            return new Definition.MethodDefinition(name, type, instruction == Instruction.invokestatic);
         }
     }
 

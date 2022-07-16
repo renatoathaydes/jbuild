@@ -15,6 +15,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.java.code.Code.Field.Instruction.getfield;
+import static jbuild.java.code.Code.Field.Instruction.getstatic;
+import static jbuild.java.code.Code.Field.Instruction.putfield;
+import static jbuild.java.code.Code.Field.Instruction.putstatic;
 import static jbuild.java.code.Code.Method.Instruction.invokeinterface;
 import static jbuild.java.code.Code.Method.Instruction.invokespecial;
 import static jbuild.java.code.Code.Method.Instruction.invokestatic;
@@ -143,7 +147,7 @@ public final class JavapOutputParser {
         String prevLine = null, name = "", type = "";
         var methods = new HashMap<Definition.MethodDefinition, Set<Code>>();
         var fields = new LinkedHashSet<Definition.FieldDefinition>();
-        boolean expectingCode = false;
+        boolean expectingCode = false, isStatic = false;
         while (lines.hasNext()) {
             var line = lines.next();
             if (line.equals("}")) break;
@@ -157,7 +161,8 @@ public final class JavapOutputParser {
                 if (expectingCode) {
                     if (line.equals("    Code:")) {
                         expectingCode = false;
-                        var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
+                        var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type,
+                                isStatic || "static{}".equals(name));
                         var codeSection = processCode(lines, typeName, name);
                         methods.put(method, codeSection.code);
                         if (codeSection.endsTypeSection) break;
@@ -181,8 +186,9 @@ public final class JavapOutputParser {
                                     ACTION_ERROR);
                         }
                         type = line.substring("    descriptor: ".length());
+                        isStatic = prevLine.startsWith("static ") || prevLine.contains(" static ");
                         if (prevLine.contains(" abstract ") || prevLine.contains(" native ")) {
-                            var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type);
+                            var method = new Definition.MethodDefinition(methodOrConstructorName(typeName, name), type, isStatic);
                             methods.put(method, Set.of());
                         } else { // collect the code for the method
                             expectingCode = true;
@@ -196,7 +202,8 @@ public final class JavapOutputParser {
                                     ACTION_ERROR);
                         }
                         type = line.substring("    descriptor: ".length());
-                        fields.add(new Definition.FieldDefinition(name, type));
+                        isStatic = prevLine.startsWith("static ") || prevLine.contains(" static ");
+                        fields.add(new Definition.FieldDefinition(name, type, isStatic));
                     }
                 }
             } finally {
@@ -304,14 +311,14 @@ public final class JavapOutputParser {
                     // jvmInstruction: checkcast|ldc|new
                     return parseClass(parts[1], typeName);
                 case "Field":
-                    // jvmInstruction: getstatic|putstatic
-                    return parseField(parts[1], typeName);
+                    // jvmInstruction: getstatic|putstatic|getfield|putfield
+                    return parseField(parts[1], typeName, fieldInstruction(jvmInstruction));
             }
         }
         return null;
     }
 
-    private Code.Method.Instruction methodInstruction(String jvmInstruction) {
+    private static Code.Method.Instruction methodInstruction(String jvmInstruction) {
         switch (jvmInstruction) {
             case "invokespecial":
                 return invokespecial;
@@ -323,6 +330,21 @@ public final class JavapOutputParser {
                 return invokeinterface;
             default:
                 return other;
+        }
+    }
+
+    private static Code.Field.Instruction fieldInstruction(String jvmInstruction) {
+        switch (jvmInstruction) {
+            case "getstatic":
+                return getstatic;
+            case "putstatic":
+                return putstatic;
+            case "getfield":
+                return getfield;
+            case "putfield":
+                return putfield;
+            default:
+                return Code.Field.Instruction.other;
         }
     }
 
@@ -363,7 +385,8 @@ public final class JavapOutputParser {
     }
 
     private Code.Field parseField(String field,
-                                  String typeName) {
+                                  String typeName,
+                                  Code.Field.Instruction instruction) {
         var parts = field.split(":", 2);
         if (parts.length != 2) return null;
         var nameParts = parts[0].split("\\.", 2);
@@ -372,7 +395,7 @@ public final class JavapOutputParser {
                 || shouldIgnoreClass(type, typeName)) {
             return null;
         }
-        return new Code.Field(type, nameParts[1], parts[1]);
+        return new Code.Field(type, nameParts[1], parts[1], instruction);
     }
 
     private String extractMethodName(String line, String typeName) {

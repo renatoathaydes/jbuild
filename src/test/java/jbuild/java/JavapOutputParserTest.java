@@ -22,6 +22,8 @@ import static jbuild.TestSystemProperties.jlineJar;
 import static jbuild.TestSystemProperties.myClassesJar;
 import static jbuild.TestSystemProperties.osgiaasCliApiJar;
 import static jbuild.TestSystemProperties.otherClassesJar;
+import static jbuild.java.code.Code.Field.Instruction.getfield;
+import static jbuild.java.code.Code.Field.Instruction.getstatic;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,7 +46,7 @@ public class JavapOutputParserTest {
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.FieldDefinition("isOk", "Z"),
                 new Definition.FieldDefinition("message", "Ljava/lang/String;"),
-                new Definition.FieldDefinition("CONST", "Ljava/lang/String;"),
+                new Definition.FieldDefinition("CONST", "Ljava/lang/String;", true),
                 new Definition.FieldDefinition("aFloat", "F"),
                 new Definition.FieldDefinition("protectedInt", "I")
         ));
@@ -54,14 +56,14 @@ public class JavapOutputParserTest {
         assertThat(result.methods.keySet())
                 .containsExactlyInAnyOrderElementsOf(Set.of(
                         new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"),
-                        new Definition.MethodDefinition("main", "([Ljava/lang/String;)V"),
+                        new Definition.MethodDefinition("main", "([Ljava/lang/String;)V", true),
                         new Definition.MethodDefinition("foo", "()Z"),
                         new Definition.MethodDefinition("aPrivateMethod", "()V"),
                         new Definition.MethodDefinition("theFloat", "(FJ)F"),
                         new Definition.MethodDefinition("getMessage", "()Ljava/lang/String;")));
 
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"))).isEmpty();
-        assertThat(result.methods.get(new Definition.MethodDefinition("main", "([Ljava/lang/String;)V"))).isEmpty();
+        assertThat(result.methods.get(new Definition.MethodDefinition("main", "([Ljava/lang/String;)V", true))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("foo", "()Z"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("aPrivateMethod", "()V"))).isEmpty();
         assertThat(result.methods.get(new Definition.MethodDefinition("theFloat", "(FJ)F"))).isEmpty();
@@ -80,7 +82,7 @@ public class JavapOutputParserTest {
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.FieldDefinition("isOk", "Z"),
                 new Definition.FieldDefinition("message", "Ljava/lang/String;"),
-                new Definition.FieldDefinition("CONST", "Ljava/lang/String;"),
+                new Definition.FieldDefinition("CONST", "Ljava/lang/String;", true),
                 new Definition.FieldDefinition("aFloat", "F"),
                 new Definition.FieldDefinition("protectedInt", "I")
         ));
@@ -90,7 +92,7 @@ public class JavapOutputParserTest {
         assertThat(result.methods.keySet())
                 .containsExactlyInAnyOrderElementsOf(Set.of(
                         new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V"),
-                        new Definition.MethodDefinition("main", "([Ljava/lang/String;)V"),
+                        new Definition.MethodDefinition("main", "([Ljava/lang/String;)V", true),
                         new Definition.MethodDefinition("foo", "()Z"),
                         new Definition.MethodDefinition("aPrivateMethod", "()V"),
                         new Definition.MethodDefinition("theFloat", "(FJ)F"),
@@ -98,9 +100,9 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;)V")))
                 .isEqualTo(Set.of(new Code.Method("Ljava/lang/Object;", "\"<init>\"", "()V")));
-        assertThat(result.methods.get(new Definition.MethodDefinition("main", "([Ljava/lang/String;)V")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("main", "([Ljava/lang/String;)V", true)))
                 .isEqualTo(Set.of(
-                        new Code.Field("Ljava/lang/System;", "out", "Ljava/io/PrintStream;"),
+                        new Code.Field("Ljava/lang/System;", "out", "Ljava/io/PrintStream;", getstatic),
                         new Code.Method("Ljava/io/PrintStream;", "println", "(Ljava/lang/String;)V")));
         assertThat(result.methods.get(new Definition.MethodDefinition("foo", "()Z")))
                 .isEqualTo(Set.of(new Code.Method("LHello;", "aPrivateMethod", "()V")));
@@ -133,12 +135,12 @@ public class JavapOutputParserTest {
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(new Definition.FieldDefinition("bar", "Lfoo/Bar;")));
 
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("static{}", "()V"),
-                new Definition.MethodDefinition("getBar", "(Lfoo/Bar;)Lfoo/Bar;"),
-                new Definition.MethodDefinition("createBar", "()Lfoo/Bar;"),
+                new Definition.MethodDefinition("static{}", "()V", true),
+                new Definition.MethodDefinition("getBar", "(Lfoo/Bar;)Lfoo/Bar;", true),
+                new Definition.MethodDefinition("createBar", "()Lfoo/Bar;", true),
                 new Definition.MethodDefinition("\"<init>\"", "()V")
         ));
-        assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V", true)))
                 .containsExactlyInAnyOrderElementsOf(Set.of(
                         new Code.Type("Lfoo/Bar;"),
                         new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V")
@@ -158,18 +160,18 @@ public class JavapOutputParserTest {
         assertThat(result.type.interfaces).isEmpty();
 
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.FieldDefinition("$VALUES", "[Lfoo/SomeEnum;"),
-                new Definition.FieldDefinition("SOMETHING", "Lfoo/SomeEnum;"),
-                new Definition.FieldDefinition("NOTHING", "Lfoo/SomeEnum;"))
+                new Definition.FieldDefinition("$VALUES", "[Lfoo/SomeEnum;", true),
+                new Definition.FieldDefinition("SOMETHING", "Lfoo/SomeEnum;", true),
+                new Definition.FieldDefinition("NOTHING", "Lfoo/SomeEnum;", true))
         );
 
         assertThat(result.usedMethodHandles).isEmpty();
 
         assertThat(result.methods.keySet()).containsAll(Set.of(
                 new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V"),
-                new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;"),
-                new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;"),
-                new Definition.MethodDefinition("static{}", "()V"),
+                new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;", true),
+                new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;", true),
+                new Definition.MethodDefinition("static{}", "()V", true),
                 // these two methods are inherited from Enum, but special-cased so we can find references to them
                 new Definition.MethodDefinition("ordinal", "()I"),
                 new Definition.MethodDefinition("name", "()Ljava/lang/String;")));
@@ -178,7 +180,7 @@ public class JavapOutputParserTest {
 
         if (isJava17Plus) {
             assertThat(result.methods.keySet()).contains(
-                    new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;")
+                    new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;", true)
             );
             assertThat(result.methods.size()).isEqualTo(7);
         } else {
@@ -188,17 +190,17 @@ public class JavapOutputParserTest {
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V")))
                 .isEmpty();
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("values", "()[Lfoo/SomeEnum;", true)))
                 .isEmpty();
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("valueOf", "(Ljava/lang/String;)Lfoo/SomeEnum;", true)))
                 .isEmpty();
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V", true)))
                 .isEmpty();
 
         if (isJava17Plus) {
-            assertThat(result.methods.get(new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;")))
+            assertThat(result.methods.get(new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;", true)))
                     .isEmpty();
         }
     }
@@ -253,22 +255,22 @@ public class JavapOutputParserTest {
         ));
 
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;"),
+                new Definition.MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;", true),
                 new Definition.MethodDefinition("lambda$filter$1", "(Lfoo/SomeEnum;)Z"),
                 new Definition.MethodDefinition("filter", "(Ljava/util/List;)Ljava/util/List;"),
                 new Definition.MethodDefinition("logLengthsStats", "(Ljava/util/List;)V"),
                 new Definition.MethodDefinition("countLengths", "(Ljava/util/List;)Ljava/util/IntSummaryStatistics;"),
                 new Definition.MethodDefinition("\"<init>\"", "(Lfoo/ExampleLogger;)V")));
 
-        assertThat(result.methods.get(new Definition.MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;")))
+        assertThat(result.methods.get(new Definition.MethodDefinition("lambda$countLengths$0", "(Lfoo/Zort;)Ljava/lang/String;", true)))
                 .containsExactlyInAnyOrderElementsOf(Set.of(
-                        new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;"),
+                        new Code.Field("Lfoo/Zort;", "bar", "Lfoo/Bar;", getfield),
                         new Code.Method("Lfoo/Zort;", "createBar", "()Lfoo/Bar;")
                 ));
 
         assertThat(result.methods.get(new Definition.MethodDefinition("lambda$filter$1", "(Lfoo/SomeEnum;)Z")))
                 .containsExactlyInAnyOrderElementsOf(Set.of(
-                        new Code.Field("Lfoo/SomeEnum;", "SOMETHING", "Lfoo/SomeEnum;"),
+                        new Code.Field("Lfoo/SomeEnum;", "SOMETHING", "Lfoo/SomeEnum;", getstatic),
                         new Code.Method("Lfoo/ExampleLogger;", "info", "(Ljava/lang/String;)V")
                 ));
 
@@ -543,28 +545,28 @@ public class JavapOutputParserTest {
         assertThat(result.implementedInterfaces).isEmpty();
         assertThat(result.type.getParentTypes()).isEmpty();
         assertThat(result.fields).containsExactlyInAnyOrderElementsOf(Set.of(
-                new Definition.FieldDefinition("SIZEOF", "I"),
+                new Definition.FieldDefinition("SIZEOF", "I", true),
                 new Definition.FieldDefinition("x", "S"),
                 new Definition.FieldDefinition("y", "S")
         ));
         assertThat(result.usedMethodHandles).isEmpty();
         assertThat(result.methods.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Definition.MethodDefinition("\"<init>\"", "()V"),
-                new Definition.MethodDefinition("static{}", "()V"),
-                new Definition.MethodDefinition("init", "()V"),
+                new Definition.MethodDefinition("static{}", "()V", true),
+                new Definition.MethodDefinition("init", "()V", true),
                 new Definition.MethodDefinition("copy", "()Lorg/fusesource/jansi/internal/Kernel32$COORD;")
         ));
         assertThat(result.methods.get(
                 new Definition.MethodDefinition("\"<init>\"", "()V")
         )).isEmpty();
         assertThat(result.methods.get(
-                new Definition.MethodDefinition("init", "()V")
+                new Definition.MethodDefinition("init", "()V", true)
         )).isEmpty();
         assertThat(result.methods.get(
                 new Definition.MethodDefinition("copy", "()Lorg/fusesource/jansi/internal/Kernel32$COORD;")
         )).isEmpty();
         assertThat(result.methods.get(
-                new Definition.MethodDefinition("static{}", "()V")
+                new Definition.MethodDefinition("static{}", "()V", true)
         )).containsExactlyInAnyOrderElementsOf(Set.of(
                 new Code.Method("Lorg/fusesource/jansi/internal/Kernel32;", "access$000", "()Lorg/fusesource/hawtjni/runtime/Library;"),
                 new Code.Method("Lorg/fusesource/hawtjni/runtime/Library;", "load", "()V")

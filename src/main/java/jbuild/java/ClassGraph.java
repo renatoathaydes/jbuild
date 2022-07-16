@@ -6,6 +6,9 @@ import jbuild.java.code.TypeDefinition;
 import jbuild.util.Describable;
 
 import java.io.File;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -90,16 +93,15 @@ public final class ClassGraph {
     }
 
     public Set<Code> findImplementation(Code.Method method) {
-        return findImplementation(method.typeName, method.toDefinition(), method.instruction.isVirtual());
+        return findImplementation(method.typeName, method.toDefinition());
     }
 
     public Set<Code> findImplementation(String typeName,
-                                        Definition.MethodDefinition method,
-                                        boolean isVirtualCall) {
+                                        Definition.MethodDefinition method) {
         var typeDef = findTypeDefinition(typeName);
         if (typeDef == null) {
             var javaType = getJavaType(typeName);
-            if (javaType != null && javaMethodExists(javaType, method, isVirtualCall)) {
+            if (javaType != null && javaMethodExists(javaType, method)) {
                 return Collections.emptySet();
             }
             return null;
@@ -108,11 +110,9 @@ public final class ClassGraph {
         var impl = typeDef.methods.get(method);
         if (impl != null) return impl;
 
-        if (!isVirtualCall) return null;
-
         // try to find the method on the parent types
         for (var parentType : typeDef.type.getParentTypes()) {
-            impl = findImplementation(parentType.name, method, true);
+            impl = findImplementation(parentType.name, method);
             if (impl != null) return impl;
         }
         return null;
@@ -184,7 +184,7 @@ public final class ClassGraph {
         if (typeName.startsWith("[")) return existsJavaArray(definition);
         var type = getJavaType(typeName);
         if (type == null) return false;
-        return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m, false));
+        return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m));
     }
 
     private boolean existsJavaArray(Definition definition) {
@@ -216,13 +216,15 @@ public final class ClassGraph {
     }
 
     private static boolean javaMethodExists(Class<?> type,
-                                            Definition.MethodDefinition method,
-                                            boolean isVirtualCall) {
+                                            Definition.MethodDefinition method) {
         if (method.name.equals("\"<init>\"")) {
             return javaConstructorExists(type, method.type);
         }
-
-        for (var javaMethod : isVirtualCall ? type.getMethods() : type.getDeclaredMethods()) {
+        var wantsStatic = method.isStatic;
+        Iterable<Method> methods = () -> Arrays.stream(type.getMethods())
+                .filter(m -> Modifier.isStatic(m.getModifiers()) == wantsStatic)
+                .iterator();
+        for (var javaMethod : methods) {
             if (javaMethod.getName().equals(method.name)) {
                 var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
                 if (methodType.equals(method.type)) {

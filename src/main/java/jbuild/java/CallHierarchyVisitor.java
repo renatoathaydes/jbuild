@@ -254,7 +254,7 @@ public final class CallHierarchyVisitor {
             var codes = classGraph.findImplementation(method);
             if (codes == null) {
                 // do not report error if parent types are excluded as we can't know for sure if the method doesn't exist
-                var cannotDetermineForSure = method.instruction.isVirtual() && isAnyParentTypeExcluded(typeOwner);
+                var cannotDetermineForSure = isAnyParentTypeExcluded(typeOwner);
                 if (!cannotDetermineForSure) {
                     visitor.onMissingMethod(chain, typeOwner.typeDefinitionLocation, method);
                 }

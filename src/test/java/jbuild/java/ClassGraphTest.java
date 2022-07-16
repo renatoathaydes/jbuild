@@ -227,7 +227,7 @@ public class ClassGraphTest {
     @Test
     void canCheckStaticMethodExistsInJavaClass() {
         assertThat(classGraph.exists("Lfoo/ExampleLogger;",
-                new Definition.MethodDefinition("getName", "()Ljava/lang/String;"))
+                new Definition.MethodDefinition("getName", "()Ljava/lang/String;", true))
         ).isTrue();
     }
 
