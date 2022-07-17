@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
@@ -67,11 +68,18 @@ public final class CompileCommandExecutor {
         return new CompileCommandResult(compileResult, jarResult);
     }
 
-    private String computeClasspath(String classpath) {
+    private static String computeClasspath(String classpath) {
+        return Stream.of(classpath.split(File.pathSeparator))
+                .map(CompileCommandExecutor::computeClasspathPart)
+                .filter(not(String::isBlank))
+                .collect(joining(File.pathSeparator));
+    }
+
+    private static String computeClasspathPart(String classpath) {
         if (classpath.isBlank()) {
             return "";
         }
-        if (classpath.endsWith("*") || classpath.contains(File.pathSeparator)) {
+        if (classpath.endsWith("*")) {
             return classpath;
         }
         var cp = new File(classpath);
