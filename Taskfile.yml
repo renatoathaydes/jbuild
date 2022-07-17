@@ -32,8 +32,8 @@ tasks:
     desc: Bootstraps JBuild.
     run: once
     cmds:
-      - find "{{.JBUILD_SRC}}" -name "*.java" > java-sources.txt
-      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" "@java-sources.txt"
+      - java src/tools/java/Find.java "{{.JBUILD_SRC}}" out/java-sources.txt
+      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" "@out/java-sources.txt"
     sources:
       - "{{.JBUILD_SRC}}/**/*.java"
     generates:
