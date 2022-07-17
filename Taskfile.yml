@@ -13,7 +13,8 @@ vars:
   INTEGRATION_TEST_REPO_DIR: out/integration-test-mvn-repo
   JBUILD_JAR: out/jbuild.jar
   TEST_LIBS_DIR: out/test-libs
-  TEST_REPORT_DIR: out/test-reports
+  TEST_REPORT_DIR: out/test-reports/test
+  INTEGRATION_TEST_REPORT_DIR: out/test-reports/integrationTest
   JBUILD_TESTS_DIR: out/jbuild-tests
   JBUILD_MY_TESTS_JAR: out/jbuild-tests/my-tests.jar
   JBUILD_OTHER_TESTS_JAR: out/jbuild-tests/other-tests.jar
@@ -144,5 +145,5 @@ tasks:
         org.junit.platform.console.ConsoleLauncher
         --classpath="{{.JBUILD_JAR}}:{{.TEST_LIBS_DIR}}:{{.INTEGRATION_TEST_CLASSES_DIR}}"
         --scan-classpath="{{.INTEGRATION_TEST_CLASSES_DIR}}"
-        --reports-dir="{{.TEST_REPORT_DIR}}"
+        --reports-dir="{{.INTEGRATION_TEST_REPORT_DIR}}"
         --fail-if-no-tests

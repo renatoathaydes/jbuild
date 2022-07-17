@@ -13,15 +13,20 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
-          cache: 'gradle'
 
-      - name: Build and execute tests
-        run: ./gradlew check
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
+      - name: Build and execute unit tests
+        run: task test
+
+      - name: Build and execute integration tests
+        run: task integration-test
 
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
           name: JUnit Tests
-          path: build/test-results/(test|integrationTest)/TEST-*.xml
+          path: out/test-reports/(test|integrationTest)/TEST-*.xml
           reporter: java-junit
