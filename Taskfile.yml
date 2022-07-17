@@ -11,6 +11,10 @@ vars:
   TEST_CLASSES_DIR: out/test-classes
   JBUILD_JAR: out/jbuild.jar
   TEST_LIBS_DIR: out/test-libs
+  TEST_REPORT_DIR: out/test-reports
+  JBUILD_TESTS_DIR: out/jbuild-tests
+  JBUILD_MY_TESTS_JAR: out/jbuild-tests/my-tests.jar
+  JBUILD_OTHER_TESTS_JAR: out/jbuild-tests/other-tests.jar
   JUNIT_RUNNER_LIBS_DIR: out/junit-runner-libs
 
 dotenv: [ build.env ]
@@ -57,9 +61,29 @@ tasks:
     generates:
       - "{{.TEST_LIBS_DIR}}/**/*"
 
+  compile-test-my-test-classes:
+    run: once
+    deps: [ jar ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" compile src/myTestClasses/java -j "{{.JBUILD_MY_TESTS_JAR}}"
+    sources:
+      - src/myTestClasses/java/**/*.java
+    generates:
+      - "{{.JBUILD_MY_TESTS_JAR}}"
+
+  compile-test-other-test-classes:
+    run: once
+    deps: [ compile-test-my-test-classes ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" compile src/otherTestClasses/java -cp "{{.JBUILD_MY_TESTS_JAR}}" -j "{{.JBUILD_OTHER_TESTS_JAR}}"
+    sources:
+      - src/otherTestClasses/java/**/*.java
+    generates:
+      - "{{.JBUILD_OTHER_TESTS_JAR}}"
+
   build-tests:
     run: once
-    deps: [ jar, install-test-libs ]
+    deps: [ jar, install-test-libs, compile-test-my-test-classes, compile-test-other-test-classes ]
     cmds:
       - mkdir {{.TEST_CLASSES_DIR}} || true
       - cp -R src/test/resources/* {{.TEST_CLASSES_DIR}}
@@ -67,7 +91,7 @@ tasks:
     sources:
       - src/test/java/**/*.java
     generates:
-      - "{{.TEST_CLASSES_DIR}}"
+      - "{{.TEST_CLASSES_DIR}}/**/*"
 
   install-junit:
     run: once
@@ -77,21 +101,22 @@ tasks:
     sources:
       - build.env
     generates:
-      - "{{.JUNIT_RUNNER_LIBS_DIR}}"
+      - "{{.JUNIT_RUNNER_LIBS_DIR}}/**/*"
 
   test:
     run: once
     deps: [ build-tests, install-junit ]
     cmds:
       - >
-        java -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*:{{.TEST_LIBS_DIR}}/*"
-        -Dtest.repos.dir=src/test/resources/jbuild/commands/repo
-        -Dtests.test-classes.dir=build/test-jars
-        -Dtests.my-test-classes.jar=build/test-jars/my-tests.jar
-        -Dtests.other-test-classes.jar=build/test-jars/other-tests.jar
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*:{{.TEST_LIBS_DIR}}/*"
+        -Dtests.repo.dir=src/test/resources/jbuild/commands/repo
+        -Dtests.test-classes.dir="{{.JBUILD_TESTS_DIR}}"
+        -Dtests.my-test-classes.jar="{{.JBUILD_MY_TESTS_JAR}}"
+        -Dtests.other-test-classes.jar="{{.JBUILD_OTHER_TESTS_JAR}}"
         -Dtests.real-jars.osgiaas-cli-api.jar=src/test/real-jars/osgiaas-cli-api-0.7.jar
         -Dtests.real-jars.jline.jar=src/test/real-jars/jline-2.14.2.jar
         org.junit.platform.console.ConsoleLauncher
-        --classpath="{{.JBUILD_JAR}}:{{.TEST_CLASSES_DIR}}:{{.TEST_LIBS_DIR}}"
-        --scan-classpath
+        --classpath="{{.JBUILD_JAR}}:{{.TEST_LIBS_DIR}}:{{.TEST_CLASSES_DIR}}"
+        --scan-classpath="{{.TEST_CLASSES_DIR}}"
+        --reports-dir="{{.TEST_REPORT_DIR}}"
         --fail-if-no-tests
