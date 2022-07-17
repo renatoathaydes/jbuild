@@ -1,5 +1,6 @@
 package jbuild.java.tools;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,12 +29,16 @@ public final class CreateJarOptions {
         this.filesPerRelease = filesPerRelease;
     }
 
-    public List<String> toArgs() {
+    public List<String> toArgs(boolean createOutputDir) {
         var result = new ArrayList<String>();
         result.add("--create");
         result.add("--file");
-        if (name.isBlank()) result.add("lib.jar");
-        else result.add(name);
+        if (name.isBlank()) {
+            result.add("lib.jar");
+        } else {
+            if (createOutputDir) createDirForFile(name);
+            result.add(name);
+        }
         if (!mainClass.isBlank()) {
             result.add("--main-class");
             result.add(mainClass);
@@ -52,6 +57,15 @@ public final class CreateJarOptions {
             addFileSetTo(result, fileSet);
         });
         return result;
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static void createDirForFile(String name) {
+        var file = new File(name);
+        var parent = file.getParentFile();
+        if (parent != null) {
+            parent.mkdirs(); // best-effort attempt, don't fail yet
+        }
     }
 
     private static void addFileSetTo(List<String> result, FileSet fileSet) {

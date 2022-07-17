@@ -156,7 +156,7 @@ public abstract class Tools {
          * @return result
          */
         public ToolRunResult createJar(CreateJarOptions options) {
-            var args = options.toArgs().toArray(new String[0]);
+            var args = options.toArgs(true).toArray(new String[0]);
             var exitCode = tool.run(new PrintStream(stdout(), false, ISO_8859_1),
                     new PrintStream(stderr(), false, ISO_8859_1),
                     args);
