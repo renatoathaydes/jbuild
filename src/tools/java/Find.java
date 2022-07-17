@@ -21,24 +21,29 @@ public class Find {
         var outDir = outputFile.getParentFile();
         if (outDir != null) outDir.mkdirs();
 
+        int totalFiles;
         try (var output = new FileWriter(outputFile, StandardCharsets.UTF_8)) {
-            run(rootDir, output);
+            totalFiles = run(rootDir, output);
         }
+        System.out.println("Found " + totalFiles + " file(s).");
     }
 
-    private static void run(Path dir, FileWriter output) throws IOException {
+    private static int run(Path dir, FileWriter output) throws IOException {
+        var total = 0;
         var files = dir.toFile().list();
         if (files != null && files.length > 0) {
             for (var file : files) {
                 var path = dir.resolve(file);
                 var attributes = Files.readAttributes(path, BasicFileAttributes.class);
-                if (attributes.isRegularFile()) {
+                if (attributes.isDirectory()) {
+                    total += run(path, output);
+                } else {
                     output.write(path.toString());
                     output.write(EOL);
-                } else if (attributes.isDirectory()) {
-                    run(path, output);
+                    total++;
                 }
             }
         }
+        return total;
     }
 }
