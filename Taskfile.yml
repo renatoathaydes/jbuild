@@ -9,6 +9,8 @@ vars:
   JBUILD_SRC: src/main/java
   JBUILD_CLASSES_DIR: out/classes
   TEST_CLASSES_DIR: out/test-classes
+  INTEGRATION_TEST_CLASSES_DIR: out/integration-test-classes
+  INTEGRATION_TEST_REPO_DIR: out/integration-test-mvn-repo
   JBUILD_JAR: out/jbuild.jar
   TEST_LIBS_DIR: out/test-libs
   TEST_REPORT_DIR: out/test-reports
@@ -93,6 +95,17 @@ tasks:
     generates:
       - "{{.TEST_CLASSES_DIR}}/**/*"
 
+  build-integration-tests:
+    run: once
+    deps: [ jar, install-test-libs ]
+    cmds:
+      - mkdir {{.INTEGRATION_TEST_CLASSES_DIR}} || true
+      - java -jar "{{.JBUILD_JAR}}" compile src/intTest/java -cp "{{.TEST_LIBS_DIR}}":{{.JBUILD_JAR}} -d {{.INTEGRATION_TEST_CLASSES_DIR}}
+    sources:
+      - src/intTest/java/**/*.java
+    generates:
+      - "{{.INTEGRATION_TEST_CLASSES_DIR}}/**/*"
+
   install-junit:
     run: once
     deps: [ jar ]
@@ -118,5 +131,18 @@ tasks:
         org.junit.platform.console.ConsoleLauncher
         --classpath="{{.JBUILD_JAR}}:{{.TEST_LIBS_DIR}}:{{.TEST_CLASSES_DIR}}"
         --scan-classpath="{{.TEST_CLASSES_DIR}}"
+        --reports-dir="{{.TEST_REPORT_DIR}}"
+        --fail-if-no-tests
+
+  integration-test:
+    run: once
+    deps: [ build-integration-tests, install-junit ]
+    cmds:
+      - >
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*:{{.TEST_LIBS_DIR}}/*"
+        -Dtests.int-tests.repo="{{.INTEGRATION_TEST_REPO_DIR}}"
+        org.junit.platform.console.ConsoleLauncher
+        --classpath="{{.JBUILD_JAR}}:{{.TEST_LIBS_DIR}}:{{.INTEGRATION_TEST_CLASSES_DIR}}"
+        --scan-classpath="{{.INTEGRATION_TEST_CLASSES_DIR}}"
         --reports-dir="{{.TEST_REPORT_DIR}}"
         --fail-if-no-tests
