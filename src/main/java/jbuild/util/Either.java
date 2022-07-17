@@ -61,4 +61,16 @@ public final class Either<L, R> {
         return Optional.empty();
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (other == null || !Either.class.equals(other.getClass())) return false;
+        var otherEither = (Either<?, ?>) other;
+        return ((left != null) && (otherEither.left != null) && left.equals(otherEither.left))
+                || ((right != null) && (otherEither.right != null) && right.equals(otherEither.right));
+    }
+
+    @Override
+    public int hashCode() {
+        return left != null ? left.hashCode() : right.hashCode();
+    }
 }
