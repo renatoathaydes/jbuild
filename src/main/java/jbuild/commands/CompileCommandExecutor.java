@@ -41,13 +41,17 @@ public final class CompileCommandExecutor {
                                         String mainClass,
                                         String classpath,
                                         List<String> compilerArgs) {
-        if (inputDirectories.isEmpty()) {
+        var usingDefaultInputDirs = inputDirectories.isEmpty();
+        if (usingDefaultInputDirs) {
             inputDirectories = computeDefaultSourceDirs();
         }
         var files = collectSourceFiles(inputDirectories).collect(toSet());
         if (files.isEmpty()) {
+            var lookedAt = usingDefaultInputDirs
+                    ? "src/main/java/, src/ and '.'"
+                    : String.join(", ", inputDirectories);
             throw new JBuildException("No source files found " +
-                    "(directories tried in order: src/main/java/, src/ and '.')", USER_INPUT);
+                    "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
         log.verbosePrintln(() -> "Found " + files.size() + " source file(s) to compile");
