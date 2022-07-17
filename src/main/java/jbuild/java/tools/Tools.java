@@ -196,9 +196,13 @@ public abstract class Tools {
         private static String[] collectArgs(Set<String> files,
                                             String outDir,
                                             String classpath) {
-            var extraArgs = classpath.isBlank() ? 2 : 4;
+            var extraArgs = classpath.isBlank() ? 6 : 8;
             var result = new String[files.size() + extraArgs];
             var i = 0;
+            result[i++] = "-encoding";
+            result[i++] = "utf-8";
+            result[i++] = "-Werror";
+            result[i++] = "-parameters";
             result[i++] = "-d";
             result[i++] = outDir;
             if (!classpath.isBlank()) {
