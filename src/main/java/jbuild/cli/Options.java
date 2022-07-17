@@ -594,10 +594,13 @@ final class CompileOptions {
         for (String arg : args) {
             if (waitingForClasspath) {
                 waitingForClasspath = false;
-                if (classpath.length() > 0) {
-                    classpath.append(File.pathSeparatorChar);
+                for (String part : arg.split("[;:]")) {
+                    if (part.isBlank()) continue;
+                    if (classpath.length() > 0) {
+                        classpath.append(File.pathSeparatorChar);
+                    }
+                    classpath.append(part);
                 }
-                classpath.append(arg);
             } else if (waitingForDirectory) {
                 waitingForDirectory = false;
                 outputDir = arg;
