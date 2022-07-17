@@ -31,6 +31,12 @@ tasks:
     generates:
       - "{{.JBUILD_CLASSES_DIR}}/**/*"
 
+  self-compile:
+    desc: Compiles JBuild using JBuild itself.
+    run: once
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" compile -j "{{.JBUILD_JAR}}" -m jbuild.cli.Main
+
   jar:
     run: once
     deps: [ compile ]
