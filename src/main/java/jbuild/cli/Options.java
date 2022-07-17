@@ -71,7 +71,8 @@ final class Options {
         int i;
 
         for (i = 0; i < args.length; i++) {
-            String arg = args[i];
+            String arg = args[i].trim();
+            if (arg.isEmpty()) continue;
             if (expectingRepository) {
                 expectingRepository = false;
                 repositories.add(arg);
@@ -96,15 +97,19 @@ final class Options {
             throw new JBuildException("expecting value for 'repository' option", USER_INPUT);
         }
 
-        String[] commandArgs;
+        List<String> commandArgs;
         if (i < args.length) {
-            commandArgs = new String[args.length - i];
-            System.arraycopy(args, i, commandArgs, 0, commandArgs.length);
+            commandArgs = new ArrayList<>(args.length - i);
+            for (; i < args.length; i++) {
+                var arg = args[i].trim();
+                if (arg.isEmpty()) continue;
+                commandArgs.add(args[i]);
+            }
         } else {
-            commandArgs = new String[0];
+            commandArgs = List.of();
         }
 
-        return new Options(verbose, help, version, command, repositories, List.of(commandArgs));
+        return new Options(verbose, help, version, command, repositories, commandArgs);
     }
 
 }
