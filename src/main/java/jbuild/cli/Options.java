@@ -37,19 +37,22 @@ final class Options {
     final String command;
     final List<String> repositories;
     final List<String> commandArgs;
+    final List<String> applicationArgs;
 
     Options(boolean verbose,
             boolean help,
             boolean version,
             String command,
             List<String> repositories,
-            List<String> commandArgs) {
+            List<String> commandArgs,
+            List<String> applicationArgs) {
         this.verbose = verbose;
         this.help = help;
         this.version = version;
         this.command = command;
         this.repositories = repositories;
         this.commandArgs = commandArgs;
+        this.applicationArgs = applicationArgs;
     }
 
     List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers() {
@@ -103,13 +106,26 @@ final class Options {
             for (; i < args.length; i++) {
                 var arg = args[i].trim();
                 if (arg.isEmpty()) continue;
+                if ("--".equals(arg)) break;
                 commandArgs.add(args[i]);
             }
         } else {
             commandArgs = List.of();
         }
 
-        return new Options(verbose, help, version, command, repositories, commandArgs);
+        List<String> applicationArgs;
+        if (i < args.length) {
+            applicationArgs = new ArrayList<>(args.length - i);
+            for (; i < args.length; i++) {
+                var arg = args[i].trim();
+                if (arg.isEmpty()) continue;
+                applicationArgs.add(args[i]);
+            }
+        } else {
+            applicationArgs = List.of();
+        }
+
+        return new Options(verbose, help, version, command, repositories, commandArgs, applicationArgs);
     }
 
 }
@@ -527,7 +543,7 @@ final class CompileOptions {
     static final String USAGE = "  ## " + NAME + LINE_END +
             "    Compile all Java source files found the input directories." + LINE_END +
             "      Usage:" + LINE_END +
-            "        jbuild " + NAME + " <options... | input-directory...>" + LINE_END +
+            "        jbuild " + NAME + " <options... | input-directory...> [-- <javac-args>]" + LINE_END +
             "      Options:" + LINE_END +
             "        --classpath" + LINE_END +
             "        -cp       Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
@@ -541,8 +557,11 @@ final class CompileOptions {
             "        The --directory and --jar options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
             "        with sources read from either src/main/java, src/ or the working-directory." + LINE_END +
+            "        To pass further arguments directly to javac, use -- <args>." + LINE_END +
+            "        Default javac options used are: '-encoding utf-8 -Werr -parameters'." + LINE_END +
+            "        Passing javac classpath options explicitly overrides jbuild's -cp." + LINE_END +
             "      Example:" + LINE_END +
-            "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar";
+            "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
 
     final Set<String> inputDirectories;
     final Either<String, String> outputDirOrJar;
@@ -636,7 +655,7 @@ final class CompileOptions {
         }
         return new CompileOptions(inputDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
-                mainClass,
+                mainClass == null ? "" : mainClass,
                 classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
     }
 }

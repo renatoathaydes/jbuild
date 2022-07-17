@@ -271,7 +271,8 @@ public class DoctorCommandExecutorBasicTest {
                 Set.of(rootDir.toString()),
                 Either.right(jar.toString()),
                 "",
-                classpath);
+                classpath,
+                List.of());
 
         if (!result.isSuccessful()) {
             verifyToolSuccessful("compile", result.getCompileResult());

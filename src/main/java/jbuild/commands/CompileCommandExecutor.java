@@ -16,6 +16,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -38,7 +39,8 @@ public final class CompileCommandExecutor {
     public CompileCommandResult compile(Set<String> inputDirectories,
                                         Either<String, String> outputDirOrJar,
                                         String mainClass,
-                                        String classpath) {
+                                        String classpath,
+                                        List<String> compilerArgs) {
         if (inputDirectories.isEmpty()) {
             inputDirectories = computeDefaultSourceDirs();
         }
@@ -55,7 +57,8 @@ public final class CompileCommandExecutor {
                 jar -> getTempDirectory());
         var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
 
-        var compileResult = Tools.Javac.create().compile(files, outputDir, computeClasspath(classpath));
+        var compileResult = Tools.Javac.create().compile(files, outputDir,
+                computeClasspath(classpath, compilerArgs), compilerArgs);
         if (jarFile == null || compileResult.exitCode() != 0) {
             return new CompileCommandResult(compileResult, null);
         }
@@ -68,7 +71,14 @@ public final class CompileCommandExecutor {
         return new CompileCommandResult(compileResult, jarResult);
     }
 
-    private static String computeClasspath(String classpath) {
+    private static String computeClasspath(String classpath,
+                                           List<String> compilerArgs) {
+        if (compilerArgs.contains("-cp")
+                || compilerArgs.contains("--class-path")
+                || compilerArgs.contains("--classpath")) {
+            // explicit classpath was provided, use that only
+            return "";
+        }
         return Stream.of(classpath.split(File.pathSeparator))
                 .map(CompileCommandExecutor::computeClasspathPart)
                 .filter(not(String::isBlank))

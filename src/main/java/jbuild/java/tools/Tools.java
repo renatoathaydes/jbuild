@@ -3,13 +3,16 @@ package jbuild.java.tools;
 import jbuild.errors.JBuildException;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.spi.ToolProvider;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.LINE_END;
 
 /**
@@ -177,15 +180,18 @@ public abstract class Tools {
         /**
          * Run the javac tool in order to compile all given files.
          *
-         * @param files     files to compile
-         * @param outDir    where to store compiled class files
-         * @param classpath the classpath (may be empty)
+         * @param files        files to compile
+         * @param outDir       where to store compiled class files
+         * @param classpath    the classpath (may be empty)
+         * @param compilerArgs javac compiler arguments
          * @return result
          */
         public ToolRunResult compile(Set<String> files,
                                      String outDir,
-                                     String classpath) {
-            var args = collectArgs(files, outDir, classpath);
+                                     String classpath,
+                                     List<String> compilerArgs) {
+            validateCompilerArgs(compilerArgs);
+            var args = collectArgs(files, outDir, classpath, compilerArgs);
             var exitCode = tool.run(
                     new PrintStream(stdout(), false, ISO_8859_1),
                     new PrintStream(stderr(), false, ISO_8859_1),
@@ -193,26 +199,47 @@ public abstract class Tools {
             return result(exitCode, args);
         }
 
+        private void validateCompilerArgs(List<String> compilerArgs) {
+            if (compilerArgs.contains("-s")) {
+                throw new JBuildException("The -s javac option is not allowed, " +
+                        "please use jbuild's -d (output directory) or -j (output jar) options instead.", USER_INPUT);
+            }
+            if (compilerArgs.contains("-h") || compilerArgs.contains("--help") || compilerArgs.contains("-?")) {
+                throw new JBuildException("The javac help option is not allowed. Run javac --help instead.", USER_INPUT);
+            }
+            if (compilerArgs.contains("-version") || compilerArgs.contains("--version")) {
+                throw new JBuildException("The javac version option is not allowed. Run javac -version instead.", USER_INPUT);
+            }
+        }
+
+        @SuppressWarnings("SuspiciousToArrayCall")
         private static String[] collectArgs(Set<String> files,
                                             String outDir,
-                                            String classpath) {
-            var extraArgs = classpath.isBlank() ? 6 : 8;
-            var result = new String[files.size() + extraArgs];
-            var i = 0;
-            result[i++] = "-encoding";
-            result[i++] = "utf-8";
-            result[i++] = "-Werror";
-            result[i++] = "-parameters";
-            result[i++] = "-d";
-            result[i++] = outDir;
+                                            String classpath,
+                                            List<String> compilerArgs) {
+            var result = new ArrayList<>();
+
+            if (!compilerArgs.contains("-encoding")) {
+                result.add("-encoding");
+                result.add("utf-8");
+            }
+            if (!compilerArgs.contains("-nowarn") && !compilerArgs.contains("-Werror")) {
+                result.add("-Werror");
+            }
+            if (!compilerArgs.contains("-parameters")) {
+                result.add("-parameters");
+            }
+            result.add("-d");
+            result.add(outDir);
+
             if (!classpath.isBlank()) {
-                result[i++] = "-cp";
-                result[i++] = classpath;
+                result.add("-cp");
+                result.add(classpath);
             }
-            for (var file : files) {
-                result[i++] = file;
-            }
-            return result;
+            result.addAll(compilerArgs);
+            result.addAll(files);
+
+            return result.toArray(String[]::new);
         }
     }
 
