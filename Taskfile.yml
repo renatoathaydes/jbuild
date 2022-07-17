@@ -19,6 +19,7 @@ vars:
   JBUILD_MY_TESTS_JAR: out/jbuild-tests/my-tests.jar
   JBUILD_OTHER_TESTS_JAR: out/jbuild-tests/other-tests.jar
   JUNIT_RUNNER_LIBS_DIR: out/junit-runner-libs
+  SEP: '{{ .SEP | default ":" }}'
 
 dotenv: [ build.env ]
 
@@ -35,9 +36,10 @@ tasks:
       - java src/tools/java/Find.java "{{.JBUILD_SRC}}" out/java-sources.txt
       - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" "@out/java-sources.txt"
     sources:
+      - src/tools/java/Find.java
       - "{{.JBUILD_SRC}}/**/*.java"
     generates:
-      - java-sources.txt
+      - out/java-sources.txt
       - "{{.JBUILD_CLASSES_DIR}}/**/*"
 
   self-compile:
@@ -92,7 +94,7 @@ tasks:
     cmds:
       - mkdir {{.TEST_CLASSES_DIR}} || true
       - cp -R src/test/resources/* {{.TEST_CLASSES_DIR}}
-      - java -jar "{{.JBUILD_JAR}}" compile src/test/java -cp "{{.TEST_LIBS_DIR}}":{{.JBUILD_JAR}} -d {{.TEST_CLASSES_DIR}}
+      - java -jar "{{.JBUILD_JAR}}" compile src/test/java -cp "{{.TEST_LIBS_DIR}}" -cp "{{.JBUILD_JAR}}" -d {{.TEST_CLASSES_DIR}}
     sources:
       - src/test/java/**/*.java
     generates:
@@ -103,7 +105,7 @@ tasks:
     deps: [ jar, install-test-libs ]
     cmds:
       - mkdir {{.INTEGRATION_TEST_CLASSES_DIR}} || true
-      - java -jar "{{.JBUILD_JAR}}" compile src/intTest/java -cp "{{.TEST_LIBS_DIR}}":{{.JBUILD_JAR}} -d {{.INTEGRATION_TEST_CLASSES_DIR}}
+      - java -jar "{{.JBUILD_JAR}}" compile src/intTest/java -cp "{{.TEST_LIBS_DIR}}" -cp "{{.JBUILD_JAR}}" -d {{.INTEGRATION_TEST_CLASSES_DIR}}
     sources:
       - src/intTest/java/**/*.java
     generates:
@@ -124,7 +126,7 @@ tasks:
     deps: [ build-tests, install-junit ]
     cmds:
       - >
-        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*:{{.TEST_LIBS_DIR}}/*"
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*"
         -Dtests.repo.dir=src/test/resources/jbuild/commands/repo
         -Dtests.test-classes.dir="{{.JBUILD_TESTS_DIR}}"
         -Dtests.my-test-classes.jar="{{.JBUILD_MY_TESTS_JAR}}"
@@ -132,7 +134,7 @@ tasks:
         -Dtests.real-jars.osgiaas-cli-api.jar=src/test/real-jars/osgiaas-cli-api-0.7.jar
         -Dtests.real-jars.jline.jar=src/test/real-jars/jline-2.14.2.jar
         org.junit.platform.console.ConsoleLauncher
-        --classpath="{{.JBUILD_JAR}}:{{.TEST_LIBS_DIR}}:{{.TEST_CLASSES_DIR}}"
+        --classpath="{{.JBUILD_JAR}}{{.SEP}}{{.TEST_CLASSES_DIR}}"
         --scan-classpath="{{.TEST_CLASSES_DIR}}"
         --reports-dir="{{.TEST_REPORT_DIR}}"
         --fail-if-no-tests
@@ -142,10 +144,10 @@ tasks:
     deps: [ build-integration-tests, install-junit ]
     cmds:
       - >
-        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*:{{.TEST_LIBS_DIR}}/*"
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*"
         -Dtests.int-tests.repo="{{.INTEGRATION_TEST_REPO_DIR}}"
         org.junit.platform.console.ConsoleLauncher
-        --classpath="{{.JBUILD_JAR}}:{{.TEST_LIBS_DIR}}:{{.INTEGRATION_TEST_CLASSES_DIR}}"
+        --classpath="{{.JBUILD_JAR}}{{.SEP}}{{.INTEGRATION_TEST_CLASSES_DIR}}"
         --scan-classpath="{{.INTEGRATION_TEST_CLASSES_DIR}}"
         --reports-dir="{{.INTEGRATION_TEST_REPORT_DIR}}"
         --fail-if-no-tests
