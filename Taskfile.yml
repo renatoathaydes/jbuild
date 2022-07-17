@@ -6,9 +6,14 @@ version: '3'
 # https://mccue.dev/pages/6-1-22-upload-to-maven-central
 
 vars:
-  JAVA_SRC: src/main/java
-  CLASSES: out/classes
-  JAR: out/jbuild.jar
+  JBUILD_SRC: src/main/java
+  JBUILD_CLASSES_DIR: out/classes
+  TEST_CLASSES_DIR: out/test-classes
+  JBUILD_JAR: out/jbuild.jar
+  TEST_LIBS_DIR: out/test-libs
+  JUNIT_RUNNER_LIBS_DIR: out/junit-runner-libs
+
+dotenv: [ build.env ]
 
 tasks:
   clean:
@@ -17,23 +22,70 @@ tasks:
       - rm -rf out
 
   compile:
+    desc: Bootstraps JBuild.
+    run: once
     cmds:
-      - javac --release 11 -cp "{{.JAVA_SRC}}" -d "{{.CLASSES}}" $(find "{{.JAVA_SRC}}" -name "*.java")
+      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" $(find "{{.JBUILD_SRC}}" -name "*.java")
     sources:
-      - "{{.JAVA_SRC}}/**/*.java"
+      - "{{.JBUILD_SRC}}/**/*.java"
     generates:
-      - "{{.CLASSES}}/**/*.class"
+      - "{{.JBUILD_CLASSES_DIR}}/**/*"
 
   jar:
+    run: once
     deps: [ compile ]
     cmds:
-      - jar -c -f "{{.JAR}}" -e jbuild.cli.Main -C "{{.CLASSES}}" .
+      - jar -c -f "{{.JBUILD_JAR}}" -e jbuild.cli.Main -C "{{.JBUILD_CLASSES_DIR}}" .
     sources:
-      - "{{.CLASSES}}/**/*.class"
+      - "{{.JBUILD_CLASSES_DIR}}/**/*"
     generates:
-      - "{{.JAR}}"
+      - "{{.JBUILD_JAR}}"
 
-  run:
+  install-test-libs:
+    run: once
     deps: [ jar ]
     cmds:
-      - java -jar "{{.JAR}}" {{.CLI_ARGS}}
+      - java -jar "{{.JBUILD_JAR}}" install -d "{{.TEST_LIBS_DIR}}" {{.TEST_API_LIBS}}
+    sources:
+      - build.env
+    generates:
+      - "{{.TEST_LIBS_DIR}}/**/*"
+
+  build-tests:
+    run: once
+    deps: [ jar, install-test-libs ]
+    cmds:
+      - mkdir {{.TEST_CLASSES_DIR}} || true
+      - cp -R src/test/resources/* {{.TEST_CLASSES_DIR}}
+      - java -jar "{{.JBUILD_JAR}}" compile src/test/java -cp "{{.TEST_LIBS_DIR}}":{{.JBUILD_JAR}} -d {{.TEST_CLASSES_DIR}}
+    sources:
+      - src/test/java/**/*.java
+    generates:
+      - "{{.TEST_CLASSES_DIR}}"
+
+  install-junit:
+    run: once
+    deps: [ jar ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" install -d "{{.JUNIT_RUNNER_LIBS_DIR}}" {{.TEST_RUNNER}}
+    sources:
+      - build.env
+    generates:
+      - "{{.JUNIT_RUNNER_LIBS_DIR}}"
+
+  test:
+    run: once
+    deps: [ build-tests, install-junit ]
+    cmds:
+      - >
+        java -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*:{{.TEST_LIBS_DIR}}/*"
+        -Dtest.repos.dir=src/test/resources/jbuild/commands/repo
+        -Dtests.test-classes.dir=build/test-jars
+        -Dtests.my-test-classes.jar=build/test-jars/my-tests.jar
+        -Dtests.other-test-classes.jar=build/test-jars/other-tests.jar
+        -Dtests.real-jars.osgiaas-cli-api.jar=src/test/real-jars/osgiaas-cli-api-0.7.jar
+        -Dtests.real-jars.jline.jar=src/test/real-jars/jline-2.14.2.jar
+        org.junit.platform.console.ConsoleLauncher
+        --classpath="{{.JBUILD_JAR}}:{{.TEST_CLASSES_DIR}}:{{.TEST_LIBS_DIR}}"
+        --scan-classpath
+        --fail-if-no-tests
