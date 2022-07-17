@@ -14,33 +14,33 @@ public class OptionsTest {
     @Test
     void canParseMainOptions() {
         verifyOptions(Options.parse(new String[]{}),
-                "", List.of(), false, false, false);
+                "", List.of(), List.of(), false, false, false);
         verifyOptions(Options.parse(new String[]{"foo"}),
-                "foo", List.of(), false, false, false);
+                "foo", List.of(), List.of(), false, false, false);
         verifyOptions(Options.parse(new String[]{"-h"}),
-                "", List.of(), false, true, false);
+                "", List.of(), List.of(), false, true, false);
         verifyOptions(Options.parse(new String[]{"--help"}),
-                "", List.of(), false, true, false);
+                "", List.of(), List.of(), false, true, false);
         verifyOptions(Options.parse(new String[]{"-v"}),
-                "", List.of(), false, false, true);
+                "", List.of(), List.of(), false, false, true);
         verifyOptions(Options.parse(new String[]{"--version"}),
-                "", List.of(), false, false, true);
+                "", List.of(), List.of(), false, false, true);
         verifyOptions(Options.parse(new String[]{"--version", "-v"}),
-                "", List.of(), false, false, true);
+                "", List.of(), List.of(), false, false, true);
         verifyOptions(Options.parse(new String[]{"-V"}),
-                "", List.of(), true, false, false);
+                "", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"-V", "-V"}),
-                "", List.of(), true, false, false);
+                "", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"-V", "foo"}),
-                "foo", List.of(), true, false, false);
+                "foo", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"--verbose", "foo"}),
-                "foo", List.of(), true, false, false);
+                "foo", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"--verbose", "foo", "--directory", "target"}),
-                "foo", List.of("--directory", "target"), true, false, false);
+                "foo", List.of("--directory", "target"), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"--verbose", "foo", "--directory", "target", "bar"}),
-                "foo", List.of("--directory", "target", "bar"), true, false, false);
-        verifyOptions(Options.parse(new String[]{"abc", "def", "ghi", "jkl", "mno"}),
-                "abc", List.of("def", "ghi", "jkl", "mno"), false, false, false);
+                "foo", List.of("--directory", "target", "bar"), List.of(), true, false, false);
+        verifyOptions(Options.parse(new String[]{"abc", "def", "ghi", "jkl", "--", "mno", "-p"}),
+                "abc", List.of("def", "ghi", "jkl"), List.of("mno", "-p"), false, false, false);
     }
 
     @Test
@@ -59,11 +59,13 @@ public class OptionsTest {
     private void verifyOptions(Options options,
                                String command,
                                List<String> commandArgs,
+                               List<String> applicationArgs,
                                boolean verbose,
                                boolean help,
                                boolean version) {
         assertEquals(command, options.command);
         assertEquals(commandArgs, options.commandArgs);
+        assertEquals(applicationArgs, options.applicationArgs);
         assertEquals(verbose, options.verbose);
         assertEquals(help, options.help);
         assertEquals(version, options.version);

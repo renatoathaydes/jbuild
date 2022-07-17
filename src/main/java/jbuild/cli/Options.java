@@ -106,7 +106,10 @@ final class Options {
             for (; i < args.length; i++) {
                 var arg = args[i].trim();
                 if (arg.isEmpty()) continue;
-                if ("--".equals(arg)) break;
+                if ("--".equals(arg)) {
+                    i++;
+                    break;
+                }
                 commandArgs.add(args[i]);
             }
         } else {
