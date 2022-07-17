@@ -32,10 +32,12 @@ tasks:
     desc: Bootstraps JBuild.
     run: once
     cmds:
-      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" $(find "{{.JBUILD_SRC}}" -name "*.java")
+      - find "{{.JBUILD_SRC}}" -name "*.java" > java-sources.txt
+      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" "@java-sources.txt"
     sources:
       - "{{.JBUILD_SRC}}/**/*.java"
     generates:
+      - java-sources.txt
       - "{{.JBUILD_CLASSES_DIR}}/**/*"
 
   self-compile:
