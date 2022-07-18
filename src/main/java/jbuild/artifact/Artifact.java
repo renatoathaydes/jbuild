@@ -87,13 +87,17 @@ public class Artifact {
     }
 
     private String dotExt() {
-        switch (extension) {
+        // consider only the first "part" of the extension with special meaning
+        var dotIndex = extension.indexOf('.');
+        var isSpecial = dotIndex > 0;
+        var specialPart = isSpecial ? extension.substring(0, dotIndex) : extension;
+        switch (specialPart) {
             case "javadoc":
-                return "-javadoc.jar";
+                return "-javadoc.jar" + (isSpecial ? extension.substring(dotIndex) : "");
             case "sources":
-                return "-sources.jar";
+                return "-sources.jar" + (isSpecial ? extension.substring(dotIndex) : "");
             default:
-                return "." + extension;
+                return (dotIndex == 0 ? "" : ".") + extension;
         }
     }
 

@@ -16,10 +16,20 @@ public class ArtifactTest {
                 .isEqualTo("artifact-1.0-SNAPSHOT.jar");
         assertThat(new Artifact("g", "abc-def", "0.1", "pom").toFileName())
                 .isEqualTo("abc-def-0.1.pom");
+        assertThat(new Artifact("g", "abc-def", "0.1", ".pom").toFileName())
+                .isEqualTo("abc-def-0.1.pom");
         assertThat(new Artifact("g", "abc-def", "2", "javadoc").toFileName())
                 .isEqualTo("abc-def-2-javadoc.jar");
         assertThat(new Artifact("g", "abc-def", "2.1", "sources").toFileName())
                 .isEqualTo("abc-def-2.1-sources.jar");
+    }
+
+    @Test
+    void toFileName_Extensions() {
+        assertThat(new Artifact("g", "abc", "2", "javadoc.asc").toFileName())
+                .isEqualTo("abc-2-javadoc.jar.asc");
+        assertThat(new Artifact("g", "abc", "2", "sources.asc.md5").toFileName())
+                .isEqualTo("abc-2-sources.jar.asc.md5");
     }
 
     @Test
@@ -53,5 +63,7 @@ public class ArtifactTest {
                 .isEqualTo(new Artifact("g", "abc-def", "2.1"));
         assertThat(Artifact.parseCoordinates("g:abc-def:3.0-SNAPSHOT.1:pom"))
                 .isEqualTo(new Artifact("g", "abc-def", "3.0-SNAPSHOT.1", "pom"));
+        assertThat(Artifact.parseCoordinates("g:abc-def:3.0-SNAPSHOT.1:foo.bar-zort"))
+                .isEqualTo(new Artifact("g", "abc-def", "3.0-SNAPSHOT.1", "foo.bar-zort"));
     }
 }
