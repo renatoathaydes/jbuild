@@ -42,7 +42,8 @@ public class CompileCommandExecutorTest {
                 Set.of(src1.toString(), src2.toString()),
                 Either.left(buildDir.toString()),
                 "",
-                "");
+                "",
+                List.of());
 
         verifyToolSuccessful("compile", result.getCompileResult());
         assertThat(result.getJarResult()).isNotPresent();
@@ -86,7 +87,8 @@ public class CompileCommandExecutorTest {
                 Set.of(src1.toString()),
                 Either.left(buildDir.toString()),
                 "",
-                "");
+                "",
+                List.of());
 
         verifyToolSuccessful("compile", result.getCompileResult());
         assertThat(result.getJarResult()).isNotPresent();
@@ -96,7 +98,8 @@ public class CompileCommandExecutorTest {
                 Set.of(src2.toString()),
                 Either.right(jar.toString()),
                 "",
-                buildDir.toString());
+                buildDir.toString(),
+                List.of());
 
         verifyToolSuccessful("compile", result.getCompileResult());
         assertThat(result.getJarResult()).isPresent();

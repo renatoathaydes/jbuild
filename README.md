@@ -149,3 +149,32 @@ The Javadocs will be published at some point.
 
 For now, please refer to the CLI code, [jbuild.cli.Main](src/main/java/jbuild/cli/Main.java),
 and [the tests](src/test/java/jbuild/).
+
+## Building
+
+[Task](https://taskfile.dev/usage/) is used to build JBuild. Task's role is basically to bootstrap JBuild,
+then invoke jbuild commands, caching the results of each task to avoid re-running command unnecessarily.
+
+To compile the jbuild jar (invokes `javac` directly):
+
+```shell
+task compile
+```
+
+After that, JBuild can self-compile:
+
+```shell
+task self-compile
+```
+
+To run unit tests.
+
+```shell
+task test
+```
+
+To run integration tests.
+
+```shell
+task integration-test
+```

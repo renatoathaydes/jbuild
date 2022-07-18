@@ -1,11 +1,11 @@
 name: Build And Test on All OSs
 on: [push, pull_request]
 jobs:
-  gradle:
+  build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        java: [11, 17]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        java: [ 11, 17 ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -13,15 +13,30 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
-          cache: 'gradle'
 
-      - name: Build and execute tests
-        run: ./gradlew check
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
+      - name: Build and execute unit tests (Windows)
+        run: task test "SEP=;"
+        if: ${{ matrix.os == 'windows-latest' }}
+
+      - name: Build and execute unit tests (non-Windows)
+        run: task test
+        if: ${{ matrix.os != 'windows-latest' }}
+
+      - name: Build and execute integration tests (Windows)
+        run: task integration-test "SEP=;"
+        if: ${{ matrix.os == 'windows-latest' }}
+
+      - name: Build and execute integration tests (non-Windows)
+        run: task integration-test
+        if: ${{ matrix.os != 'windows-latest' }}
 
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
           name: JUnit Tests
-          path: build/test-results/(test|integrationTest)/TEST-*.xml
+          path: out/test-reports/(test|integrationTest)/TEST-*.xml
           reporter: java-junit

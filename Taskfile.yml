@@ -6,9 +6,22 @@ version: '3'
 # https://mccue.dev/pages/6-1-22-upload-to-maven-central
 
 vars:
-  JAVA_SRC: src/main/java
-  CLASSES: out/classes
-  JAR: out/jbuild.jar
+  JBUILD_SRC: src/main/java
+  JBUILD_CLASSES_DIR: out/classes
+  TEST_CLASSES_DIR: out/test-classes
+  INTEGRATION_TEST_CLASSES_DIR: out/integration-test-classes
+  INTEGRATION_TEST_REPO_DIR: out/integration-test-mvn-repo
+  JBUILD_JAR: out/jbuild.jar
+  TEST_LIBS_DIR: out/test-libs
+  TEST_REPORT_DIR: out/test-reports/test
+  INTEGRATION_TEST_REPORT_DIR: out/test-reports/integrationTest
+  JBUILD_TESTS_DIR: out/jbuild-tests
+  JBUILD_MY_TESTS_JAR: out/jbuild-tests/my-tests.jar
+  JBUILD_OTHER_TESTS_JAR: out/jbuild-tests/other-tests.jar
+  JUNIT_RUNNER_LIBS_DIR: out/junit-runner-libs
+  SEP: '{{ .SEP | default ":" }}'
+
+dotenv: [ build.env ]
 
 tasks:
   clean:
@@ -17,23 +30,124 @@ tasks:
       - rm -rf out
 
   compile:
+    desc: Bootstraps JBuild.
+    run: once
     cmds:
-      - javac --release 11 -cp "{{.JAVA_SRC}}" -d "{{.CLASSES}}" $(find "{{.JAVA_SRC}}" -name "*.java")
+      - java src/tools/java/Find.java "{{.JBUILD_SRC}}" out/java-sources.txt
+      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" "@out/java-sources.txt"
     sources:
-      - "{{.JAVA_SRC}}/**/*.java"
+      - src/tools/java/Find.java
+      - "{{.JBUILD_SRC}}/**/*.java"
     generates:
-      - "{{.CLASSES}}/**/*.class"
+      - out/java-sources.txt
+      - "{{.JBUILD_CLASSES_DIR}}/**/*"
+
+  self-compile:
+    desc: Compiles JBuild using JBuild itself.
+    run: once
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" compile -j "{{.JBUILD_JAR}}" -m jbuild.cli.Main
 
   jar:
+    run: once
     deps: [ compile ]
     cmds:
-      - jar -c -f "{{.JAR}}" -e jbuild.cli.Main -C "{{.CLASSES}}" .
+      - jar -c -f "{{.JBUILD_JAR}}" -e jbuild.cli.Main -C "{{.JBUILD_CLASSES_DIR}}" .
     sources:
-      - "{{.CLASSES}}/**/*.class"
+      - "{{.JBUILD_CLASSES_DIR}}/**/*"
     generates:
-      - "{{.JAR}}"
+      - "{{.JBUILD_JAR}}"
 
-  run:
+  install-test-libs:
+    run: once
     deps: [ jar ]
     cmds:
-      - java -jar "{{.JAR}}" {{.CLI_ARGS}}
+      - java -jar "{{.JBUILD_JAR}}" install -d "{{.TEST_LIBS_DIR}}" {{.TEST_API_LIBS}}
+    sources:
+      - build.env
+    generates:
+      - "{{.TEST_LIBS_DIR}}/**/*"
+
+  compile-test-my-test-classes:
+    run: once
+    deps: [ jar ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" compile src/myTestClasses/java -j "{{.JBUILD_MY_TESTS_JAR}}"
+    sources:
+      - src/myTestClasses/java/**/*.java
+    generates:
+      - "{{.JBUILD_MY_TESTS_JAR}}"
+
+  compile-test-other-test-classes:
+    run: once
+    deps: [ compile-test-my-test-classes ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" compile src/otherTestClasses/java -cp "{{.JBUILD_MY_TESTS_JAR}}" -j "{{.JBUILD_OTHER_TESTS_JAR}}"
+    sources:
+      - src/otherTestClasses/java/**/*.java
+    generates:
+      - "{{.JBUILD_OTHER_TESTS_JAR}}"
+
+  build-tests:
+    run: once
+    deps: [ jar, install-test-libs, compile-test-my-test-classes, compile-test-other-test-classes ]
+    cmds:
+      - mkdir {{.TEST_CLASSES_DIR}} || true
+      - cp -R src/test/resources/* {{.TEST_CLASSES_DIR}}
+      - java -jar "{{.JBUILD_JAR}}" compile src/test/java -cp "{{.TEST_LIBS_DIR}}" -cp "{{.JBUILD_JAR}}" -d {{.TEST_CLASSES_DIR}}
+    sources:
+      - src/test/java/**/*.java
+    generates:
+      - "{{.TEST_CLASSES_DIR}}/**/*"
+
+  build-integration-tests:
+    run: once
+    deps: [ jar, install-test-libs ]
+    cmds:
+      - mkdir {{.INTEGRATION_TEST_CLASSES_DIR}} || true
+      - java -jar "{{.JBUILD_JAR}}" compile src/intTest/java -cp "{{.TEST_LIBS_DIR}}" -cp "{{.JBUILD_JAR}}" -d {{.INTEGRATION_TEST_CLASSES_DIR}}
+    sources:
+      - src/intTest/java/**/*.java
+    generates:
+      - "{{.INTEGRATION_TEST_CLASSES_DIR}}/**/*"
+
+  install-junit:
+    run: once
+    deps: [ jar ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" install -d "{{.JUNIT_RUNNER_LIBS_DIR}}" {{.TEST_RUNNER}}
+    sources:
+      - build.env
+    generates:
+      - "{{.JUNIT_RUNNER_LIBS_DIR}}/**/*"
+
+  test:
+    run: once
+    deps: [ build-tests, install-junit ]
+    cmds:
+      - >
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*"
+        -Dtests.repo.dir=src/test/resources/jbuild/commands/repo
+        -Dtests.test-classes.dir="{{.JBUILD_TESTS_DIR}}"
+        -Dtests.my-test-classes.jar="{{.JBUILD_MY_TESTS_JAR}}"
+        -Dtests.other-test-classes.jar="{{.JBUILD_OTHER_TESTS_JAR}}"
+        -Dtests.real-jars.osgiaas-cli-api.jar=src/test/real-jars/osgiaas-cli-api-0.7.jar
+        -Dtests.real-jars.jline.jar=src/test/real-jars/jline-2.14.2.jar
+        org.junit.platform.console.ConsoleLauncher
+        --classpath="{{.JBUILD_JAR}}{{.SEP}}{{.TEST_CLASSES_DIR}}"
+        --scan-classpath="{{.TEST_CLASSES_DIR}}"
+        --reports-dir="{{.TEST_REPORT_DIR}}"
+        --fail-if-no-tests
+
+  integration-test:
+    run: once
+    deps: [ build-integration-tests, install-junit ]
+    cmds:
+      - >
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*"
+        -Dtests.int-tests.repo="{{.INTEGRATION_TEST_REPO_DIR}}"
+        org.junit.platform.console.ConsoleLauncher
+        --classpath="{{.JBUILD_JAR}}{{.SEP}}{{.INTEGRATION_TEST_CLASSES_DIR}}"
+        --scan-classpath="{{.INTEGRATION_TEST_CLASSES_DIR}}"
+        --reports-dir="{{.INTEGRATION_TEST_REPORT_DIR}}"
+        --fail-if-no-tests

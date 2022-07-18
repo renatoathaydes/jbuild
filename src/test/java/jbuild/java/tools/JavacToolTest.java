@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -30,7 +31,7 @@ public class JavacToolTest {
                 "    }\n" +
                 "}");
 
-        var result = Tools.Javac.create().compile(Set.of(javaSrc.toString()), outDir.getPath(), "");
+        var result = Tools.Javac.create().compile(Set.of(javaSrc.toString()), outDir.getPath(), "", List.of());
         verifyToolSuccessful("javac", result);
 
         assertThat(outDir).isDirectory();

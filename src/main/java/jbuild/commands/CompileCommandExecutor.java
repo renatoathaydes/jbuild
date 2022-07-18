@@ -16,11 +16,13 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
@@ -37,14 +39,19 @@ public final class CompileCommandExecutor {
     public CompileCommandResult compile(Set<String> inputDirectories,
                                         Either<String, String> outputDirOrJar,
                                         String mainClass,
-                                        String classpath) {
-        if (inputDirectories.isEmpty()) {
+                                        String classpath,
+                                        List<String> compilerArgs) {
+        var usingDefaultInputDirs = inputDirectories.isEmpty();
+        if (usingDefaultInputDirs) {
             inputDirectories = computeDefaultSourceDirs();
         }
         var files = collectSourceFiles(inputDirectories).collect(toSet());
         if (files.isEmpty()) {
+            var lookedAt = usingDefaultInputDirs
+                    ? "src/main/java/, src/ and '.'"
+                    : String.join(", ", inputDirectories);
             throw new JBuildException("No source files found " +
-                    "(directories tried in order: src/main/java/, src/ and '.')", USER_INPUT);
+                    "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
         log.verbosePrintln(() -> "Found " + files.size() + " source file(s) to compile");
@@ -54,7 +61,8 @@ public final class CompileCommandExecutor {
                 jar -> getTempDirectory());
         var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
 
-        var compileResult = Tools.Javac.create().compile(files, outputDir, computeClasspath(classpath));
+        var compileResult = Tools.Javac.create().compile(files, outputDir,
+                computeClasspath(classpath, compilerArgs), compilerArgs);
         if (jarFile == null || compileResult.exitCode() != 0) {
             return new CompileCommandResult(compileResult, null);
         }
@@ -67,11 +75,25 @@ public final class CompileCommandExecutor {
         return new CompileCommandResult(compileResult, jarResult);
     }
 
-    private String computeClasspath(String classpath) {
+    private static String computeClasspath(String classpath,
+                                           List<String> compilerArgs) {
+        if (compilerArgs.contains("-cp")
+                || compilerArgs.contains("--class-path")
+                || compilerArgs.contains("--classpath")) {
+            // explicit classpath was provided, use that only
+            return "";
+        }
+        return Stream.of(classpath.split(File.pathSeparator))
+                .map(CompileCommandExecutor::computeClasspathPart)
+                .filter(not(String::isBlank))
+                .collect(joining(File.pathSeparator));
+    }
+
+    private static String computeClasspathPart(String classpath) {
         if (classpath.isBlank()) {
             return "";
         }
-        if (classpath.endsWith("*") || classpath.contains(File.pathSeparator)) {
+        if (classpath.endsWith("*")) {
             return classpath;
         }
         var cp = new File(classpath);
