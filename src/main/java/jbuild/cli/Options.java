@@ -145,6 +145,12 @@ final class FetchOptions {
             "      Options:" + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory (default: working directory)." + LINE_END +
+            "      Note:" + LINE_END +
+            "        Artifacts are declared using syntax: groupId:artifactId:version:extension" + LINE_END +
+            "        where extension is optional. Special extensions are:" + LINE_END +
+            "          - javadoc - fetches javadocs jar." + LINE_END +
+            "          - sources - fetches Java sources jar." + LINE_END +
+            "          - <ext>.asc - fetches GPG signature." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " -d libs org.apache.commons:commons-lang3:3.12.0";
 
