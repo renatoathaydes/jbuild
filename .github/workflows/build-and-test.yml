@@ -1,11 +1,11 @@
 name: Build And Test on All OSs
 on: [push, pull_request]
 jobs:
-  gradle:
+  build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        java: [11, 17]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        java: [ 11, 17 ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
