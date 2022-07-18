@@ -83,7 +83,18 @@ public class Artifact {
      * @return a standard file name for this artifact (artifactId-version.extension)
      */
     public String toFileName() {
-        return artifactId + (version.isBlank() ? "" : "-" + version) + "." + extension;
+        return artifactId + (version.isBlank() ? "" : "-" + version) + dotExt();
+    }
+
+    private String dotExt() {
+        switch (extension) {
+            case "javadoc":
+                return "-javadoc.jar";
+            case "sources":
+                return "-sources.jar";
+            default:
+                return "." + extension;
+        }
     }
 
     @Override
