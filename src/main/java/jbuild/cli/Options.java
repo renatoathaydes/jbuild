@@ -7,6 +7,7 @@ import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.maven.Scope;
+import jbuild.util.CollectionUtils;
 import jbuild.util.Either;
 
 import java.io.File;
@@ -53,6 +54,16 @@ final class Options {
         this.repositories = repositories;
         this.commandArgs = commandArgs;
         this.applicationArgs = applicationArgs;
+    }
+
+    public Options withGenericOptions(Options options) {
+        return new Options(verbose || options.verbose,
+                help || options.help,
+                version || options.version,
+                command,
+                CollectionUtils.appendAsList(repositories, options.repositories),
+                commandArgs,
+                CollectionUtils.appendAsList(applicationArgs, options.applicationArgs));
     }
 
     List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers() {
@@ -130,7 +141,6 @@ final class Options {
 
         return new Options(verbose, help, version, command, repositories, commandArgs, applicationArgs);
     }
-
 }
 
 final class FetchOptions {

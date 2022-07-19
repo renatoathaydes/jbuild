@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -62,6 +63,13 @@ public final class CollectionUtils {
                 return last;
             }
         };
+    }
+
+    public static <T> List<T> appendAsList(Iterable<T> front, Iterable<T> back) {
+        var iterable = append(front, back);
+        var list = new ArrayList<T>();
+        for (var item : iterable) list.add(item);
+        return list;
     }
 
     public static <T> Iterable<T> append(Iterable<T> front, Iterable<T> back) {

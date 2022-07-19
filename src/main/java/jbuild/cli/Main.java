@@ -120,7 +120,8 @@ public final class Main {
 
     private void run(Options options) throws Exception {
         if (options.command.isBlank()) {
-            throw new JBuildException("No command given to execute. Run jbuild --help for usage.", USER_INPUT);
+            runJBuildFile(options);
+            return;
         }
 
         switch (options.command) {
@@ -149,6 +150,11 @@ public final class Main {
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
         }
+    }
+
+    private void runJBuildFile(Options options) throws Exception {
+        var runner = new JBuildFileRunner(log, this::run);
+        runner.run(options);
     }
 
     private void showHelp(Options options) {
