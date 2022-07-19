@@ -12,6 +12,7 @@ vars:
   INTEGRATION_TEST_CLASSES_DIR: out/integration-test-classes
   INTEGRATION_TEST_REPO_DIR: out/integration-test-mvn-repo
   JBUILD_JAR: out/jbuild.jar
+  LIBS_DIR: out/libs
   TEST_LIBS_DIR: out/test-libs
   TEST_REPORT_DIR: out/test-reports/test
   INTEGRATION_TEST_REPORT_DIR: out/test-reports/integrationTest
@@ -49,6 +50,7 @@ tasks:
       - java -jar "{{.JBUILD_JAR}}" compile -j "{{.JBUILD_JAR}}" -m jbuild.cli.Main
 
   jar:
+    desc: Create the JBuild jar.
     run: once
     deps: [ compile ]
     cmds:
@@ -57,6 +59,16 @@ tasks:
       - "{{.JBUILD_CLASSES_DIR}}/**/*"
     generates:
       - "{{.JBUILD_JAR}}"
+
+  install-libs:
+    run: once
+    deps: [ jar ]
+    cmds:
+      - java -jar "{{.JBUILD_JAR}}" install -d "{{.LIBS_DIR}}" {{.LIBS}}
+    sources:
+      - build.env
+    generates:
+      - "{{.LIBS_DIR}}/**/*"
 
   install-test-libs:
     run: once
@@ -144,7 +156,7 @@ tasks:
     deps: [ build-integration-tests, install-junit ]
     cmds:
       - >
-        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*"
+        java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*{{.SEP}}{{.LIBS_DIR}}/*"
         -Dtests.int-tests.repo="{{.INTEGRATION_TEST_REPO_DIR}}"
         org.junit.platform.console.ConsoleLauncher
         --classpath="{{.JBUILD_JAR}}{{.SEP}}{{.INTEGRATION_TEST_CLASSES_DIR}}"
