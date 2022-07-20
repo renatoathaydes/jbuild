@@ -35,7 +35,8 @@ tasks:
     run: once
     cmds:
       - java src/tools/java/Find.java "{{.JBUILD_SRC}}" out/java-sources.txt
-      - javac --release 11 -encoding utf-8 -Werror -d "{{.JBUILD_CLASSES_DIR}}" "@out/java-sources.txt"
+      - javac --release 11 -encoding utf-8 -Werror -cp "{{.LIBS_DIR}}/luaj-jse-3.0.1.jar" -d "{{.JBUILD_CLASSES_DIR}}" "@out/java-sources.txt"
+      - cp -R src/main/resources/* "{{.JBUILD_CLASSES_DIR}}"
     sources:
       - src/tools/java/Find.java
       - "{{.JBUILD_SRC}}/**/*.java"
@@ -47,7 +48,7 @@ tasks:
     desc: Compiles JBuild using JBuild itself.
     run: once
     cmds:
-      - java -jar "{{.JBUILD_JAR}}" compile -j "{{.JBUILD_JAR}}" -m jbuild.cli.Main
+      - java -jar "{{.JBUILD_JAR}}" compile -cp "{{.LIBS_DIR}}/luaj-jse-3.0.1.jar" -j "{{.JBUILD_JAR}}" -m jbuild.cli.Main
 
   jar:
     desc: Create the JBuild jar.
