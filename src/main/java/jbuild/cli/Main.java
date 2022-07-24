@@ -402,7 +402,7 @@ public final class Main {
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {
-        var retrievers = options.getRetrievers();
+        var retrievers = options.getRetrievers(log);
         if (retrievers.isEmpty()) {
             return new VersionsCommandExecutor(log);
         }
@@ -410,7 +410,7 @@ public final class Main {
     }
 
     private FetchCommandExecutor<ArtifactRetrievalError> createFetchCommandExecutor(Options options) {
-        var retrievers = options.getRetrievers();
+        var retrievers = options.getRetrievers(log);
         if (retrievers.isEmpty()) {
             return FetchCommandExecutor.createDefault(log);
         }

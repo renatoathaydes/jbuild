@@ -32,7 +32,7 @@ public final class VersionsCommandExecutor {
     }
 
     public VersionsCommandExecutor(JBuildLog log) {
-        this(log, DefaultArtifactRetrievers.get());
+        this(log, DefaultArtifactRetrievers.get(log));
     }
 
     public Map<Artifact, CompletionStage<Either<ArtifactMetadata, NonEmptyCollection<Describable>>>> getVersions(

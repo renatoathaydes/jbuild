@@ -49,7 +49,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
     public static FetchCommandExecutor<ArtifactRetrievalError> createDefault(JBuildLog log) {
         // keep type parameter as javac sporadically fails without this!
-        return new FetchCommandExecutor<ArtifactRetrievalError>(log, DefaultArtifactRetrievers.get());
+        return new FetchCommandExecutor<ArtifactRetrievalError>(log, DefaultArtifactRetrievers.get(log));
     }
 
     public CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> fetchArtifact(Artifact artifact) {

@@ -5,9 +5,12 @@ import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.artifact.Version;
 import jbuild.artifact.VersionRange;
 import jbuild.errors.HttpError;
 import jbuild.errors.JBuildException;
+import jbuild.log.JBuildLog;
+import jbuild.maven.ArtifactKey;
 import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 import org.xml.sax.SAXException;
@@ -22,6 +25,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
@@ -33,21 +37,24 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
     private static final Duration HTTP_REQUEST_RETRY_DELAY = Duration.ofSeconds(1);
 
+    private final JBuildLog log;
     private final URI baseUrl;
     private final HttpClient httpClient;
 
-    public HttpArtifactRetriever(URI baseUrl,
+    public HttpArtifactRetriever(JBuildLog log,
+                                 URI baseUrl,
                                  HttpClient httpClient) {
+        this.log = log;
         this.baseUrl = baseUrl;
         this.httpClient = httpClient;
     }
 
-    public HttpArtifactRetriever(String baseUrl) {
-        this(URI.create(baseUrl), DefaultHttpClient.get());
+    public HttpArtifactRetriever(JBuildLog log, String baseUrl) {
+        this(log, URI.create(baseUrl), DefaultHttpClient.get());
     }
 
-    public HttpArtifactRetriever() {
-        this(MavenUtils.MAVEN_CENTRAL_URL);
+    public HttpArtifactRetriever(JBuildLog log) {
+        this(log, MavenUtils.MAVEN_CENTRAL_URL);
     }
 
     @Override
@@ -96,7 +103,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
             VersionRange range) {
         return retrieveMetadata(artifact).thenComposeAsync(completion -> completion.map(
                 meta -> range.selectLatest(meta.getVersions())
-                        .map(version -> retrieve(artifact.withVersion(version)))
+                        .map(version -> retrieveVersion(range, artifact, version))
                         .orElseGet(() -> completedStage(ArtifactResolution.failure(new HttpError(
                                 artifact, this,
                                 Either.right(new JBuildException(
@@ -106,6 +113,13 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
                                                 ")",
                                         ACTION_ERROR)))))),
                 err -> completedStage(ArtifactResolution.failure(err))));
+    }
+
+    private CompletionStage<ArtifactResolution<HttpError>> retrieveVersion(
+            VersionRange range, Artifact artifact, Version version) {
+        log.verbosePrintln(() -> "Artifact " + ArtifactKey.of(artifact) + " with version range " + range +
+                " being resolved with fixed version " + version);
+        return retrieve(artifact.withVersion(version));
     }
 
     @Override
@@ -136,7 +150,18 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
     private <U> CompletionStage<U> send(
             HttpRequest request,
             BiFunction<HttpResponse<byte[]>, Throwable, CompletionStage<U>> handle) {
-        return withRetries(() -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()),
+        log.verbosePrintln(() -> "Artifact retriever sending HTTP request: " + request);
+        var hasRetried = new AtomicBoolean(false);
+        return withRetries(
+                () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).whenComplete((ok, err) -> {
+                    if (err != null) {
+                        if (hasRetried.compareAndSet(false, true)) {
+                            log.verbosePrintln(() -> "HTTP Request resulted in error, will retry: " + err);
+                        }
+                    } else {
+                        log.verbosePrintln(() -> "Received HTTP response: " + ok);
+                    }
+                }),
                 1, HTTP_REQUEST_RETRY_DELAY, handle);
     }
 

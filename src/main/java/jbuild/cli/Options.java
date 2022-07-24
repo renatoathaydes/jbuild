@@ -6,6 +6,7 @@ import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
+import jbuild.log.JBuildLog;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
 
@@ -55,11 +56,11 @@ final class Options {
         this.applicationArgs = applicationArgs;
     }
 
-    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers() {
+    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(JBuildLog log) {
         return repositories.stream()
                 .map(address -> {
                     if (address.startsWith("http://") || address.startsWith("https://")) {
-                        return new HttpArtifactRetriever(address);
+                        return new HttpArtifactRetriever(log, address);
                     }
                     return new FileArtifactRetriever(Paths.get(address));
                 }).collect(toList());
