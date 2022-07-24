@@ -269,6 +269,7 @@ public class DoctorCommandExecutorBasicTest {
 
         var result = command.compile(
                 Set.of(rootDir.toString()),
+                Set.of(),
                 Either.right(jar.toString()),
                 "",
                 classpath,

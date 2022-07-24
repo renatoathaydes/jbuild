@@ -15,6 +15,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class CollectionUtils {
 
@@ -62,6 +63,10 @@ public final class CollectionUtils {
                 return last;
             }
         };
+    }
+
+    public static <T> Stream<T> appendAsStream(Iterable<T> front, Iterable<T> back) {
+        return StreamSupport.stream(append(front, back).spliterator(), false);
     }
 
     public static <T> Iterable<T> append(Iterable<T> front, Iterable<T> back) {

@@ -9,6 +9,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -40,6 +42,7 @@ public class CompileCommandExecutorTest {
 
         var result = command.compile(
                 Set.of(src1.toString(), src2.toString()),
+                Set.of(),
                 Either.left(buildDir.toString()),
                 "",
                 "",
@@ -85,6 +88,7 @@ public class CompileCommandExecutorTest {
         // first, compile Foo into a simple class file
         var result = command.compile(
                 Set.of(src1.toString()),
+                Set.of(),
                 Either.left(buildDir.toString()),
                 "",
                 "",
@@ -96,6 +100,7 @@ public class CompileCommandExecutorTest {
         // then, compile Bar into a jar, using buildDir as its classpath
         result = command.compile(
                 Set.of(src2.toString()),
+                Set.of(),
                 Either.right(jar.toString()),
                 "",
                 buildDir.toString(),
@@ -114,6 +119,51 @@ public class CompileCommandExecutorTest {
                 javap(jar.toString(), "Bar"));
 
         assertThat(types.keySet()).contains("LBar;");
+    }
+
+    @Test
+    void canCopyResources() throws IOException {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+        var srcFooJava = src.resolve("Foo.java");
+        Files.write(srcFooJava, List.of("public class Foo {}"));
+
+        var resDir = dir.resolve("resources");
+        assert resDir.toFile().mkdir();
+        var fooJava = resDir.resolve("Foo.java");
+        Files.write(fooJava, List.of("public class Foo {}"));
+        var myRes = resDir.resolve("my-resource.txt");
+        Files.write(myRes, List.of("hello"));
+
+        var resFooDir = resDir.resolve("foo");
+        assert resFooDir.toFile().mkdir();
+        var myFooRes = resFooDir.resolve("my-foo.txt");
+        Files.write(myFooRes, List.of("foo bar"));
+
+        var outDir = dir.resolve("output");
+        System.out.println("outDir=" + outDir);
+
+        command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(resDir.toFile().getAbsolutePath()),
+                Either.left(outDir.toFile().getAbsolutePath()),
+                "",
+                "",
+                List.of());
+
+        var outMyRes = outDir.resolve(myRes.getFileName().toString());
+        var outMyFooRes = outDir.resolve(Paths.get("foo", myFooRes.getFileName().toString()));
+
+        assertThat(outDir).isDirectory();
+        System.out.println("Files in outDir: " + Arrays.toString(outDir.toFile().list()));
+        assertThat(outMyRes).isRegularFile().hasContent("hello");
+        assertThat(outMyFooRes).isRegularFile().hasContent("foo bar");
     }
 
 }

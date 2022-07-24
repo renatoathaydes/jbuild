@@ -64,19 +64,23 @@ public class OptionsTest {
         var p = File.pathSeparatorChar;
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile"}).commandArgs),
-                "java-libs", Set.of(), Either.right(""), "");
+                "java-libs", Set.of(), Set.of(), Either.right(""), "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "--main-class", "a.b.C", "-d", "out"}).commandArgs),
-                "java-libs", Set.of(), Either.left("out"), "a.b.C");
+                "java-libs", Set.of(), Set.of(), Either.left("out"), "a.b.C");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "-m", "a.b.C", "--jar", "lib.jar", "--classpath", "foo"}).commandArgs),
-                "foo", Set.of(), Either.right("lib.jar"), "a.b.C");
+                "foo", Set.of(), Set.of(), Either.right("lib.jar"), "a.b.C");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "dir", "-cp", "a:b;c", "-cp", "d"}).commandArgs),
-                "a" + p + "b" + p + "c" + p + "d", Set.of("dir"), Either.right(""), "");
+                "a" + p + "b" + p + "c" + p + "d", Set.of("dir"), Set.of(), Either.right(""), "");
+
+        verifyCompileOptions(CompileOptions.parse(
+                        Options.parse(new String[]{"compile", "--resources", "res", "dir", "-cp", "d", "-r", "files"}).commandArgs),
+                "d", Set.of("dir"), Set.of("res", "files"), Either.right(""), "");
     }
 
     private void verifyOptions(Options options,
@@ -97,10 +101,12 @@ public class OptionsTest {
     private void verifyCompileOptions(CompileOptions options,
                                       String classpath,
                                       Set<String> inputDirs,
+                                      Set<String> resourcesDirs,
                                       Either<String, String> outputDirOrJar,
                                       String mainClass) {
         assertEquals(classpath, options.classpath);
         assertEquals(inputDirs, options.inputDirectories);
+        assertEquals(resourcesDirs, options.resourcesDirectories);
         assertEquals(outputDirOrJar, options.outputDirOrJar);
         assertEquals(mainClass, options.mainClass);
     }

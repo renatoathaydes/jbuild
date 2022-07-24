@@ -180,18 +180,18 @@ public abstract class Tools {
         /**
          * Run the javac tool in order to compile all given files.
          *
-         * @param files        files to compile
+         * @param sourceFiles  files to compile
          * @param outDir       where to store compiled class files
          * @param classpath    the classpath (may be empty)
          * @param compilerArgs javac compiler arguments
          * @return result
          */
-        public ToolRunResult compile(Set<String> files,
+        public ToolRunResult compile(Set<String> sourceFiles,
                                      String outDir,
                                      String classpath,
                                      List<String> compilerArgs) {
             validateCompilerArgs(compilerArgs);
-            var args = collectArgs(files, outDir, classpath, compilerArgs);
+            var args = collectArgs(sourceFiles, outDir, classpath, compilerArgs);
             var exitCode = tool.run(
                     new PrintStream(stdout(), false, ISO_8859_1),
                     new PrintStream(stderr(), false, ISO_8859_1),

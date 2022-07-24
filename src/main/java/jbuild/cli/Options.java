@@ -559,6 +559,8 @@ final class CompileOptions {
             "        -cp       Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory, where to put class files on." + LINE_END +
+            "        --resources" + LINE_END +
+            "        -r        resources directory, files are copied unmodified with class files." + LINE_END +
             "        --jar" + LINE_END +
             "        -j        destination jar (default: <working-directory>.jar)." + LINE_END +
             "        --main-class" + LINE_END +
@@ -574,27 +576,32 @@ final class CompileOptions {
             "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
 
     final Set<String> inputDirectories;
+    final Set<String> resourcesDirectories;
     final Either<String, String> outputDirOrJar;
     final String mainClass;
     final String classpath;
 
     public CompileOptions(Set<String> inputDirectories,
+                          Set<String> resourcesDirectories,
                           Either<String, String> outputDirOrJar,
                           String mainClass,
                           String classpath) {
         this.inputDirectories = inputDirectories;
+        this.resourcesDirectories = resourcesDirectories;
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
         this.classpath = classpath;
     }
 
     static CompileOptions parse(List<String> args) {
-        Set<String> inputDirectories = new LinkedHashSet<>();
+        Set<String> inputDirectories = new LinkedHashSet<>(2);
+        Set<String> resourcesDirectories = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
         var classpath = new StringBuilder();
 
         boolean waitingForClasspath = false,
                 waitingForDirectory = false,
+                waitingForResources = false,
                 waitingForJar = false,
                 waitingForMainClass = false;
 
@@ -611,6 +618,12 @@ final class CompileOptions {
             } else if (waitingForDirectory) {
                 waitingForDirectory = false;
                 outputDir = arg;
+            } else if (waitingForResources) {
+                waitingForResources = false;
+                for (String part : arg.split("[;:]")) {
+                    if (part.isBlank()) continue;
+                    resourcesDirectories.add(part);
+                }
             } else if (waitingForJar) {
                 waitingForJar = false;
                 jar = arg;
@@ -620,6 +633,8 @@ final class CompileOptions {
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
+                } else if (isEither(arg, "-r", "--resources")) {
+                    waitingForResources = true;
                 } else if (isEither(arg, "-d", "--directory")) {
                     if (outputDir != null) {
                         throw new JBuildException("cannot provide repository directory more than once" +
@@ -667,6 +682,7 @@ final class CompileOptions {
             jar = "";
         }
         return new CompileOptions(inputDirectories,
+                resourcesDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
                 classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
