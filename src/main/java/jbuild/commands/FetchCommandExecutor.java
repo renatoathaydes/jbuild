@@ -180,7 +180,8 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
             ArtifactFileWriter fileWriter,
             ResolvedArtifact resolvedArtifact) {
         var requestDuration = Duration.ofMillis(System.currentTimeMillis() - resolvedArtifact.requestTime);
-        log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved from " +
+        log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved (" +
+                resolvedArtifact.contentLength + " bytes) from " +
                 resolvedArtifact.retriever.getDescription() + " in " + durationText(requestDuration));
         return fileWriter.write(resolvedArtifact, true).thenApply(result -> result.map(file -> {
             log.verbosePrintln(() -> "Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
