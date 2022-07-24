@@ -17,22 +17,27 @@ jobs:
 
       - name: Install Task
         run: go install github.com/go-task/task/v3/cmd/task@latest
+        shell: bash
 
       - name: Build and execute unit tests (Windows)
         run: $HOME/go/bin/task test "SEP=;"
         if: ${{ matrix.os == 'windows-latest' }}
+        shell: bash
 
       - name: Build and execute unit tests (non-Windows)
         run: $HOME/go/bin/task test
         if: ${{ matrix.os != 'windows-latest' }}
+        shell: bash
 
       - name: Build and execute integration tests (Windows)
         run: $HOME/go/bin/task integration-test "SEP=;"
         if: ${{ matrix.os == 'windows-latest' }}
+        shell: bash
 
       - name: Build and execute integration tests (non-Windows)
         run: $HOME/go/bin/task integration-test
         if: ${{ matrix.os != 'windows-latest' }}
+        shell: bash
 
       - name: Test Report
         uses: dorny/test-reporter@v1
