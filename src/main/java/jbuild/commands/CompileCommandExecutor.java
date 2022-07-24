@@ -58,7 +58,7 @@ public final class CompileCommandExecutor {
             resourcesDirectories = computeDefaultResourceDirs();
         }
         var sourceFiles = collectFiles(inputDirectories, JAVA_FILES_FILTER)
-                .stream().flatMap(col -> col.files)
+                .stream().flatMap(col -> col.files.stream())
                 .collect(toSet());
         if (sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
@@ -78,7 +78,9 @@ public final class CompileCommandExecutor {
             if (resourceFiles.isEmpty()) {
                 log.verbosePrintln("No resource files found.");
             } else {
-                log.verbosePrintln("Found " + resourceFiles.size() + " resource file(s).");
+                log.verbosePrintln("Found " + resourceFiles.stream()
+                        .map(col -> col.files.size())
+                        .reduce(0, Integer::sum) + " resource file(s).");
             }
         }
 
@@ -112,8 +114,7 @@ public final class CompileCommandExecutor {
         try {
             for (var resourceCollection : resourceFiles) {
                 var srcDir = Paths.get(resourceCollection.directory);
-                Iterable<String> resources = resourceCollection.files::iterator;
-                for (var resource : resources) {
+                for (var resource : resourceCollection.files) {
                     var resourceFile = new File(resource);
                     var destination = outPath.resolve(srcDir.relativize(Paths.get(resource)));
                     var resourceDir = destination.getParent().toFile();
@@ -199,7 +200,8 @@ public final class CompileCommandExecutor {
             var children = dir.listFiles();
             if (children != null) {
                 return new FileCollection(dirPath, Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter)));
+                        .flatMap(child -> fileOrChildDirectories(child, filter))
+                        .collect(toList()));
             }
         } else {
             log.println(() -> "Ignoring non-existing input directory: " + dirPath);
@@ -275,13 +277,13 @@ public final class CompileCommandExecutor {
 
     private static final class FileCollection {
         final String directory;
-        final Stream<String> files;
+        final List<String> files;
 
         FileCollection(String directory) {
-            this(directory, Stream.of());
+            this(directory, List.of());
         }
 
-        FileCollection(String directory, Stream<String> files) {
+        FileCollection(String directory, List<String> files) {
             this.directory = directory;
             this.files = files;
         }
