@@ -20,14 +20,18 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
-import static jbuild.util.AsyncUtils.handlingAsync;
+import static jbuild.util.AsyncUtils.withRetries;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
+
+    private static final Duration HTTP_REQUEST_RETRY_DELAY = Duration.ofSeconds(1);
 
     private final URI baseUrl;
     private final HttpClient httpClient;
@@ -68,17 +72,23 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
         var requestTime = System.currentTimeMillis();
 
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                .handle((response, err) -> {
-                    if (err != null) {
-                        return ArtifactResolution.failure(
-                                new HttpError(artifact, this, Either.right(err)));
-                    }
-                    if (response.statusCode() == 200) {
-                        return ArtifactResolution.success(new ResolvedArtifact(response.body(), artifact, this, requestTime));
-                    }
-                    return ArtifactResolution.failure(new HttpError(artifact, this, Either.left(response)));
-                });
+        return sendArtifactRequest(artifact, request, requestTime);
+    }
+
+    private CompletionStage<ArtifactResolution<HttpError>> sendArtifactRequest(
+            Artifact artifact, HttpRequest request, long requestTime) {
+        return send(request, (response, err) -> {
+            if (err != null) {
+                return completedStage(ArtifactResolution.failure(
+                        new HttpError(artifact, this, Either.right(err))));
+            }
+            if (response.statusCode() == 200) {
+                return completedStage(ArtifactResolution.success(
+                        new ResolvedArtifact(response.body(), artifact, this, requestTime)));
+            }
+            return completedStage(ArtifactResolution.failure(
+                    new HttpError(artifact, this, Either.left(response))));
+        });
     }
 
     private CompletionStage<ArtifactResolution<HttpError>> retrieveFromVersionRange(
@@ -102,10 +112,7 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
     public CompletionStage<Either<? extends ArtifactMetadata, HttpError>> retrieveMetadata(Artifact artifact) {
         var requestUri = buildMetadataUri(baseUrl, artifact);
         var request = HttpRequest.newBuilder(requestUri).build();
-
-        return handlingAsync(httpClient.sendAsync(request,
-                HttpResponse.BodyHandlers.ofByteArray()
-        ), (response, httpRequestError) -> {
+        return send(request, (response, httpRequestError) -> {
             Throwable error = null;
             if (httpRequestError == null) {
                 if (response.statusCode() == 200) {
@@ -124,6 +131,13 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
             }
             return completedStage(Either.right(new HttpError(artifact, this, Either.right(error))));
         });
+    }
+
+    private <U> CompletionStage<U> send(
+            HttpRequest request,
+            BiFunction<HttpResponse<byte[]>, Throwable, CompletionStage<U>> handle) {
+        return withRetries(() -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()),
+                1, HTTP_REQUEST_RETRY_DELAY, handle);
     }
 
     private static URI buildMetadataUri(URI baseUri, Artifact artifact) {

@@ -1,5 +1,6 @@
 package jbuild.util;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -7,11 +8,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 
@@ -114,9 +119,54 @@ public final class AsyncUtils {
         return future;
     }
 
-    public static <T, U> CompletionStage<U> handlingAsync(CompletableFuture<T> future,
-                                                          BiFunction<T, Throwable, CompletionStage<U>> handler) {
+    public static <T, U> CompletionStage<U> handlingAsync(
+            CompletionStage<T> future,
+            BiFunction<T, Throwable, CompletionStage<U>> handler) {
         return future.handle(handler).thenCompose(x -> x);
     }
 
+    public static <T, U> CompletionStage<U> withRetries(
+            Supplier<CompletionStage<T>> future,
+            int retries,
+            Duration delayOnRetry,
+            BiFunction<T, Throwable, CompletionStage<U>> handle) {
+        CompletionStage<T> completionStage;
+        try {
+            completionStage = future.get();
+        } catch (Throwable t) {
+            return handle.apply(null, t);
+        }
+        return handlingAsync(completionStage, (T ok, Throwable err) -> {
+            if (err != null) {
+                return retries > 0
+                        ? afterDelay(delayOnRetry, () -> withRetries(
+                        future, retries - 1, delayOnRetry, handle))
+                        : handle.apply(ok, err);
+            }
+            return handle.apply(ok, null);
+        });
+    }
+
+    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor((runnable) -> {
+        var thread = new Thread(runnable, "jbuild-scheduler");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    public static <T> CompletionStage<T> afterDelay(Duration delay, Supplier<CompletionStage<T>> futureGetter) {
+        var future = new CompletableFuture<T>();
+
+        scheduler.schedule(() -> {
+            try {
+                futureGetter.get().whenComplete((ok, err) -> {
+                    if (err == null) future.complete(ok);
+                    else future.completeExceptionally(err);
+                });
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        }, delay.toMillis(), TimeUnit.MILLISECONDS);
+
+        return future;
+    }
 }
