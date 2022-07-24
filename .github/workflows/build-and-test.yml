@@ -16,22 +16,22 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Install Task
-        run: go install github.com/go-task/task/v3/cmd/task@latest && go env
+        run: go install github.com/go-task/task/v3/cmd/task@latest
 
       - name: Build and execute unit tests (Windows)
-        run: task test "SEP=;"
+        run: $GOPATH/bin/task test "SEP=;"
         if: ${{ matrix.os == 'windows-latest' }}
 
       - name: Build and execute unit tests (non-Windows)
-        run: task test
+        run: $GOPATH/bin/task test
         if: ${{ matrix.os != 'windows-latest' }}
 
       - name: Build and execute integration tests (Windows)
-        run: task integration-test "SEP=;"
+        run: $GOPATH/bin/task integration-test "SEP=;"
         if: ${{ matrix.os == 'windows-latest' }}
 
       - name: Build and execute integration tests (non-Windows)
-        run: task integration-test
+        run: $GOPATH/bin/task integration-test
         if: ${{ matrix.os != 'windows-latest' }}
 
       - name: Test Report
