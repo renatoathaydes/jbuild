@@ -16,7 +16,7 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Install Task
-        run: go install github.com/go-task/task/v3/cmd/task@latest
+        run: go install github.com/go-task/task/v3/cmd/task@latest && go env
 
       - name: Build and execute unit tests (Windows)
         run: task test "SEP=;"
