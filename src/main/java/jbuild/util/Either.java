@@ -1,9 +1,12 @@
 package jbuild.util;
 
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static java.util.concurrent.CompletableFuture.completedStage;
 
 public final class Either<L, R> {
 
@@ -46,6 +49,15 @@ public final class Either<L, R> {
     }
 
     @SuppressWarnings("unchecked")
+    public <T> Either<T, R> mapLeft(Function<L, T> withLeft) {
+        if (right != null) {
+            //noinspection unchecked
+            return (Either<T, R>) this;
+        }
+        return Either.left(withLeft.apply(left));
+    }
+
+    @SuppressWarnings("unchecked")
     public <T> Either<L, T> mapRight(Function<R, T> withRight) {
         if (left != null) {
             //noinspection unchecked
@@ -72,5 +84,15 @@ public final class Either<L, R> {
     @Override
     public int hashCode() {
         return left != null ? left.hashCode() : right.hashCode();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <L, R, U> CompletionStage<Either<U, R>> awaitLeft(
+            Either<L, R> either,
+            Function<L, CompletionStage<Either<U, R>>> mapper) {
+        if (either.left != null) {
+            return mapper.apply(either.left);
+        }
+        return completedStage((Either<U, R>) either);
     }
 }

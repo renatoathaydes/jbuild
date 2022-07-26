@@ -35,6 +35,7 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.importsOf;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapEntries;
+import static jbuild.util.Either.awaitLeft;
 import static jbuild.util.TextUtils.durationText;
 
 public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
@@ -127,20 +128,19 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
             CompletionStage<MavenPom> pomCompletion) {
         return pomCompletion.thenCompose(pom -> {
             var parentArtifact = pom.getParentArtifact();
+
             if (parentArtifact.isEmpty()) {
                 return withImportsIfNeeded(pom);
             }
 
-            var parentPom = parentArtifact.get().pom();
+            return withImportsIfNeeded(pom).thenComposeAsync(imps -> awaitLeft(imps, withImps -> {
+                var parentPom = parentArtifact.get().pom();
 
-            log.verbosePrintln(() -> "Fetching parent POM of " + pom.getArtifact().getCoordinates() +
-                    " - " + parentPom.getCoordinates());
+                log.verbosePrintln(() -> "Fetching parent POM of " + withImps.getArtifact().getCoordinates() +
+                        " - " + parentPom.getCoordinates());
 
-            return fetch(parentPom)
-                    .thenComposeAsync(res -> res.map(
-                            parent -> withImportsIfNeeded(pom.withParent(parent)),
-                            this::handleRetrievalErrors));
-
+                return fetch(parentPom).thenApply(res -> res.mapLeft(withImps::withParent));
+            }));
         });
     }
 
@@ -160,23 +160,23 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
             var errors = new ArrayList<Describable>(imports.size() / 2);
             var resultPom = pom;
             for (var item : res.values()) {
-                MavenPom imp = item.map(p -> p.orElse(null), err -> {
+                MavenPom imp = item.map(p -> p.orElseGet(() -> {
+                    errors.add(Describable.of("Maven import from " +
+                            pom.getArtifact().getCoordinates() + " could not be resolved"));
+                    return null;
+                }), err -> {
                     errors.add(Describable.of("Error fetching Maven import from " +
                             pom.getArtifact().getCoordinates() + " - " + err));
                     return null;
                 });
-                if (imp == null) {
-                    errors.add(Describable.of("Unable to fetch Maven import from " +
-                            pom.getArtifact().getCoordinates()));
-                } else {
+                if (imp != null) {
                     resultPom = resultPom.importing(imp);
                 }
             }
             if (errors.isEmpty()) {
                 return Either.left(resultPom);
             }
-            var firstError = errors.remove(0);
-            return Either.right(NonEmptyCollection.of(errors, firstError));
+            return Either.right(NonEmptyCollection.of(errors));
         });
     }
 
