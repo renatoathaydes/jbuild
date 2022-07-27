@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
+import static java.util.Map.entry;
 import static jbuild.maven.MavenHelper.dep;
 import static jbuild.maven.MavenHelper.readPom;
 import static jbuild.maven.Scope.COMPILE;
@@ -52,14 +53,20 @@ public class MavenPomTest {
         var pom = readPom("optional/optional-deps.pom.xml");
 
         assertThat(pom.getProperties())
-                .isEqualTo(Map.of(
-                        "optionalYa", "true",
-                        "project.groupId", "com.test",
-                        "project.artifactId", "optional-deps",
-                        "project.version", "1.1",
-                        "project.parent.groupId", "com.test",
-                        "project.parent.artifactId", "optional-parent",
-                        "project.parent.version", "1.1"
+                .isEqualTo(Map.ofEntries(
+                        entry("optionalYa", "true"),
+                        entry("project.groupId", "com.test"),
+                        entry("pom.groupId", "com.test"),
+                        entry("project.artifactId", "optional-deps"),
+                        entry("pom.artifactId", "optional-deps"),
+                        entry("project.version", "1.1"),
+                        entry("pom.version", "1.1"),
+                        entry("project.parent.groupId", "com.test"),
+                        entry("pom.parent.groupId", "com.test"),
+                        entry("project.parent.artifactId", "optional-parent"),
+                        entry("pom.parent.artifactId", "optional-parent"),
+                        entry("project.parent.version", "1.1"),
+                        entry("pom.parent.version", "1.1")
                 ));
     }
 
