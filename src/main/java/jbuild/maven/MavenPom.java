@@ -48,12 +48,16 @@ public final class MavenPom {
     private final Set<License> licenses;
 
     private MavenPom(Element project, MavenPom parentPom) {
-        var properties = resolveProperties(project, parentPom);
-        this.parentPom = parentPom;
-        this.parentArtifact = resolveParentArtifact(project, properties);
-        this.coordinates = resolveCoordinates(project, properties, parentArtifact);
+        // hide the non-populated properties in this block to avoid mistakes using it
+        {
+            var properties = resolveProperties(project, parentPom);
+
+            this.parentPom = parentPom;
+            this.parentArtifact = resolveParentArtifact(project, properties);
+            this.coordinates = resolveCoordinates(project, properties, parentArtifact);
+            this.properties = populateProjectPropertiesWith(coordinates, parentArtifact, properties);
+        }
         this.packaging = resolveProperty(properties, childNamed("packaging", project), "jar");
-        this.properties = populateProjectPropertiesWith(coordinates, parentArtifact, properties);
         this.dependencyManagement = resolveDependencyManagement(project, properties, parentPom);
         this.dependencies = resolveDependencies(project, dependencyManagement, properties, parentPom);
         this.licenses = resolveLicenses(project, properties, parentPom);
@@ -443,8 +447,8 @@ public final class MavenPom {
                     var children = p.getChildNodes();
                     Map<String, String> parentProperties = parentPom == null ? Map.of() : parentPom.properties;
 
-                    // "1 +" because we'll add the "project.version" property later
-                    Map<String, String> result = new LinkedHashMap<>(1 +
+                    // "12 +" because we'll add about 10 built-in properties later
+                    Map<String, String> result = new LinkedHashMap<>(12 +
                             children.getLength() + parentProperties.size());
 
                     result.putAll(parentProperties);
@@ -458,19 +462,25 @@ public final class MavenPom {
                     }
 
                     return result;
-                }).orElseGet(() -> new LinkedHashMap<>(1));
+                }).orElseGet(() -> new LinkedHashMap<>(12));
     }
 
     private static Map<String, String> populateProjectPropertiesWith(Artifact coordinates,
                                                                      Artifact parentArtifact,
                                                                      Map<String, String> properties) {
         properties.put("project.groupId", coordinates.groupId);
+        properties.put("pom.groupId", coordinates.groupId);
         properties.put("project.artifactId", coordinates.artifactId);
+        properties.put("pom.artifactId", coordinates.artifactId);
         properties.put("project.version", coordinates.version);
+        properties.put("pom.version", coordinates.version);
         if (parentArtifact != null) {
             properties.put("project.parent.groupId", parentArtifact.groupId);
+            properties.put("pom.parent.groupId", parentArtifact.groupId);
             properties.put("project.parent.artifactId", parentArtifact.artifactId);
+            properties.put("pom.parent.artifactId", parentArtifact.artifactId);
             properties.put("project.parent.version", parentArtifact.version);
+            properties.put("pom.parent.version", parentArtifact.version);
         }
         return unmodifiableMap(properties);
     }
