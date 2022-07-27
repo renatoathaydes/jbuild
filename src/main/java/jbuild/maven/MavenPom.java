@@ -38,6 +38,7 @@ public final class MavenPom {
         PARENT, IMPORT
     }
 
+    private final MavenPom parentPom;
     private final Artifact parentArtifact;
     private final Artifact coordinates;
     private final String packaging;
@@ -48,6 +49,7 @@ public final class MavenPom {
 
     private MavenPom(Element project, MavenPom parentPom) {
         var properties = resolveProperties(project, parentPom);
+        this.parentPom = parentPom;
         this.parentArtifact = resolveParentArtifact(project, properties);
         this.coordinates = resolveCoordinates(project, properties, parentArtifact);
         this.packaging = resolveProperty(properties, childNamed("packaging", project), "jar");
@@ -60,6 +62,7 @@ public final class MavenPom {
     private MavenPom(MavenPom pom, MavenPom other, MergeMode mode) {
         switch (mode) {
             case PARENT:
+                this.parentPom = other;
                 this.properties = union(other.properties, pom.properties);
                 this.parentArtifact = resolveArtifact(other.coordinates, properties);
                 this.coordinates = resolveArtifact(pom.coordinates, properties);
@@ -75,6 +78,7 @@ public final class MavenPom {
                 break;
             case IMPORT:
             default:
+                this.parentPom = pom.parentPom;
                 this.properties = pom.properties;
                 this.parentArtifact = pom.parentArtifact;
                 this.coordinates = pom.coordinates;
@@ -124,6 +128,13 @@ public final class MavenPom {
      */
     public MavenPom importing(MavenPom importedPom) {
         return new MavenPom(this, importedPom, MergeMode.IMPORT);
+    }
+
+    /**
+     * @return the parent POM.
+     */
+    public Optional<MavenPom> getParentPom() {
+        return Optional.ofNullable(parentPom);
     }
 
     /**

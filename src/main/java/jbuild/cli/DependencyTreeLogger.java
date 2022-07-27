@@ -58,9 +58,15 @@ final class DependencyTreeLogger {
 
         if (deps.isEmpty()) {
             log.println("  * no dependencies");
-            return;
+        } else {
+            logDependencyTreeAndLicenses(tree, deps);
         }
+        if (options.showExtra) {
+            logExtra(tree);
+        }
+    }
 
+    private void logDependencyTreeAndLicenses(DependencyTree tree, Set<Dependency> deps) {
         var groupedDeps = deps.stream()
                 .collect(groupingBy(dep -> dep.scope));
 
@@ -146,17 +152,57 @@ final class DependencyTreeLogger {
                 .forEach(license -> log.println("  * " + license));
     }
 
-    private String displayLicenses(Set<License> licenses) {
+    private static String displayLicenses(Set<License> licenses) {
         return licenses.stream()
                 .map(lic -> '{' + licenseString(lic) + '}')
                 .collect(joining(", ", " [", "]"));
     }
 
-    private String displayDependency(String indent, Dependency dep, String displayVersion) {
+    private static String displayDependency(String indent, Dependency dep, String displayVersion) {
         var version = displayVersion == null ? dep.artifact.version : displayVersion;
-        return indent + "* " + ArtifactKey.of(dep.artifact).getCoordinates() + ':' + version +
-                " [" + dep.scope + "]" +
-                (dep.optional ? "[optional]" : "");
+        return indent + "* " + ArtifactKey.of(dep.artifact).getCoordinates() + ':' + version + ' ' +
+                dependencyExtra(dep);
+    }
+
+    private static String dependencyExtra(Dependency dep) {
+        return "[" + dep.scope + "]" +
+                (dep.optional ? "[optional]" : "") +
+                (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
+                        .map(ArtifactKey::getCoordinates)
+                        .collect(joining(", ", ":exclusions:[", "]")));
+    }
+
+    private void logExtra(DependencyTree tree) {
+        var pom = tree.root.pom;
+        log.println("Extra information about " + tree.root.artifact.getCoordinates() + ":");
+
+        var parent = pom.getParentPom().orElse(null);
+        if (parent != null) {
+            log.println("  - Parent POMs:");
+        }
+        while (parent != null) {
+            log.println("    * " + parent.getArtifact().getCoordinates());
+            log.println("      - Dependencies:");
+            if (parent.getDependencies().isEmpty()) {
+                log.println("        * no dependencies");
+            } else {
+                for (var dep : parent.getDependencies()) {
+                    log.println(displayDependency("        ", dep, dep.artifact.version));
+                }
+            }
+            parent = parent.getParentPom().orElse(null);
+        }
+        log.println("  - Dependency Management:");
+        if (pom.getDependencyManagement().isEmpty()) {
+            log.println("    <empty>");
+        } else {
+            for (var dep : pom.getDependencyManagement().entrySet()) {
+                log.println("    * " + dep.getKey().getCoordinates() + " " +
+                        dep.getValue().stream()
+                                .map(DependencyTreeLogger::dependencyExtra)
+                                .collect(joining(", ", "{", "}")));
+            }
+        }
     }
 
     private static String licenseString(License license) {

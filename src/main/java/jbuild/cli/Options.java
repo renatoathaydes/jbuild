@@ -203,6 +203,8 @@ final class DepsOptions {
             "      Usage:" + LINE_END +
             "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
             "      Options:" + LINE_END +
+            "        --extra" + LINE_END +
+            "        -e        show extra information from the POMs (e.g. dependency-management)." + LINE_END +
             "        --licenses" + LINE_END +
             "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
             "        --optional" + LINE_END +
@@ -220,23 +222,27 @@ final class DepsOptions {
     final boolean transitive;
     final boolean optional;
     final boolean licenses;
+    final boolean showExtra;
 
     DepsOptions(Set<String> artifacts,
                 EnumSet<Scope> scopes,
                 boolean transitive,
                 boolean optional,
-                boolean licenses) {
+                boolean licenses,
+                boolean showExtra) {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.transitive = transitive;
         this.optional = optional;
         this.licenses = licenses;
+        this.showExtra = showExtra;
     }
 
     static DepsOptions parse(List<String> args) {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
-        boolean transitive = false, optional = false, licenses = false, expectScope = false;
+        boolean transitive = false, optional = false,
+                licenses = false, expectScope = false, showExtra = false;
 
         for (String arg : args) {
             if (expectScope) {
@@ -256,6 +262,8 @@ final class DepsOptions {
                     transitive = true;
                 } else if (isEither(arg, "-l", "--licenses")) {
                     licenses = true;
+                } else if (isEither(arg, "-e", "--extra")) {
+                    showExtra = true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -272,7 +280,7 @@ final class DepsOptions {
         // if no scopes are included explicitly, use all
         if (scopes.isEmpty()) scopes = EnumSet.allOf(Scope.class);
 
-        return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional, licenses);
+        return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional, licenses, showExtra);
     }
 
 }
