@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.sorted;
 
 final class DependencyTreeLogger {
@@ -161,11 +162,16 @@ final class DependencyTreeLogger {
     private static String displayDependency(String indent, Dependency dep, String displayVersion) {
         var version = displayVersion == null ? dep.artifact.version : displayVersion;
         return indent + "* " + ArtifactKey.of(dep.artifact).getCoordinates() + ':' + version + ' ' +
-                dependencyExtra(dep);
+                dependencyExtra(dep, false);
     }
 
     private static String dependencyExtra(Dependency dep) {
-        return "[" + dep.scope + "]" +
+        return dependencyExtra(dep, true);
+    }
+
+    private static String dependencyExtra(Dependency dep, boolean includeVersion) {
+        return (includeVersion ? ":" + dep.artifact.version + " " : "") +
+                "[" + dep.scope + "]" +
                 (dep.optional ? "[optional]" : "") +
                 (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
                         .map(ArtifactKey::getCoordinates)
@@ -177,7 +183,9 @@ final class DependencyTreeLogger {
         log.println("Extra information about " + tree.root.artifact.getCoordinates() + ":");
 
         var parent = pom.getParentPom().orElse(null);
-        if (parent != null) {
+        if (parent == null) {
+            log.println("  - No parent POM.");
+        } else {
             log.println("  - Parent POMs:");
         }
         while (parent != null) {
@@ -186,9 +194,12 @@ final class DependencyTreeLogger {
             if (parent.getDependencies().isEmpty()) {
                 log.println("        * no dependencies");
             } else {
-                for (var dep : parent.getDependencies()) {
+                for (var dep : sorted(parent.getDependencies(), comparing(d -> d.artifact.getCoordinates()))) {
                     log.println(displayDependency("        ", dep, dep.artifact.version));
                 }
+                var dependencyCount = parent.getDependencies().size();
+                log.println(() -> "      " + dependencyCount + " " +
+                        " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
             parent = parent.getParentPom().orElse(null);
         }
@@ -196,13 +207,25 @@ final class DependencyTreeLogger {
         if (pom.getDependencyManagement().isEmpty()) {
             log.println("    <empty>");
         } else {
-            for (var dep : pom.getDependencyManagement().entrySet()) {
-                log.println("    * " + dep.getKey().getCoordinates() + " " +
-                        dep.getValue().stream()
-                                .map(DependencyTreeLogger::dependencyExtra)
-                                .collect(joining(", ", "{", "}")));
+            for (var dep : sorted(pom.getDependencyManagement().entrySet(),
+                    comparing(dep -> dep.getKey().getCoordinates()))) {
+                log.println(displayEntry(dep));
             }
+            var dependencyCount = pom.getDependencyManagement().size();
+            log.println(() -> "  " + dependencyCount + " " +
+                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
         }
+    }
+
+    private String displayEntry(Map.Entry<ArtifactKey, NonEmptyCollection<Dependency>> entry) {
+        var deps = entry.getValue().stream().collect(toSet());
+        if (deps.size() == 1) {
+            return displayDependency(INDENT, entry.getValue().first, null);
+        }
+        return INDENT + "* " + entry.getKey().getCoordinates() +
+                entry.getValue().stream()
+                        .map(DependencyTreeLogger::dependencyExtra)
+                        .collect(joining(", ", "{", "}"));
     }
 
     private static String licenseString(License license) {
