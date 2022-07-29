@@ -147,13 +147,21 @@ final class FetchOptions {
             "        --directory" + LINE_END +
             "        -d        output directory (default: working directory)." + LINE_END +
             "      Note:" + LINE_END +
-            "        Artifacts are declared using syntax: groupId:artifactId:version:extension" + LINE_END +
-            "        where extension is optional. Special extensions are:" + LINE_END +
+            "        Artifacts are declared using syntax:" +
+            "            groupId:artifactId[:version[:extension[:classifier]]]" + LINE_END +
+            "        If version is empty, the latest version is fetched." + LINE_END +
+            "        If extension is empty, 'jar' is used." + LINE_END +
+            "        Common classifiers are:" + LINE_END +
             "          - javadoc - fetches javadocs jar." + LINE_END +
             "          - sources - fetches Java sources jar." + LINE_END +
-            "          - <ext>.asc - fetches GPG signature." + LINE_END +
-            "      Example:" + LINE_END +
-            "        jbuild " + NAME + " -d libs org.apache.commons:commons-lang3:3.12.0";
+            "        Common extensions are:" + LINE_END +
+            "          - jar      - the default." + LINE_END +
+            "          - pom      - to fetch a POM." + LINE_END +
+            "          - jar.asc  - the PGP signature for a jar." + LINE_END +
+            "          - jar.sha1 - the SHA1 checksum for a jar." + LINE_END +
+            "      Examples:" + LINE_END +
+            "        jbuild " + NAME + " -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
+            "        jbuild " + NAME + " junit:junit:::sources";
 
     final Set<String> artifacts;
     final String outDir;

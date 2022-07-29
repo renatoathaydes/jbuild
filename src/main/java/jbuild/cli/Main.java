@@ -495,14 +495,9 @@ public final class Main {
     }
 
     private Set<? extends Artifact> parseArtifacts(Set<String> coordinates) {
-        Set<Artifact> artifacts;
-        try {
-            artifacts = coordinates.stream()
-                    .map(Artifact::parseCoordinates)
-                    .collect(toSet());
-        } catch (IllegalArgumentException e) {
-            throw new JBuildException(e.getMessage(), USER_INPUT);
-        }
+        Set<Artifact> artifacts = coordinates.stream()
+                .map(Artifact::parseCoordinates)
+                .collect(toSet());
 
         log.verbosePrintln(() -> "Parsed artifacts coordinates:" + LINE_END + artifacts.stream()
                 .map(a -> "  * " + a + LINE_END)

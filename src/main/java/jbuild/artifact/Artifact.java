@@ -1,5 +1,9 @@
 package jbuild.artifact;
 
+import jbuild.errors.JBuildException;
+import jbuild.maven.DependencyType;
+
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.TextUtils.requireNonBlank;
 import static jbuild.util.TextUtils.trimStart;
@@ -18,7 +22,7 @@ public class Artifact {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
-        this.extension = trimStart(firstNonBlank(extension, "jar"), '.');
+        this.extension = selectExtension(trimStart(extension, '.'), classifier);
         this.classifier = classifier;
         this.coordinates = groupId + ':' + artifactId + ':' + version;
     }
@@ -90,9 +94,10 @@ public class Artifact {
             case 5:
                 return new Artifact(groupId, artifactId, coordinates[2], coordinates[3], coordinates[4]);
             default:
-                throw new IllegalArgumentException("Cannot parse coordinates, expected 2 to 4 parts" +
+                throw new JBuildException("Cannot parse coordinates, expected 2 to 5 parts" +
                         " (groupId:artifactId[:version[:extension[:classifier]]]), found " +
-                        coordinates.length + " part(s) in '" + artifact + "'");
+                        coordinates.length + " part(s) in '" + artifact + "'",
+                        USER_INPUT);
         }
     }
 
@@ -136,4 +141,12 @@ public class Artifact {
         result = 31 * result + extension.hashCode();
         return result;
     }
+
+    private static String selectExtension(String selectedExtension, String classifier) {
+        if (selectedExtension.isBlank()) {
+            return DependencyType.fromClassifier(classifier).getExtension();
+        }
+        return selectedExtension;
+    }
+
 }

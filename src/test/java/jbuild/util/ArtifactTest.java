@@ -22,6 +22,8 @@ public class ArtifactTest {
                 .isEqualTo("abc-def-2-javadoc.jar");
         assertThat(new Artifact("g", "abc-def", "2.1", "jar", "sources").toFileName())
                 .isEqualTo("abc-def-2.1-sources.jar");
+        assertThat(new Artifact("g", "abc-def", "2.1", "jar.md5", "sources").toFileName())
+                .isEqualTo("abc-def-2.1-sources.jar.md5");
     }
 
     @Test
