@@ -91,4 +91,31 @@ public class NonEmptyCollectionTest {
     <T> void testToList(NonEmptyCollection<T> collection, List<T> result) {
         assertThat(collection.toList()).containsExactlyElementsOf(result);
     }
+
+    public static Object[][] mapExamples() {
+        return new Object[][]{
+                {NonEmptyCollection.of(1), NonEmptyCollection.of("1")},
+                {NonEmptyCollection.of(2), NonEmptyCollection.of("2")},
+                {NonEmptyCollection.of(List.of(1, 2)), NonEmptyCollection.of(List.of("1", "2"))},
+                {NonEmptyCollection.of(List.of(1, 10, 100, 1000)), NonEmptyCollection.of(List.of("1", "10", "100", "1000"))}
+        };
+    }
+
+    @MethodSource("mapExamples")
+    @ParameterizedTest
+    void testMap(NonEmptyCollection<Integer> collection, NonEmptyCollection<String> expected) {
+        var result = collection.map(i -> Integer.toString(i));
+        assertThat(result.toList()).isEqualTo(expected.toList());
+
+        // iterator can be re-used
+        var i1 = result.iterator();
+        var i2 = result.iterator();
+
+        while (i1.hasNext()) {
+            assertThat(i2).hasNext();
+            assertThat(i1.next()).isEqualTo(i2.next());
+        }
+
+        assertThat(i2).isExhausted();
+    }
 }

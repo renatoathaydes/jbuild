@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,6 +50,32 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
                 ignore -> iter.hasNext() ? iter.next() : null);
     }
 
+    public <V> NonEmptyCollection<V> map(Function<T, V> mapper) {
+        V firstMapped = mapper.apply(first);
+        var iterator = all.iterator();
+        // throw away first item
+        iterator.next();
+
+        return new NonEmptyCollection<V>(firstMapped, () -> new Iterator<V>() {
+            private boolean firstDone = false;
+
+            @Override
+            public boolean hasNext() {
+                if (firstDone) return iterator.hasNext();
+                return true;
+            }
+
+            @Override
+            public V next() {
+                if (!firstDone) {
+                    firstDone = true;
+                    return firstMapped;
+                }
+                return mapper.apply(iterator.next());
+            }
+        });
+    }
+
     @Override
     public String toString() {
         return "NonEmptyCollection{" +
@@ -80,4 +107,5 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
         var iter = list.iterator();
         return new NonEmptyCollection<>(iter.next(), list);
     }
+
 }
