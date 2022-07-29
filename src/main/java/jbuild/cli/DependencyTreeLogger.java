@@ -5,6 +5,7 @@ import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
 import jbuild.maven.DependencyTree;
+import jbuild.maven.DependencyType;
 import jbuild.maven.License;
 import jbuild.maven.Scope;
 import jbuild.util.NonEmptyCollection;
@@ -170,9 +171,13 @@ final class DependencyTreeLogger {
     }
 
     private static String dependencyExtra(Dependency dep, boolean includeVersion) {
+        var classifier = dep.getClassifier();
+        var type = dep.type;
         return (includeVersion ? ":" + dep.artifact.version + " " : "") +
                 "[" + dep.scope + "]" +
                 (dep.optional ? "[optional]" : "") +
+                (type == DependencyType.JAR ? "" : "(" + type.string() + ")") +
+                (classifier.isBlank() ? "" : "{" + classifier + "}") +
                 (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
                         .map(ArtifactKey::getCoordinates)
                         .collect(joining(", ", ":exclusions:[", "]")));

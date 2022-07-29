@@ -124,8 +124,6 @@ public class MavenPomTest {
                         "org.jgroups:jgroups:4.2.18.Final",
                         "org.infinispan.protostream:protostream:4.4.3.Final",
                         "org.infinispan.protostream:protostream-types:4.4.3.Final"
-                        // Maven resolves 1.3.0.Final but that's not what the parent POM says
-//                        "org.wildfly.common:wildfly-common:1.5.4.Final"
                 );
 
 
