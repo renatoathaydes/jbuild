@@ -349,9 +349,6 @@ public final class MavenPom {
     private static Dependency refineDependency(Dependency dependency,
                                                Map<String, String> properties,
                                                Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement) {
-        if (isFullyResolved(dependency)) {
-            return dependency;
-        }
         var groupId = resolveProperty(properties,
                 dependency.artifact.groupId, dependency.artifact.groupId);
         var artifactId = resolveProperty(properties,
@@ -364,8 +361,10 @@ public final class MavenPom {
                 : scopeFrom(managedDeps));
         var version = resolveProperty(properties, dependency.artifact.version,
                 () -> defaultVersionOrFrom(scope.orElse(null), managedDeps));
-        var optional = resolveProperty(properties, dependency.optionalString, "false");
-        var exclusions = refineExclusions(dependency.exclusions, properties);
+        var optional = resolveProperty(properties, dependency.optionalString,
+                () -> managedDeps == null ? "false" : managedDeps.first.optionalString);
+        var exclusions = refineExclusions(union(dependency.exclusions,
+                managedDeps == null ? Set.of() : managedDeps.first.exclusions), properties);
 
         var type = Optional.ofNullable(dependency.explicitType
                 ? dependency.type

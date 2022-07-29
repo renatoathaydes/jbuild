@@ -163,13 +163,4 @@ public final class MavenUtils {
                 !isUnresolvedPropertyOrEmpty(license.url);
     }
 
-    public static boolean isFullyResolved(Dependency dependency) {
-        var artifact = dependency.artifact;
-        return !isUnresolvedPropertyOrEmpty(artifact.groupId) &&
-                !isUnresolvedPropertyOrEmpty(artifact.artifactId) &&
-                !isUnresolvedPropertyOrEmpty(artifact.version) &&
-                !isUnresolvedPropertyOrEmpty(artifact.extension) &&
-                !isUnresolvedPropertyOrEmpty(artifact.classifier) &&
-                !isUnresolvedPropertyOrEmpty(dependency.optionalString);
-    }
 }

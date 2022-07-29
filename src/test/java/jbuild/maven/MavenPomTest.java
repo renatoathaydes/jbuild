@@ -149,6 +149,17 @@ public class MavenPomTest {
         assertThat(jcache.getDependencyManagement().get(ArtifactKey.of("com.puppycrawl.tools", "checkstyle")).toList())
                 .isEqualTo(List.of(dep("com.puppycrawl.tools", "checkstyle", "8.32")));
 
+        // exclusions from dependencyManagement should be taken by dependencies
+        var caffeine = core.getDependencies().stream().filter(dep -> dep.artifact.artifactId.equals("caffeine"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(caffeine).isEqualTo(dep("com.github.ben-manes.caffeine", "caffeine", "2.8.4",
+                COMPILE, false, Set.of(
+                        ArtifactKey.of("org.checkerframework", "checker-qual"),
+                        ArtifactKey.of("com.google.errorprone", "error_prone_annotations")
+                )));
+
         assertThat(
                 jcache.getDependencies().stream()
                         .filter(MavenPomTest::hasUnresolvedField)
