@@ -169,6 +169,7 @@ public final class MavenUtils {
                 !isUnresolvedPropertyOrEmpty(artifact.artifactId) &&
                 !isUnresolvedPropertyOrEmpty(artifact.version) &&
                 !isUnresolvedPropertyOrEmpty(artifact.extension) &&
+                !isUnresolvedPropertyOrEmpty(artifact.classifier) &&
                 !isUnresolvedPropertyOrEmpty(dependency.optionalString);
     }
 }

@@ -16,27 +16,35 @@ public final class ArtifactKey {
 
     public final String groupId;
     public final String artifactId;
+    public final DependencyType type;
 
-    private static final Map<String, Map<String, ArtifactKey>> keyCache = new HashMap<>();
+    private static final Map<String, Map<String, Map<DependencyType, ArtifactKey>>> keyCache = new HashMap<>();
 
     public static ArtifactKey of(Dependency dependency) {
-        return of(dependency.artifact);
+        return of(dependency.artifact.groupId, dependency.artifact.artifactId, dependency.type);
     }
 
     public static ArtifactKey of(Artifact artifact) {
-        return new ArtifactKey(artifact.groupId, artifact.artifactId);
+        return new ArtifactKey(artifact.groupId, artifact.artifactId,
+                DependencyType.fromClassifier(artifact.classifier));
     }
 
     public static ArtifactKey of(String groupId, String artifactId) {
+        return of(groupId, artifactId, DependencyType.JAR);
+    }
+
+    public static ArtifactKey of(String groupId, String artifactId, DependencyType type) {
         synchronized (keyCache) {
             return keyCache.computeIfAbsent(groupId, g -> new HashMap<>(4))
-                    .computeIfAbsent(artifactId, a -> new ArtifactKey(groupId, a));
+                    .computeIfAbsent(artifactId, a -> new HashMap<>(2))
+                    .computeIfAbsent(type, t -> new ArtifactKey(groupId, artifactId, t));
         }
     }
 
-    private ArtifactKey(String groupId, String artifactId) {
+    private ArtifactKey(String groupId, String artifactId, DependencyType type) {
         this.groupId = groupId;
         this.artifactId = artifactId;
+        this.type = type;
     }
 
     public String getCoordinates() {
@@ -50,7 +58,7 @@ public final class ArtifactKey {
 
         ArtifactKey that = (ArtifactKey) o;
 
-        return groupId.equals(that.groupId) &&
+        return type == that.type && groupId.equals(that.groupId) &&
                 artifactId.equals(that.artifactId);
     }
 
@@ -58,6 +66,7 @@ public final class ArtifactKey {
     public int hashCode() {
         int result = groupId.hashCode();
         result = 31 * result + artifactId.hashCode();
+        result = 31 * result + type.hashCode();
         return result;
     }
 
@@ -66,6 +75,7 @@ public final class ArtifactKey {
         return "ArtifactKey{" +
                 "groupId='" + groupId + '\'' +
                 ", artifactId='" + artifactId + '\'' +
+                ", type='" + type.name() + '\'' +
                 '}';
     }
 }

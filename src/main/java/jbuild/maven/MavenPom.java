@@ -323,17 +323,22 @@ public final class MavenPom {
                                            Map<ArtifactKey, NonEmptyCollection<Dependency>> dependencyManagement) {
         var groupId = resolveProperty(properties, childNamed("groupId", element), "");
         var artifactId = resolveProperty(properties, childNamed("artifactId", element), "");
+        var type = resolveProperty(properties, childNamed("type", element), "");
+
+        var artifactKey = ArtifactKey.of(groupId, artifactId, DependencyType.fromString(type));
+
         var scope = Optional.ofNullable(
                 resolvePropertyScope(properties, childNamed("scope", element), () ->
-                        defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId)))));
+                        scopeFrom(dependencyManagement.get(artifactKey))));
         var version = resolveProperty(properties, childNamed("version", element),
                 () -> defaultVersionOrFrom(scope.orElse(null),
-                        dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
-        var optional = resolveProperty(properties, childNamed("optional", element), () -> "false");
+                        dependencyManagement.get(artifactKey)));
+        var optional = resolveProperty(properties, childNamed("optional", element), "false");
         var exclusions = resolveDependencyExclusions(element, properties);
+        var classifier = resolveProperty(properties, childNamed("classifier", element), "");
 
-        return new Dependency(new Artifact(groupId, artifactId, version),
-                scope.orElse(Scope.COMPILE), optional, exclusions, scope.isPresent());
+        return new Dependency(new Artifact(groupId, artifactId, version, "", classifier),
+                scope.orElse(Scope.COMPILE), optional, exclusions, type, scope.isPresent());
     }
 
     private static Dependency refineDependency(Dependency dependency,
@@ -346,16 +351,25 @@ public final class MavenPom {
                 dependency.artifact.groupId, dependency.artifact.groupId);
         var artifactId = resolveProperty(properties,
                 dependency.artifact.artifactId, dependency.artifact.artifactId);
+
+        var managedDeps = dependencyManagement.get(ArtifactKey.of(groupId, artifactId, dependency.type));
+
         var scope = Optional.ofNullable(dependency.explicitScope
                 ? dependency.scope
-                : defaultScopeOrFrom(dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+                : scopeFrom(managedDeps));
         var version = resolveProperty(properties, dependency.artifact.version,
-                () -> defaultVersionOrFrom(scope.orElse(null),
-                        dependencyManagement.get(ArtifactKey.of(groupId, artifactId))));
+                () -> defaultVersionOrFrom(scope.orElse(null), managedDeps));
         var optional = resolveProperty(properties, dependency.optionalString, "false");
         var exclusions = refineExclusions(dependency.exclusions, properties);
-        return new Dependency(new Artifact(groupId, artifactId, version),
-                scope.orElse(Scope.COMPILE), optional, exclusions, scope.isPresent());
+
+        var type = Optional.ofNullable(dependency.explicitType
+                ? dependency.type
+                : typeFrom(managedDeps));
+
+        return new Dependency(
+                new Artifact(groupId, artifactId, version, dependency.artifact.extension, dependency.artifact.classifier),
+                scope.orElse(Scope.COMPILE), optional, exclusions,
+                type.map(DependencyType::string).orElse(""), scope.isPresent());
     }
 
     private static Set<ArtifactKey> refineExclusions(Set<ArtifactKey> exclusions,
@@ -436,9 +450,14 @@ public final class MavenPom {
         return "";
     }
 
-    private static Scope defaultScopeOrFrom(NonEmptyCollection<Dependency> dependencies) {
+    private static Scope scopeFrom(NonEmptyCollection<Dependency> dependencies) {
         if (dependencies == null) return null;
         return dependencies.first.scope;
+    }
+
+    private static DependencyType typeFrom(NonEmptyCollection<Dependency> dependencies) {
+        if (dependencies == null) return null;
+        return dependencies.first.type;
     }
 
     private static Map<String, String> resolveProperties(Element project, MavenPom parentPom) {

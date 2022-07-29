@@ -62,6 +62,19 @@ public final class TextUtils {
         return false;
     }
 
+    public static String trimStart(String text, char startChar) {
+        if (text.isEmpty()) return "";
+        int index = 0;
+        while (index < text.length()) {
+            if (text.charAt(index) == startChar) {
+                index++;
+            } else {
+                break;
+            }
+        }
+        return text.substring(index);
+    }
+
     public static String trimEnd(String text, char endChar) {
         if (text.isEmpty()) return "";
         int index = text.length() - 1;

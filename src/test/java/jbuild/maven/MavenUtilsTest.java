@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static jbuild.maven.DependencyType.TEST_JAR;
 import static jbuild.maven.MavenAssertions.artifactCoordinates;
 import static jbuild.maven.MavenAssertions.dependencies;
 import static jbuild.maven.MavenAssertions.dependencyManagement;
@@ -131,7 +132,7 @@ public class MavenUtilsTest {
         assertThat(pom.withParent(parent))
                 .has(dependencies(
                         dep("org.slf4j", "slf4j-api", "1.7.32", COMPILE),
-                        dep("org.slf4j", "slf4j-api", "1.7.32", TEST),
+                        dep("org.slf4j", "slf4j-api", "1.7.32", TEST, TEST_JAR.string()),
                         dep("junit", "junit", "4.12", TEST)
                 )).has(artifactCoordinates(new Artifact("org.slf4j", "slf4j-simple", "1.7.32")));
     }

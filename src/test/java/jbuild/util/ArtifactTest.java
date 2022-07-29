@@ -18,17 +18,17 @@ public class ArtifactTest {
                 .isEqualTo("abc-def-0.1.pom");
         assertThat(new Artifact("g", "abc-def", "0.1", ".pom").toFileName())
                 .isEqualTo("abc-def-0.1.pom");
-        assertThat(new Artifact("g", "abc-def", "2", "javadoc").toFileName())
+        assertThat(new Artifact("g", "abc-def", "2", "", "javadoc").toFileName())
                 .isEqualTo("abc-def-2-javadoc.jar");
-        assertThat(new Artifact("g", "abc-def", "2.1", "sources").toFileName())
+        assertThat(new Artifact("g", "abc-def", "2.1", "jar", "sources").toFileName())
                 .isEqualTo("abc-def-2.1-sources.jar");
     }
 
     @Test
     void toFileName_Extensions() {
-        assertThat(new Artifact("g", "abc", "2", "javadoc.asc").toFileName())
+        assertThat(new Artifact("g", "abc", "2", ".jar.asc", "javadoc").toFileName())
                 .isEqualTo("abc-2-javadoc.jar.asc");
-        assertThat(new Artifact("g", "abc", "2", "sources.asc.md5").toFileName())
+        assertThat(new Artifact("g", "abc", "2", "jar.asc.md5", "sources").toFileName())
                 .isEqualTo("abc-2-sources.jar.asc.md5");
     }
 
@@ -46,6 +46,16 @@ public class ArtifactTest {
     void withVersion() {
         assertThat(new Artifact("g", "abc-def", "2.1")
                 .withVersion(Version.parse("3.0")).toFileName())
+                .isEqualTo("abc-def-3.0.jar");
+    }
+
+    @Test
+    void withClassifier() {
+        assertThat(new Artifact("g", "abc-def", "2.1")
+                .withClassifier("javadoc").toFileName())
+                .isEqualTo("abc-def-2.1-javadoc.jar");
+        assertThat(new Artifact("g", "abc-def", "3.0", "", "javadoc")
+                .withClassifier("").toFileName())
                 .isEqualTo("abc-def-3.0.jar");
     }
 

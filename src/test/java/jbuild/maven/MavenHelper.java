@@ -22,7 +22,7 @@ public class MavenHelper {
                                     String artifactId,
                                     String version,
                                     String extension) {
-        return new Artifact(groupId, artifactId, version,extension);
+        return new Artifact(groupId, artifactId, version, extension);
     }
 
     public static Dependency dep(String groupId,
@@ -31,15 +31,23 @@ public class MavenHelper {
                                  Scope scope,
                                  boolean optional,
                                  Set<ArtifactKey> exclusions) {
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, exclusions, true);
+        return new Dependency(new Artifact(groupId, artifactId, version), scope,
+                Boolean.toString(optional), exclusions, "", true);
     }
 
     public static Dependency dep(String groupId, String artifactId, String version, Scope scope, boolean optional) {
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, optional, Set.of(), true);
+        return new Dependency(new Artifact(groupId, artifactId, version), scope,
+                Boolean.toString(optional), Set.of(), "", true);
     }
 
     public static Dependency dep(String groupId, String artifactId, String version, Scope scope) {
-        return new Dependency(new Artifact(groupId, artifactId, version), scope, false, Set.of(), true);
+        return new Dependency(new Artifact(groupId, artifactId, version), scope,
+                "false", Set.of(), "", true);
+    }
+
+    public static Dependency dep(String groupId, String artifactId, String version, Scope scope, String type) {
+        return new Dependency(new Artifact(groupId, artifactId, version), scope,
+                "false", Set.of(), type, true);
     }
 
     public static Dependency dep(String groupId, String artifactId, String version) {

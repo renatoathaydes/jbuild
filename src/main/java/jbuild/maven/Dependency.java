@@ -4,45 +4,58 @@ import jbuild.artifact.Artifact;
 
 import java.util.Set;
 
+import static jbuild.util.TextUtils.firstNonBlank;
+
 public final class Dependency {
 
     public final Artifact artifact;
     public final Scope scope;
     public final boolean optional;
     public final Set<ArtifactKey> exclusions;
+    public final DependencyType type;
 
     // keep the original String value so we can resolve it if needed
     final String optionalString;
     final boolean explicitScope;
-
-    public Dependency(Artifact artifact,
-                      Scope scope,
-                      boolean optional,
-                      Set<ArtifactKey> exclusions,
-                      boolean explicitScope) {
-        this.artifact = artifact;
-        this.scope = scope;
-        this.optional = optional;
-        this.optionalString = Boolean.toString(optional);
-        this.exclusions = exclusions;
-        this.explicitScope = explicitScope;
-    }
+    final boolean explicitType;
 
     Dependency(Artifact artifact,
                Scope scope,
                String optionalString,
                Set<ArtifactKey> exclusions,
+               String type,
                boolean explicitScope) {
-        this.artifact = artifact;
         this.scope = scope;
         this.optional = "true".equals(optionalString);
         this.optionalString = optionalString;
         this.exclusions = exclusions;
         this.explicitScope = explicitScope;
+
+        DependencyType depType;
+        if (!type.isBlank()) {
+            depType = DependencyType.fromString(type);
+            explicitType = true;
+        } else if (!artifact.classifier.isBlank()) {
+            depType = DependencyType.fromClassifier(artifact.classifier);
+            explicitType = false;
+        } else {
+            depType = DependencyType.JAR;
+            explicitType = false;
+        }
+
+        this.artifact = artifact.classifier.isBlank() && !depType.getClassifier().isBlank()
+                ? artifact.withClassifier(depType.getClassifier())
+                : artifact;
+
+        this.type = depType;
     }
 
     public Dependency(Artifact artifact) {
-        this(artifact, Scope.COMPILE, false, Set.of(), false);
+        this(artifact, Scope.COMPILE, "", Set.of(), "", false);
+    }
+
+    public String getClassifier() {
+        return firstNonBlank(artifact.classifier, type.getClassifier());
     }
 
     @Override
@@ -53,10 +66,10 @@ public final class Dependency {
         Dependency that = (Dependency) o;
 
         if (optional != that.optional) return false;
-        if (!artifact.equals(that.artifact)) return false;
         if (scope != that.scope) return false;
-        if (!exclusions.equals(that.exclusions)) return false;
-        return optionalString.equals(that.optionalString);
+        if (type != that.type) return false;
+        if (!artifact.equals(that.artifact)) return false;
+        return exclusions.equals(that.exclusions);
     }
 
     @Override
@@ -65,7 +78,7 @@ public final class Dependency {
         result = 31 * result + scope.hashCode();
         result = 31 * result + (optional ? 1 : 0);
         result = 31 * result + exclusions.hashCode();
-        result = 31 * result + optionalString.hashCode();
+        result = 31 * result + type.hashCode();
         return result;
     }
 
@@ -75,6 +88,7 @@ public final class Dependency {
                 "artifact=" + artifact +
                 ", scope=" + scope +
                 ", optional=" + optional +
+                ", type=" + type.name() +
                 ", exclusions=" + exclusions +
                 '}';
     }

@@ -2,6 +2,7 @@ package jbuild.artifact;
 
 import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.TextUtils.requireNonBlank;
+import static jbuild.util.TextUtils.trimStart;
 
 public class Artifact {
 
@@ -9,30 +10,37 @@ public class Artifact {
     public final String artifactId;
     public final String version;
     public final String extension;
+    public final String classifier;
 
     private final String coordinates;
 
-    public Artifact(String groupId, String artifactId, String version, String extension) {
+    public Artifact(String groupId, String artifactId, String version, String extension, String classifier) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
-        this.extension = firstNonBlank(extension, "jar");
+        this.extension = trimStart(firstNonBlank(extension, "jar"), '.');
+        this.classifier = classifier;
         this.coordinates = groupId + ':' + artifactId + ':' + version;
     }
 
     public Artifact(String groupId, String artifactId, String version) {
-        this(groupId, artifactId, version, "jar");
+        this(groupId, artifactId, version, "jar", "");
+    }
+
+    public Artifact(String groupId, String artifactId, String version, String extension) {
+        this(groupId, artifactId, version, extension, "");
     }
 
     public Artifact(String groupId, String artifactId) {
-        this(groupId, artifactId, "", "");
+        this(groupId, artifactId, "", "", "");
     }
 
     public Artifact mergeWith(Artifact other) {
         return new Artifact(firstNonBlank(groupId, other.groupId),
                 firstNonBlank(artifactId, other.artifactId),
                 firstNonBlank(version, other.version),
-                firstNonBlank(extension, other.extension));
+                firstNonBlank(extension, other.extension),
+                firstNonBlank(classifier, other.classifier));
     }
 
     public Artifact pom() {
@@ -47,7 +55,7 @@ public class Artifact {
         if (ext.equals(extension)) {
             return this;
         }
-        return new Artifact(groupId, artifactId, version, ext);
+        return new Artifact(groupId, artifactId, version, ext, classifier);
     }
 
     public Artifact withVersion(Version ver) {
@@ -55,7 +63,14 @@ public class Artifact {
         if (verString.equals(version)) {
             return this;
         }
-        return new Artifact(groupId, artifactId, verString, extension);
+        return new Artifact(groupId, artifactId, verString, extension, classifier);
+    }
+
+    public Artifact withClassifier(String newClassifier) {
+        if (classifier.equals(newClassifier)) {
+            return this;
+        }
+        return new Artifact(groupId, artifactId, version, extension, newClassifier);
     }
 
     public static Artifact parseCoordinates(String artifact) {
@@ -72,38 +87,26 @@ public class Artifact {
                 return new Artifact(groupId, artifactId, coordinates[2]);
             case 4:
                 return new Artifact(groupId, artifactId, coordinates[2], coordinates[3]);
+            case 5:
+                return new Artifact(groupId, artifactId, coordinates[2], coordinates[3], coordinates[4]);
             default:
                 throw new IllegalArgumentException("Cannot parse coordinates, expected 2 to 4 parts" +
-                        " (groupId:artifactId[:version[:extension]]), found " +
+                        " (groupId:artifactId[:version[:extension[:classifier]]]), found " +
                         coordinates.length + " part(s) in '" + artifact + "'");
         }
     }
 
     /**
-     * @return a standard file name for this artifact (artifactId-version.extension)
+     * @return a standard file name for this artifact (artifactId[-version][-classifier].extension)
      */
     public String toFileName() {
-        return artifactId + (version.isBlank() ? "" : "-" + version) + dotExt();
-    }
-
-    private String dotExt() {
-        // consider only the first "part" of the extension with special meaning
-        var dotIndex = extension.indexOf('.');
-        var isSpecial = dotIndex > 0;
-        var specialPart = isSpecial ? extension.substring(0, dotIndex) : extension;
-        switch (specialPart) {
-            case "javadoc":
-                return "-javadoc.jar" + (isSpecial ? extension.substring(dotIndex) : "");
-            case "sources":
-                return "-sources.jar" + (isSpecial ? extension.substring(dotIndex) : "");
-            default:
-                return (dotIndex == 0 ? "" : ".") + extension;
-        }
+        return artifactId + (version.isBlank() ? "" : "-" + version) +
+                (classifier.isBlank() ? "" : "-" + classifier) + "." + extension;
     }
 
     @Override
     public String toString() {
-        return "Artifact{" + getCoordinates() + ':' + extension + '}';
+        return "Artifact{" + getCoordinates() + (classifier.isBlank() ? "" : "-" + classifier) + ':' + extension + '}';
     }
 
     public String getCoordinates() {
@@ -120,6 +123,7 @@ public class Artifact {
         if (!groupId.equals(artifact.groupId)) return false;
         if (!artifactId.equals(artifact.artifactId)) return false;
         if (!version.equals(artifact.version)) return false;
+        if (!classifier.equals(artifact.classifier)) return false;
         return extension.equals(artifact.extension);
     }
 
@@ -128,6 +132,7 @@ public class Artifact {
         int result = groupId.hashCode();
         result = 31 * result + artifactId.hashCode();
         result = 31 * result + version.hashCode();
+        result = 31 * result + classifier.hashCode();
         result = 31 * result + extension.hashCode();
         return result;
     }
