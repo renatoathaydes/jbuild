@@ -130,7 +130,7 @@ public final class MavenUtils {
         return result;
     }
 
-    private static boolean isUnresolvedProperty(String value) {
+    public static boolean isUnresolvedProperty(String value) {
         return value.startsWith("${") && value.endsWith("}");
     }
 

@@ -63,12 +63,14 @@ public final class XmlUtils {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static String textOf(Optional<? extends Node> node, String defaultValue) {
         return node.flatMap(c -> Optional.ofNullable(c.getTextContent()))
+                .map(String::trim)
                 .orElse(defaultValue);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static String textOf(Optional<? extends Node> node, Supplier<String> defaultValue) {
         return node.flatMap(c -> Optional.ofNullable(c.getTextContent()))
+                .map(String::trim)
                 .orElseGet(defaultValue);
     }
 }

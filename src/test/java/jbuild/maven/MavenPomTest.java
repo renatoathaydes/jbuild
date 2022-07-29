@@ -7,11 +7,13 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static java.util.Map.entry;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.maven.MavenHelper.dep;
 import static jbuild.maven.MavenHelper.readPom;
+import static jbuild.maven.MavenUtils.isUnresolvedProperty;
 import static jbuild.maven.Scope.COMPILE;
 import static jbuild.maven.Scope.PROVIDED;
 import static jbuild.maven.Scope.RUNTIME;
@@ -113,8 +115,21 @@ public class MavenPomTest {
                 dep("org.apache.geronimo.components", "geronimo-transaction", "3.1.1",
                         TEST, false, Set.of(ArtifactKey.of("org.apache.geronimo.specs", "geronimo-jta_1.1_spec")))));
 
+        // Maven "scope" dependencies resolution:
+        //  881447 caffeine-2.8.4.jar
+        //  730992 infinispan-commons-13.0.10.Final.jar
+        // 5344814 infinispan-core-13.0.10.Final.jar
+        //   15392 jakarta.transaction-api-1.3.3.jar
+        //   60790 jboss-logging-3.4.1.Final.jar
+        //  167168 jboss-threads-2.3.3.Final.jar
+        // 2408285 jgroups-4.2.18.Final.jar
+        // 1229073 protostream-4.4.3.Final.jar
+        //  116993 protostream-types-4.4.3.Final.jar
+        //   11369 reactive-streams-1.0.3.jar (transitive)
+        // 2637021 rxjava-3.0.4.jar (transitive)
+        //  221719 wildfly-common-1.3.0.Final.jar (transitive)
         assertThat(core.getDependencies(EnumSet.of(COMPILE), false).stream()
-                .map((dep) -> dep.artifact.getCoordinates()).collect(Collectors.toSet()))
+                .map((dep) -> dep.artifact.getCoordinates()).collect(toSet()))
                 .containsExactlyInAnyOrder(
                         "com.github.ben-manes.caffeine:caffeine:2.8.4",
                         "org.infinispan:infinispan-commons:13.0.10.Final",
@@ -126,9 +141,33 @@ public class MavenPomTest {
                         "org.infinispan.protostream:protostream-types:4.4.3.Final"
                 );
 
-
         assertThat(jcache.getDependencies()).containsAll(List.of(
                 dep("org.infinispan", "infinispan-core", "13.0.10.Final", COMPILE),
                 dep("org.infinispan", "infinispan-cdi-embedded", "13.0.10.Final", COMPILE, true)));
+
+        // com.puppycrawl.tools:checkstyle (properties in dependencyManagement come from parent POM)
+        assertThat(jcache.getDependencyManagement().get(ArtifactKey.of("com.puppycrawl.tools", "checkstyle")).toList())
+                .isEqualTo(List.of(dep("com.puppycrawl.tools", "checkstyle", "8.32")));
+
+        assertThat(
+                jcache.getDependencies().stream()
+                        .filter(MavenPomTest::hasUnresolvedField)
+                        .collect(toList())
+        ).isEmpty();
     }
+
+    public static boolean hasUnresolvedField(Dependency dependency) {
+        var artifact = dependency.artifact;
+        return isUnresolvedProperty(artifact.groupId) ||
+                isUnresolvedProperty(artifact.artifactId) ||
+                isUnresolvedProperty(artifact.version) ||
+                isUnresolvedProperty(artifact.extension) ||
+                isUnresolvedProperty(artifact.classifier) ||
+                isUnresolvedProperty(dependency.getClassifier()) ||
+                isUnresolvedProperty(dependency.optionalString) ||
+                dependency.exclusions.stream().anyMatch(a ->
+                        isUnresolvedProperty(a.groupId) ||
+                                isUnresolvedProperty(a.artifactId));
+    }
+
 }

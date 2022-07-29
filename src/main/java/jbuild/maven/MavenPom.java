@@ -18,6 +18,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.maven.MavenUtils.isFullyResolved;
+import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.CollectionUtils.union;
 import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.XmlUtils.childNamed;
@@ -72,7 +73,9 @@ public final class MavenPom {
                 this.coordinates = resolveArtifact(pom.coordinates, properties);
                 this.packaging = resolveProperty(properties, pom.packaging, "jar");
                 this.dependencyManagement = union(other.dependencyManagement,
-                        pom.dependencyManagement, NonEmptyCollection::of);
+                        mapValues(pom.dependencyManagement, deps ->
+                                deps.map(dep -> refineDependency(dep, properties, other.dependencyManagement))),
+                        NonEmptyCollection::of);
                 this.dependencies = union(other.dependencies, pom.dependencies)
                         .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
                         .collect(toSet());
@@ -87,8 +90,10 @@ public final class MavenPom {
                 this.parentArtifact = pom.parentArtifact;
                 this.coordinates = pom.coordinates;
                 this.packaging = pom.packaging;
-                this.dependencyManagement = union(pom.dependencyManagement,
-                        other.dependencyManagement, NonEmptyCollection::of);
+                this.dependencyManagement = union(other.dependencyManagement,
+                        mapValues(pom.dependencyManagement, deps ->
+                                deps.map(dep -> refineDependency(dep, properties, other.dependencyManagement))),
+                        NonEmptyCollection::of);
                 this.dependencies = pom.dependencies
                         .stream().map(dep -> refineDependency(dep, properties, dependencyManagement))
                         .collect(toSet());
@@ -452,7 +457,14 @@ public final class MavenPom {
 
     private static Scope scopeFrom(NonEmptyCollection<Dependency> dependencies) {
         if (dependencies == null) return null;
-        return dependencies.first.scope;
+        var scope = dependencies.first.scope;
+        for (var dep : dependencies) {
+            if (dep.explicitScope) {
+                scope = dep.scope;
+                break;
+            }
+        }
+        return scope;
     }
 
     private static DependencyType typeFrom(NonEmptyCollection<Dependency> dependencies) {
@@ -476,7 +488,7 @@ public final class MavenPom {
                         var child = children.item(i);
                         if (child instanceof Element) {
                             var elem = (Element) child;
-                            result.put(elem.getTagName(), elem.getTextContent());
+                            result.put(elem.getTagName(), elem.getTextContent().trim());
                         }
                     }
 
