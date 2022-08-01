@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.maven.MavenUtils.extensionOfPackaging;
-import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.foldEither;
 
@@ -58,10 +57,9 @@ public final class InstallCommandExecutor {
                 writer.mode == FLAT_DIR ? new DefaultPomCreator() : new InstallPomCreator(writer));
 
         var depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
-        var expandedScopes = expandScopes(scopes);
 
         return awaitValues(
-                depsCommand.fetchDependencyTree(artifacts, expandedScopes, transitive, optional)
+                depsCommand.fetchDependencyTree(artifacts, scopes, transitive, optional)
                         .values().stream()
                         .map((completion) -> completion.thenCompose(tree ->
                                 tree.map(this::install).orElseGet(() ->

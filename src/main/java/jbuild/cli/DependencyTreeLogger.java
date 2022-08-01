@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.CollectionUtils.sorted;
 
 final class DependencyTreeLogger {
@@ -56,7 +57,7 @@ final class DependencyTreeLogger {
 
         log.println(":");
 
-        var deps = tree.root.pom.getDependencies(options.scopes, options.optional);
+        var deps = tree.root.pom.getDependencies(expandScopes(options.scopes), options.optional);
 
         if (deps.isEmpty()) {
             log.println("  * no dependencies");
@@ -74,11 +75,11 @@ final class DependencyTreeLogger {
 
         var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
 
-        for (Scope scope : options.scopes) {
+        for (Scope scope : expandScopes(options.scopes)) {
+            log.println("  - scope " + scope);
             var scopeDeps = groupedDeps.get(scope);
             if (scopeDeps != null && !scopeDeps.isEmpty()) {
                 int dependencyCount;
-                log.println("  - scope " + scope);
                 if (options.transitive) {
                     var chain = new DependencyChain(log);
                     logTree(chain, tree.dependencies, scopeDeps, allLicenses, INDENT, scope);
@@ -90,6 +91,8 @@ final class DependencyTreeLogger {
                 }
                 log.println(() -> "  " + dependencyCount + " " + scope +
                         " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+            } else {
+                log.println("    * no dependencies");
             }
         }
 

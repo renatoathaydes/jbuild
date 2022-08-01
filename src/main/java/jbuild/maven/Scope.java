@@ -22,14 +22,9 @@ public enum Scope {
      * @return scopes and their transitive scopes
      */
     public static EnumSet<Scope> expandScopes(EnumSet<Scope> scopes) {
-        var result = EnumSet.copyOf(scopes);
-        for (var existingScope : values()) {
-            for (var scope : scopes) {
-                if (scope == existingScope) continue;
-                if (scope.includes(existingScope)) {
-                    result.add(existingScope);
-                }
-            }
+        var result = EnumSet.noneOf(Scope.class);
+        for (var scope : scopes) {
+            result.addAll(scope.transitiveScopes());
         }
         return result;
     }
@@ -61,11 +56,15 @@ public enum Scope {
             case COMPILE:
                 return EnumSet.of(COMPILE);
             case RUNTIME:
-            case TEST:
                 return EnumSet.of(COMPILE, RUNTIME);
+            case TEST:
+                return EnumSet.of(COMPILE, TEST, RUNTIME);
             case PROVIDED:
+                return EnumSet.of(PROVIDED);
             case SYSTEM:
+                return EnumSet.of(SYSTEM);
             case IMPORT:
+                return EnumSet.of(IMPORT);
             default:
                 return EnumSet.noneOf(Scope.class);
         }
