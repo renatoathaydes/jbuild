@@ -42,8 +42,11 @@ import static jbuild.util.TextUtils.durationText;
 public final class Main {
 
     static final String JBUILD_VERSION = "0.0";
-    static final String JBUILD_HEADER = "------ JBuild CLI ------" + LINE_END +
-            "Version: " + JBUILD_VERSION + "" + LINE_END;
+
+    static final String JBUILD_HEADER =
+            "------ JBuild Basic CLI ------" + LINE_END +
+                    "       Version: " + JBUILD_VERSION + LINE_END +
+                    "==============================" + LINE_END;
 
     static final String USAGE =
             "Utility to build Java (JVM) applications." + LINE_END +
@@ -52,6 +55,8 @@ public final class Main {
                     "Usage:" + LINE_END +
                     "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
                     "Root Options:" + LINE_END +
+                    "    --quiet" + LINE_END +
+                    "     -q       print only minimum output." + LINE_END +
                     "    --repository" + LINE_END +
                     "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
                     "    --verbose" + LINE_END +
@@ -111,11 +116,11 @@ public final class Main {
         }
 
         if (options.version || options.command.equals("version")) {
-            System.out.println(JBUILD_VERSION);
+            System.out.print(options.quiet ? JBUILD_VERSION + LINE_END : JBUILD_HEADER);
             return;
         }
 
-        withErrorHandling(() -> run(options), startTime);
+        withErrorHandling(() -> run(options), startTime, options.quiet);
     }
 
     private void run(Options options) throws Exception {
@@ -474,7 +479,7 @@ public final class Main {
         }
     }
 
-    private void withErrorHandling(Executable exe, long startTime) {
+    private void withErrorHandling(Executable exe, long startTime, boolean quiet) {
         try {
             exe.run();
         } catch (JBuildException e) {
@@ -490,7 +495,9 @@ public final class Main {
             e.printStackTrace(log.out);
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
         }
-        log.println(() -> "JBuild success in " + time(startTime) + "!");
+        if (!quiet) {
+            log.println(() -> "JBuild success in " + time(startTime) + "!");
+        }
         exit.accept(0);
     }
 

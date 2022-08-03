@@ -35,6 +35,7 @@ final class Options {
     final boolean verbose;
     final boolean help;
     final boolean version;
+    final boolean quiet;
     final String command;
     final List<String> repositories;
     final List<String> commandArgs;
@@ -43,6 +44,7 @@ final class Options {
     Options(boolean verbose,
             boolean help,
             boolean version,
+            boolean quiet,
             String command,
             List<String> repositories,
             List<String> commandArgs,
@@ -50,6 +52,7 @@ final class Options {
         this.verbose = verbose;
         this.help = help;
         this.version = version;
+        this.quiet = quiet;
         this.command = command;
         this.repositories = repositories;
         this.commandArgs = commandArgs;
@@ -67,7 +70,7 @@ final class Options {
     }
 
     static Options parse(String[] args) {
-        boolean verbose = false, help = false, version = false;
+        boolean verbose = false, help = false, version = false, quiet = false;
         String command = "";
         var repositories = new ArrayList<String>(4);
 
@@ -90,6 +93,8 @@ final class Options {
                 verbose = true;
             } else if (isEither(arg, "-v", "--version")) {
                 version = true;
+            } else if (isEither(arg, "-q", "--quiet")) {
+                quiet = true;
             } else if (isEither(arg, "-h", "--help")) {
                 help = true;
             } else {
@@ -129,7 +134,7 @@ final class Options {
             applicationArgs = List.of();
         }
 
-        return new Options(verbose, help, version, command, repositories, commandArgs, applicationArgs);
+        return new Options(verbose, help, version, quiet, command, repositories, commandArgs, applicationArgs);
     }
 
 }
