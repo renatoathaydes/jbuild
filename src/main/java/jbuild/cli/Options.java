@@ -331,6 +331,7 @@ final class InstallOptions {
             "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0";
 
     final Set<String> artifacts;
+    final Set<Pattern> exclusions;
     final EnumSet<Scope> scopes;
     final String outDir;
     final String repoDir;
@@ -338,12 +339,14 @@ final class InstallOptions {
     final boolean transitive;
 
     InstallOptions(Set<String> artifacts,
+                   Set<Pattern> exclusions,
                    EnumSet<Scope> scopes,
                    String outDir,
                    String repoDir,
                    boolean optional,
                    boolean transitive) {
         this.artifacts = artifacts;
+        this.exclusions = exclusions;
         this.scopes = scopes;
         this.outDir = outDir;
         this.repoDir = repoDir;
@@ -352,13 +355,15 @@ final class InstallOptions {
     }
 
     static InstallOptions parse(List<String> args) {
-        var artifacts = new LinkedHashSet<String>();
+        var artifacts = new LinkedHashSet<String>(4);
+        var exclusions = new LinkedHashSet<Pattern>(4);
         var scopes = EnumSet.noneOf(Scope.class);
         var optional = false;
         String outDir = null, repoDir = null;
         boolean expectScope = false,
                 expectOutDir = false,
                 expectRepoDir = false,
+                expectExclusion = false,
                 transitive = false;
 
         for (String arg : args) {
@@ -386,6 +391,14 @@ final class InstallOptions {
                     throw new JBuildException("cannot provide repository directory more than once" +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
+            } else if (expectExclusion) {
+                expectExclusion = false;
+                try {
+                    exclusions.add(Pattern.compile(arg));
+                } catch (PatternSyntaxException e) {
+                    throw new JBuildException("Invalid regular expression: " + arg + ": " + e.getMessage(),
+                            USER_INPUT);
+                }
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
@@ -397,6 +410,8 @@ final class InstallOptions {
                     expectOutDir = true;
                 } else if (isEither(arg, "-r", "--repository")) {
                     expectRepoDir = true;
+                } else if (isEither(arg, "-x", "--exclusion")) {
+                    expectExclusion = true;
                 } else {
                     throw new JBuildException("invalid libs option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
@@ -420,7 +435,8 @@ final class InstallOptions {
                     LINE_END + "Run jbuild --help for usage.", USER_INPUT);
         }
 
-        return new InstallOptions(unmodifiableSet(artifacts), scopes, outDir, repoDir, optional, transitive);
+        return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
+                scopes, outDir, repoDir, optional, transitive);
     }
 
 }

@@ -18,6 +18,7 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toSet;
 
@@ -53,25 +54,26 @@ public final class MavenUtils {
         return artifact.groupId.replace('.', sep) + sep + artifact.artifactId + sep;
     }
 
-    private static boolean matches(Dependency dependency, Set<ArtifactKey> exclusions) {
-        if (exclusions.contains(ArtifactKey.of(dependency))) return true;
-        for (var exclusion : exclusions) {
-            if ("*".equals(exclusion.groupId) && exclusion.artifactId.equals(dependency.artifact.artifactId)) {
-                return true;
-            }
-            if ("*".equals(exclusion.artifactId) && exclusion.groupId.equals(dependency.artifact.groupId)) {
+    private static boolean matches(Dependency dependency, Set<Pattern> exclusions) {
+        var coordinates = dependency.artifact.getCoordinates();
+        for (var pattern : exclusions) {
+            if (pattern.matcher(coordinates).matches()) {
                 return true;
             }
         }
         return false;
     }
 
-    // dependencyManagement currently does not support exclusions.
-    // See https://github.com/apache/maven/pull/295
     public static Set<Dependency> applyExclusions(Set<Dependency> dependencies,
                                                   Set<ArtifactKey> exclusions) {
+        return applyExclusionPatterns(dependencies, asPatterns(exclusions));
+    }
+
+    // dependencyManagement currently does not support exclusions.
+    // See https://github.com/apache/maven/pull/295
+    public static Set<Dependency> applyExclusionPatterns(Set<Dependency> dependencies,
+                                                         Set<Pattern> exclusions) {
         if (exclusions.isEmpty()) return dependencies;
-        if (exclusions.contains(ArtifactKey.of("*", "*"))) return Set.of();
 
         // try to avoid allocating a new Set as usually it won't be necessary
         var requiresChanges = false;
@@ -161,6 +163,29 @@ public final class MavenUtils {
     public static boolean isFullyResolved(License license) {
         return !isUnresolvedPropertyOrEmpty(license.name) &&
                 !isUnresolvedPropertyOrEmpty(license.url);
+    }
+
+    public static Set<Pattern> asPatterns(Set<ArtifactKey> exclusions) {
+        return exclusions.stream()
+                .map(MavenUtils::patternOf)
+                .collect(toSet());
+    }
+
+    private static Pattern patternOf(ArtifactKey key) {
+        var group = key.groupId;
+        var id = key.artifactId;
+
+        if ("*".equals(group)) {
+            group = ".*";
+        } else {
+            group = Pattern.quote(group);
+        }
+        if ("*".equals(id)) {
+            id = ".*";
+        } else {
+            id = Pattern.quote(id);
+        }
+        return Pattern.compile(group + ':' + id + ':' + ".*");
     }
 
 }

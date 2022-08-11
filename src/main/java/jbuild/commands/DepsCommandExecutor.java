@@ -4,7 +4,6 @@ import jbuild.artifact.Artifact;
 import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
-import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.MavenPom;
@@ -18,16 +17,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static jbuild.maven.MavenUtils.applyExclusions;
+import static jbuild.maven.MavenUtils.applyExclusionPatterns;
+import static jbuild.maven.MavenUtils.asPatterns;
 import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.append;
 import static jbuild.util.CollectionUtils.mapEntries;
+import static jbuild.util.CollectionUtils.union;
 
 public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
 
@@ -63,12 +65,21 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional) {
+        return fetchDependencyTree(artifacts, scopes, transitive, optional, Set.of());
+    }
+
+    public Map<Artifact, CompletionStage<Optional<DependencyTree>>> fetchDependencyTree(
+            Set<? extends Artifact> artifacts,
+            EnumSet<Scope> scopes,
+            boolean transitive,
+            boolean optional,
+            Set<Pattern> exclusions) {
         var expandedScopes = expandScopes(scopes);
 
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    return fetchChildren(Set.of(), artifact, pom.get(), expandedScopes, transitive, optional, Set.of())
+                    return fetchChildren(Set.of(), artifact, pom.get(), expandedScopes, transitive, optional, exclusions)
                             .thenApply(Optional::of);
                 }));
     }
@@ -80,8 +91,8 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean includeOptionals,
-            Set<ArtifactKey> exclusions) {
-        var dependencies = applyExclusions(pom.getDependencies(scopes, includeOptionals), exclusions);
+            Set<Pattern> exclusions) {
+        var dependencies = applyExclusionPatterns(pom.getDependencies(scopes, includeOptionals), exclusions);
         var maxTreeDepthExceeded = transitive && chain.size() + 1 > MAX_TREE_DEPTH;
 
         if (maxTreeDepthExceeded || dependencies.isEmpty()) {
@@ -105,7 +116,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
                         log.verbosePrintln(() -> "Fetching dependency of " +
                                 artifact.getCoordinates() + " - " + dependency);
 
-                        return fetch(newChain, dependency, includeOptionals);
+                        return fetch(newChain, dependency, includeOptionals, exclusions);
                     }
                     return completedFuture(Optional.of(DependencyTree.childless(dependency.artifact, pom)));
                 })
@@ -117,12 +128,14 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
     private CompletionStage<Optional<DependencyTree>> fetch(
             Set<Dependency> chain,
             Dependency dependency,
-            boolean includeOptionals) {
+            boolean includeOptionals,
+            Set<Pattern> exclusions) {
         return mavenPomRetriever.fetchPom(dependency.artifact.pom()).thenComposeAsync(child -> {
             if (child.isEmpty()) return completedFuture(Optional.empty());
             var pom = child.get();
             return fetchChildren(chain, dependency.artifact, pom,
-                    dependency.scope.transitiveScopes(), true, includeOptionals, dependency.exclusions
+                    dependency.scope.transitiveScopes(), true, includeOptionals,
+                    union(asPatterns(dependency.exclusions), exclusions)
             ).thenApply(Optional::of);
         });
     }

@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.regex.Pattern;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.stream.Collectors.toList;
@@ -50,7 +51,8 @@ public final class InstallCommandExecutor {
             Set<? extends Artifact> artifacts,
             EnumSet<Scope> scopes,
             boolean transitive,
-            boolean optional) {
+            boolean optional,
+            Set<Pattern> exclusions) {
 
         var pomRetriever = new MavenPomRetriever<>(log, fetchCommand,
                 // only write POMs if not using a flat dir output
@@ -59,7 +61,7 @@ public final class InstallCommandExecutor {
         var depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
 
         return awaitValues(
-                depsCommand.fetchDependencyTree(artifacts, scopes, transitive, optional)
+                depsCommand.fetchDependencyTree(artifacts, scopes, transitive, optional, exclusions)
                         .values().stream()
                         .map((completion) -> completion.thenCompose(tree ->
                                 tree.map(this::install).orElseGet(() ->
