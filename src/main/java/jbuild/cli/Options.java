@@ -319,6 +319,8 @@ final class InstallOptions {
             "        --scope" + LINE_END +
             "        -s        scope to include (can be passed more than once)." + LINE_END +
             "                  The runtime scope is used by default." + LINE_END +
+            "        --transitive" + LINE_END +
+            "        -t        include transitive dependencies." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
@@ -330,17 +332,20 @@ final class InstallOptions {
     final String outDir;
     final String repoDir;
     final boolean optional;
+    final boolean transitive;
 
     InstallOptions(Set<String> artifacts,
                    EnumSet<Scope> scopes,
                    String outDir,
                    String repoDir,
-                   boolean optional) {
+                   boolean optional,
+                   boolean transitive) {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.outDir = outDir;
         this.repoDir = repoDir;
         this.optional = optional;
+        this.transitive = transitive;
     }
 
     static InstallOptions parse(List<String> args) {
@@ -348,9 +353,10 @@ final class InstallOptions {
         var scopes = EnumSet.noneOf(Scope.class);
         var optional = false;
         String outDir = null, repoDir = null;
-        var expectScope = false;
-        var expectOutDir = false;
-        var expectRepoDir = false;
+        boolean expectScope = false,
+                expectOutDir = false,
+                expectRepoDir = false,
+                transitive = false;
 
         for (String arg : args) {
             if (expectScope) {
@@ -380,6 +386,8 @@ final class InstallOptions {
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
+                } else if (isEither(arg, "-t", "--transitive")) {
+                    optional = true;
                 } else if (isEither(arg, "-O", "--optional")) {
                     optional = true;
                 } else if (isEither(arg, "-d", "--directory")) {
@@ -409,7 +417,7 @@ final class InstallOptions {
                     LINE_END + "Run jbuild --help for usage.", USER_INPUT);
         }
 
-        return new InstallOptions(unmodifiableSet(artifacts), scopes, outDir, repoDir, optional);
+        return new InstallOptions(unmodifiableSet(artifacts), scopes, outDir, repoDir, optional, transitive);
     }
 
 }

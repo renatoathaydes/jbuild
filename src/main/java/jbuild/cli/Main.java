@@ -278,7 +278,7 @@ public final class Main {
         var anyError = new AtomicReference<ErrorCause>();
 
         installCommandExecutor.installDependencyTree(
-                artifacts, installOptions.scopes, true, installOptions.optional
+                artifacts, installOptions.scopes, installOptions.transitive, installOptions.optional
         ).whenComplete((successCount, err) -> {
             try {
                 if (err == null) {
