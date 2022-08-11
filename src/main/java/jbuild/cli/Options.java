@@ -150,7 +150,7 @@ final class FetchOptions {
             "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --directory" + LINE_END +
-            "        -d        output directory (default: working directory)." + LINE_END +
+            "        -d <dir>  output directory (default: working directory)." + LINE_END +
             "      Note:" + LINE_END +
             "        Artifacts are declared using syntax:" +
             "            groupId:artifactId[:version[:extension[:classifier]]]" + LINE_END +
@@ -223,7 +223,7 @@ final class DepsOptions {
             "        --optional" + LINE_END +
             "        -O        include optional dependencies." + LINE_END +
             "        --scope" + LINE_END +
-            "        -s        scope to include (can be passed more than once)." + LINE_END +
+            "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
             "                  All scopes are listed by default." + LINE_END +
             "        --transitive" + LINE_END +
             "        -t        include transitive dependencies." + LINE_END +
@@ -311,16 +311,19 @@ final class InstallOptions {
             "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --directory" + LINE_END +
-            "        -d        (flat) output directory (default: java-libs)." + LINE_END +
+            "        -d <dir>  (flat) output directory (default: java-libs)." + LINE_END +
             "        --repository" + LINE_END +
-            "        -r        (Maven repository root) output directory." + LINE_END +
+            "        -r <dir>  (Maven repository root) output directory." + LINE_END +
             "        --optional" + LINE_END +
             "        -O        include optional dependencies." + LINE_END +
             "        --scope" + LINE_END +
-            "        -s        scope to include (can be passed more than once)." + LINE_END +
+            "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
             "                  The runtime scope is used by default." + LINE_END +
             "        --transitive" + LINE_END +
             "        -t        include transitive dependencies." + LINE_END +
+            "        --exclusion" + LINE_END +
+            "        -x <regex> dependency exclusion regex pattern (matches against coordinates)." + LINE_END +
+            "                   (can be passed more than once)." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
@@ -433,10 +436,10 @@ final class DoctorOptions {
             "        jbuild " + NAME + " <options...> <dir>" + LINE_END +
             "      Options:" + LINE_END +
             "        --entrypoint" + LINE_END +
-            "        -e        entry-point jar within the directory, or the application jar" + LINE_END +
+            "        -e <file> entry-point jar within the directory, or the application jar" + LINE_END +
             "                  (can be passed more than once)." + LINE_END +
             "        --exclude-type" + LINE_END +
-            "        -x        exclude type from analysis, allowing it to be missing" + LINE_END +
+            "        -x <regex> exclude type from analysis, allowing it to be missing" + LINE_END +
             "                  (can be passed more than once)." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " java-libs -e app.jar";
@@ -585,15 +588,15 @@ final class CompileOptions {
             "        jbuild " + NAME + " <options... | input-directory...> [-- <javac-args>]" + LINE_END +
             "      Options:" + LINE_END +
             "        --classpath" + LINE_END +
-            "        -cp       Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
+            "        -cp <paths> Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --resources" + LINE_END +
-            "        -r        resources directory, files are copied unmodified with class files." + LINE_END +
+            "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
             "        --jar" + LINE_END +
-            "        -j        destination jar (default: <working-directory>.jar)." + LINE_END +
+            "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
             "        --main-class" + LINE_END +
-            "        -m        application's main class." + LINE_END +
+            "        -m <name> application's main class." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --jar options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
