@@ -403,7 +403,7 @@ final class InstallOptions {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
                 } else if (isEither(arg, "-t", "--transitive")) {
-                    optional = true;
+                    transitive = true;
                 } else if (isEither(arg, "-O", "--optional")) {
                     optional = true;
                 } else if (isEither(arg, "-d", "--directory")) {
