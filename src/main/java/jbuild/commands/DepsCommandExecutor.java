@@ -76,6 +76,9 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             Set<Pattern> exclusions) {
         var expandedScopes = expandScopes(scopes);
 
+        log.verbosePrintln(() -> "Fetching dependencies of " + artifacts + " with scopes " + expandedScopes +
+                (exclusions.isEmpty() ? "" : " with exclusions " + exclusions));
+
         return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
                 (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
                     if (pom.isEmpty()) return completedFuture(Optional.empty());
@@ -105,6 +108,8 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             }
             return completedFuture(DependencyTree.childless(artifact.pom(), pom));
         }
+
+        log.verbosePrintln(() -> "Fetching " + dependencies);
 
         var children = dependencies.stream()
                 .map(dependency -> {
