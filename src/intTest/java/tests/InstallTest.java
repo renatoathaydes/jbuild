@@ -256,6 +256,48 @@ public class InstallTest extends JBuildTestRunner {
     }
 
     @Test
+    void canInstallJarsIntoSingleFolderTransitiveWithExclusions() throws IOException {
+        var dir = Files.createTempDirectory(InstallTest.class.getName());
+        dir.toFile().deleteOnExit();
+        var result = runWithIntTestRepo("install", "-t", "-d", dir.toFile().getPath(),
+                "-x", ".*jsr305.*|org\\.(api|open).*", "-x", ".*9999.*", "-x", "foobar",
+                Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
+
+        verifySuccessful("jbuild install", result);
+
+        // the "Will install..." message runs async, either one can show up first
+        assertThat(result.getStdout()).satisfiesAnyOf(
+                stdout ->
+                        assertThat(stdout).startsWith("Will install 4 artifacts at " + dir + "" + LE +
+                                "Will install 5 artifacts at " + dir + "" + LE +
+                                "Successfully installed 9 artifacts at " + dir + "" + LE +
+                                "JBuild success in "),
+                stdout ->
+                        assertThat(stdout).startsWith("Will install 5 artifacts at " + dir + "" + LE +
+                                "Will install 4 artifacts at " + dir + "" + LE +
+                                "Successfully installed 9 artifacts at " + dir + "" + LE +
+                                "JBuild success in "));
+
+        var jars = dir.toFile().listFiles();
+
+        assertThat(jars).isNotNull();
+        assertThat(Arrays.stream(jars)
+                .map(File::getName)
+                .collect(toSet()))
+                .containsExactlyInAnyOrder(
+                        "failureaccess-1.0.1.jar",
+                        "junit-platform-commons-1.7.0.jar",
+                        "checker-qual-3.12.0.jar",
+                        "guava-31.0.1-jre.jar",
+                        "junit-jupiter-api-5.7.0.jar",
+                        "junit-platform-engine-1.7.0.jar",
+                        "error_prone_annotations-2.7.1.jar",
+                        "j2objc-annotations-1.3.jar",
+                        "junit-jupiter-engine-5.7.0.jar"
+                );
+    }
+
+    @Test
     void cannotFetchArtifactThatDoesNotExist() {
         var result = runWithIntTestRepo("install", "foo.bar:foo:1.0");
         assertThat(result.exitCode()).isEqualTo(6);
