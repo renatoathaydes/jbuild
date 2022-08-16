@@ -179,6 +179,49 @@ public class InstallTest extends JBuildTestRunner {
         // the "Will install..." message runs async, either one can show up first
         assertThat(result.getStdout()).satisfiesAnyOf(
                 stdout ->
+                        assertThat(stdout).startsWith("Will install 4 artifacts at " + dir + "" + LE +
+                                "Will install 7 artifacts at " + dir + "" + LE +
+                                "Successfully installed 11 artifacts at " + dir + "" + LE +
+                                "JBuild success in "),
+                stdout ->
+                        assertThat(stdout).startsWith("Will install 7 artifacts at " + dir + "" + LE +
+                                "Will install 4 artifacts at " + dir + "" + LE +
+                                "Successfully installed 11 artifacts at " + dir + "" + LE +
+                                "JBuild success in "));
+
+        var jars = dir.toFile().listFiles();
+
+        assertThat(jars).isNotNull();
+        assertThat(Arrays.stream(jars)
+                .map(File::getName)
+                .collect(toSet()))
+                .containsExactlyInAnyOrder(
+                        "apiguardian-api-1.1.0.jar",
+                        "failureaccess-1.0.1.jar",
+                        "jsr305-3.0.2.jar",
+                        "checker-qual-3.12.0.jar",
+                        "guava-31.0.1-jre.jar",
+                        "junit-jupiter-api-5.7.0.jar",
+                        "junit-platform-engine-1.7.0.jar",
+                        "error_prone_annotations-2.7.1.jar",
+                        "j2objc-annotations-1.3.jar",
+                        "junit-jupiter-engine-5.7.0.jar",
+                        "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
+                );
+    }
+
+    @Test
+    void canInstallJarsIntoSingleFolderTransitive() throws IOException {
+        var dir = Files.createTempDirectory(InstallTest.class.getName());
+        dir.toFile().deleteOnExit();
+        var result = runWithIntTestRepo("install", "-t", "-d", dir.toFile().getPath(),
+                Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
+
+        verifySuccessful("jbuild install", result);
+
+        // the "Will install..." message runs async, either one can show up first
+        assertThat(result.getStdout()).satisfiesAnyOf(
+                stdout ->
                         assertThat(stdout).startsWith("Will install 6 artifacts at " + dir + "" + LE +
                                 "Will install 7 artifacts at " + dir + "" + LE +
                                 "Successfully installed 13 artifacts at " + dir + "" + LE +
