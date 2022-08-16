@@ -23,6 +23,16 @@ public class DepsTest extends JBuildTestRunner {
                 "    * com.google.j2objc:j2objc-annotations:1.3 [compile]" + LE +
                 "    * org.checkerframework:checker-qual:3.12.0 [compile]" + LE +
                 "  6 compile dependencies listed" + LE +
+                "  - scope provided" + LE +
+                "    * no dependencies" + LE +
+                "  - scope runtime" + LE +
+                "    * no dependencies" + LE +
+                "  - scope test" + LE +
+                "    * no dependencies" + LE +
+                "  - scope system" + LE +
+                "    * no dependencies" + LE +
+                "  - scope import" + LE +
+                "    * no dependencies" + LE +
                 "JBuild success in ");
     }
 
@@ -43,7 +53,7 @@ public class DepsTest extends JBuildTestRunner {
 
     @Test
     void canListApacheCommonsCompressTransitiveDependencies() {
-        var result = runWithIntTestRepo("deps", "-t", Artifacts.JUNIT5_ENGINE);
+        var result = runWithIntTestRepo("deps", "-s", "compile", "-t", Artifacts.JUNIT5_ENGINE);
 
         verifySuccessful("jbuild deps", result);
         assertThat(result.getStdout()).startsWith("Dependencies of " + Artifacts.JUNIT5_ENGINE + " (incl. transitive):" + LE +
