@@ -40,7 +40,7 @@ public class JBuildTestRunner {
         if (!integrationTestsRepo.isDirectory()) {
             System.out.println("Installing Maven repository for integration tests at " + integrationTestsRepo.getPath());
             var result = new JBuildTestRunner().run("install",
-                    "-O", "-s", "compile", "-r", integrationTestsRepo.getPath(),
+                    "-O", "-t", "-s", "compile", "-r", integrationTestsRepo.getPath(),
                     Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE, Artifacts.GROOVY);
             verifySuccessful("install", result);
         } else {
