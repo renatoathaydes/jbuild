@@ -193,7 +193,7 @@ final class FetchOptions {
                     }
                     nextIsDir = true;
                 } else {
-                    throw new JBuildException("invalid fetch option: " + arg +
+                    throw new JBuildException("invalid " + NAME + " option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
@@ -278,7 +278,7 @@ final class DepsOptions {
                 } else if (isEither(arg, "-e", "--extra")) {
                     showExtra = true;
                 } else {
-                    throw new JBuildException("invalid libs option: " + arg +
+                    throw new JBuildException("invalid " + NAME + " option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
@@ -413,7 +413,7 @@ final class InstallOptions {
                 } else if (isEither(arg, "-x", "--exclusion")) {
                     expectExclusion = true;
                 } else {
-                    throw new JBuildException("invalid libs option: " + arg +
+                    throw new JBuildException("invalid " + NAME + " option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
@@ -491,7 +491,7 @@ final class DoctorOptions {
                 } else if (isEither(arg, "-x", "--exclude-type")) {
                     expectTypeExclusion = true;
                 } else {
-                    throw new JBuildException("invalid fix option: " + arg +
+                    throw new JBuildException("invalid " + NAME + " option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
@@ -581,7 +581,7 @@ final class VersionsOptions {
 
         for (String arg : args) {
             if (arg.startsWith("-")) {
-                throw new JBuildException("invalid versions option: " + arg +
+                throw new JBuildException("invalid " + NAME + " option: " + arg +
                         LINE_END + "Run jbuild --help for usage.", USER_INPUT);
             } else {
                 artifacts.add(arg);
@@ -702,7 +702,7 @@ final class CompileOptions {
                     }
                     waitingForMainClass = true;
                 } else {
-                    throw new JBuildException("invalid compile option: " + arg +
+                    throw new JBuildException("invalid " + NAME + " option: " + arg +
                             LINE_END + "Run jbuild --help for usage.", USER_INPUT);
                 }
             } else {
@@ -736,4 +736,3 @@ final class CompileOptions {
                 classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
     }
 }
-
