@@ -31,7 +31,7 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [ ] find unused jars/classes/methods, given a classpath and jar entry-points.
 - [ ] automatically prune classpath, removing unused jars.
 - [x] compile and package Java applications.
-- [ ] execute JUnit tests.
+- [ ] generate POM.
 
 ## Non-features
 
