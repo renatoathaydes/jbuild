@@ -204,7 +204,7 @@ public final class CompileCommandExecutor {
                         .collect(toList()));
             }
         } else {
-            log.println(() -> "Ignoring non-existing input directory: " + dirPath);
+            log.verbosePrintln(() -> "Ignoring non-existing input directory: " + dirPath);
         }
         return new FileCollection(dirPath);
     }
