@@ -1,12 +1,15 @@
 package jbuild.maven;
 
 import jbuild.artifact.Artifact;
+import jbuild.util.WritableXml;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import java.util.Set;
 
 import static jbuild.util.TextUtils.firstNonBlank;
 
-public final class Dependency {
+public final class Dependency implements WritableXml {
 
     public final Artifact artifact;
     public final Scope scope;
@@ -91,5 +94,18 @@ public final class Dependency {
                 ", type=" + type.name() +
                 ", exclusions=" + exclusions +
                 '}';
+    }
+
+    @Override
+    public void addTo(Element element, Document document) {
+        var dep = document.createElement("dependency");
+        artifact.addTo(dep, document, false);
+        if (optional) {
+            dep.appendChild(document.createElement("optional")).setTextContent("true");
+        }
+        if (scope != Scope.COMPILE) {
+            dep.appendChild(document.createElement("scope")).setTextContent(scope.toString());
+        }
+        element.appendChild(dep);
     }
 }

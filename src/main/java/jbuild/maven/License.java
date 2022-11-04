@@ -1,11 +1,15 @@
 package jbuild.maven;
 
+import jbuild.util.WritableXml;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 /**
  * The license that applies to a project.
  * <p>
  * See <a href="https://spdx.org/licenses/">Spdx Licenses</a>.
  */
-public final class License {
+public final class License implements WritableXml {
 
     public final String name;
     public final String url;
@@ -39,5 +43,13 @@ public final class License {
                 "name='" + name + '\'' +
                 ", url='" + url + '\'' +
                 '}';
+    }
+
+    @Override
+    public void addTo(Element element, Document document) {
+        var license = document.createElement("license");
+        license.appendChild(document.createElement("name")).setTextContent(name);
+        license.appendChild(document.createElement("url")).setTextContent(url.toString());
+        element.appendChild(license);
     }
 }

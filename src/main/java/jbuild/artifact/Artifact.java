@@ -2,13 +2,16 @@ package jbuild.artifact;
 
 import jbuild.errors.JBuildException;
 import jbuild.maven.DependencyType;
+import jbuild.util.WritableXml;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.TextUtils.requireNonBlank;
 import static jbuild.util.TextUtils.trimStart;
 
-public class Artifact {
+public class Artifact implements WritableXml {
 
     public final String groupId;
     public final String artifactId;
@@ -140,6 +143,21 @@ public class Artifact {
         result = 31 * result + classifier.hashCode();
         result = 31 * result + extension.hashCode();
         return result;
+    }
+
+    @Override
+    public void addTo(Element element, Document document) {
+        addTo(element, document, true);
+    }
+
+    public void addTo(Element element, Document document, boolean includePackaging) {
+        element.appendChild(document.createElement("groupId")).setTextContent(groupId);
+        element.appendChild(document.createElement("artifactId")).setTextContent(artifactId);
+        element.appendChild(document.createElement("version")).setTextContent(version);
+        if (includePackaging) {
+            var packaging = DependencyType.fromClassifier(classifier).string();
+            element.appendChild(document.createElement("packaging")).setTextContent(packaging);
+        }
     }
 
     private static String selectExtension(String selectedExtension, String classifier) {
