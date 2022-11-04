@@ -106,6 +106,25 @@ public final class Dependency implements WritableXml {
         if (scope != Scope.COMPILE) {
             dep.appendChild(document.createElement("scope")).setTextContent(scope.toString());
         }
+        if (!exclusions.isEmpty()) {
+            var ex = document.createElement("exclusions");
+            addExclusionsTo(ex, document);
+            dep.appendChild(ex);
+        }
         element.appendChild(dep);
     }
+
+    private void addExclusionsTo(Element parent, Document document) {
+        for (var exclusion : exclusions) {
+            var element = document.createElement("exclusion");
+            if (!exclusion.groupId.isBlank()) {
+                element.appendChild(document.createElement("groupId")).setTextContent(exclusion.groupId);
+            }
+            if (!exclusion.artifactId.isBlank()) {
+                element.appendChild(document.createElement("artifactId")).setTextContent(exclusion.artifactId);
+            }
+            parent.appendChild(element);
+        }
+    }
+
 }
