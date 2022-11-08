@@ -3,6 +3,7 @@ package jbuild.cli;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.ArtifactFileWriter;
+import jbuild.artifact.file.MultiArtifactFileWriter;
 import jbuild.commands.CompileCommandExecutor;
 import jbuild.commands.DepsCommandExecutor;
 import jbuild.commands.DoctorCommandExecutor;
@@ -14,12 +15,17 @@ import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
 import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
+import jbuild.maven.MavenUtils;
 import jbuild.util.Describable;
 import jbuild.util.Executable;
 import jbuild.util.FileUtils;
 import jbuild.util.NonEmptyCollection;
+import jbuild.util.TextUtils;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
@@ -38,58 +44,59 @@ import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;
+import static jbuild.util.TextUtils.isHttp;
 
 public final class Main {
 
     static final String JBUILD_VERSION = "0.0";
 
     static final String JBUILD_HEADER =
-            "------ JBuild Basic CLI ------" + LINE_END +
-                    "       Version: " + JBUILD_VERSION + LINE_END +
-                    "==============================" + LINE_END;
+        "------ JBuild Basic CLI ------" + LINE_END +
+            "       Version: " + JBUILD_VERSION + LINE_END +
+            "==============================" + LINE_END;
 
     static final String USAGE =
-            "Utility to build Java (JVM) applications." + LINE_END +
-                    "<<<< This is work in progress! >>>>" + LINE_END +
-                    "" + LINE_END +
-                    "Usage:" + LINE_END +
-                    "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
-                    "Root Options:" + LINE_END +
-                    "    --quiet" + LINE_END +
-                    "     -q       print only minimum output." + LINE_END +
-                    "    --repository" + LINE_END +
-                    "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
-                    "    --verbose" + LINE_END +
-                    "    -V        log verbose output." + LINE_END +
-                    "    --version" + LINE_END +
-                    "    -v        print JBuild version and exit." + LINE_END +
-                    "    --help" + LINE_END +
-                    "    -h        print this usage message." + LINE_END +
-                    "" + LINE_END +
-                    "Available commands:" + LINE_END +
-                    "" + LINE_END +
-                    "  * " + CompileOptions.NAME + " - " + CompileOptions.DESCRIPTION + LINE_END +
-                    "  * " + DepsOptions.NAME + " - " + DepsOptions.DESCRIPTION + LINE_END +
-                    "  * " + DoctorOptions.NAME + " - " + DoctorOptions.DESCRIPTION + LINE_END +
-                    "  * " + FetchOptions.NAME + " - " + FetchOptions.DESCRIPTION + LINE_END +
-                    "  * " + InstallOptions.NAME + " - " + InstallOptions.DESCRIPTION + LINE_END +
-                    "  * " + RequirementsOptions.NAME + " - " + RequirementsOptions.DESCRIPTION + LINE_END +
-                    "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
-                    "  * help - displays this help message or help for one of the other commands" + LINE_END +
-                    "" + LINE_END +
-                    "Type 'jbuild help <command>' for more information about a command." + LINE_END + LINE_END +
-                    "Artifact coordinates are given in the form <orgId>:<artifactId>[:<version>][:<ext>]" + LINE_END +
-                    "If the version is omitted, the latest available version is normally used." + LINE_END + LINE_END +
-                    "Examples:" + LINE_END +
-                    "  # install latest version of Guava and all its dependencies in directory 'java-libs/'" + LINE_END +
-                    "  jbuild install com.google.guava:guava" + LINE_END + LINE_END +
-                    "  # show all version of Spring available on the Spring repository" + LINE_END +
-                    "  jbuild versions -r https://repo.spring.io/artifactory/release/ org.springframework:spring-core" + LINE_END + LINE_END +
-                    "  # fetch the Guava POM" + LINE_END +
-                    "  jbuild fetch com.google.guava:guava:31.0.1-jre:pom" + LINE_END + LINE_END +
-                    "  # compile all Java sources in 'src/' or 'src/main/java' into a jar" + LINE_END +
-                    "  # using all jars in 'java-libs/' as the classpath" + LINE_END +
-                    "  jbuild compile";
+        "Utility to build Java (JVM) applications." + LINE_END +
+            "<<<< This is work in progress! >>>>" + LINE_END +
+            "" + LINE_END +
+            "Usage:" + LINE_END +
+            "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
+            "Root Options:" + LINE_END +
+            "    --quiet" + LINE_END +
+            "     -q       print only minimum output." + LINE_END +
+            "    --repository" + LINE_END +
+            "     -r       Maven repository to use to locate artifacts (file location or HTTP URL)." + LINE_END +
+            "    --verbose" + LINE_END +
+            "    -V        log verbose output." + LINE_END +
+            "    --version" + LINE_END +
+            "    -v        print JBuild version and exit." + LINE_END +
+            "    --help" + LINE_END +
+            "    -h        print this usage message." + LINE_END +
+            "" + LINE_END +
+            "Available commands:" + LINE_END +
+            "" + LINE_END +
+            "  * " + CompileOptions.NAME + " - " + CompileOptions.DESCRIPTION + LINE_END +
+            "  * " + DepsOptions.NAME + " - " + DepsOptions.DESCRIPTION + LINE_END +
+            "  * " + DoctorOptions.NAME + " - " + DoctorOptions.DESCRIPTION + LINE_END +
+            "  * " + FetchOptions.NAME + " - " + FetchOptions.DESCRIPTION + LINE_END +
+            "  * " + InstallOptions.NAME + " - " + InstallOptions.DESCRIPTION + LINE_END +
+            "  * " + RequirementsOptions.NAME + " - " + RequirementsOptions.DESCRIPTION + LINE_END +
+            "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
+            "  * help - displays this help message or help for one of the other commands" + LINE_END +
+            "" + LINE_END +
+            "Type 'jbuild help <command>' for more information about a command." + LINE_END + LINE_END +
+            "Artifact coordinates are given in the form <orgId>:<artifactId>[:<version>][:<ext>]" + LINE_END +
+            "If the version is omitted, the latest available version is normally used." + LINE_END + LINE_END +
+            "Examples:" + LINE_END +
+            "  # install latest version of Guava and all its dependencies in directory 'java-libs/'" + LINE_END +
+            "  jbuild install com.google.guava:guava" + LINE_END + LINE_END +
+            "  # show all version of Spring available on the Spring repository" + LINE_END +
+            "  jbuild versions -r https://repo.spring.io/artifactory/release/ org.springframework:spring-core" + LINE_END + LINE_END +
+            "  # fetch the Guava POM" + LINE_END +
+            "  jbuild fetch com.google.guava:guava:31.0.1-jre:pom" + LINE_END + LINE_END +
+            "  # compile all Java sources in 'src/' or 'src/main/java' into a jar" + LINE_END +
+            "  # using all jars in 'java-libs/' as the classpath" + LINE_END +
+            "  jbuild compile";
 
     public static void main(String[] args) {
         new Main(args, System::exit, (verbose) -> new JBuildLog(System.out, verbose));
@@ -152,7 +159,7 @@ public final class Main {
                 break;
             default:
                 throw new JBuildException("Unknown command: " + options.command +
-                        ". Run jbuild --help for usage.", USER_INPUT);
+                    ". Run jbuild --help for usage.", USER_INPUT);
         }
     }
 
@@ -196,8 +203,8 @@ public final class Main {
         var commandExecutor = new CompileCommandExecutor(log);
 
         var result = commandExecutor.compile(
-                compileOptions.inputDirectories, compileOptions.resourcesDirectories, compileOptions.outputDirOrJar,
-                compileOptions.mainClass, compileOptions.classpath, options.applicationArgs
+            compileOptions.inputDirectories, compileOptions.resourcesDirectories, compileOptions.outputDirOrJar,
+            compileOptions.mainClass, compileOptions.classpath, options.applicationArgs
         );
         verifyToolSuccessful("javac", result.getCompileResult());
         result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));
@@ -208,14 +215,14 @@ public final class Main {
 
         if (docOptions.entryPoints.isEmpty()) {
             log.println("No entry points provided, nothing to do. Please provide the entry points (jars) " +
-                    "to check the classpath with the option -e, see usage for details.");
+                "to check the classpath with the option -e, see usage for details.");
             return;
         }
 
         var commandExecutor = new DoctorCommandExecutor(log);
 
         commandExecutor.run(
-                docOptions.inputDir, docOptions.entryPoints, docOptions.typeExclusions
+            docOptions.inputDir, docOptions.entryPoints, docOptions.typeExclusions
         ).toCompletableFuture().get();
     }
 
@@ -239,18 +246,18 @@ public final class Main {
         var depsCommandExecutor = createDepsCommandExecutor(options);
 
         depsCommandExecutor.fetchDependencyTree(
-                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
-                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
-                    try {
-                        if (err == null && ok.isPresent()) {
-                            treeLogger.log(ok.get());
-                        } else {
-                            reportErrors(anyError, artifact, err);
-                        }
-                    } finally {
-                        latch.countDown();
+                artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
+            .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
+                try {
+                    if (err == null && ok.isPresent()) {
+                        treeLogger.log(ok.get());
+                    } else {
+                        reportErrors(anyError, artifact, err);
                     }
-                }));
+                } finally {
+                    latch.countDown();
+                }
+            }));
 
         latch.await();
 
@@ -269,17 +276,15 @@ public final class Main {
             return;
         }
 
-        var fileWriter = installOptions.outDir == null
-                ? new ArtifactFileWriter(new File(installOptions.repoDir), MAVEN_REPOSITORY)
-                : new ArtifactFileWriter(new File(installOptions.outDir), FLAT_DIR);
+        var fileWriter = selectArtifactWriter(options, installOptions);
 
         var installCommandExecutor = createInstallCommandExecutor(options, fileWriter);
         var latch = new CountDownLatch(1);
         var anyError = new AtomicReference<ErrorCause>();
 
         installCommandExecutor.installDependencyTree(
-                artifacts, installOptions.scopes, installOptions.transitive, installOptions.optional,
-                installOptions.exclusions
+            artifacts, installOptions.scopes, installOptions.transitive, installOptions.optional,
+            installOptions.exclusions
         ).whenComplete((successCount, err) -> {
             try {
                 if (err == null) {
@@ -289,14 +294,14 @@ public final class Main {
                     });
                     if (successes > 0) {
                         log.println(() -> "Successfully installed " + successes +
-                                " artifact" + (successes == 1 ? "" : "s") + " at " + fileWriter.directory);
+                            " artifact" + (successes == 1 ? "" : "s") + " at " + fileWriter.directory);
                     } else {
                         anyError.set(ErrorCause.ACTION_ERROR);
                     }
                 } else {
                     anyError.set(err instanceof JBuildException
-                            ? ((JBuildException) err).getErrorCause()
-                            : ErrorCause.UNKNOWN);
+                        ? ((JBuildException) err).getErrorCause()
+                        : ErrorCause.UNKNOWN);
                 }
             } finally {
                 latch.countDown();
@@ -330,8 +335,8 @@ public final class Main {
         var dirExists = FileUtils.ensureDirectoryExists(outDir);
         if (!dirExists) {
             throw new JBuildException(
-                    "Output directory does not exist and cannot be created: " + outDir.getPath(),
-                    IO_WRITE);
+                "Output directory does not exist and cannot be created: " + outDir.getPath(),
+                IO_WRITE);
         }
 
         var fileWriter = new ArtifactFileWriter(outDir, FLAT_DIR);
@@ -339,15 +344,15 @@ public final class Main {
         var anyError = new AtomicReference<ErrorCause>();
 
         createFetchCommandExecutor(options).fetchArtifacts(artifacts, fileWriter)
-                .forEach((artifact, completion) -> completion.whenComplete((ok, err) -> {
-                    try {
-                        if (err != null || ok.isEmpty()) {
-                            reportErrors(anyError, artifact, err);
-                        }
-                    } finally {
-                        latch.countDown();
+            .forEach((artifact, completion) -> completion.whenComplete((ok, err) -> {
+                try {
+                    if (err != null || ok.isEmpty()) {
+                        reportErrors(anyError, artifact, err);
                     }
-                }));
+                } finally {
+                    latch.countDown();
+                }
+            }));
 
         try {
             latch.await();
@@ -361,7 +366,7 @@ public final class Main {
         }
 
         log.verbosePrintln(() -> (artifacts.size() > 1 ? "All " + artifacts.size() + " artifacts" : "Artifact") +
-                " successfully downloaded to " + fetchOptions.outDir);
+            " successfully downloaded to " + fetchOptions.outDir);
     }
 
     private void listVersions(Options options) throws Exception {
@@ -379,19 +384,19 @@ public final class Main {
         var anyError = new AtomicReference<ErrorCause>();
 
         commandExecutor.getVersions(artifacts).forEach((artifact, eitherCompletionStage) ->
-                eitherCompletionStage.whenComplete((completion, err) -> {
-                    try {
-                        if (err == null) {
-                            completion.use(
-                                    ok -> versionLogger.log(artifact, ok),
-                                    errors -> reportErrors(anyError, errors));
-                        } else {
-                            reportErrors(anyError, artifact, err);
-                        }
-                    } finally {
-                        latch.countDown();
+            eitherCompletionStage.whenComplete((completion, err) -> {
+                try {
+                    if (err == null) {
+                        completion.use(
+                            ok -> versionLogger.log(artifact, ok),
+                            errors -> reportErrors(anyError, errors));
+                    } else {
+                        reportErrors(anyError, artifact, err);
                     }
-                }));
+                } finally {
+                    latch.countDown();
+                }
+            }));
 
         latch.await();
 
@@ -423,8 +428,8 @@ public final class Main {
     }
 
     private static <E extends ArtifactRetrievalError> FetchCommandExecutor<E> createFetch(
-            JBuildLog log,
-            NonEmptyCollection<ArtifactRetriever<? extends E>> retrievers) {
+        JBuildLog log,
+        NonEmptyCollection<ArtifactRetriever<? extends E>> retrievers) {
         return new FetchCommandExecutor<>(log, retrievers);
     }
 
@@ -435,8 +440,8 @@ public final class Main {
     private InstallCommandExecutor createInstallCommandExecutor(Options options,
                                                                 ArtifactFileWriter writer) {
         return new InstallCommandExecutor(log,
-                createFetchCommandExecutor(options),
-                writer);
+            createFetchCommandExecutor(options),
+            writer);
     }
 
     private void reportErrors(AtomicReference<ErrorCause> anyError,
@@ -504,12 +509,12 @@ public final class Main {
 
     private Set<? extends Artifact> parseArtifacts(Set<String> coordinates) {
         Set<Artifact> artifacts = coordinates.stream()
-                .map(Artifact::parseCoordinates)
-                .collect(toSet());
+            .map(Artifact::parseCoordinates)
+            .collect(toSet());
 
         log.verbosePrintln(() -> "Parsed artifacts coordinates:" + LINE_END + artifacts.stream()
-                .map(a -> "  * " + a + LINE_END)
-                .collect(joining()));
+            .map(a -> "  * " + a + LINE_END)
+            .collect(joining()));
 
         return artifacts;
     }
@@ -518,8 +523,27 @@ public final class Main {
         log.print("ERROR: ");
         log.println(message);
         log.println(() -> "JBuild failed in " + time(startTime) +
-                "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
+            "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
         exit.accept(exitCode(cause));
+    }
+
+    private static ArtifactFileWriter selectArtifactWriter(Options options, InstallOptions installOptions) {
+        if (installOptions.mavenLocal) {
+            var m2Repo = MavenUtils.mavenHome().toAbsolutePath();
+            if (installOptions.outDir == null && installOptions.repoDir == null) {
+                return new ArtifactFileWriter(m2Repo.toFile(), MAVEN_REPOSITORY);
+            } else if (installOptions.outDir == null) {
+                var writer = new ArtifactFileWriter(new File(installOptions.repoDir), MAVEN_REPOSITORY);
+                return new MultiArtifactFileWriter(m2Repo.toFile(), MAVEN_REPOSITORY, writer);
+            } else {
+                var writer = new ArtifactFileWriter(new File(installOptions.outDir), FLAT_DIR);
+                return new MultiArtifactFileWriter(m2Repo.toFile(), MAVEN_REPOSITORY, writer);
+            }
+        }
+
+        return installOptions.outDir == null
+            ? new ArtifactFileWriter(new File(installOptions.repoDir), MAVEN_REPOSITORY)
+            : new ArtifactFileWriter(new File(installOptions.outDir), FLAT_DIR);
     }
 
     private static CharSequence time(long startTime) {

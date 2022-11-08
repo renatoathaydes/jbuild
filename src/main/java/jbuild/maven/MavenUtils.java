@@ -10,6 +10,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -21,6 +23,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toSet;
+import static jbuild.util.TextUtils.firstNonBlank;
 
 public final class MavenUtils {
 
@@ -41,6 +44,15 @@ public final class MavenUtils {
             }
         }
 
+    }
+
+    public static Path mavenHome() {
+        var mavenHome = System.getenv("MAVEN_HOME");
+        if (mavenHome != null && !mavenHome.isBlank()) {
+            return Paths.get(mavenHome);
+        }
+        var userHome = firstNonBlank(System.getProperty("user.home"), File.separator);
+        return Paths.get(userHome, ".m2", "repository");
     }
 
     public static String standardArtifactPath(Artifact artifact, boolean usePlatformSeparator) {

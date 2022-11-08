@@ -9,6 +9,7 @@ import jbuild.artifact.Version;
 import jbuild.artifact.VersionRange;
 import jbuild.errors.FileRetrievalError;
 import jbuild.errors.JBuildException;
+import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 
 import java.io.File;
@@ -39,16 +40,7 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
     }
 
     public FileArtifactRetriever() {
-        this(mavenHome());
-    }
-
-    private static Path mavenHome() {
-        var mavenHome = System.getenv("MAVEN_HOME");
-        if (mavenHome != null && !mavenHome.isBlank()) {
-            return Paths.get(mavenHome);
-        }
-        var userHome = firstNonBlank(System.getProperty("user.home"), File.separator);
-        return Paths.get(userHome, ".m2", "repository");
+        this(MavenUtils.mavenHome());
     }
 
     @Override

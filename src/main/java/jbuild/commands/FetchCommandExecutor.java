@@ -183,8 +183,10 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved (" +
                 resolvedArtifact.contentLength + " bytes) from " +
                 resolvedArtifact.retriever.getDescription() + " in " + durationText(requestDuration));
-        return fileWriter.write(resolvedArtifact, true).thenApply(result -> result.map(file -> {
-            log.verbosePrintln(() -> "Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
+        return fileWriter.write(resolvedArtifact, true).thenApply(result -> result.map(files -> {
+            for (var file : files) {
+                log.verbosePrintln(() -> "Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
+            }
             return Either.left(resolvedArtifact);
         }, err -> Either.right(NonEmptyCollection.of(err))));
     }

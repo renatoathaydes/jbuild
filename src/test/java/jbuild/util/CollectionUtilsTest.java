@@ -78,6 +78,18 @@ public class CollectionUtilsTest {
     }
 
     @Test
+    void canAppendIterableWithIterableToList() {
+        assertThat(CollectionUtils.appendList(List.of(), List.<Integer>of())).isEmpty();
+        assertThat(CollectionUtils.appendList(List.of(1), List.<Integer>of())).hasSameElementsAs(List.of(1));
+        assertThat(CollectionUtils.appendList(List.of(1), List.of(2))).hasSameElementsAs(List.of(1, 2));
+        assertThat(CollectionUtils.appendList(List.of(), List.of(0))).hasSameElementsAs(List.of(0));
+        assertThat(CollectionUtils.appendList(List.of(-1), List.of(0, 1)))
+                .hasSameElementsAs(List.of(-1, 0, 1));
+        assertThat(CollectionUtils.appendList(List.of(-10, -5, 0), List.of(0, 1)))
+                .hasSameElementsAs(List.of(-10, -5, 0, 0, 1));
+    }
+
+    @Test
     void canFoldEither() {
         assertThat(CollectionUtils.foldEither(List.of(Either.left(1))))
                 .extracting(e -> e.map(ok -> ok, err -> -1))

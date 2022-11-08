@@ -9,6 +9,7 @@ import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
+import jbuild.util.TextUtils;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -62,7 +63,7 @@ final class Options {
     List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(JBuildLog log) {
         return repositories.stream()
                 .map(address -> {
-                    if (address.startsWith("http://") || address.startsWith("https://")) {
+                    if (TextUtils.isHttp(address)) {
                         return new HttpArtifactRetriever(log, address);
                     }
                     return new FileArtifactRetriever(Paths.get(address));
@@ -304,7 +305,7 @@ final class InstallOptions {
     static final String DESCRIPTION = "installs Maven artifacts and dependencies into a flat dir or local Maven repo";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-            "    Install Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
+            "    Install Maven artifacts from local or remote Maven repositories." + LINE_END +
             "    Unlike " + FetchOptions.NAME + ", install downloads artifacts and their dependencies, and can write" + LINE_END +
             "    them into a flat directory or in the format of a Maven repository." + LINE_END +
             "      Usage:" + LINE_END +
@@ -314,6 +315,8 @@ final class InstallOptions {
             "        -d <dir>  (flat) output directory (default: java-libs)." + LINE_END +
             "        --repository" + LINE_END +
             "        -r <dir>  (Maven repository root) output directory." + LINE_END +
+            "        --maven-local" + LINE_END +
+            "        -m        Install (also) on the local Maven repository (~/.m2/repository)" + LINE_END +
             "        --optional" + LINE_END +
             "        -O        include optional dependencies." + LINE_END +
             "        --scope" + LINE_END +
@@ -326,6 +329,8 @@ final class InstallOptions {
             "                   (can be passed more than once)." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +
+            "        If the --maven-local flag is used, then artifacts are installed at ~/.m2/repository" + LINE_END +
+            "        and any other location given." + LINE_END +
             "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0";
@@ -335,8 +340,7 @@ final class InstallOptions {
     final EnumSet<Scope> scopes;
     final String outDir;
     final String repoDir;
-    final boolean optional;
-    final boolean transitive;
+    final boolean optional, transitive, mavenLocal;
 
     InstallOptions(Set<String> artifacts,
                    Set<Pattern> exclusions,
@@ -344,7 +348,8 @@ final class InstallOptions {
                    String outDir,
                    String repoDir,
                    boolean optional,
-                   boolean transitive) {
+                   boolean transitive,
+                   boolean mavenLocal) {
         this.artifacts = artifacts;
         this.exclusions = exclusions;
         this.scopes = scopes;
@@ -352,6 +357,7 @@ final class InstallOptions {
         this.repoDir = repoDir;
         this.optional = optional;
         this.transitive = transitive;
+        this.mavenLocal= mavenLocal;
     }
 
     static InstallOptions parse(List<String> args) {
@@ -364,6 +370,7 @@ final class InstallOptions {
                 expectOutDir = false,
                 expectRepoDir = false,
                 expectExclusion = false,
+                mavenLocal = false,
                 transitive = false;
 
         for (String arg : args) {
@@ -410,6 +417,8 @@ final class InstallOptions {
                     expectOutDir = true;
                 } else if (isEither(arg, "-r", "--repository")) {
                     expectRepoDir = true;
+                } else if (isEither(arg, "-m", "--maven-local")) {
+                    mavenLocal = true;
                 } else if (isEither(arg, "-x", "--exclusion")) {
                     expectExclusion = true;
                 } else {
@@ -428,15 +437,14 @@ final class InstallOptions {
 
         // if no scopes are included explicitly, use runtime
         if (scopes.isEmpty()) scopes = EnumSet.of(Scope.RUNTIME);
-
-        if (outDir == null && repoDir == null) outDir = InstallCommandExecutor.LIBS_DIR;
+        if (outDir == null && repoDir == null && !mavenLocal) outDir = InstallCommandExecutor.LIBS_DIR;
         if (outDir != null && repoDir != null) {
             throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
                     LINE_END + "Run jbuild --help for usage.", USER_INPUT);
         }
 
         return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
-                scopes, outDir, repoDir, optional, transitive);
+                scopes, outDir, repoDir, optional, transitive, mavenLocal);
     }
 
 }

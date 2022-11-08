@@ -96,4 +96,8 @@ public final class TextUtils {
         var end = text.charAt(text.length() - 1) == '"' ? text.length() - 1 : text.length();
         return text.substring(1, end);
     }
+
+    public static boolean isHttp(String address) {
+        return address.startsWith("http://") || address.startsWith("https://");
+    }
 }

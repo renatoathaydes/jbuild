@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
@@ -38,8 +39,8 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
         });
     }
 
-    public CompletionStage<Either<File, Describable>> write(ResolvedArtifact resolvedArtifact, boolean consume) {
-        var completion = new CompletableFuture<Either<File, Describable>>();
+    public CompletionStage<Either<List<File>, Describable>> write(ResolvedArtifact resolvedArtifact, boolean consume) {
+        var completion = new CompletableFuture<Either<List<File>, Describable>>();
         var file = computeFileLocation(resolvedArtifact);
 
         // this may return false if the dir already exists or if running in parallel with another call that
@@ -60,7 +61,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
                     } else {
                         out.write(resolvedArtifact.getContents());
                     }
-                    completion.complete(Either.left(file));
+                    completion.complete(Either.left(List.of(file)));
                 } catch (IOException e) {
                     completion.complete(Either.right(Describable.of(
                             "unable to write to file " + file + " due to " + e)));

@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -98,6 +99,17 @@ public final class CollectionUtils {
         };
     }
 
+    public static <T> List<T> appendList(Iterable<T> front, Iterable<T> back) {
+        var list = new ArrayList<T>();
+        for (var item : front) {
+            list.add(item);
+        }
+        for (var item : back) {
+            list.add(item);
+        }
+        return list;
+    }
+
     public static <T> Set<T> append(Set<T> set, T last) {
         if (set.contains(last)) return set;
         var copy = new LinkedHashSet<T>(set.size() + 1);
@@ -131,15 +143,15 @@ public final class CollectionUtils {
         for (var entry : map1.entrySet()) {
             var e2 = map2.get(entry.getKey());
             result.put(entry.getKey(), e2 == null
-                    ? entry.getValue()
-                    : valueCombiner.apply(entry.getValue(), e2));
+                ? entry.getValue()
+                : valueCombiner.apply(entry.getValue(), e2));
         }
         for (var entry : map2.entrySet()) {
             if (result.containsKey(entry.getKey())) continue;
             var e1 = map1.get(entry.getKey());
             result.put(entry.getKey(), e1 == null
-                    ? entry.getValue()
-                    : valueCombiner.apply(e1, entry.getValue()));
+                ? entry.getValue()
+                : valueCombiner.apply(e1, entry.getValue()));
         }
         return result;
     }
@@ -182,7 +194,7 @@ public final class CollectionUtils {
     }
 
     public static <T, E> Either<T, NonEmptyCollection<E>> foldEither(
-            Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable) {
+        Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable) {
         {
             var left = find(eitherIterable, e -> e.map(Function.identity(), NoOp.fun()));
             if (left.isPresent()) {
@@ -200,8 +212,8 @@ public final class CollectionUtils {
     }
 
     public static <T, E> Either<T, NonEmptyCollection<E>> foldEither(
-            Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable,
-            BiFunction<T, T, T> combiner) {
+        Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable,
+        BiFunction<T, T, T> combiner) {
         T leftResults = null;
         for (var either : eitherIterable) {
             var value = either.map(Function.identity(), NoOp.fun());
