@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,7 +55,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     }
 
     public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
-        return createDefault(log, new DefaultPomCreator());
+        return createDefault(log, DefaultPomCreator.INSTANCE);
     }
 
     public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log,
@@ -109,13 +108,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
 
         log.verbosePrintln(() -> "Parsing POM of " + resolvedArtifact.artifact);
 
-        try {
-            return withParentIfNeeded(pomCreator.createPom(resolvedArtifact));
-        } catch (JBuildException e) {
-            return CompletableFuture.completedFuture(Either.right(
-                    NonEmptyCollection.of(Describable.of("Unable to parse POM of " +
-                            resolvedArtifact.artifact + " due to " + e.getMessage()))));
-        }
+        return withParentIfNeeded(pomCreator.createPom(resolvedArtifact));
     }
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleRetrievalErrors(
@@ -184,7 +177,9 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact);
     }
 
-    static class DefaultPomCreator implements PomCreator {
+    public enum DefaultPomCreator implements PomCreator {
+        INSTANCE;
+
         @Override
         public CompletionStage<MavenPom> createPom(ResolvedArtifact artifact) {
             try {

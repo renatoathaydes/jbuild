@@ -142,6 +142,8 @@ tasks:
   integration-test:
     run: once
     deps: [ build-integration-tests, install-junit ]
+    env:
+      MAVEN_HOME: "{{.INTEGRATION_TEST_REPO_DIR}}"
     cmds:
       - >
         java -ea -cp "{{.JUNIT_RUNNER_LIBS_DIR}}/*{{.SEP}}{{.TEST_LIBS_DIR}}/*"

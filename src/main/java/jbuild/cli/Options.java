@@ -325,7 +325,7 @@ final class InstallOptions {
             "        --transitive" + LINE_END +
             "        -t        include transitive dependencies." + LINE_END +
             "        --exclusion" + LINE_END +
-            "        -x <regex> dependency exclusion regex pattern (matches against coordinates)." + LINE_END +
+            "        -x <regex> dependency exclusion regex pattern (matches against coordinates)" + LINE_END +
             "                   (can be passed more than once)." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +

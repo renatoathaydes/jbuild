@@ -83,7 +83,7 @@ public class DepsCommandExecutorTest {
         var log = new JBuildLog(out, false);
         var retrievers = new FileArtifactRetriever(Path.of(repoDir));
         var fetcher = new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers));
-        var pomRetriever = new MavenPomRetriever<>(log, fetcher, new DefaultPomCreator());
+        var pomRetriever = new MavenPomRetriever<>(log, fetcher, DefaultPomCreator.INSTANCE);
         return new DepsCommandExecutor<>(log, pomRetriever);
     }
 

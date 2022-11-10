@@ -1,6 +1,9 @@
 package jbuild.artifact.file;
 
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.commands.MavenPomRetriever;
+import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
+import jbuild.maven.MavenPom;
 import jbuild.util.Describable;
 import jbuild.util.Either;
 
@@ -15,19 +18,24 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 
-public class ArtifactFileWriter implements AutoCloseable, Closeable {
+public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRetriever.PomCreator {
 
     public enum WriteMode {
         FLAT_DIR,
         MAVEN_REPOSITORY,
     }
 
-    public final File directory;
-    public final WriteMode mode;
+    private final File directory;
+    protected final WriteMode mode;
     private final ExecutorService writerExecutor;
+
+    protected ArtifactFileWriter(ArtifactFileWriter copy) {
+        this.directory = copy.directory;
+        this.mode = copy.mode;
+        this.writerExecutor = copy.writerExecutor;
+    }
 
     public ArtifactFileWriter(File directory, WriteMode mode) {
         this.directory = directory;
@@ -37,6 +45,10 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
             thread.setDaemon(true);
             return thread;
         });
+    }
+
+    public String getDestination() {
+        return directory.getPath();
     }
 
     public CompletionStage<Either<List<File>, Describable>> write(ResolvedArtifact resolvedArtifact, boolean consume) {
@@ -49,8 +61,9 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
         file.getParentFile().mkdirs();
 
         if (!file.getParentFile().isDirectory()) {
-            return completedStage(
+            completion.complete(
                     Either.right(Describable.of("unable to create directory at " + file.getParent())));
+            return completion;
         }
 
         writerExecutor.submit(() -> {
@@ -76,6 +89,26 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
         return completion;
     }
 
+    @Override
+    public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact) {
+        switch (mode) {
+            case MAVEN_REPOSITORY:
+                // POMs are written to Maven repositories
+                return write(resolvedArtifact, false)
+                        .thenCompose(ignore -> DefaultPomCreator.INSTANCE.createPom(resolvedArtifact));
+            case FLAT_DIR:
+                // POMs are not written to flat directories
+                return DefaultPomCreator.INSTANCE.createPom(resolvedArtifact);
+            default:
+                throw new IllegalStateException("Unhandled case: " + mode);
+        }
+    }
+
+    @Override
+    public void close() {
+        writerExecutor.shutdownNow();
+    }
+
     private File computeFileLocation(ResolvedArtifact resolvedArtifact) {
         switch (mode) {
             case FLAT_DIR:
@@ -88,10 +121,5 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable {
             default:
                 throw new IllegalStateException("unknown enum variant: " + mode);
         }
-    }
-
-    @Override
-    public void close() {
-        writerExecutor.shutdownNow();
     }
 }

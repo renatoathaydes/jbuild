@@ -1,6 +1,7 @@
 package tests;
 
 import jbuild.artifact.Artifact;
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
@@ -14,6 +15,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
 /**
@@ -165,6 +167,98 @@ public class InstallTest extends JBuildTestRunner {
 
         assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
                 .containsExactlyElementsOf(expectedLines);
+    }
+
+    @Test
+    void canInstallToBothDirAndMavenLocal() throws IOException {
+        var mavenHome = System.getenv("MAVEN_HOME");
+        assumeTrue(mavenHome != null,
+                "Test requires MAVEN_HOME to be set");
+
+        var tempDirectory = Files.createTempDirectory(InstallTest.class.getName());
+        tempDirectory.toFile().deleteOnExit();
+        var mavenRepoCopy = new File(tempDirectory.toFile(), "repo");
+
+        var dir = Files.createTempDirectory(InstallTest.class.getName());
+        dir.toFile().deleteOnExit();
+
+        // move the Maven repo to another location, so we can simulate installing back to Maven local
+        FileUtils.moveDirectory(integrationTestsRepo, mavenRepoCopy);
+
+        try {
+            var result = runWithRepo(mavenRepoCopy.toPath(), "install", "-m", "-d", dir.toString(), Artifacts.GUAVA);
+            verifySuccessful("jbuild install", result);
+            assertThat(result.getStdout()).startsWith("Will install 7 artifacts at [" + dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE +
+                    "Successfully installed 7 artifacts at [" + dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + "" + LE +
+                    "JBuild success in ");
+
+            var jars = dir.toFile().listFiles();
+
+            assertThat(jars).isNotNull();
+            assertThat(Arrays.stream(jars)
+                    .map(File::getName)
+                    .collect(toSet()))
+                    .containsExactlyInAnyOrder(
+                            "j2objc-annotations-1.3.jar",
+                            "error_prone_annotations-2.7.1.jar",
+                            "failureaccess-1.0.1.jar",
+                            "jsr305-3.0.2.jar",
+                            "checker-qual-3.12.0.jar",
+                            "guava-31.0.1-jre.jar",
+                            "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
+                    );
+
+            List<String> expectedLines = ("" +
+                    "com" + LE +
+                    "  google" + LE +
+                    "    code" + LE +
+                    "      findbugs" + LE +
+                    "        jsr305" + LE +
+                    "          3.0.2" + LE +
+                    "            jsr305-3.0.2.jar" + LE +
+                    "            jsr305-3.0.2.pom" + LE +
+                    "    errorprone" + LE +
+                    "      error_prone_annotations" + LE +
+                    "        2.7.1" + LE +
+                    "          error_prone_annotations-2.7.1.jar" + LE +
+                    "          error_prone_annotations-2.7.1.pom" + LE +
+                    "      error_prone_parent" + LE +
+                    "        2.7.1" + LE +
+                    "          error_prone_parent-2.7.1.pom" + LE +
+                    "    guava" + LE +
+                    "      failureaccess" + LE +
+                    "        1.0.1" + LE +
+                    "          failureaccess-1.0.1.jar" + LE +
+                    "          failureaccess-1.0.1.pom" + LE +
+                    "      guava-parent" + LE +
+                    "        26.0-android" + LE +
+                    "          guava-parent-26.0-android.pom" + LE +
+                    "        31.0.1-jre" + LE +
+                    "          guava-parent-31.0.1-jre.pom" + LE +
+                    "      listenablefuture" + LE +
+                    "        9999.0-empty-to-avoid-conflict-with-guava" + LE +
+                    "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar" + LE +
+                    "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom" + LE +
+                    "    j2objc" + LE +
+                    "      j2objc-annotations" + LE +
+                    "        1.3" + LE +
+                    "          j2objc-annotations-1.3.jar" + LE +
+                    "          j2objc-annotations-1.3.pom" + LE +
+                    "  checkerframework" + LE +
+                    "    checker-qual" + LE +
+                    "      3.12.0" + LE +
+                    "        checker-qual-3.12.0.jar" + LE +
+                    "        checker-qual-3.12.0.pom" + LE +
+                    "").lines().collect(toList());
+
+            // notice that the test environment sets MAVEN_HOME to integrationTestsRepo
+            var rootDirectories = SystemProperties.integrationTestsRepo.listFiles();
+            assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
+                    .containsExactlyElementsOf(expectedLines);
+        } finally {
+            FileUtils.deleteDirectory(integrationTestsRepo);
+            FileUtils.moveDirectory(mavenRepoCopy, integrationTestsRepo);
+        }
     }
 
     @Test

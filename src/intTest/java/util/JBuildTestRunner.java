@@ -5,11 +5,13 @@ import jbuild.errors.JBuildException;
 import jbuild.java.tools.MemoryToolRunResult;
 import jbuild.java.tools.ToolRunResult;
 import jbuild.log.JBuildLog;
+import jbuild.maven.MavenUtils;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -39,9 +41,11 @@ public class JBuildTestRunner {
     static void initialize() {
         if (!integrationTestsRepo.isDirectory()) {
             System.out.println("Installing Maven repository for integration tests at " + integrationTestsRepo.getPath());
-            var result = new JBuildTestRunner().run("install",
+            var result = new JBuildTestRunner().run("-r", MavenUtils.MAVEN_CENTRAL_URL, "install",
                     "-O", "-t", "-s", "compile", "-r", integrationTestsRepo.getPath(),
                     Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE, Artifacts.GROOVY);
+            System.out.println("STDOUT: " + result.getStdout());
+            System.out.println("STDERR RESULT: " + result.getStderr());
             verifySuccessful("install", result);
         } else {
             System.out.println("Skipping creating a new Maven repository for integration tests as repo already exists");
@@ -69,9 +73,13 @@ public class JBuildTestRunner {
     }
 
     public ToolRunResult runWithIntTestRepo(String... args) {
+        return runWithRepo(integrationTestsRepo.toPath(), args);
+    }
+
+    public ToolRunResult runWithRepo(Path repoPath, String... args) {
         var commandArgs = new String[args.length + 2];
         commandArgs[0] = "-r";
-        commandArgs[1] = integrationTestsRepo.getPath();
+        commandArgs[1] = repoPath.toString();
         System.arraycopy(args, 0, commandArgs, 2, args.length);
         return run(commandArgs);
     }

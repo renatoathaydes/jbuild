@@ -1,12 +1,9 @@
 package jbuild.commands;
 
 import jbuild.artifact.Artifact;
-import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.file.ArtifactFileWriter;
-import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
-import jbuild.maven.MavenPom;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
@@ -20,7 +17,6 @@ import java.util.regex.Pattern;
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.maven.MavenUtils.extensionOfPackaging;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.foldEither;
@@ -53,10 +49,7 @@ public final class InstallCommandExecutor {
             boolean transitive,
             boolean optional,
             Set<Pattern> exclusions) {
-
-        var pomRetriever = new MavenPomRetriever<>(log, fetchCommand,
-                // only write POMs if not using a flat dir output
-                writer.mode == FLAT_DIR ? new DefaultPomCreator() : new InstallPomCreator(writer));
+        var pomRetriever = new MavenPomRetriever<>(log, fetchCommand, writer);
 
         var depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
 
@@ -84,7 +77,7 @@ public final class InstallCommandExecutor {
                 .collect(toSet());
 
         log.println(() -> "Will install " + treeSet.size() +
-                " artifact" + (treeSet.size() == 1 ? "" : "s") + " at " + writer.directory);
+                " artifact" + (treeSet.size() == 1 ? "" : "s") + " at " + writer.getDestination());
 
         return awaitValues(
                 fetchCommand.fetchArtifacts(treeSet, writer)
@@ -99,21 +92,6 @@ public final class InstallCommandExecutor {
         ).thenApply(results -> results.stream()
                 .filter(res -> res.map(isSuccess -> isSuccess, err -> false))
                 .count());
-    }
-
-    private static final class InstallPomCreator extends DefaultPomCreator {
-
-        private final ArtifactFileWriter writer;
-
-        public InstallPomCreator(ArtifactFileWriter writer) {
-            this.writer = writer;
-        }
-
-        @Override
-        public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact) {
-            return writer.write(resolvedArtifact, false).thenCompose(ignore ->
-                    super.createPom(resolvedArtifact));
-        }
     }
 
 }
