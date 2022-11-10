@@ -322,8 +322,6 @@ final class InstallOptions {
             "        --scope" + LINE_END +
             "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
             "                  The runtime scope is used by default." + LINE_END +
-            "        --transitive" + LINE_END +
-            "        -t        include transitive dependencies." + LINE_END +
             "        --exclusion" + LINE_END +
             "        -x <regex> dependency exclusion regex pattern (matches against coordinates)" + LINE_END +
             "                   (can be passed more than once)." + LINE_END +
@@ -340,7 +338,7 @@ final class InstallOptions {
     final EnumSet<Scope> scopes;
     final String outDir;
     final String repoDir;
-    final boolean optional, transitive, mavenLocal;
+    final boolean optional, mavenLocal;
 
     InstallOptions(Set<String> artifacts,
                    Set<Pattern> exclusions,
@@ -348,7 +346,6 @@ final class InstallOptions {
                    String outDir,
                    String repoDir,
                    boolean optional,
-                   boolean transitive,
                    boolean mavenLocal) {
         this.artifacts = artifacts;
         this.exclusions = exclusions;
@@ -356,7 +353,6 @@ final class InstallOptions {
         this.outDir = outDir;
         this.repoDir = repoDir;
         this.optional = optional;
-        this.transitive = transitive;
         this.mavenLocal= mavenLocal;
     }
 
@@ -370,9 +366,7 @@ final class InstallOptions {
                 expectOutDir = false,
                 expectRepoDir = false,
                 expectExclusion = false,
-                mavenLocal = false,
-                transitive = false;
-
+                mavenLocal = false;
         for (String arg : args) {
             if (expectScope) {
                 expectScope = false;
@@ -409,8 +403,6 @@ final class InstallOptions {
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
-                } else if (isEither(arg, "-t", "--transitive")) {
-                    transitive = true;
                 } else if (isEither(arg, "-O", "--optional")) {
                     optional = true;
                 } else if (isEither(arg, "-d", "--directory")) {
@@ -444,7 +436,7 @@ final class InstallOptions {
         }
 
         return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
-                scopes, outDir, repoDir, optional, transitive, mavenLocal);
+                scopes, outDir, repoDir, optional, mavenLocal);
     }
 
 }

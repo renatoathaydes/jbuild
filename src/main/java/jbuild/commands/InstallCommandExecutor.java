@@ -46,7 +46,6 @@ public final class InstallCommandExecutor {
     public CompletionStage<Either<Long, NonEmptyCollection<Throwable>>> installDependencyTree(
             Set<? extends Artifact> artifacts,
             EnumSet<Scope> scopes,
-            boolean transitive,
             boolean optional,
             Set<Pattern> exclusions) {
         var pomRetriever = new MavenPomRetriever<>(log, fetchCommand, writer);
@@ -54,7 +53,7 @@ public final class InstallCommandExecutor {
         var depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
 
         return awaitValues(
-                depsCommand.fetchDependencyTree(artifacts, scopes, transitive, optional, exclusions)
+                depsCommand.fetchDependencyTree(artifacts, scopes, true, optional, exclusions)
                         .values().stream()
                         .map((completion) -> completion.thenCompose(tree ->
                                 tree.map(this::install).orElseGet(() ->
