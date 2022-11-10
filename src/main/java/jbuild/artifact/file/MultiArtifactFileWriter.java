@@ -33,19 +33,19 @@ public final class MultiArtifactFileWriter extends ArtifactFileWriter {
     }
 
     @Override
-    public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact) {
+    public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact, boolean consume) {
         switch (mode) {
             case FLAT_DIR:
                 // super wouldn't write the POM, so calling super is unnecessary
-                return secondWriter.createPom(resolvedArtifact);
+                return secondWriter.createPom(resolvedArtifact, consume);
             case MAVEN_REPOSITORY:
                 switch (secondWriter.mode) {
                     case FLAT_DIR:
-                        return super.createPom(resolvedArtifact);
+                        return super.createPom(resolvedArtifact, consume);
                     case MAVEN_REPOSITORY:
                         // both are Maven repositories, create the POM in both repos
-                        return super.createPom(resolvedArtifact)
-                                .thenCompose(ignore -> secondWriter.createPom(resolvedArtifact));
+                        return super.createPom(resolvedArtifact, false)
+                                .thenCompose(ignore -> secondWriter.createPom(resolvedArtifact, consume));
                     default:
                         throw new IllegalStateException("Unhandled case: " + secondWriter.mode);
                 }

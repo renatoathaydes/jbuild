@@ -13,6 +13,7 @@ import jbuild.util.NonEmptyCollection;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -174,16 +175,21 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     }
 
     public interface PomCreator {
-        CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact);
+        default CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact) {
+            return createPom(resolvedArtifact, true);
+        }
+
+        CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact, boolean consume);
     }
 
     public enum DefaultPomCreator implements PomCreator {
         INSTANCE;
 
         @Override
-        public CompletionStage<MavenPom> createPom(ResolvedArtifact artifact) {
+        public CompletionStage<MavenPom> createPom(ResolvedArtifact artifact, boolean consume) {
+            var contents = consume ? artifact.consumeContents() : new ByteArrayInputStream(artifact.getContents());
             try {
-                return completedStage(MavenUtils.parsePom(artifact.consumeContents()));
+                return completedStage(MavenUtils.parsePom(contents));
             } catch (ParserConfigurationException | IOException | SAXException e) {
                 return failedStage(new JBuildException(e.toString(), ACTION_ERROR));
             }

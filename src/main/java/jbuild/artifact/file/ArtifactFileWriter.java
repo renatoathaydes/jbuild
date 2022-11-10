@@ -90,15 +90,15 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
     }
 
     @Override
-    public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact) {
+    public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact, boolean consume) {
         switch (mode) {
             case MAVEN_REPOSITORY:
                 // POMs are written to Maven repositories
                 return write(resolvedArtifact, false)
-                        .thenCompose(ignore -> DefaultPomCreator.INSTANCE.createPom(resolvedArtifact));
+                        .thenCompose(ignore -> DefaultPomCreator.INSTANCE.createPom(resolvedArtifact, consume));
             case FLAT_DIR:
                 // POMs are not written to flat directories
-                return DefaultPomCreator.INSTANCE.createPom(resolvedArtifact);
+                return DefaultPomCreator.INSTANCE.createPom(resolvedArtifact, consume);
             default:
                 throw new IllegalStateException("Unhandled case: " + mode);
         }

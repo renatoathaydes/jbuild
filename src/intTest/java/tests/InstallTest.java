@@ -230,6 +230,10 @@ public class InstallTest extends JBuildTestRunner {
                     "        1.0.1" + LE +
                     "          failureaccess-1.0.1.jar" + LE +
                     "          failureaccess-1.0.1.pom" + LE +
+                    "      guava" + LE +
+                    "        31.0.1-jre" + LE +
+                    "          guava-31.0.1-jre.jar" + LE +
+                    "          guava-31.0.1-jre.pom" + LE +
                     "      guava-parent" + LE +
                     "        26.0-android" + LE +
                     "          guava-parent-26.0-android.pom" + LE +
@@ -263,6 +267,49 @@ public class InstallTest extends JBuildTestRunner {
             var rootDirectories = SystemProperties.integrationTestsRepo.listFiles();
             assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
                     .containsExactlyElementsOf(expectedLines);
+        } finally {
+            FileUtils.deleteDirectory(integrationTestsRepo);
+            FileUtils.moveDirectory(mavenRepoCopy, integrationTestsRepo);
+        }
+    }
+
+    @Test
+    void canInstallToBothRepoAndMavenLocal() throws IOException {
+        var mavenHome = System.getenv("MAVEN_HOME");
+        assumeTrue(mavenHome != null,
+                "Test requires MAVEN_HOME to be set");
+
+        var tempDirectory = Files.createTempDirectory(InstallTest.class.getName());
+        tempDirectory.toFile().deleteOnExit();
+        var mavenRepoCopy = new File(tempDirectory.toFile(), "repo");
+
+        var dir = Files.createTempDirectory(InstallTest.class.getName());
+        dir.toFile().deleteOnExit();
+
+        // move the Maven repo to another location, so we can simulate installing back to Maven local
+        FileUtils.moveDirectory(integrationTestsRepo, mavenRepoCopy);
+
+        try {
+            var result = runWithRepo(mavenRepoCopy.toPath(), "install", "--maven-local",
+                    "--repository", dir.toString(), Artifacts.JUNIT5_ENGINE, Artifacts.APACHE_COMMONS_COMPRESS);
+            verifySuccessful("jbuild install", result);
+
+            assertThat(result.getStdout()).contains("Will install 6 artifacts at [" +
+                    dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE);
+            assertThat(result.getStdout()).contains("Will install 1 artifact at [" +
+                    dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE);
+            assertThat(result.getStdout()).contains("Successfully installed 7 artifacts at [" +
+                    dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + "" + LE);
+            assertThat(result.getStdout()).contains("JBuild success in ");
+
+            var dirRoots = dir.toFile().listFiles();
+            var dirTree = fileTreeString(dirRoots).lines().collect(toList());
+
+            // notice that the test environment sets MAVEN_HOME to integrationTestsRepo
+            var rootDirectories = SystemProperties.integrationTestsRepo.listFiles();
+
+            assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
+                    .containsExactlyElementsOf(dirTree);
         } finally {
             FileUtils.deleteDirectory(integrationTestsRepo);
             FileUtils.moveDirectory(mavenRepoCopy, integrationTestsRepo);
