@@ -1,6 +1,7 @@
 package jbuild.maven;
 
 import jbuild.artifact.Artifact;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -13,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class PublishableMavenPomTest {
 
+    @Disabled("feature is not ready yet")
     @Test
     void canWriteSimplePom() {
         var pom = new PublishableMavenPom(
