@@ -193,7 +193,7 @@ public final class Main {
     }
 
     private void compile(Options options) {
-        var compileOptions = CompileOptions.parse(options.commandArgs);
+        var compileOptions = CompileOptions.parse(options.commandArgs, options.quiet);
 
         var commandExecutor = new CompileCommandExecutor(log);
 
@@ -206,7 +206,7 @@ public final class Main {
     }
 
     private void doctor(Options options) throws ExecutionException, InterruptedException {
-        var docOptions = DoctorOptions.parse(options.commandArgs);
+        var docOptions = DoctorOptions.parse(options.commandArgs, !options.quiet);
 
         if (docOptions.entryPoints.isEmpty()) {
             log.println("No entry points provided, nothing to do. Please provide the entry points (jars) " +
@@ -222,7 +222,7 @@ public final class Main {
     }
 
     private void listDeps(Options options) throws Exception {
-        var depsOptions = DepsOptions.parse(options.commandArgs);
+        var depsOptions = DepsOptions.parse(options.commandArgs, !options.quiet);
         var artifacts = parseArtifacts(depsOptions.artifacts);
 
         if (artifacts.isEmpty()) {
@@ -263,7 +263,7 @@ public final class Main {
     }
 
     private void installArtifacts(Options options) throws Exception {
-        var installOptions = InstallOptions.parse(options.commandArgs);
+        var installOptions = InstallOptions.parse(options.commandArgs, !options.quiet);
         var artifacts = parseArtifacts(installOptions.artifacts);
 
         if (artifacts.isEmpty()) {
@@ -316,7 +316,7 @@ public final class Main {
     }
 
     private void fetchArtifacts(Options options) throws Exception {
-        var fetchOptions = FetchOptions.parse(options.commandArgs);
+        var fetchOptions = FetchOptions.parse(options.commandArgs, !options.quiet);
 
         if (fetchOptions.artifacts.isEmpty()) {
             log.println("No artifacts were provided. Nothing to do.");
@@ -366,7 +366,7 @@ public final class Main {
 
     private void listVersions(Options options) throws Exception {
         var commandExecutor = createVersionsCommandExecutor(options);
-        var versionsOptions = VersionsOptions.parse(options.commandArgs);
+        var versionsOptions = VersionsOptions.parse(options.commandArgs, !options.quiet);
         var artifacts = parseArtifacts(versionsOptions.artifacts);
 
         if (artifacts.isEmpty()) {
@@ -403,7 +403,7 @@ public final class Main {
 
     private void requirements(Options options) throws ExecutionException, InterruptedException {
         var command = RequirementsCommandExecutor.createDefault(log);
-        command.execute(RequirementsOptions.parse(options.commandArgs).jars).toCompletableFuture().get();
+        command.execute(RequirementsOptions.parse(options.commandArgs, !options.quiet).jars).toCompletableFuture().get();
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

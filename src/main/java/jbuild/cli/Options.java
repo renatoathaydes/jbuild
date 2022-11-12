@@ -99,7 +99,8 @@ final class Options {
             } else if (isEither(arg, "-h", "--help")) {
                 help = true;
             } else {
-                throw new JBuildException("invalid root option: " + arg + LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                throw new JBuildException("invalid root option: " + arg + "." +
+                                          (!quiet ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
             }
         }
 
@@ -177,7 +178,7 @@ final class FetchOptions {
         this.outDir = outDir;
     }
 
-    static FetchOptions parse(List<String> args) {
+    static FetchOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>();
         String outDir = null;
         var nextIsDir = false;
@@ -194,8 +195,8 @@ final class FetchOptions {
                     }
                     nextIsDir = true;
                 } else {
-                    throw new JBuildException("invalid " + NAME + " option: " + arg +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -252,7 +253,7 @@ final class DepsOptions {
         this.showExtra = showExtra;
     }
 
-    static DepsOptions parse(List<String> args) {
+    static DepsOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
         boolean transitive = false, optional = false,
@@ -279,8 +280,8 @@ final class DepsOptions {
                 } else if (isEither(arg, "-e", "--extra")) {
                     showExtra = true;
                 } else {
-                    throw new JBuildException("invalid " + NAME + " option: " + arg +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -361,7 +362,7 @@ final class InstallOptions {
         this.mavenLocal = mavenLocal;
     }
 
-    static InstallOptions parse(List<String> args) {
+    static InstallOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>(4);
         var exclusions = new LinkedHashSet<Pattern>(4);
         var scopes = EnumSet.noneOf(Scope.class);
@@ -387,16 +388,16 @@ final class InstallOptions {
                 if (outDir == null) {
                     outDir = arg;
                 } else {
-                    throw new JBuildException("cannot provide output directory more than once" +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("cannot provide output directory more than once." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else if (expectRepoDir) {
                 expectRepoDir = false;
                 if (repoDir == null) {
                     repoDir = arg;
                 } else {
-                    throw new JBuildException("cannot provide repository directory more than once" +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("cannot provide repository directory more than once." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else if (expectExclusion) {
                 expectExclusion = false;
@@ -422,8 +423,8 @@ final class InstallOptions {
                 } else if (isEither(arg, "-x", "--exclusion")) {
                     expectExclusion = true;
                 } else {
-                    throw new JBuildException("invalid " + NAME + " option: " + arg +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -440,15 +441,15 @@ final class InstallOptions {
         if (outDir == null && repoDir == null && !mavenLocal) outDir = InstallCommandExecutor.LIBS_DIR;
         if (outDir != null && repoDir != null) {
             throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
-                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
         }
         if (!transitive && mavenLocal) {
             throw new JBuildException("cannot specify both 'non-transitive' and 'maven-local' options together." +
-                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
         }
         if (!transitive && repoDir != null) {
             throw new JBuildException("cannot specify both 'non-transitive' and 'repository' options together." +
-                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
         }
 
         return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
@@ -488,7 +489,7 @@ final class DoctorOptions {
         this.typeExclusions = unmodifiableSet(typeExclusions);
     }
 
-    static DoctorOptions parse(List<String> args) {
+    static DoctorOptions parse(List<String> args, boolean verbose) {
         String inputDir = null;
         var entryPoints = new ArrayList<String>(4);
         var typeExclusions = new HashSet<String>(4);
@@ -507,13 +508,13 @@ final class DoctorOptions {
                 } else if (isEither(arg, "-x", "--exclude-type")) {
                     expectTypeExclusion = true;
                 } else {
-                    throw new JBuildException("invalid " + NAME + " option: " + arg +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else {
                 if (inputDir != null) {
-                    throw new JBuildException("cannot provide more than one input directory for fix command" +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("cannot provide more than one input directory for fix command." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
                 inputDir = arg;
             }
@@ -558,13 +559,13 @@ final class RequirementsOptions {
         this.jars = unmodifiableSet(jars);
     }
 
-    static RequirementsOptions parse(List<String> args) {
+    static RequirementsOptions parse(List<String> args, boolean verbose) {
         var jars = new LinkedHashSet<String>(4);
 
         for (var arg : args) {
             if (arg.startsWith("-")) {
-                throw new JBuildException("invalid " + NAME + " option: " + arg +
-                    LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                    (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
             } else {
                 jars.add(arg);
             }
@@ -592,13 +593,13 @@ final class VersionsOptions {
         this.artifacts = artifacts;
     }
 
-    static VersionsOptions parse(List<String> args) {
+    static VersionsOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>();
 
         for (String arg : args) {
             if (arg.startsWith("-")) {
-                throw new JBuildException("invalid " + NAME + " option: " + arg +
-                    LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                    (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
             } else {
                 artifacts.add(arg);
             }
@@ -657,7 +658,7 @@ final class CompileOptions {
         this.classpath = classpath;
     }
 
-    static CompileOptions parse(List<String> args) {
+    static CompileOptions parse(List<String> args, boolean verbose) {
         Set<String> inputDirectories = new LinkedHashSet<>(2);
         Set<String> resourcesDirectories = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
@@ -701,25 +702,25 @@ final class CompileOptions {
                     waitingForResources = true;
                 } else if (isEither(arg, "-d", "--directory")) {
                     if (outputDir != null) {
-                        throw new JBuildException("cannot provide repository directory more than once" +
-                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                        throw new JBuildException("cannot provide repository directory more than once." +
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                     }
                     waitingForDirectory = true;
                 } else if (isEither(arg, "-j", "--jar")) {
                     if (jar != null) {
-                        throw new JBuildException("cannot provide jar more than once" +
-                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                        throw new JBuildException("cannot provide jar more than once." +
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                     }
                     waitingForJar = true;
                 } else if (isEither(arg, "-m", "--main-class")) {
                     if (mainClass != null) {
-                        throw new JBuildException("cannot provide main-class more than once" +
-                            LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                        throw new JBuildException("cannot provide main-class more than once." +
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                     }
                     waitingForMainClass = true;
                 } else {
-                    throw new JBuildException("invalid " + NAME + " option: " + arg +
-                        LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                    throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
                 }
             } else {
                 inputDirectories.add(arg);
@@ -740,7 +741,7 @@ final class CompileOptions {
         }
         if (outputDir != null && jar != null) {
             throw new JBuildException("cannot specify both 'directory' and 'jar' options together." +
-                LINE_END + "Run jbuild --help for usage.", USER_INPUT);
+                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
         }
         if (outputDir == null && jar == null) {
             jar = "";
