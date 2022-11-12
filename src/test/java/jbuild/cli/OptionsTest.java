@@ -91,30 +91,30 @@ public class OptionsTest {
     void parseInstallOptions() {
         verifyInstallOptions(InstallOptions.parse(
                 Options.parse(new String[]{"install"}).commandArgs),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, false, false);
-
-        verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-t"}).commandArgs),
             Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, false);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-m"}).commandArgs),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, null, false, false, true);
+                Options.parse(new String[]{"install", "-n"}).commandArgs),
+            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, false, false);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-d", "foo"}).commandArgs),
+                Options.parse(new String[]{"install", "-m"}).commandArgs),
+            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, null, false, true, true);
+
+        verifyInstallOptions(InstallOptions.parse(
+                Options.parse(new String[]{"install", "-d", "foo", "--non-transitive"}).commandArgs),
             Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, false, false);
 
         verifyInstallOptions(InstallOptions.parse(
                 Options.parse(new String[]{"install", "-r", "the-repo"}).commandArgs),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, "the-repo", false, false, false);
+            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, "the-repo", false, true, false);
 
         verifyInstallOptions(InstallOptions.parse(
                 Options.parse(new String[]{"install", "-d", "foo", "--maven-local"}).commandArgs),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, false, true);
+            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, true, true);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-O", "-t", "-s", "compile", "--scope", "test", "--repository", "repo", "-m"}).commandArgs),
+                Options.parse(new String[]{"install", "-O", "-s", "compile", "--scope", "test", "--repository", "repo", "-m"}).commandArgs),
             Set.of(), Set.of(), EnumSet.of(Scope.COMPILE, Scope.TEST), null, "repo", true, true, true);
 
     }
@@ -125,6 +125,21 @@ public class OptionsTest {
             Options.parse(new String[]{"install", "--directory", "d", "--repository", "r"}).commandArgs))
             .isInstanceOf(JBuildException.class)
             .hasMessage("cannot specify both 'directory' and 'repository' options together." + LINE_END +
+                "Run jbuild --help for usage.");
+    }
+
+    @Test
+    void installOptionsNonTransitiveAndRepoDirAreMutuallyExclusive() {
+        assertThatThrownBy(() -> InstallOptions.parse(
+            Options.parse(new String[]{"install", "-n", "--repository", "r"}).commandArgs))
+            .isInstanceOf(JBuildException.class)
+            .hasMessage("cannot specify both 'non-transitive' and 'repository' options together." + LINE_END +
+                "Run jbuild --help for usage.");
+
+        assertThatThrownBy(() -> InstallOptions.parse(
+            Options.parse(new String[]{"install", "-n", "-m"}).commandArgs))
+            .isInstanceOf(JBuildException.class)
+            .hasMessage("cannot specify both 'non-transitive' and 'maven-local' options together." + LINE_END +
                 "Run jbuild --help for usage.");
     }
 
