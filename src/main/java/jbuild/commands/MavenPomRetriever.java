@@ -191,7 +191,8 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
             try {
                 return completedStage(MavenUtils.parsePom(contents));
             } catch (ParserConfigurationException | IOException | SAXException e) {
-                return failedStage(new JBuildException(e.toString(), ACTION_ERROR));
+                return failedStage(new JBuildException("Could not parse POM of '" +
+                        artifact.artifact.getCoordinates() + "' due to: " + e, ACTION_ERROR));
             }
 
         }
