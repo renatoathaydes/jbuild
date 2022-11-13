@@ -3,6 +3,7 @@ package jbuild.artifact;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.util.Either;
 
+import java.io.File;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -38,4 +39,23 @@ public interface ArtifactRetriever<Err extends ArtifactRetrievalError> {
      * @return metadata about the artifact if successful, or an error otherwise
      */
     CompletionStage<Either<? extends ArtifactMetadata, Err>> retrieveMetadata(Artifact artifact);
+
+    /**
+     * @return true if this retriever uses the local file system as source for artifacts.
+     * If this returns {@code true}, then {@link ArtifactRetriever#computeFileLocation(ResolvedArtifact)}
+     * should be implemented to return the local file for a given artifact.
+     */
+    boolean isLocalFileRetriever();
+
+    /**
+     * Compute the location of the local file for the resolved artifact.
+     * <p>
+     * This method only needs to be implemented in case {@link ArtifactRetriever#isLocalFileRetriever()}
+     * return true.
+     *
+     * @param resolvedArtifact artifact
+     */
+    default File computeFileLocation(ResolvedArtifact resolvedArtifact) {
+        throw new UnsupportedOperationException("computeFileLocation");
+    }
 }

@@ -29,7 +29,6 @@ import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 import static jbuild.maven.MavenUtils.standardBasePath;
 import static jbuild.util.FileUtils.readAllBytes;
-import static jbuild.util.TextUtils.firstNonBlank;
 
 public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalError> {
 
@@ -46,6 +45,17 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
     @Override
     public String getDescription() {
         return "file-repository[" + rootDir + "]";
+    }
+
+    @Override
+    public boolean isLocalFileRetriever() {
+        return true;
+    }
+
+    @Override
+    public File computeFileLocation(ResolvedArtifact resolvedArtifact) {
+        return new File(rootDir.toFile(),
+                standardArtifactPath(resolvedArtifact.artifact, true));
     }
 
     @Override

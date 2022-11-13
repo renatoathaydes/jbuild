@@ -76,7 +76,7 @@ public final class InstallCommandExecutor {
                 .map(dep -> dep.artifact.withExtension(extensionOfPackaging(dep.pom.getPackaging())))
                 .collect(toSet());
 
-        log.println(() -> "Will install " + treeSet.size() +
+        log.verbosePrintln(() -> "Will install " + treeSet.size() +
                 " artifact" + (treeSet.size() == 1 ? "" : "s") + " at " + writer.getDestination());
 
         return awaitValues(

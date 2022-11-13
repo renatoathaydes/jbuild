@@ -7,9 +7,9 @@ import jbuild.util.Either;
 
 import java.io.File;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.util.CollectionUtils.appendList;
 
 public final class MultiArtifactFileWriter extends ArtifactFileWriter {
@@ -29,7 +29,7 @@ public final class MultiArtifactFileWriter extends ArtifactFileWriter {
                                 res2.map(
                                         files2 -> Either.left(appendList(files1, files2)),
                                         Either::right)),
-                        err1 -> CompletableFuture.completedStage(Either.right(err1))));
+                        err1 -> completedStage(Either.right(err1))));
     }
 
     @Override

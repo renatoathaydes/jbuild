@@ -3,6 +3,7 @@ package jbuild.artifact.file;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.commands.MavenPomRetriever;
 import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
+import jbuild.errors.JBuildException;
 import jbuild.maven.MavenPom;
 import jbuild.util.Describable;
 import jbuild.util.Either;
@@ -12,12 +13,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 
 public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRetriever.PomCreator {
@@ -30,6 +34,9 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
     private final File directory;
     protected final WriteMode mode;
     private final ExecutorService writerExecutor;
+
+    // keep track of written files to prevent writing files again and again
+    private final Set<String> writtenAbsolutePaths = new HashSet<>();
 
     protected ArtifactFileWriter(ArtifactFileWriter copy) {
         this.directory = copy.directory;
@@ -51,7 +58,26 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
         return directory.getPath();
     }
 
+    protected boolean shouldSkipWriting(ResolvedArtifact resolvedArtifact) {
+        if (resolvedArtifact.retriever.isLocalFileRetriever()) {
+            try {
+                var source = resolvedArtifact.retriever.computeFileLocation(resolvedArtifact).getCanonicalPath();
+                var target = computeFileLocation(resolvedArtifact).getCanonicalPath();
+                return source.equals(target);
+            } catch (IOException e) {
+                throw new JBuildException("Unable to compute resolved artifact '" +
+                        resolvedArtifact.artifact.getCoordinates() + "'s canonical path due to " + e,
+                        JBuildException.ErrorCause.IO_READ);
+            }
+        }
+        return false;
+    }
+
     public CompletionStage<Either<List<File>, Describable>> write(ResolvedArtifact resolvedArtifact, boolean consume) {
+        if (shouldSkipWriting(resolvedArtifact)) {
+            return completedStage(Either.left(List.of()));
+        }
+
         var completion = new CompletableFuture<Either<List<File>, Describable>>();
         var file = computeFileLocation(resolvedArtifact);
 
@@ -67,6 +93,13 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
         }
 
         writerExecutor.submit(() -> {
+            if (!writtenAbsolutePaths.add(file.getAbsolutePath())) {
+                if (consume) {
+                    resolvedArtifact.consumeContents();
+                }
+                completion.complete(Either.left(List.of(file)));
+                return;
+            }
             try (var out = new FileOutputStream(file)) {
                 try {
                     if (consume) {
