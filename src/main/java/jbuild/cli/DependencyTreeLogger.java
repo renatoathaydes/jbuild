@@ -1,6 +1,7 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
+import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
@@ -18,6 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
@@ -25,22 +29,43 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.errors.JBuildException.ErrorCause.UNKNOWN;
 import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.CollectionUtils.sorted;
 
-final class DependencyTreeLogger {
+final class DependencyTreeLogger implements AutoCloseable {
 
     private static final String INDENT = "    ";
 
     private final JBuildLog log;
     private final DepsOptions options;
+    private final ExecutorService executor;
 
     DependencyTreeLogger(JBuildLog log, DepsOptions options) {
         this.log = log;
         this.options = options;
+        executor = Executors.newSingleThreadExecutor();
+    }
+
+    @Override
+    public void close() {
+        executor.shutdown();
+        try {
+            var ok = executor.awaitTermination(5, TimeUnit.SECONDS);
+            if (!ok) {
+                System.err.println("WARNING: Timeout waiting for DependencyTreeLogger to close");
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            throw new JBuildException("Interrupted while waiting for DependencyTreeLogger to close", UNKNOWN);
+        }
     }
 
     public void log(DependencyTree tree) {
+        executor.submit(() -> logTree(tree));
+    }
+
+    private void logTree(DependencyTree tree) {
         log.print("Dependencies of " + tree.root.artifact.getCoordinates());
 
         if (options.transitive && options.optional) {
