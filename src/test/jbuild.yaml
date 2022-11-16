@@ -1,0 +1,22 @@
+source-dirs: [ java ]
+resource-dirs: [ resources ]
+output-dir: build/classes
+
+test-java-args:
+    - -Dtests.repo.dir=../../src/test/resources/jbuild/commands/repo
+    - -Dtests.test-classes.dir=../../build/tests/
+    - -Dtests.my-test-classes.jar=../../build/tests/my-tests.jar
+    - -Dtests.other-test-classes.jar=../../build/tests/other-tests.jar
+    - -Dtests.real-jars.osgiaas-cli-api.jar=../../src/test/real-jars/osgiaas-cli-api-0.7.jar
+    - -Dtests.real-jars.jline.jar=../../src/test/real-jars/jline-2.14.2.jar
+
+dependencies:
+    - org.junit.jupiter:junit-jupiter-api:5.9.1
+    - org.junit.jupiter:junit-jupiter-params:5.9.1
+    - org.assertj:assertj-core:3.23.1
+    - commons-io:commons-io:2.11.0
+    - core:
+          path: ../../
+    - otherTestClasses:
+          path: ../otherTestClasses
+          scope: runtimeOnly

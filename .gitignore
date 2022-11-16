@@ -1,6 +1,7 @@
-/build/
+build/
 /*.iml
 /.idea/
 /.gradle/
 /.task/
 /out/
+.jbuild-cache/
