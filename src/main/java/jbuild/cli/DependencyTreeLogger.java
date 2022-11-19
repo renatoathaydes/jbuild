@@ -101,9 +101,9 @@ final class DependencyTreeLogger implements AutoCloseable {
         var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
 
         for (Scope scope : expandScopes(options.scopes)) {
-            log.println("  - scope " + scope);
             var scopeDeps = groupedDeps.get(scope);
             if (scopeDeps != null && !scopeDeps.isEmpty()) {
+                log.println("  - scope " + scope);
                 int dependencyCount;
                 if (options.transitive) {
                     var chain = new DependencyChain(log);
@@ -116,8 +116,6 @@ final class DependencyTreeLogger implements AutoCloseable {
                 }
                 log.println(() -> "  " + dependencyCount + " " + scope +
                         " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
-            } else {
-                log.println("    * no dependencies");
             }
         }
 
@@ -148,6 +146,7 @@ final class DependencyTreeLogger implements AutoCloseable {
             if (isNew) {
                 var nextBranch = childByKey.get(ArtifactKey.of(dep));
                 if (nextBranch == null) {
+                    // missing information about dependency
                     log.print(() -> displayDependency(indent, dep, null));
                     log.println(" (X)");
                 } else {
@@ -168,6 +167,7 @@ final class DependencyTreeLogger implements AutoCloseable {
                     }
                 }
             } else {
+                // dependency sub-tree already displayed
                 log.print(() -> displayDependency(indent, dep, null));
                 log.println(" (-)");
             }
