@@ -12,6 +12,7 @@ import java.util.Set;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Disabled("feature is not ready yet")
 public class PublishableMavenPomTest {
 
     @Disabled("feature is not ready yet")
