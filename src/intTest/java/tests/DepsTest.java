@@ -23,16 +23,6 @@ public class DepsTest extends JBuildTestRunner {
                 "    * com.google.j2objc:j2objc-annotations:1.3 [compile]" + LE +
                 "    * org.checkerframework:checker-qual:3.12.0 [compile]" + LE +
                 "  6 compile dependencies listed" + LE +
-                "  - scope provided" + LE +
-                "    * no dependencies" + LE +
-                "  - scope runtime" + LE +
-                "    * no dependencies" + LE +
-                "  - scope test" + LE +
-                "    * no dependencies" + LE +
-                "  - scope system" + LE +
-                "    * no dependencies" + LE +
-                "  - scope import" + LE +
-                "    * no dependencies" + LE +
                 "JBuild success in ");
     }
 

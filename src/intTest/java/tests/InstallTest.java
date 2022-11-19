@@ -188,7 +188,7 @@ public class InstallTest extends JBuildTestRunner {
         try {
             var result = runWithRepo(mavenRepoCopy.toPath(), "install", "-m", "-d", dir.toString(), Artifacts.GUAVA);
             verifySuccessful("jbuild install", result);
-            assertThat(result.getStdout()).startsWith("Will install 7 artifacts at [" + dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE +
+            assertThat(result.getStdout()).startsWith(
                     "Successfully installed 7 artifacts at [" + dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + "" + LE +
                     "JBuild success in ");
 
@@ -294,10 +294,6 @@ public class InstallTest extends JBuildTestRunner {
                     "--repository", dir.toString(), Artifacts.JUNIT5_ENGINE, Artifacts.APACHE_COMMONS_COMPRESS);
             verifySuccessful("jbuild install", result);
 
-            assertThat(result.getStdout()).contains("Will install 6 artifacts at [" +
-                    dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE);
-            assertThat(result.getStdout()).contains("Will install 1 artifact at [" +
-                    dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE);
             assertThat(result.getStdout()).contains("Successfully installed 7 artifacts at [" +
                     dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + "" + LE);
             assertThat(result.getStdout()).contains("JBuild success in ");
@@ -324,19 +320,7 @@ public class InstallTest extends JBuildTestRunner {
                                         Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
 
         verifySuccessful("jbuild install", result);
-
-        // the "Will install..." message runs async, either one can show up first
-        assertThat(result.getStdout()).satisfiesAnyOf(
-                stdout ->
-                assertThat(stdout).startsWith("Will install 4 artifacts at " + dir + "" + LE +
-                                              "Will install 7 artifacts at " + dir + "" + LE +
-                                              "Successfully installed 11 artifacts at " + dir + "" + LE +
-                                              "JBuild success in "),
-                stdout ->
-                assertThat(stdout).startsWith("Will install 7 artifacts at " + dir + "" + LE +
-                                              "Will install 4 artifacts at " + dir + "" + LE +
-                                              "Successfully installed 11 artifacts at " + dir + "" + LE +
-                                              "JBuild success in "));
+        assertThat(result.getStdout()).startsWith("Successfully installed 11 artifacts at " + dir + "" + LE + "JBuild success in ");
 
         var jars = dir.toFile().listFiles();
 
@@ -367,19 +351,7 @@ public class InstallTest extends JBuildTestRunner {
                 Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
 
         verifySuccessful("jbuild install", result);
-
-        // the "Will install..." message runs async, either one can show up first
-        assertThat(result.getStdout()).satisfiesAnyOf(
-                stdout ->
-                        assertThat(stdout).startsWith("Will install 6 artifacts at " + dir + "" + LE +
-                                "Will install 7 artifacts at " + dir + "" + LE +
-                                "Successfully installed 13 artifacts at " + dir + "" + LE +
-                                "JBuild success in "),
-                stdout ->
-                        assertThat(stdout).startsWith("Will install 7 artifacts at " + dir + "" + LE +
-                                "Will install 6 artifacts at " + dir + "" + LE +
-                                "Successfully installed 13 artifacts at " + dir + "" + LE +
-                                "JBuild success in "));
+        assertThat(result.getStdout()).startsWith("Successfully installed 13 artifacts at " + dir + "" + LE + "JBuild success in ");
 
         var jars = dir.toFile().listFiles();
 
@@ -413,20 +385,8 @@ public class InstallTest extends JBuildTestRunner {
                 Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
 
         verifySuccessful("jbuild install", result);
-
-        // the "Will install..." message runs async, either one can show up first
-        assertThat(result.getStdout()).satisfiesAnyOf(
-                stdout ->
-                        assertThat(stdout).startsWith("Will install 4 artifacts at " + dir + "" + LE +
-                                "Will install 5 artifacts at " + dir + "" + LE +
-                                "Successfully installed 9 artifacts at " + dir + "" + LE +
-                                "JBuild success in "),
-                stdout ->
-                        assertThat(stdout).startsWith("Will install 5 artifacts at " + dir + "" + LE +
-                                "Will install 4 artifacts at " + dir + "" + LE +
-                                "Successfully installed 9 artifacts at " + dir + "" + LE +
-                                "JBuild success in "));
-
+        assertThat(result.getStdout()).startsWith("Successfully installed 9 artifacts at " + dir + "" + LE + "JBuild success in ");
+        
         var jars = dir.toFile().listFiles();
 
         assertThat(jars).isNotNull();
