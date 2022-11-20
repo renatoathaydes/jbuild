@@ -1,10 +1,9 @@
+imports:
+    - "../../build_properties.yaml"
+
 properties:
   CLASSES_DIR: build/classes
   INTEGRATION_TEST_REPO_DIR: build/integration-test-mvn-repo
-  VERSIONS:
-    junit: 5.9.1
-    assertj: 3.23.1
-    commons-io: 2.11.0
     
 source-dirs: [ java ]
 resource-dirs: [ resources ]
@@ -17,9 +16,9 @@ test-java-env:
   MAVEN_HOME: "{{INTEGRATION_TEST_REPO_DIR}}"
 
 dependencies:
-  - "org.junit.jupiter:junit-jupiter-api:{{VERSIONS.junit}}"
-  - "org.junit.jupiter:junit-jupiter-params:{{VERSIONS.junit}}"
-  - "org.assertj:assertj-core:{{VERSIONS.assertj}}"
-  - "commons-io:commons-io:{{VERSIONS.commons-io}}"
-  - jbuild:
-      path: ../../
+    - "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}"
+    - "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}"
+    - "org.assertj:assertj-core:{{versions.assertj}}"
+    - "commons-io:commons-io:{{versions.commons-io}}"
+    - jbuild:
+        path: ../../

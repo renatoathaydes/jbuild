@@ -1,10 +1,8 @@
+imports:
+    - "../../build_properties.yaml"
 properties:
   CLASSES_DIR: build/classes
   TEST_JARS_DIR: ../../build/tests
-  VERSIONS:
-    junit: 5.9.1
-    assertj: 3.23.1
-    commons-io: 2.11.0
 
 source-dirs: [ java ]
 resource-dirs: [ resources ]
@@ -19,10 +17,9 @@ test-java-args:
   - "-Dtests.real-jars.jline.jar=real-jars/jline-2.14.2.jar"
 
 dependencies:
-  - "org.junit.jupiter:junit-jupiter-api:{{VERSIONS.junit}}"
-  - "org.junit.jupiter:junit-jupiter-params:{{VERSIONS.junit}}"
-  - "org.assertj:assertj-core:{{VERSIONS.assertj}}"
-  - "commons-io:commons-io:{{VERSIONS.commons-io}}"
+  - "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}"
+  - "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}"
+  - "org.assertj:assertj-core:{{versions.assertj}}"
   - jbuild:
       path: ../../
   - otherTestClasses:
