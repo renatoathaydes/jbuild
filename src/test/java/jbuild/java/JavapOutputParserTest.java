@@ -176,16 +176,7 @@ public class JavapOutputParserTest {
                 new Definition.MethodDefinition("ordinal", "()I"),
                 new Definition.MethodDefinition("name", "()Ljava/lang/String;")));
 
-        var isJava17Plus = TestSystemProperties.javaVersion >= 17;
-
-        if (isJava17Plus) {
-            assertThat(result.methods.keySet()).contains(
-                    new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;", true)
-            );
-            assertThat(result.methods.size()).isEqualTo(7);
-        } else {
-            assertThat(result.methods.size()).isEqualTo(6);
-        }
+        assertThat(result.methods.size()).isEqualTo(6);
 
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V")))
                 .isEmpty();
@@ -198,11 +189,6 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V", true)))
                 .isEmpty();
-
-        if (isJava17Plus) {
-            assertThat(result.methods.get(new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;", true)))
-                    .isEmpty();
-        }
     }
 
     @Test
