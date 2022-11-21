@@ -1,0 +1,5 @@
+group: com.athaydes.jbuild
+name: jbuild
+version: 0.8.0
+
+main-class: jbuild.cli.Main

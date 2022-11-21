@@ -63,6 +63,11 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
     }
 
     @Override
+    public boolean isLocalFileRetriever() {
+        return false;
+    }
+
+    @Override
     public CompletionStage<ArtifactResolution<HttpError>> retrieve(Artifact artifact) {
         if (VersionRange.isVersionRange(artifact.version)) {
             var range = VersionRange.parse(artifact.version);

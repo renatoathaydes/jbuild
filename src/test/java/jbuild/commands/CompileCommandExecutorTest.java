@@ -42,7 +42,7 @@ public class CompileCommandExecutorTest {
 
         var result = command.compile(
                 Set.of(src1.toString(), src2.toString()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.left(buildDir.toString()),
                 "",
                 "",
@@ -88,7 +88,7 @@ public class CompileCommandExecutorTest {
         // first, compile Foo into a simple class file
         var result = command.compile(
                 Set.of(src1.toString()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.left(buildDir.toString()),
                 "",
                 "",
@@ -100,7 +100,7 @@ public class CompileCommandExecutorTest {
         // then, compile Bar into a jar, using buildDir as its classpath
         result = command.compile(
                 Set.of(src2.toString()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.right(jar.toString()),
                 "",
                 buildDir.toString(),

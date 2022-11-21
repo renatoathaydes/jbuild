@@ -186,7 +186,7 @@ public class JavapOutputParserTest {
         } else {
             assertThat(result.methods.size()).isEqualTo(6);
         }
-
+        
         assertThat(result.methods.get(new Definition.MethodDefinition("\"<init>\"", "(Ljava/lang/String;I)V")))
                 .isEmpty();
 
@@ -198,11 +198,6 @@ public class JavapOutputParserTest {
 
         assertThat(result.methods.get(new Definition.MethodDefinition("static{}", "()V", true)))
                 .isEmpty();
-
-        if (isJava17Plus) {
-            assertThat(result.methods.get(new Definition.MethodDefinition("$values", "()[Lfoo/SomeEnum;", true)))
-                    .isEmpty();
-        }
     }
 
     @Test

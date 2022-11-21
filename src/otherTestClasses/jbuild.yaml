@@ -1,0 +1,6 @@
+source-dirs: [ java ]
+output-jar: ../../build/tests/other-tests.jar
+
+dependencies:
+    - my-test-classes:
+          path: ../myTestClasses

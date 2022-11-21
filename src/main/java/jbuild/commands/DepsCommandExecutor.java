@@ -9,6 +9,7 @@ import jbuild.maven.DependencyTree;
 import jbuild.maven.MavenPom;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
+import jbuild.util.Env;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,8 +33,6 @@ import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.union;
 
 public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
-
-    private static final int MAX_TREE_DEPTH = 100;
 
     private final JBuildLog log;
     private final MavenPomRetriever<Err> mavenPomRetriever;
@@ -96,7 +95,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             boolean includeOptionals,
             Set<Pattern> exclusions) {
         var dependencies = applyExclusionPatterns(pom.getDependencies(scopes, includeOptionals), exclusions);
-        var maxTreeDepthExceeded = transitive && chain.size() + 1 > MAX_TREE_DEPTH;
+        var maxTreeDepthExceeded = transitive && chain.size() + 1 > Env.MAX_DEPENDENCY_TREE_DEPTH;
 
         if (maxTreeDepthExceeded || dependencies.isEmpty()) {
             if (maxTreeDepthExceeded) {

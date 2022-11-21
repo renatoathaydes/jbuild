@@ -6,37 +6,42 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         java: [ 11, 17 ]
+        include:
+            - os: ubuntu-latest
+              oskind: linux
+            - os: macos-latest
+              oskind: macos
+            - os: windows-latest
+              oskind: windows
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-go@v3
+
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
 
-      - name: Install Task
-        run: go install github.com/go-task/task/v3/cmd/task@latest
+      - name: Download jb
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+            repo: 'renatoathaydes/jbuild-cli'
+            version: 'tags/0.3.0'
+            file: 'jb-0.3.0-${{ matrix.oskind }}.tar.gz'
+            target: jb.tar.gz
+
+      - name: Install jb
+        run: |
+              mkdir jb
+              tar xzf jb.tar.gz -C jb
         shell: bash
 
-      - name: Build and execute unit tests (Windows)
-        run: $HOME/go/bin/task test "SEP=;"
-        if: ${{ matrix.os == 'windows-latest' }}
+      - name: Build and execute unit tests
+        run: jb/bin/jb -p src/test test
         shell: bash
 
-      - name: Build and execute unit tests (non-Windows)
-        run: $HOME/go/bin/task test
-        if: ${{ matrix.os != 'windows-latest' }}
-        shell: bash
-
-      - name: Build and execute integration tests (Windows)
-        run: $HOME/go/bin/task integration-test "SEP=;"
-        if: ${{ matrix.os == 'windows-latest' }}
-        shell: bash
-
-      - name: Build and execute integration tests (non-Windows)
-        run: $HOME/go/bin/task integration-test
-        if: ${{ matrix.os != 'windows-latest' }}
+      - name: Build and execute integration tests
+        run: jb/bin/jb -p src/intTest test
         shell: bash
 
       - name: Test Report
@@ -44,5 +49,5 @@ jobs:
         if: success() || failure()
         with:
           name: JUnit Tests
-          path: out/test-reports/(test|integrationTest)/TEST-*.xml
+          path: build/test-reports/(test|intTest)/TEST-*.xml
           reporter: java-junit
