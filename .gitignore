@@ -1,5 +1,5 @@
 build/
-/*.iml
+*.iml
 /.idea/
 /.gradle/
 /.task/
