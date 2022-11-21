@@ -4,13 +4,13 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/com.athaydes.jbuild/jbuild.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22com.athaydes.jbuild%22%20AND%20a:%22jbuild%22)
 
-> This project is NOT READY for general usage, consider it in ALPHA for the moment!
-
 JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management and
 application's classpath verification.
 
 It consists of a simple CLI, so it can be used as a very handy command-line utility, but can also be used as a Java
 library, allowing JVM applications to manage other Java projects and dependencies themselves.
+
+> If you're looking for a full build system, have a look at [jb](https://github.com/renatoathaydes/jbuild-cli), which is built on top of JBuild!
 
 ## Features
 
@@ -48,6 +48,8 @@ Features that fully-fledged build tools like Maven and Gradle want to have, but 
 * configuration files (though JBuild may allow passing a file with CLI options in the future).
 * anything not directly related to building Java or other JVM language applications.
 * IDE integration (though JBuild makes it easy for IDEs to _see_ the classpath).
+
+With that said, JBuild can easily be used in a more complete build tool, which is exactly what I did with [jb](https://github.com/renatoathaydes/jbuild-cli).
 
 ## Dependency Management
 
@@ -152,29 +154,26 @@ and [the tests](src/test/java/jbuild/).
 
 ## Building
 
-[Task](https://taskfile.dev/usage/) is used to build JBuild. Task's role is basically to bootstrap JBuild,
-then invoke jbuild commands, caching the results of each task to avoid re-running command unnecessarily.
+The [jb](https://github.com/renatoathaydes/jbuild-cli) build tool is used to build JBuild.
 
-To compile the jbuild jar (invokes `javac` directly):
+`jb` is a small executable that embeds JBuild to provide a modern, complete Java build tool.
 
-```shell
-task compile
-```
+> To install `jb`, get the [jb tar ball](https://github.com/renatoathaydes/jbuild-cli/releases) and include `bin/jb` in your `PATH`.
 
-After that, JBuild can self-compile:
+To compile the jbuild jar:
 
 ```shell
-task self-compile
+jb
 ```
 
 To run unit tests.
 
 ```shell
-task test
+jb -p src/test test
 ```
 
 To run integration tests.
 
 ```shell
-task integration-test
+jb -p src/intTest test
 ```
