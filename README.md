@@ -10,7 +10,7 @@ application's classpath verification.
 It consists of a simple CLI, so it can be used as a very handy command-line utility, but can also be used as a Java
 library, allowing JVM applications to manage other Java projects and dependencies themselves.
 
-> If you're looking for a full build system, have a look at [jb](https://github.com/renatoathaydes/jbuild-cli), which is built on top of JBuild!
+> If you're looking for a full build system, have a look at [jb](https://github.com/renatoathaydes/jb), which is built on top of JBuild!
 
 ## Features
 
@@ -49,7 +49,7 @@ Features that fully-fledged build tools like Maven and Gradle want to have, but 
 * anything not directly related to building Java or other JVM language applications.
 * IDE integration (though JBuild makes it easy for IDEs to _see_ the classpath).
 
-With that said, JBuild can easily be used in a more complete build tool, which is exactly what I did with [jb](https://github.com/renatoathaydes/jbuild-cli).
+With that said, JBuild can easily be used in a more complete build tool, which is exactly what I did with [jb](https://github.com/renatoathaydes/jb).
 
 ## Dependency Management
 
@@ -154,11 +154,11 @@ and [the tests](src/test/java/jbuild/).
 
 ## Building
 
-The [jb](https://github.com/renatoathaydes/jbuild-cli) build tool is used to build JBuild.
+The [jb](https://github.com/renatoathaydes/jb) build tool is used to build JBuild.
 
 `jb` is a small executable that embeds JBuild to provide a modern, complete Java build tool.
 
-> To install `jb`, get the [jb tar ball](https://github.com/renatoathaydes/jbuild-cli/releases) and include `bin/jb` in your `PATH`.
+> To install `jb`, get the [jb tar ball](https://github.com/renatoathaydes/jb/releases) and include `bin/jb` in your `PATH`.
 
 To compile the jbuild jar:
 
