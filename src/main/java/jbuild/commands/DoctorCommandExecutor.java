@@ -149,10 +149,12 @@ public final class DoctorCommandExecutor {
         log.println("No classpath permutation could be found to satisfy all entrypoints, " +
                 "try a different classpath or entrypoint!");
 
-        return showClasspathErrors(results);
+        showClasspathErrors(results);
+
+        return null;
     }
 
-    private <T> T showClasspathErrors(Collection<ClasspathCheckResult> results) {
+    private void showClasspathErrors(Collection<ClasspathCheckResult> results) {
         for (var failureResult : results) {
             if (failureResult.aborted || failureResult.getErrors().isEmpty()) break;
             log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());

@@ -255,7 +255,6 @@ public final class Main {
                 }));
 
         latch.await();
-        treeLogger.close();
 
         var errorCause = anyError.get();
         if (errorCause != null) {

@@ -1,7 +1,6 @@
 package jbuild.cli;
 
 import jbuild.artifact.Artifact;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
 import jbuild.maven.Dependency;
@@ -19,9 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
@@ -29,40 +25,26 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.errors.JBuildException.ErrorCause.UNKNOWN;
 import static jbuild.maven.Scope.expandScopes;
+import static jbuild.util.AsyncUtils.runAsync;
 import static jbuild.util.CollectionUtils.sorted;
 
-final class DependencyTreeLogger implements AutoCloseable {
+final class DependencyTreeLogger {
 
     private static final String INDENT = "    ";
 
     private final JBuildLog log;
     private final DepsOptions options;
-    private final ExecutorService executor;
 
     DependencyTreeLogger(JBuildLog log, DepsOptions options) {
         this.log = log;
         this.options = options;
-        executor = Executors.newSingleThreadExecutor();
-    }
-
-    @Override
-    public void close() {
-        executor.shutdown();
-        try {
-            var ok = executor.awaitTermination(5, TimeUnit.SECONDS);
-            if (!ok) {
-                System.err.println("WARNING: Timeout waiting for DependencyTreeLogger to close");
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            throw new JBuildException("Interrupted while waiting for DependencyTreeLogger to close", UNKNOWN);
-        }
     }
 
     public void log(DependencyTree tree) {
-        executor.submit(() -> logTree(tree));
+        runAsync(() -> logTree(tree)).whenComplete((ok, err) -> {
+            if (err != null) log.print(err);
+        });
     }
 
     private void logTree(DependencyTree tree) {
@@ -96,7 +78,7 @@ final class DependencyTreeLogger implements AutoCloseable {
 
     private void logDependencyTreeAndLicenses(DependencyTree tree, Set<Dependency> deps) {
         var groupedDeps = deps.stream()
-                .collect(groupingBy(dep -> dep.scope));
+            .collect(groupingBy(dep -> dep.scope));
 
         var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
 
@@ -115,7 +97,7 @@ final class DependencyTreeLogger implements AutoCloseable {
                     dependencyCount = scopeDeps.size();
                 }
                 log.println(() -> "  " + dependencyCount + " " + scope +
-                        " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
         }
 
@@ -137,8 +119,8 @@ final class DependencyTreeLogger implements AutoCloseable {
                          String indent,
                          Scope scope) {
         var childByKey = dependencies.stream()
-                .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
-                        NonEmptyCollection::of, NonEmptyCollection::of));
+            .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
+                NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
             var isNew = !chain.contains(dep);
@@ -161,7 +143,7 @@ final class DependencyTreeLogger implements AutoCloseable {
                     for (var next : nextBranch) {
                         chain.add(next);
                         var nextDeps = next.root.pom
-                                .getDependencies(scope.transitiveScopes(), options.optional);
+                            .getDependencies(scope.transitiveScopes(), options.optional);
                         logTree(chain, next.dependencies, nextDeps, allLicenses, indent + INDENT, scope);
                         chain.remove(next);
                     }
@@ -177,21 +159,21 @@ final class DependencyTreeLogger implements AutoCloseable {
     private void logLicenses(Set<License> allLicenses) {
         log.println("All licenses listed (see https://spdx.org/licenses/ for more information):");
         allLicenses.stream()
-                .map(DependencyTreeLogger::licenseString)
-                .collect(toCollection(TreeSet::new))
-                .forEach(license -> log.println("  * " + license));
+            .map(DependencyTreeLogger::licenseString)
+            .collect(toCollection(TreeSet::new))
+            .forEach(license -> log.println("  * " + license));
     }
 
     private static String displayLicenses(Set<License> licenses) {
         return licenses.stream()
-                .map(lic -> '{' + licenseString(lic) + '}')
-                .collect(joining(", ", " [", "]"));
+            .map(lic -> '{' + licenseString(lic) + '}')
+            .collect(joining(", ", " [", "]"));
     }
 
     private static String displayDependency(String indent, Dependency dep, String displayVersion) {
         var version = displayVersion == null ? dep.artifact.version : displayVersion;
         return indent + "* " + ArtifactKey.of(dep.artifact).getCoordinates() + ':' + version + ' ' +
-                dependencyExtra(dep, false);
+            dependencyExtra(dep, false);
     }
 
     private static String dependencyExtra(Dependency dep) {
@@ -202,13 +184,13 @@ final class DependencyTreeLogger implements AutoCloseable {
         var classifier = dep.getClassifier();
         var type = dep.type;
         return (includeVersion ? ":" + dep.artifact.version + " " : "") +
-                "[" + dep.scope + "]" +
-                (dep.optional ? "[optional]" : "") +
-                (type == DependencyType.JAR ? "" : "(" + type.string() + ")") +
-                (classifier.isBlank() ? "" : "{" + classifier + "}") +
-                (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
-                        .map(ArtifactKey::getCoordinates)
-                        .collect(joining(", ", ":exclusions:[", "]")));
+            "[" + dep.scope + "]" +
+            (dep.optional ? "[optional]" : "") +
+            (type == DependencyType.JAR ? "" : "(" + type.string() + ")") +
+            (classifier.isBlank() ? "" : "{" + classifier + "}") +
+            (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
+                .map(ArtifactKey::getCoordinates)
+                .collect(joining(", ", ":exclusions:[", "]")));
     }
 
     private void logExtra(DependencyTree tree) {
@@ -232,7 +214,7 @@ final class DependencyTreeLogger implements AutoCloseable {
                 }
                 var dependencyCount = parent.getDependencies().size();
                 log.println(() -> "      " + dependencyCount + " " +
-                        " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
             parent = parent.getParentPom().orElse(null);
         }
@@ -241,12 +223,12 @@ final class DependencyTreeLogger implements AutoCloseable {
             log.println("    <empty>");
         } else {
             for (var dep : sorted(pom.getDependencyManagement().entrySet(),
-                    comparing(dep -> dep.getKey().getCoordinates()))) {
+                comparing(dep -> dep.getKey().getCoordinates()))) {
                 log.println(displayEntry(dep));
             }
             var dependencyCount = pom.getDependencyManagement().size();
             log.println(() -> "  " + dependencyCount + " " +
-                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+                " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
         }
     }
 
@@ -256,9 +238,9 @@ final class DependencyTreeLogger implements AutoCloseable {
             return displayDependency(INDENT, entry.getValue().first, null);
         }
         return INDENT + "* " + entry.getKey().getCoordinates() +
-                entry.getValue().stream()
-                        .map(DependencyTreeLogger::dependencyExtra)
-                        .collect(joining(", ", "{", "}"));
+            entry.getValue().stream()
+                .map(DependencyTreeLogger::dependencyExtra)
+                .collect(joining(", ", "{", "}"));
     }
 
     private static String licenseString(License license) {
@@ -386,11 +368,11 @@ final class DependencyTreeLogger implements AutoCloseable {
             var artifact = node.root.artifact;
             chain.add(artifact);
             var byVersion = chainByArtifactKey.computeIfAbsent(
-                    ArtifactKey.of(artifact),
-                    (ignore) -> new VersionsEntry()
+                ArtifactKey.of(artifact),
+                (ignore) -> new VersionsEntry()
             ).chainsByVersion.computeIfAbsent(
-                    artifact.version,
-                    (ignore) -> new ArrayList<>(2)
+                artifact.version,
+                (ignore) -> new ArrayList<>(2)
             );
             // only count if artifact is unique
             if (byVersion.isEmpty()) size++;
@@ -410,8 +392,8 @@ final class DependencyTreeLogger implements AutoCloseable {
 
         private static String chainString(List<Artifact> chain) {
             return chain.stream()
-                    .map(Artifact::getCoordinates)
-                    .collect(joining(" -> "));
+                .map(Artifact::getCoordinates)
+                .collect(joining(" -> "));
         }
 
         boolean contains(Dependency dependency) {
@@ -426,8 +408,8 @@ final class DependencyTreeLogger implements AutoCloseable {
                 var byVersion = entry.chainsByVersion;
                 if (byVersion.size() > 1) {
                     log.println("  The artifact " +
-                            key.groupId + ":" + key.artifactId +
-                            " is required with more than one version:");
+                        key.groupId + ":" + key.artifactId +
+                        " is required with more than one version:");
                     byVersion.forEach((version, chains) -> {
                         for (String chain : chains) {
                             log.println("    * " + version + " (" + chain + ")");

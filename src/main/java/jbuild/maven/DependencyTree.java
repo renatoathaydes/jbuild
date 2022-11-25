@@ -49,8 +49,8 @@ public final class DependencyTree {
                 result.add(dependency.root);
             }
             current = current.stream()
-                    .flatMap(c -> c.dependencies.stream())
-                    .collect(Collectors.toList());
+                .flatMap(c -> c.dependencies.stream())
+                .collect(Collectors.toList());
         }
     }
 
@@ -59,7 +59,7 @@ public final class DependencyTree {
      * <p>
      * A resolved dependency tree may be missing children in case any failed to resolve successfully.
      * To know which children should be in the list of dependencies, use
-     * {@link Dependency#}
+     * {@link MavenPom#getDependencies()}.
      *
      * @param artifact     the root of the tree
      * @param pom          of the given dependency

@@ -32,6 +32,7 @@ public final class MavenUtils {
     private enum XmlSingletons {
         INSTANCE;
 
+        @SuppressWarnings("ImmutableEnumChecker")
         private final DocumentBuilderFactory factory;
 
         XmlSingletons() {

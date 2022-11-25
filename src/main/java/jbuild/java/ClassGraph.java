@@ -232,18 +232,15 @@ public final class ClassGraph {
     }
 
     private static boolean isMethodIn(Stream<Method> methods, Definition.MethodDefinition methodDefinition) {
-        Iterable<Method> iterator = methods::iterator;
         var targetName = methodDefinition.name;
         var targetType = methodDefinition.type;
-        for (var javaMethod : iterator) {
+        return methods.anyMatch(javaMethod -> {
             if (javaMethod.getName().equals(targetName)) {
                 var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
-                if (methodType.equals(targetType)) {
-                    return true;
-                }
+                return methodType.equals(targetType);
             }
-        }
-        return false;
+            return false;
+        });
     }
 
     private static List<Class<?>> typeHierarchyOf(Class<?> type) {

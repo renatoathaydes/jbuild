@@ -8,7 +8,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -153,6 +155,38 @@ public final class AsyncUtils {
         return thread;
     });
 
+    @SuppressWarnings("FutureReturnValueIgnored")
+    public static <T> CompletionStage<T> getAsync(Supplier<T> supplier, ExecutorService service) {
+        var future = new CompletableFuture<T>();
+
+        service.submit(() -> {
+            try {
+                future.complete(supplier.get());
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+
+        return future;
+    }
+
+    @SuppressWarnings("FutureReturnValueIgnored")
+    public static CompletionStage<Void> runAsync(Runnable runnable) {
+        var future = new CompletableFuture<Void>();
+
+        scheduler.submit(() -> {
+            try {
+                runnable.run();
+                future.complete(null);
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+
+        return future;
+    }
+
+    @SuppressWarnings("FutureReturnValueIgnored")
     public static <T> CompletionStage<T> afterDelay(Duration delay, Supplier<CompletionStage<T>> futureGetter) {
         var future = new CompletableFuture<T>();
 

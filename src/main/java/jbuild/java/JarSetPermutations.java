@@ -80,7 +80,7 @@ public final class JarSetPermutations {
                 typesByJar.computeIfAbsent(jar, (ignore) -> new HashSet<>(32)).add(type);
                 var forbidden = forbiddenJarsByJar.computeIfAbsent(jar, (ignore) -> new HashSet<>(2));
                 for (var jar2 : jars) {
-                    if (jar != jar2) forbidden.add(jar2);
+                    if (!jar.equals(jar2)) forbidden.add(jar2);
                 }
             }
         });

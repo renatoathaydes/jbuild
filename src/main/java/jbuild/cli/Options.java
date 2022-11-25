@@ -673,7 +673,7 @@ final class CompileOptions {
         for (String arg : args) {
             if (waitingForClasspath) {
                 waitingForClasspath = false;
-                for (String part : arg.split("[;:]")) {
+                for (String part : arg.split("[;:]", -1)) {
                     if (part.isBlank()) continue;
                     if (classpath.length() > 0) {
                         classpath.append(File.pathSeparatorChar);
@@ -685,7 +685,7 @@ final class CompileOptions {
                 outputDir = arg;
             } else if (waitingForResources) {
                 waitingForResources = false;
-                for (String part : arg.split("[;:]")) {
+                for (String part : arg.split("[;:]", -1)) {
                     if (part.isBlank()) continue;
                     resourcesDirectories.add(part);
                 }

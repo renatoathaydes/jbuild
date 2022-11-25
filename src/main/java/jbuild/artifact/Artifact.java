@@ -81,7 +81,7 @@ public class Artifact implements WritableXml {
     }
 
     public static Artifact parseCoordinates(String artifact) {
-        var coordinates = artifact.split(":");
+        var coordinates = artifact.split(":", -1);
         String groupId = "", artifactId = "";
         if (coordinates.length > 1) {
             groupId = requireNonBlank(coordinates[0], "groupId");

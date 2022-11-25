@@ -374,7 +374,7 @@ public final class JavapOutputParser {
             type = classNameToTypeName(parts1[0]);
             methodPart = parts1[1];
         }
-        var parts2 = methodPart.split(":");
+        var parts2 = methodPart.split(":", -1);
         if (parts2.length != 2) {
             log.println(() -> "WARNING: unexpected javap method line, expected a ':' " +
                     "between name and type signature: '" + method + "'" + "\nLine: " + line);

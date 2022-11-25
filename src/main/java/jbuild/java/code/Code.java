@@ -68,9 +68,9 @@ public abstract class Code implements Describable {
          */
         public final String type;
 
-        public final Instruction instruction;
+        public final Field.Instruction instruction;
 
-        public Field(String typeName, String name, String type, Instruction instruction) {
+        public Field(String typeName, String name, String type, Field.Instruction instruction) {
             super(typeName);
             this.name = name;
             this.type = type;
@@ -156,13 +156,13 @@ public abstract class Code implements Describable {
         /**
          * The JVM instruction used in the method invocation.
          */
-        public final Instruction instruction;
+        public final Method.Instruction instruction;
 
         public Method(String typeName, String name, String type) {
-            this(typeName, name, type, Instruction.other);
+            this(typeName, name, type, Method.Instruction.other);
         }
 
-        public Method(String typeName, String name, String type, Instruction instruction) {
+        public Method(String typeName, String name, String type, Method.Instruction instruction) {
             super(typeName);
             this.name = name;
             this.type = type;
@@ -217,7 +217,7 @@ public abstract class Code implements Describable {
          * @return this {@link Method} converted to a {@link Definition}.
          */
         public Definition.MethodDefinition toDefinition() {
-            return new Definition.MethodDefinition(name, type, instruction == Instruction.invokestatic);
+            return new Definition.MethodDefinition(name, type, instruction == Method.Instruction.invokestatic);
         }
     }
 

@@ -44,7 +44,7 @@ public final class JavaTypeUtils {
     public static String classNameToTypeName(String className) {
         if (className.startsWith("\"")
                 // avoid converting already converted type names
-                || (isReferenceType(className))
+                || isReferenceType(className)
         ) return TextUtils.unquote(className);
         var result = new StringBuilder(className.length() + 4);
         if (className.endsWith("]")) {
@@ -334,8 +334,8 @@ public final class JavaTypeUtils {
 
         static TypeInfo from(String typeName) {
             var arrayDimensions = 0;
-            for (char c : typeName.toCharArray()) {
-                if (c == '[') arrayDimensions++;
+            for (int i = 0; i < typeName.length(); i++) {
+                if (typeName.charAt(i) == '[') arrayDimensions++;
                 else break;
             }
             var isReferenceType = typeName.charAt(arrayDimensions) == 'L';

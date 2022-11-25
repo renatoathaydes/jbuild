@@ -9,13 +9,6 @@ import java.util.function.Predicate;
  */
 public final class NoOp {
 
-    private static final Function<Object, Object> NULL_FUNCTION = (ignore) -> null;
-
-    private static final Predicate<Object> ALL_PREDICATE = (ignore) -> true;
-
-    private static final Consumer<Object> IGNORE_CONSUMER = (ignore) -> {
-    };
-
     /**
      * @param <A> any type
      * @param <B> any type
@@ -23,7 +16,7 @@ public final class NoOp {
      */
     @SuppressWarnings("unchecked")
     public static <A, B> Function<A, B> fun() {
-        return (Function<A, B>) NULL_FUNCTION;
+        return (Function<A, B>) NullFun.INSTANCE;
     }
 
     /**
@@ -32,7 +25,7 @@ public final class NoOp {
      */
     @SuppressWarnings("unchecked")
     public static <A> Predicate<A> all() {
-        return (Predicate<A>) ALL_PREDICATE;
+        return (Predicate<A>) AllPredicate.INSTANCE;
     }
 
     /**
@@ -41,6 +34,32 @@ public final class NoOp {
      */
     @SuppressWarnings("unchecked")
     public static <A> Consumer<A> ignore() {
-        return (Consumer<A>) IGNORE_CONSUMER;
+        return (Consumer<A>) IgnoreConsumer.INSTANCE;
+    }
+
+    private enum NullFun implements Function<Object, Object> {
+        INSTANCE;
+
+        @Override
+        public Object apply(Object o) {
+            return null;
+        }
+    }
+
+    private enum AllPredicate implements Predicate<Object> {
+        INSTANCE;
+
+        @Override
+        public boolean test(Object o) {
+            return true;
+        }
+    }
+
+    private enum IgnoreConsumer implements Consumer<Object> {
+        INSTANCE;
+
+        @Override
+        public void accept(Object o) {
+        }
     }
 }
