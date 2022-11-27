@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletionStage;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
@@ -41,8 +42,8 @@ final class DependencyTreeLogger {
         this.options = options;
     }
 
-    public void log(DependencyTree tree) {
-        runAsync(() -> logTree(tree)).whenComplete((ok, err) -> {
+    public CompletionStage<Void> log(DependencyTree tree) {
+        return runAsync(() -> logTree(tree)).whenComplete((ok, err) -> {
             if (err != null) log.print(err);
         });
     }

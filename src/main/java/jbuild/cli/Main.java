@@ -241,18 +241,16 @@ public final class Main {
         var depsCommandExecutor = createDepsCommandExecutor(options);
 
         depsCommandExecutor.fetchDependencyTree(
-                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
-                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
-                    try {
-                        if (err == null && ok.isPresent()) {
-                            treeLogger.log(ok.get());
-                        } else {
-                            reportErrors(anyError, artifact, err);
-                        }
-                    } finally {
-                        latch.countDown();
-                    }
-                }));
+                artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
+            .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
+                if (err == null && ok.isPresent()) {
+                    treeLogger.log(ok.get()).whenComplete((ok2, err2) -> latch.countDown());
+                } else try {
+                    reportErrors(anyError, artifact, err);
+                } finally {
+                    latch.countDown();
+                }
+            }));
 
         latch.await();
 
