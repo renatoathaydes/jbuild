@@ -482,17 +482,17 @@ public final class Main {
         try {
             exe.run();
         } catch (JBuildException e) {
-            exitWithError(e.getMessage(), e.getErrorCause(), startTime);
+            exitWithError(e.getMessage(), e.getErrorCause(), startTime, quiet);
         } catch (ExecutionException e) {
             var cause = e.getCause();
             if (cause instanceof JBuildException) {
-                exitWithError(cause.getMessage(), ((JBuildException) cause).getErrorCause(), startTime);
+                exitWithError(cause.getMessage(), ((JBuildException) cause).getErrorCause(), startTime, quiet);
             }
             e.printStackTrace(log.out);
-            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
+            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime, quiet);
         } catch (Exception e) {
             e.printStackTrace(log.out);
-            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime);
+            exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime, quiet);
         }
         if (!quiet) {
             log.println(() -> "JBuild success in " + time(startTime) + "!");
@@ -512,11 +512,13 @@ public final class Main {
         return artifacts;
     }
 
-    private void exitWithError(String message, ErrorCause cause, long startTime) {
+    private void exitWithError(String message, ErrorCause cause, long startTime, boolean quiet) {
         log.print("ERROR: ");
         log.println(message);
-        log.println(() -> "JBuild failed in " + time(startTime) +
-                "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
+        if (!quiet) {
+            log.println(() -> "JBuild failed in " + time(startTime) +
+                              "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
+        }
         exit.accept(exitCode(cause));
     }
 
