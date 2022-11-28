@@ -277,7 +277,7 @@ public final class Main {
 
         installCommandExecutor.installDependencyTree(
                 artifacts, installOptions.scopes, installOptions.optional, installOptions.transitive,
-                installOptions.exclusions
+                installOptions.exclusions, installOptions.checksum
         ).whenComplete((successCount, err) -> {
             try {
                 if (err == null) {
@@ -336,7 +336,7 @@ public final class Main {
         var latch = new CountDownLatch(artifacts.size());
         var anyError = new AtomicReference<ErrorCause>();
 
-        createFetchCommandExecutor(options).fetchArtifacts(artifacts, fileWriter)
+        createFetchCommandExecutor(options).fetchArtifacts(artifacts, fileWriter, true)
                 .forEach((artifact, completion) -> completion.whenComplete((ok, err) -> {
                     try {
                         if (err != null || ok.isEmpty()) {

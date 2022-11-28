@@ -1,18 +1,27 @@
 package jbuild.commands;
 
 import jbuild.artifact.Artifact;
+import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyTree;
+import jbuild.maven.ResolvedDependency;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.stream.Collectors.toList;
@@ -48,16 +57,15 @@ public final class InstallCommandExecutor {
             EnumSet<Scope> scopes,
             boolean optional,
             boolean transitive,
-            Set<Pattern> exclusions) {
-        var pomRetriever = new MavenPomRetriever<>(log, fetchCommand, writer);
-
-        var depsCommand = new DepsCommandExecutor<>(log, pomRetriever);
+            Set<Pattern> exclusions,
+            boolean checksum) {
+        var depsCommand = new DepsCommandExecutor<>(log, new MavenPomRetriever<>(log, fetchCommand, writer));
 
         return awaitValues(
                 depsCommand.fetchDependencyTree(artifacts, scopes, transitive, optional, exclusions)
                         .values().stream()
                         .map((completion) -> completion.thenCompose(tree ->
-                                tree.map(this::install).orElseGet(() ->
+                                tree.map(a -> install(a, checksum)).orElseGet(() ->
                                         completedStage(0L))))
                         .collect(toList())
         ).thenApply(this::groupErrors)
@@ -71,27 +79,93 @@ public final class InstallCommandExecutor {
                 .collect(toList());
     }
 
-    private CompletionStage<Long> install(DependencyTree tree) {
+    private CompletionStage<Long> install(DependencyTree tree, boolean checksum) {
         var treeSet = tree.toSet().stream()
-                .map(dep -> dep.artifact.withExtension(extensionOfPackaging(dep.pom.getPackaging())))
+                .flatMap(dep -> artifactsToFetchFrom(dep, checksum))
                 .collect(toSet());
 
         log.verbosePrintln(() -> "Will install " + treeSet.size() +
                 " artifact" + (treeSet.size() == 1 ? "" : "s") + " at " + writer.getDestination());
 
         return awaitValues(
-                fetchCommand.fetchArtifacts(treeSet, writer)
-                        .entrySet().stream().map(entry -> entry.getValue()
-                                .thenApply(resolved -> {
-                                    if (resolved.isEmpty()) {
-                                        log.println(() -> "Failed to fetch " + entry.getKey());
-                                        return false;
-                                    }
-                                    return true; // success
-                                })).collect(toList())
-        ).thenApply(results -> results.stream()
-                .filter(res -> res.map(isSuccess -> isSuccess, err -> false))
-                .count());
+                fetchCommand.fetchArtifacts(treeSet, writer, false)
+        ).thenApply(results -> checkResultsCountingSuccess(results, checksum));
+    }
+
+    private long checkResultsCountingSuccess(
+            Map<Artifact, Either<Optional<ResolvedArtifact>, Throwable>> results,
+            boolean checksum) {
+        if (checksum) {
+            return verifyChecksumCountingSuccess(results);
+        }
+        long successCount = 0;
+        for (var entry : results.entrySet()) {
+            var resolvedCount = entry.getValue().map(ok -> ok.map(a -> 1).orElse(0), err -> 0);
+            successCount += resolvedCount;
+            if (resolvedCount == 0) {
+                log.println(() -> "Failed to fetch " + entry.getKey().getCoordinates());
+            }
+        }
+        return successCount;
+    }
+
+    private long verifyChecksumCountingSuccess(
+            Map<Artifact, Either<Optional<ResolvedArtifact>, Throwable>> results) {
+        class Sha1 {
+            byte[] actual;
+            byte[] expected;
+        }
+
+        long successCount = 0;
+        var checksumByArtifact = new HashMap<Artifact, Sha1>(results.size() / 2);
+
+        for (var e : results.entrySet()) {
+            var resolved = e.getValue().map(ok -> ok.orElse(null), err -> null);
+            if (resolved != null) {
+                var sha1 = checksumByArtifact.computeIfAbsent(e.getKey().noSha1(), ignore -> new Sha1());
+                if (resolved.artifact.isSha1()) {
+                    sha1.expected = resolved.consumeContentsToArray();
+                } else {
+                    sha1.actual = computeSha1(resolved.consumeContentsToArray());
+                }
+            }
+        }
+
+        for (var entry : checksumByArtifact.entrySet()) {
+            var artifact = entry.getKey();
+            var sha1 = entry.getValue();
+            if (sha1.actual != null && sha1.expected != null) {
+                if (Arrays.equals(sha1.actual, sha1.expected)) {
+                    successCount++;
+                    log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() + "'s checksum successfully verified.");
+                } else {
+                    log.println("WARNING: Checksum of " + artifact.getCoordinates() + " does not match expected value.");
+                }
+            } else {
+                log.println("WARNING: Artifact " + artifact.getCoordinates() + "'s checksum could not be verified.");
+            }
+        }
+
+        return successCount;
+    }
+
+    private static byte[] computeSha1(byte[] contents) {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-1");
+        } catch (NoSuchAlgorithmException e) {
+            // the JVM must provide the SHA-1 algorithm, so just re-throw if something is wrong!
+            throw new RuntimeException(e);
+        }
+        return digest.digest(contents);
+    }
+
+    private static Stream<Artifact> artifactsToFetchFrom(ResolvedDependency dep, boolean checksum) {
+        var mainArtifact = dep.artifact.withExtension(extensionOfPackaging(dep.pom.getPackaging()));
+        if (checksum && !mainArtifact.isSha1()) {
+            return Stream.of(mainArtifact, mainArtifact.sha1());
+        }
+        return Stream.of(mainArtifact);
     }
 
 }

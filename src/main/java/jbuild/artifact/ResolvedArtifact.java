@@ -83,8 +83,20 @@ public final class ResolvedArtifact {
      * @return an in-memory {@link InputStream} with the resolved contents of this artifact.
      */
     public InputStream consumeContents() {
+        return new ByteArrayInputStream(consumeContentsToArray());
+    }
+
+    /**
+     * Consume the contents of this artifact.
+     * <p>
+     * After this method is called, the contents of this artifact will be "forgotten" and attempting
+     * to read its contents again will result in an {@link IllegalStateException} being thrown.
+     *
+     * @return the resolved contents of this artifact.
+     */
+    public byte[] consumeContentsToArray() {
         var c = getContents();
         contents = null;
-        return new ByteArrayInputStream(c);
+        return c;
     }
 }

@@ -136,12 +136,13 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
     public Map<Artifact, CompletionStage<Optional<ResolvedArtifact>>> fetchArtifacts(
             Set<? extends Artifact> artifacts,
-            ArtifactFileWriter fileWriter) {
+            ArtifactFileWriter fileWriter,
+            boolean consumeArtifacts) {
         // first stage: run all retrievers and output handlers, accumulating the results for each artifact
         var fetchCompletions = fetchArtifacts(
                 artifacts,
                 (requestedArtifact, resolution) -> resolution.value.map(
-                        success -> handleResolved(fileWriter, success),
+                        success -> handleResolved(fileWriter, success, consumeArtifacts),
                         this::handleRetrievalError
                 ).thenApply(res -> continueIf(res.map(ok -> false, err -> true), res)));
 
@@ -178,12 +179,13 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
 
     private CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> handleResolved(
             ArtifactFileWriter fileWriter,
-            ResolvedArtifact resolvedArtifact) {
+            ResolvedArtifact resolvedArtifact,
+            boolean consumeArtifacts) {
         var requestDuration = Duration.ofMillis(System.currentTimeMillis() - resolvedArtifact.requestTime);
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved (" +
                 resolvedArtifact.contentLength + " bytes) from " +
                 resolvedArtifact.retriever.getDescription() + " in " + durationText(requestDuration));
-        return fileWriter.write(resolvedArtifact, true).thenApply(result -> result.map(files -> {
+        return fileWriter.write(resolvedArtifact, consumeArtifacts).thenApply(result -> result.map(files -> {
             for (var file : files) {
                 log.verbosePrintln(() -> "Wrote artifact " + resolvedArtifact.artifact + " to " + file.getPath());
             }

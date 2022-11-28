@@ -58,6 +58,27 @@ public class Artifact implements WritableXml {
         return withExtension("jar");
     }
 
+    public Artifact sha1() {
+        if (extension.isBlank()) {
+            return withExtension("sha1");
+        } else if (!extension.endsWith(".sha1")) {
+            return withExtension(extension + ".sha1");
+        }
+        return this;
+    }
+
+    public Artifact noSha1() {
+        if (isSha1()) {
+            var ext = "sha1".equals(extension) ? "" : extension.substring(0, extension.length() - "sha".length());
+            return withExtension(ext);
+        }
+        return this;
+    }
+
+    public boolean isSha1() {
+        return extension.endsWith("sha1");
+    }
+
     public Artifact withExtension(String ext) {
         if (ext.equals(extension)) {
             return this;

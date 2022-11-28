@@ -318,31 +318,33 @@ final class InstallOptions {
         "        -r <dir>  (Maven repository root) output directory." + LINE_END +
         "        --non-transitive" + LINE_END +
         "        -n        install direct dependencies only." + LINE_END +
-        "        --maven-local" + LINE_END +
-        "        -m        Install (also) on the local Maven repository (~/.m2/repository)." + LINE_END +
-        "        --optional" + LINE_END +
-        "        -O        include optional dependencies." + LINE_END +
-        "        --scope" + LINE_END +
-        "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
-        "                  The runtime scope is used by default." + LINE_END +
-        "        --exclusion" + LINE_END +
-        "        -x <regex> dependency exclusion regex pattern, matches against coordinates" + LINE_END +
-        "                   (can be passed more than once)." + LINE_END +
-        "      Note:" + LINE_END +
-        "        The --directory and --repository options are mutually exclusive." + LINE_END +
-        "        If the --maven-local flag is used, then artifacts are installed at ~/.m2/repository" + LINE_END +
-        "        (or MAVEN_HOME) and any other location given." + LINE_END +
-        "        The --non-transitive option cannot be used together with the --maven-local option." + LINE_END +
-        "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
-        "      Example:" + LINE_END +
-        "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0";
+            "        --maven-local" + LINE_END +
+            "        -m        Install (also) on the local Maven repository (~/.m2/repository)." + LINE_END +
+            "        --optional" + LINE_END +
+            "        -O        include optional dependencies." + LINE_END +
+            "        --scope" + LINE_END +
+            "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
+            "                  The runtime scope is used by default." + LINE_END +
+            "        --exclusion" + LINE_END +
+            "        -x <regex> dependency exclusion regex pattern, matches against coordinates" + LINE_END +
+            "                   (can be passed more than once)." + LINE_END +
+            "        -c" + LINE_END +
+            "        --checksum download and verify the checksum of all artifacts." + LINE_END +
+            "      Note:" + LINE_END +
+            "        The --directory and --repository options are mutually exclusive." + LINE_END +
+            "        If the --maven-local flag is used, then artifacts are installed at ~/.m2/repository" + LINE_END +
+            "        (or MAVEN_HOME) and any other location given." + LINE_END +
+            "        The --non-transitive option cannot be used together with the --maven-local option." + LINE_END +
+            "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0";
 
     final Set<String> artifacts;
     final Set<Pattern> exclusions;
     final EnumSet<Scope> scopes;
     final String outDir;
     final String repoDir;
-    final boolean optional, transitive, mavenLocal;
+    final boolean optional, transitive, mavenLocal, checksum;
 
     InstallOptions(Set<String> artifacts,
                    Set<Pattern> exclusions,
@@ -351,7 +353,8 @@ final class InstallOptions {
                    String repoDir,
                    boolean optional,
                    boolean transitive,
-                   boolean mavenLocal) {
+                   boolean mavenLocal,
+                   boolean checksum) {
         this.artifacts = artifacts;
         this.exclusions = exclusions;
         this.scopes = scopes;
@@ -360,6 +363,7 @@ final class InstallOptions {
         this.optional = optional;
         this.transitive = transitive;
         this.mavenLocal = mavenLocal;
+        this.checksum = checksum;
     }
 
     static InstallOptions parse(List<String> args, boolean verbose) {
@@ -369,11 +373,13 @@ final class InstallOptions {
         var optional = false;
         String outDir = null, repoDir = null;
         boolean expectScope = false,
-            expectOutDir = false,
-            expectRepoDir = false,
-            expectExclusion = false,
-            transitive = true,
-            mavenLocal = false;
+                expectOutDir = false,
+                expectRepoDir = false,
+                expectExclusion = false,
+                transitive = true,
+                mavenLocal = false,
+                checksum = false;
+
         for (String arg : args) {
             if (expectScope) {
                 expectScope = false;
@@ -381,7 +387,7 @@ final class InstallOptions {
                     scopes.add(Scope.valueOf(arg.toUpperCase(Locale.ROOT)));
                 } catch (IllegalArgumentException e) {
                     throw new JBuildException("invalid scope value: '" + arg +
-                        "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
+                            "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
                 }
             } else if (expectOutDir) {
                 expectOutDir = false;
@@ -418,13 +424,15 @@ final class InstallOptions {
                     expectRepoDir = true;
                 } else if (isEither(arg, "-m", "--maven-local")) {
                     mavenLocal = true;
+                } else if (isEither(arg, "-c", "--checksum")) {
+                    checksum = true;
                 } else if (isEither(arg, "-n", "--non-transitive")) {
                     transitive = false;
                 } else if (isEither(arg, "-x", "--exclusion")) {
                     expectExclusion = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -453,7 +461,7 @@ final class InstallOptions {
         }
 
         return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
-            scopes, outDir, repoDir, optional, transitive, mavenLocal);
+                scopes, outDir, repoDir, optional, transitive, mavenLocal, checksum);
     }
 
 }
