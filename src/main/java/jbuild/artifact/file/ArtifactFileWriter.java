@@ -1,5 +1,6 @@
 package jbuild.artifact.file;
 
+import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.commands.MavenPomRetriever;
 import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
@@ -62,12 +63,12 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
         if (resolvedArtifact.retriever.isLocalFileRetriever()) {
             try {
                 var source = resolvedArtifact.retriever.computeFileLocation(resolvedArtifact).getCanonicalPath();
-                var target = computeFileLocation(resolvedArtifact).getCanonicalPath();
+                var target = computeFileLocation(resolvedArtifact.artifact).getCanonicalPath();
                 return source.equals(target);
             } catch (IOException e) {
                 throw new JBuildException("Unable to compute resolved artifact '" +
-                    resolvedArtifact.artifact.getCoordinates() + "'s canonical path due to " + e,
-                    JBuildException.ErrorCause.IO_READ);
+                        resolvedArtifact.artifact.getCoordinates() + "'s canonical path due to " + e,
+                        JBuildException.ErrorCause.IO_READ);
             }
         }
         return false;
@@ -78,7 +79,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
             return completedStage(Either.left(List.of()));
         }
 
-        var file = computeFileLocation(resolvedArtifact);
+        var file = computeFileLocation(resolvedArtifact.artifact);
 
         // this may return false if the dir already exists or if running in parallel with another call that
         // creates this dir before us, so we cannot check the result here.
@@ -87,7 +88,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
 
         if (!file.getParentFile().isDirectory()) {
             return completedStage(
-                Either.right(Describable.of("unable to create directory at " + file.getParent())));
+                    Either.right(Describable.of("unable to create directory at " + file.getParent())));
         }
 
         return AsyncUtils.getAsync(() -> {
@@ -107,13 +108,24 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
                     return Either.left(List.of(file));
                 } catch (IOException e) {
                     return Either.right(Describable.of(
-                        "unable to write to file " + file + " due to " + e));
+                            "unable to write to file " + file + " due to " + e));
                 }
             } catch (IOException e) {
                 return Either.right(Describable.of(
-                    "unable to open file " + file + " for writing due to " + e));
+                        "unable to open file " + file + " for writing due to " + e));
             }
         }, writerExecutor);
+    }
+
+    /**
+     * Delete an artifact.
+     *
+     * @param artifact artifact to delete
+     * @return true if deleted, false otherwise
+     */
+    public boolean delete(Artifact artifact) {
+        var file = computeFileLocation(artifact);
+        return file.delete();
     }
 
     @Override
@@ -122,7 +134,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
             case MAVEN_REPOSITORY:
                 // POMs are written to Maven repositories
                 return write(resolvedArtifact, false)
-                    .thenCompose(ignore -> DefaultPomCreator.INSTANCE.createPom(resolvedArtifact, consume));
+                        .thenCompose(ignore -> DefaultPomCreator.INSTANCE.createPom(resolvedArtifact, consume));
             case FLAT_DIR:
                 // POMs are not written to flat directories
                 return DefaultPomCreator.INSTANCE.createPom(resolvedArtifact, consume);
@@ -136,14 +148,13 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
         writerExecutor.shutdownNow();
     }
 
-    private File computeFileLocation(ResolvedArtifact resolvedArtifact) {
+    private File computeFileLocation(Artifact artifact) {
         switch (mode) {
             case FLAT_DIR:
-                return new File(directory, resolvedArtifact.artifact.toFileName());
+                return new File(directory, artifact.toFileName());
             case MAVEN_REPOSITORY:
-                var artifact = resolvedArtifact.artifact;
                 return Path.of(
-                    directory.getPath(), standardArtifactPath(artifact, true)
+                        directory.getPath(), standardArtifactPath(artifact, true)
                 ).toFile();
             default:
                 throw new IllegalStateException("unknown enum variant: " + mode);

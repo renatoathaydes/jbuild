@@ -39,9 +39,57 @@ public class ArtifactTest {
         assertThat(new Artifact("g", "abc-def", "2.1")
                 .withExtension("pom").toFileName())
                 .isEqualTo("abc-def-2.1.pom");
-        assertThat(new Artifact("g", "abc-def", "2.1", "sources")
+        assertThat(new Artifact("g", "abc-def", "2.1", "", "sources")
                 .withExtension("jar").toFileName())
+                .isEqualTo("abc-def-2.1-sources.jar");
+    }
+
+    @Test
+    void withExtensionSha1() {
+        assertThat(new Artifact("g", "abc-def", "2.1", "")
+                .sha1().toFileName())
+                .isEqualTo("abc-def-2.1.jar.sha1");
+        assertThat(new Artifact("g", "abc-def", "2.1", "sha1")
+                .sha1().toFileName())
+                .isEqualTo("abc-def-2.1.sha1");
+        assertThat(new Artifact("g", "abc-def", "2.1", "", "sources")
+                .pom().sha1().toFileName())
+                .isEqualTo("abc-def-2.1-sources.pom.sha1");
+        assertThat(new Artifact("g", "abc-def", "2.1")
+                .pom().sha1().sha1().toFileName())
+                .isEqualTo("abc-def-2.1.pom.sha1");
+    }
+
+    @Test
+    void withExtensionNoSha1() {
+        assertThat(new Artifact("g", "abc-def", "2.1", "")
+                .noSha1().toFileName())
                 .isEqualTo("abc-def-2.1.jar");
+        assertThat(new Artifact("g", "abc-def", "2.1", "sha1")
+                .noSha1().toFileName())
+                .isEqualTo("abc-def-2.1.jar");
+        assertThat(new Artifact("g", "abc-def", "2.1", "", "sources")
+                .pom().sha1().noSha1().toFileName())
+                .isEqualTo("abc-def-2.1-sources.pom");
+        assertThat(new Artifact("g", "abc-def", "2.1")
+                .pom().sha1().sha1().noSha1().noSha1().toFileName())
+                .isEqualTo("abc-def-2.1.pom");
+    }
+
+    @Test
+    void isSha1() {
+        assertThat(new Artifact("g", "abc-def", "2.1").isSha1())
+                .isFalse();
+        assertThat(new Artifact("g", "abc-def", "2.1", "").isSha1())
+                .isFalse();
+        assertThat(new Artifact("g", "abc-def", "2.1")
+                .sha1().isSha1())
+                .isTrue();
+        assertThat(new Artifact("g", "abc-def", "2.1")
+                .pom().sha1().isSha1())
+                .isTrue();
+        assertThat(new Artifact("g", "abc-def", "2.1", "sha1").isSha1())
+                .isTrue();
     }
 
     @Test

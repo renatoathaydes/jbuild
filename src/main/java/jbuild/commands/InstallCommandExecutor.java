@@ -9,9 +9,8 @@ import jbuild.maven.ResolvedDependency;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
+import jbuild.util.SHA1;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -112,8 +111,13 @@ public final class InstallCommandExecutor {
     private long verifyChecksumCountingSuccess(
             Map<Artifact, Either<Optional<ResolvedArtifact>, Throwable>> results) {
         class Sha1 {
+            final ResolvedArtifact resolved;
             byte[] actual;
             byte[] expected;
+
+            Sha1(ResolvedArtifact resolved) {
+                this.resolved = resolved;
+            }
         }
 
         long successCount = 0;
@@ -122,11 +126,15 @@ public final class InstallCommandExecutor {
         for (var e : results.entrySet()) {
             var resolved = e.getValue().map(ok -> ok.orElse(null), err -> null);
             if (resolved != null) {
-                var sha1 = checksumByArtifact.computeIfAbsent(e.getKey().noSha1(), ignore -> new Sha1());
+                var sha1 = checksumByArtifact.computeIfAbsent(e.getKey().noSha1(), ignore -> new Sha1(resolved));
                 if (resolved.artifact.isSha1()) {
-                    sha1.expected = resolved.consumeContentsToArray();
+                    try {
+                        sha1.expected = SHA1.fromSha1StringBytes(resolved.consumeContentsToArray());
+                    } catch (IllegalArgumentException ignore) {
+                        log.println("WARNING: Checksum of " + resolved.artifact.getCoordinates() + " is invalid");
+                    }
                 } else {
-                    sha1.actual = computeSha1(resolved.consumeContentsToArray());
+                    sha1.actual = SHA1.computeSha1(resolved.consumeContentsToArray());
                 }
             }
         }
@@ -139,25 +147,20 @@ public final class InstallCommandExecutor {
                     successCount++;
                     log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() + "'s checksum successfully verified.");
                 } else {
-                    log.println("WARNING: Checksum of " + artifact.getCoordinates() + " does not match expected value.");
+                    log.println("ERROR: Checksum of " + artifact.getCoordinates() + " does not match expected value.");
+                    if (!writer.delete(sha1.resolved.artifact.noSha1())) {
+                        log.println("WARNING: Could not delete " + artifact.getCoordinates() +
+                                " (invalid checksum was detected - do not use installed files).");
+                    }
+                    writer.delete(sha1.resolved.artifact.sha1());
                 }
             } else {
-                log.println("WARNING: Artifact " + artifact.getCoordinates() + "'s checksum could not be verified.");
+                log.println("WARNING: Artifact " + artifact.getCoordinates() + "'s checksum could not be verified." +
+                        " actual=" + Arrays.toString(sha1.actual) + ", expected=" + Arrays.toString(sha1.expected));
             }
         }
 
         return successCount;
-    }
-
-    private static byte[] computeSha1(byte[] contents) {
-        MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException e) {
-            // the JVM must provide the SHA-1 algorithm, so just re-throw if something is wrong!
-            throw new RuntimeException(e);
-        }
-        return digest.digest(contents);
     }
 
     private static Stream<Artifact> artifactsToFetchFrom(ResolvedDependency dep, boolean checksum) {

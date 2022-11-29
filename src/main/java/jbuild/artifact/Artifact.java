@@ -59,7 +59,7 @@ public class Artifact implements WritableXml {
     }
 
     public Artifact sha1() {
-        if (extension.isBlank()) {
+        if (extension.isBlank() || "sha1".equals(extension)) {
             return withExtension("sha1");
         } else if (!extension.endsWith(".sha1")) {
             return withExtension(extension + ".sha1");
@@ -69,7 +69,8 @@ public class Artifact implements WritableXml {
 
     public Artifact noSha1() {
         if (isSha1()) {
-            var ext = "sha1".equals(extension) ? "" : extension.substring(0, extension.length() - "sha".length());
+            assert extension.equals("sha1") || extension.endsWith(".sha1");
+            var ext = "sha1".equals(extension) ? "" : extension.substring(0, extension.length() - ".sha1".length());
             return withExtension(ext);
         }
         return this;

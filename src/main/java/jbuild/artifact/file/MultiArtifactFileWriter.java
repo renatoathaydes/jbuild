@@ -1,5 +1,6 @@
 package jbuild.artifact.file;
 
+import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.maven.MavenPom;
 import jbuild.util.Describable;
@@ -52,6 +53,11 @@ public final class MultiArtifactFileWriter extends ArtifactFileWriter {
             default:
                 throw new IllegalStateException("Unhandled case: " + mode);
         }
+    }
+
+    @Override
+    public boolean delete(Artifact artifact) {
+        return super.delete(artifact) && secondWriter.delete(artifact);
     }
 
     @Override
