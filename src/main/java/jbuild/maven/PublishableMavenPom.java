@@ -3,20 +3,17 @@ package jbuild.maven;
 import jbuild.artifact.Artifact;
 import jbuild.errors.XmlWriterException;
 import jbuild.util.WritableXml;
+import jbuild.util.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
 import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.List;
+
+import static jbuild.util.XmlUtils.writeXml;
 
 public final class PublishableMavenPom implements WritableXml {
 
@@ -54,20 +51,18 @@ public final class PublishableMavenPom implements WritableXml {
      * @throws XmlWriterException on any non-IO errors
      */
     public void writeTo(OutputStream out) {
-        var factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder;
+        Document document;
         try {
-            builder = factory.newDocumentBuilder();
+            document = XmlUtils.XmlSingletons.INSTANCE.factory.newDocumentBuilder().newDocument();
         } catch (ParserConfigurationException e) {
             throw new XmlWriterException(e);
         }
-        var document = builder.newDocument();
         document.setXmlStandalone(true);
         var root = document.createElement("project");
         document.appendChild(root);
         addTo(root, document);
         try {
-            writeXml(document, out);
+            writeXml(document, out, true);
         } catch (TransformerException e) {
             throw new XmlWriterException(e);
         }
@@ -94,18 +89,6 @@ public final class PublishableMavenPom implements WritableXml {
             child.addTo(element, document);
         }
         return element;
-    }
-
-    private static void writeXml(Document doc,
-                                 OutputStream output) throws TransformerException {
-        var transformerFactory = TransformerFactory.newInstance();
-        transformerFactory.setAttribute("indent-number", 2);
-        var transformer = transformerFactory.newTransformer();
-        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-        var source = new DOMSource(doc);
-        var result = new StreamResult(output);
-        transformer.transform(source, result);
     }
 
 }

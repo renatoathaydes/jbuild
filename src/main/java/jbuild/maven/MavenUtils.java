@@ -2,10 +2,9 @@ package jbuild.maven;
 
 import jbuild.artifact.Artifact;
 import jbuild.util.NonEmptyCollection;
+import jbuild.util.XmlUtils;
 import org.xml.sax.SAXException;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
@@ -28,24 +27,6 @@ import static jbuild.util.TextUtils.firstNonBlank;
 public final class MavenUtils {
 
     public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2/";
-
-    private enum XmlSingletons {
-        INSTANCE;
-
-        @SuppressWarnings("ImmutableEnumChecker")
-        private final DocumentBuilderFactory factory;
-
-        XmlSingletons() {
-            factory = DocumentBuilderFactory.newInstance();
-            try {
-                factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            } catch (ParserConfigurationException e) {
-                throw new RuntimeException("Cannot parse XML without feature: " +
-                        XMLConstants.FEATURE_SECURE_PROCESSING);
-            }
-        }
-
-    }
 
     public static Path mavenHome() {
         var mavenHome = System.getenv("MAVEN_HOME");
@@ -106,7 +87,7 @@ public final class MavenUtils {
 
     public static MavenPom parsePom(InputStream stream)
             throws ParserConfigurationException, IOException, SAXException {
-        var db = XmlSingletons.INSTANCE.factory.newDocumentBuilder();
+        var db = XmlUtils.XmlSingletons.INSTANCE.factory.newDocumentBuilder();
         try (stream) {
             return new MavenPom(db.parse(stream));
         }
@@ -114,7 +95,7 @@ public final class MavenUtils {
 
     public static MavenArtifactMetadata parseMavenMetadata(InputStream stream)
             throws ParserConfigurationException, IOException, SAXException {
-        var db = XmlSingletons.INSTANCE.factory.newDocumentBuilder();
+        var db = XmlUtils.XmlSingletons.INSTANCE.factory.newDocumentBuilder();
         try (stream) {
             return new MavenArtifactMetadata(db.parse(stream));
         }
