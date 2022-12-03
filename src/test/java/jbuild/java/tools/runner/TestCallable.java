@@ -5,6 +5,14 @@ public class TestCallable {
         return "hello";
     }
 
+    int add(int a, int b) {
+        return a + b;
+    }
+
+    String add(int a, String s) {
+        return s + ": " + a;
+    }
+
     @Override
     public String toString() {
         return "TestCallable";

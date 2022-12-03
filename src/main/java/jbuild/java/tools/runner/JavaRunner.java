@@ -3,6 +3,7 @@ package jbuild.java.tools.runner;
 import jbuild.errors.JBuildException;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
@@ -48,13 +49,35 @@ public final class JavaRunner {
             }
         }
 
-        throw new JBuildException("Unable to find method that could be invoked with the provided arguments", USER_INPUT);
+        throw new JBuildException("Unable to find method that could be invoked with the provided arguments: " +
+                Arrays.toString(args), USER_INPUT);
     }
 
     private static boolean typesMatch(Class<?>[] acceptedTypes, Object[] args) {
         for (var i = 0; i < acceptedTypes.length; i++) {
-            if (!acceptedTypes[i].isInstance(args[i])) return false;
+            var acceptedType = acceptedTypes[i];
+            if (acceptedType.isPrimitive()) {
+                if (!typesMatchPrimitive(acceptedType, args[i])) {
+                    return false;
+                }
+            } else if (!acceptedType.isInstance(args[i])) {
+                return false;
+            }
         }
         return true;
     }
+
+    private static boolean typesMatchPrimitive(Class<?> primitiveType, Object arg) {
+        if (primitiveType.equals(int.class)) {
+            return arg instanceof Integer;
+        }
+        if (primitiveType.equals(double.class)) {
+            return arg instanceof Double;
+        }
+        if (primitiveType.equals(boolean.class)) {
+            return arg instanceof Boolean;
+        }
+        return false;
+    }
+
 }
