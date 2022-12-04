@@ -1,5 +1,7 @@
 package jbuild.java.tools.runner;
 
+import java.util.Arrays;
+
 public class TestCallable {
     String hello() {
         return "hello";
@@ -11,6 +13,10 @@ public class TestCallable {
 
     String add(int a, String s) {
         return s + ": " + a;
+    }
+
+    String varargs(double d, String... s) {
+        return Arrays.toString(s) + ": " + d;
     }
 
     @Override

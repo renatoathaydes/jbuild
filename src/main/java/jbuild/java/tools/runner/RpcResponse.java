@@ -5,10 +5,12 @@ import jbuild.errors.XmlWriterException;
 import jbuild.util.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Objects;
 
@@ -91,11 +93,21 @@ public final class RpcResponse {
             value.appendChild(document.createElement("int")).setTextContent(result.toString());
         } else if (result instanceof Double) {
             value.appendChild(document.createElement("double")).setTextContent(result.toString());
+        } else if (result.getClass().isArray()) {
+            addArrayValues(document, value.appendChild(document.createElement("array")), result);
         } else {
             throw new UnsupportedOperationException("Result of type " +
                     result.getClass().getName() + " is not supported");
         }
         return value;
+    }
+
+    private static void addArrayValues(Document document, Node array, Object value) {
+        var data = array.appendChild(document.createElement("data"));
+        var length = Array.getLength(value);
+        for (int i = 0; i < length; i++) {
+            data.appendChild(createValue(document, Array.get(value, i)));
+        }
     }
 
     private static int codeOf(Throwable fault) {

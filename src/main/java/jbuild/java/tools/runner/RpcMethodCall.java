@@ -4,6 +4,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
@@ -52,6 +53,10 @@ public final class RpcMethodCall {
     private static Object paramValue(Element element) {
         var value = childNamed("value", element)
                 .orElseThrow(() -> new IllegalArgumentException("Parameter missing value: " + element));
+        return extractValue(value);
+    }
+
+    private static Object extractValue(Element value) {
         var child = (Element) value.getFirstChild();
         switch (child.getTagName()) {
             case "string":
@@ -63,10 +68,88 @@ public final class RpcMethodCall {
                 return "1".equals(child.getTextContent());
             case "double":
                 return Double.parseDouble(child.getTextContent());
+            case "array":
+                return arrayValue(child);
             default:
-                throw new UnsupportedOperationException("parameter of type '" +
+                throw new UnsupportedOperationException("value of type '" +
                         child.getTagName() + "' is not supported");
         }
+    }
+
+    private static Object typedArray(List<Element> values, String type) {
+        switch (type) {
+            case "string": {
+                var result = new String[values.size()];
+                for (int i = 0; i < result.length; i++) {
+                    result[i] = (String) extractValue(values.get(i));
+                }
+                return result;
+            }
+            case "int":
+            case "i4": {
+                var result = new int[values.size()];
+                for (int i = 0; i < result.length; i++) {
+                    result[i] = (int) extractValue(values.get(i));
+                }
+                return result;
+            }
+            case "boolean": {
+                var result = new boolean[values.size()];
+                for (int i = 0; i < result.length; i++) {
+                    result[i] = (boolean) extractValue(values.get(i));
+                }
+                return result;
+            }
+            case "double": {
+                var result = new double[values.size()];
+                for (int i = 0; i < result.length; i++) {
+                    result[i] = (double) extractValue(values.get(i));
+                }
+                return result;
+            }
+            case "":
+            case "array": {
+                var result = new Object[values.size()];
+                for (int i = 0; i < result.length; i++) {
+                    result[i] = extractValue(values.get(i));
+                }
+                return result;
+            }
+            default:
+                throw new UnsupportedOperationException("value of type '" +
+                        type + "' is not supported");
+        }
+    }
+
+    private static Object arrayValue(Element array) {
+        var data = childNamed("data", array)
+                .orElseThrow(() -> new IllegalArgumentException("Array missing data: " + array));
+        var values = childrenNamed("value", data);
+        if (values.isEmpty()) return new Object[0];
+        return typedArray(values, peekType(values));
+    }
+
+    /**
+     * Peek the types of all elements in the values.
+     * <p>
+     * If they are all the same, the type is returned, otherwise an empty string is returned.
+     *
+     * @param values array values
+     * @return the type of all elements, or empty if not a singular type
+     */
+    private static String peekType(List<Element> values) {
+        String currentType = "";
+        for (Element value : values) {
+            var child = (Element) value.getFirstChild();
+            if (child == null) return "";
+            var type = child.getTagName();
+            if (currentType.isEmpty()) {
+                currentType = type;
+            } else if (!currentType.equals(type)) {
+                return "";
+            }
+        }
+        return currentType;
     }
 
     @Override

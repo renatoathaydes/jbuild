@@ -75,4 +75,27 @@ public class RpcCallerTest {
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
                 .isEqualTo("The answer is: 42");
     }
+
+    @Test
+    void canRunMethodWithVarargsArgument() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>varargs</methodName>\n" +
+                "    <params>\n" +
+                "      <param><value><double>1.23</double></value></param>" +
+                "      <param><value><array><data>" +
+                "        <value><string>arg1</string></value>" +
+                "        <value><string>arg2</string></value>" +
+                "        <value><string>arg3</string></value>" +
+                "        </data></array></value>" +
+                "      </param>" +
+                "    </params>\n" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo("[arg1, arg2, arg3]: 1.23");
+    }
 }
