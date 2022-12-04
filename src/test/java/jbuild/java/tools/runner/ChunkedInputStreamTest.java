@@ -36,7 +36,7 @@ public class ChunkedInputStreamTest {
         var string = "This is an example\nstring value!!".getBytes(UTF_8);
         var data = new byte[4 + string.length + 4];
         var bufferLength = ByteBuffer.allocate(4);
-        bufferLength.putInt(data.length);
+        bufferLength.putInt(string.length);
         System.arraycopy(bufferLength.array(), 0, data, 0, 4);
         System.arraycopy(string, 0, data, 4, string.length);
 
