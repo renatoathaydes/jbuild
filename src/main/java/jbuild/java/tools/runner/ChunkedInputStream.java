@@ -3,7 +3,6 @@ package jbuild.java.tools.runner;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 
 /**
  * An {@link InputStream} implementation that breaks up the delegate's stream into chunks.
@@ -15,7 +14,8 @@ import java.nio.ByteBuffer;
  * the last chunk, after which no more data will be read from the delegate stream.
  */
 public final class ChunkedInputStream extends FilterInputStream {
-    private final ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
+
+    private final LengthBuffer lengthBuffer = new LengthBuffer();
 
     // if null, a new chunk can be started on the next read operation.
     // if zero length, no more data should be read from the delegate.
@@ -26,7 +26,6 @@ public final class ChunkedInputStream extends FilterInputStream {
 
     public ChunkedInputStream(InputStream delegate) {
         super(delegate);
-        lengthBuffer.mark();
     }
 
     @Override
@@ -63,10 +62,9 @@ public final class ChunkedInputStream extends FilterInputStream {
                 nextChunk = new byte[0];
                 return;
             }
-            lengthBuffer.put(i, (byte) b);
+            lengthBuffer.put(i, b);
         }
         var length = lengthBuffer.getInt();
-        lengthBuffer.reset();
         if (length <= 0) {
             nextChunk = new byte[0];
             return;

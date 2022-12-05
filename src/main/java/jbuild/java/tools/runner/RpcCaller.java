@@ -6,6 +6,7 @@ import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -18,6 +19,7 @@ public final class RpcCaller {
 
     private final String defaultReceiverClassName;
     private final JavaRunner runner = new JavaRunner();
+    private final LengthBuffer lengthBuffer = new LengthBuffer();
 
     public RpcCaller(String defaultReceiverClassName) {
         this.defaultReceiverClassName = defaultReceiverClassName;
@@ -26,10 +28,14 @@ public final class RpcCaller {
     public void processStreams(InputStream input, OutputStream out) throws Exception {
         var chunkedInputStream = new ChunkedInputStream(input);
         var db = XmlUtils.XmlSingletons.INSTANCE.factory.newDocumentBuilder();
+        var tempOut = new ByteArrayOutputStream(4096);
         RpcResponse response;
         do {
             response = call(db, chunkedInputStream);
-            response.writeTo(out);
+            response.writeTo(tempOut);
+            lengthBuffer.write(tempOut.size(), out);
+            tempOut.writeTo(out);
+            tempOut.reset();
             out.write(new byte[]{(byte) '\n'});
         } while (!response.isError() && chunkedInputStream.nextChunk());
     }

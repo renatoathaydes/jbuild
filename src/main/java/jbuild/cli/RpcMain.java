@@ -52,6 +52,7 @@ public final class RpcMain implements Closeable, AutoCloseable {
     }
 
     private static JBuildLog createLogger(boolean verbose) {
-        return new JBuildLog(System.out, verbose);
+        // the only output to System.out should be the RPC messages
+        return new JBuildLog(System.err, verbose);
     }
 }
