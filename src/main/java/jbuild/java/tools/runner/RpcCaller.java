@@ -33,10 +33,12 @@ public final class RpcCaller {
         do {
             response = call(db, chunkedInputStream);
             response.writeTo(tempOut);
-            lengthBuffer.write(tempOut.size(), out);
+            // the length of the response + new-line
+            lengthBuffer.write(tempOut.size() + 1, out);
             tempOut.writeTo(out);
             tempOut.reset();
-            out.write(new byte[]{(byte) '\n'});
+            // flushes stdout
+            out.write('\n');
         } while (!response.isError() && chunkedInputStream.nextChunk());
     }
 

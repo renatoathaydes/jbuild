@@ -1,6 +1,7 @@
 package jbuild.cli;
 
 import jbuild.errors.JBuildException;
+import jbuild.java.tools.runner.JavaRunner;
 import jbuild.java.tools.runner.RpcCaller;
 import jbuild.log.JBuildLog;
 
@@ -31,7 +32,19 @@ public final class RpcMain implements Closeable, AutoCloseable {
         }
     }
 
-    public int run(String... args) throws ExecutionException, InterruptedException {
+    public Object run(String className, String methodName, Object... args)
+            throws ExecutionException, InterruptedException {
+        var completion = new CompletableFuture<>();
+        try {
+            new JavaRunner().run(className, methodName, args);
+        } catch (Throwable t) {
+            completion.completeExceptionally(t);
+        }
+        return completion.get();
+    }
+
+    public int runJBuild(String... args)
+            throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<Integer>();
         try {
             new Main(args, completion::complete, RpcMain::createLogger);
