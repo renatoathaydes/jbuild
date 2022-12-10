@@ -2,6 +2,7 @@ package jbuild.java.tools.runner;
 
 import jbuild.errors.JBuildException;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -103,6 +104,8 @@ public final class JavaRunner {
                 if (!typesMatchPrimitive(acceptedType, args[i])) {
                     return false;
                 }
+            } else if (acceptedType.isArray() && !arrayTypesMatch(acceptedType, args[i])) {
+                return false;
             } else if (!acceptedType.isInstance(args[i])) {
                 return false;
             }
@@ -123,6 +126,17 @@ public final class JavaRunner {
         return false;
     }
 
+    private static boolean arrayTypesMatch(Class<?> arrayType, Object arg) {
+        if (arg == null || !arg.getClass().isArray()) return false;
+        if (arrayType.isInstance(arg)) return true;
+        var componentType = arrayType.getComponentType();
+        for (var i = 0; i < Array.getLength(arg); i++) {
+            var element = Array.get(arg, i);
+            if (!componentType.isInstance(element)) return false;
+        }
+        return true;
+    }
+
     private String typesOf(Object[] args) {
         return Stream.of(args).map(a -> a == null ? "<null>" : a.getClass().getName())
                 .collect(joining(", "));
@@ -133,18 +147,20 @@ public final class JavaRunner {
         Object[] fixedArgs;
         switch (match.paramMatch) {
             case exact:
-                return match.method.invoke(object, args);
+                fixedArgs = fixArrayArgs(match.method.getParameterTypes(), args);
+                break;
             case varargsExact:
                 var lastArg = args[args.length - 1];
                 if (lastArg.getClass().isArray()) {
-                    return match.method.invoke(object, args);
+                    fixedArgs = fixArrayArgs(match.method.getParameterTypes(), args);
+                } else {
+                    // make the last arg an array, so it matches the varargs parameter
+                    fixedArgs = withLastArgAsArray(args, lastArg);
                 }
-                // make the last arg an array, so it matches the varargs parameter
-                fixedArgs = withLastArgAsArray(args, lastArg);
                 break;
             case varargsMissing:
                 // make the last arg an empty array, so it matches the varargs parameter
-                fixedArgs = addEmptyArrayAtEnd(args);
+                fixedArgs = addEmptyArrayAtEnd(match.method.getParameterTypes(), args);
                 break;
             case varargsExtra:
                 // extra args need to go in the last parameter array
@@ -173,11 +189,39 @@ public final class JavaRunner {
         return args;
     }
 
-    private static Object[] addEmptyArrayAtEnd(Object[] args) {
+    private static Object[] addEmptyArrayAtEnd(Class<?>[] parameterTypes, Object[] args) {
+        var varargsArg = convertArrayType(parameterTypes[parameterTypes.length - 1].getComponentType(),
+                                          new Object[0]);
         var result = new Object[args.length + 1];
-        result[result.length - 1] = new Object[0];
+        result[result.length - 1] = varargsArg;
         System.arraycopy(args, 0, result, 0, args.length);
         return result;
+    }
+
+    private static Object[] fixArrayArgs(Class<?>[] parameterTypes, Object[] args) {
+        assert parameterTypes.length == args.length;
+        for (var i = 0; i < args.length; i++) {
+            var paramType = parameterTypes[i];
+            if (paramType.isArray()) {
+                var arg = args[i];
+                if (arg != null) {
+                    assert arg.getClass().isArray();
+                    if (!paramType.isInstance(arg)) {
+                        args[i] = convertArrayType(paramType.getComponentType(), arg);
+                    }
+                }
+            }
+        }
+        return args;
+    }
+
+    private static Object convertArrayType(Class<?> componentType, Object arg) {
+        var length = Array.getLength(arg);
+        var array = Array.newInstance(componentType, length);
+        for (var i = 0; i < length; i++) {
+            Array.set(array, i, arg);
+        }
+        return array;
     }
 
 }

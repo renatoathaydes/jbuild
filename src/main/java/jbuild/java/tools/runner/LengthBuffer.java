@@ -3,6 +3,7 @@ package jbuild.java.tools.runner;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import jbuild.java.tools.runner.LengthBuffer;
 
 final class LengthBuffer {
     private final ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
