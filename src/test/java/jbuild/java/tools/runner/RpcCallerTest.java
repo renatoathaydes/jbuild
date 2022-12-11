@@ -59,6 +59,44 @@ public class RpcCallerTest {
     }
 
     @Test
+    void canRunMethodWithArrayArgument() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>run</methodName>\n" +
+                "    <params>\n" +
+                "        <param><value><array><data>\n" +
+                "        <value><string>hello</string></value>" +
+                "        <value><string>world</string></value>" +
+                "        </data></array></value>\n" +
+                "      </param>" +
+                "    </params>\n" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params")).isEqualTo("");
+    }
+
+    @Test
+    void canRunMethodWithEmptyArrayArgument() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>run</methodName>\n" +
+                "    <params>\n" +
+                "        <param><value><array><data>\n" +
+                "        </data></array></value>\n" +
+                "      </param>" +
+                "    </params>\n" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params")).isEqualTo("");
+    }
+
+    @Test
     void canRunMethodWithIntAndStringArguments() throws Exception {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
@@ -81,9 +119,12 @@ public class RpcCallerTest {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" + "<methodCall>\n"
                 + "    <methodName>varargs</methodName>\n" + "    <params>\n"
-                + "      <param><value><double>1.23</double></value></param>" + "      <param><value><array><data>"
-                + "        <value><string>arg1</string></value>" + "        <value><string>arg2</string></value>"
-                + "        <value><string>arg3</string></value>" + "        </data></array></value>" + "      </param>"
+                + "      <param><value><double>1.23</double></value></param>" +
+                "      <param><value><array><data>"
+                + "        <value><string>arg1</string></value>" +
+                "        <value><string>arg2</string></value>"
+                + "        <value><string>arg3</string></value>" +
+                "        </data></array></value>" + "      </param>"
                 + "    </params>\n" + "</methodCall>");
 
         var doc = response.toDocument();

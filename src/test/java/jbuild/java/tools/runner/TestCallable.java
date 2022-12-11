@@ -19,6 +19,9 @@ public class TestCallable {
         return Arrays.toString(s) + ": " + d;
     }
 
+    void run(String[] args) {
+    }
+
     @Override
     public String toString() {
         return "TestCallable";

@@ -104,8 +104,8 @@ public final class JavaRunner {
                 if (!typesMatchPrimitive(acceptedType, args[i])) {
                     return false;
                 }
-            } else if (acceptedType.isArray() && !arrayTypesMatch(acceptedType, args[i])) {
-                return false;
+            } else if (acceptedType.isArray()) {
+                if (!arrayTypesMatch(acceptedType, args[i])) return false;
             } else if (!acceptedType.isInstance(args[i])) {
                 return false;
             }
