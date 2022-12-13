@@ -481,8 +481,10 @@ public final class Main {
     }
 
     private void withErrorHandling(Executable exe, long startTime, boolean quiet) {
+        var isError = true;
         try {
             exe.run();
+            isError = false;
         } catch (JBuildException e) {
             exitWithError(e.getMessage(), e.getErrorCause(), startTime, quiet);
         } catch (ExecutionException e) {
@@ -496,7 +498,7 @@ public final class Main {
             e.printStackTrace(log.out);
             exitWithError(e.toString(), ErrorCause.UNKNOWN, startTime, quiet);
         }
-        if (!quiet) {
+        if (!isError && !quiet) {
             log.println(() -> "JBuild success in " + time(startTime) + "!");
         }
         exit.accept(0);
