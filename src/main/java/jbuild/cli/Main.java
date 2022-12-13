@@ -114,11 +114,13 @@ public final class Main {
 
         if (options.help || options.command.equals("help")) {
             showHelp(options);
+            exit.accept(0);
             return;
         }
 
         if (options.version || options.command.equals("version")) {
             System.out.print(options.quiet ? JBUILD_VERSION + LINE_END : JBUILD_HEADER);
+            exit.accept(0);
             return;
         }
 
