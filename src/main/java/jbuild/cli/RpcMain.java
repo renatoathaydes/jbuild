@@ -42,7 +42,7 @@ public final class RpcMain {
         System.out.println("" + server.getAddress().getPort());
 
         var rpcCaller = new RpcCaller(RpcMain.class.getName());
-        var serverContext = new JBuildHttpHandler(rpcCaller);
+        var serverContext = new JBuildHttpHandler(rpcCaller, server);
         server.createContext("/jbuild", serverContext);
 
         server.start();
@@ -94,9 +94,11 @@ public final class RpcMain {
     private static final class JBuildHttpHandler implements HttpHandler {
 
         private final RpcCaller rpcCaller;
+        private final HttpServer server;
 
-        public JBuildHttpHandler(RpcCaller rpcCaller) {
+        public JBuildHttpHandler(RpcCaller rpcCaller, HttpServer server) {
             this.rpcCaller = rpcCaller;
+            this.server = server;
         }
 
         @Override
@@ -111,6 +113,11 @@ public final class RpcMain {
                     out.reset();
                     out.write(("<?xml version=\"1.0\"?><error>" + e + "</error>").getBytes(UTF_8));
                 }
+            } else if ("DELETE".equals(exchange.getRequestMethod())) {
+                code = 200;
+                out.reset();
+                out.write("<?xml version=\"1.0\"?><ok></ok>".getBytes(UTF_8));
+                server.stop(1);
             } else {
                 code = 503;
                 out.write("<?xml version=\"1.0\"?><error>Only POST requests are accepted</error>".getBytes(UTF_8));
