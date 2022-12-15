@@ -11,6 +11,7 @@ import jbuild.log.JBuildLog;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -37,12 +38,19 @@ public final class RpcMain {
             return thread;
         });
 
+        // make sure to only serve RPC requests from the process that
+        // started this server.
+        var token = UUID.randomUUID().toString();
+
         var server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
         server.setExecutor(executor);
+
+        // the caller must read the first 2 lines: PORT and TOKEN
         System.out.println("" + server.getAddress().getPort());
+        System.out.println(token);
 
         var rpcCaller = new RpcCaller(RpcMain.class.getName());
-        var serverContext = new JBuildHttpHandler(rpcCaller, server);
+        var serverContext = new JBuildHttpHandler(rpcCaller, server, token);
         server.createContext("/jbuild", serverContext);
 
         server.start();
@@ -95,17 +103,22 @@ public final class RpcMain {
 
         private final RpcCaller rpcCaller;
         private final HttpServer server;
+        private final String token;
 
-        public JBuildHttpHandler(RpcCaller rpcCaller, HttpServer server) {
+        public JBuildHttpHandler(RpcCaller rpcCaller, HttpServer server, String token) {
             this.rpcCaller = rpcCaller;
             this.server = server;
+            this.token = token;
         }
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             var out = new ByteArrayOutputStream(4096);
             var code = 200;
-            if ("POST".equals(exchange.getRequestMethod())) {
+            if (!isGoodToken(exchange.getRequestHeaders().getFirst("Authorization"))) {
+                code = 403;
+                out.write("<?xml version=\"1.0\"?><error>Forbidden</error>".getBytes(UTF_8));
+            } else if ("POST".equals(exchange.getRequestMethod())) {
                 try {
                     rpcCaller.call(exchange.getRequestBody(), out);
                 } catch (Exception e) {
@@ -114,15 +127,20 @@ public final class RpcMain {
                     out.write(("<?xml version=\"1.0\"?><error>" + e + "</error>").getBytes(UTF_8));
                 }
             } else if ("DELETE".equals(exchange.getRequestMethod())) {
-                code = 200;
-                out.reset();
                 out.write("<?xml version=\"1.0\"?><ok></ok>".getBytes(UTF_8));
                 server.stop(1);
             } else {
-                code = 503;
-                out.write("<?xml version=\"1.0\"?><error>Only POST requests are accepted</error>".getBytes(UTF_8));
+                code = 405;
+                out.write("<?xml version=\"1.0\"?><error>Method not allowed</error>".getBytes(UTF_8));
             }
             send(exchange, code, out);
+        }
+
+        private boolean isGoodToken(String authorizationHeader) {
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                return token.equals(authorizationHeader.substring("Bearer ".length()));
+            }
+            return false;
         }
 
         private void send(HttpExchange exchange, int statusCode, ByteArrayOutputStream body) throws IOException {
