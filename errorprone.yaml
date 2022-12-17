@@ -13,4 +13,4 @@ javac-args:
     - -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
     - -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED
     - '-XDcompilePolicy=simple'
-    - '-Xplugin:ErrorProne -Xep:MissingSummary:OFF -Xep:EqualsGetClass:OFF'
+    - '-Xplugin:ErrorProne -Xep:MissingSummary:OFF -Xep:EqualsGetClass:OFF -Xep:EscapedEntity:OFF'

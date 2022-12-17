@@ -6,3 +6,5 @@ name: jbuild
 version: 0.8.0
 
 main-class: jbuild.cli.Main
+
+source-dirs: [ jbuild-api/src, src/main/java ]

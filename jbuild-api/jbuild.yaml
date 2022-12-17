@@ -1,0 +1,9 @@
+imports:
+    - ../errorprone.yaml
+
+group: com.athaydes.jbuild
+name: jbuild-api
+version: 0.8.0
+
+source-dirs: [ src ]
+output-dir: out
