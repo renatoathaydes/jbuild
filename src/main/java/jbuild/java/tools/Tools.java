@@ -95,6 +95,20 @@ public abstract class Tools {
          */
         public ToolRunResult run(String classpath, Collection<String> classNames) {
             var args = collectArgs(classpath, classNames);
+            var toolResult = tool.run(stdout(), stderr(), args);
+            return result(toolResult, args);
+        }
+
+        /**
+         * Run javap with the default flags used in JBuild.
+         * <p>
+         * The output can be piped into {@link jbuild.java.JavapOutputParser} for parsing.
+         *
+         * @param classFile the single class file to give to javap.
+         * @return result
+         */
+        public ToolRunResult run(String classFile) {
+            var args = collectArgs(classFile);
             var exitCode = tool.run(stdout(), stderr(), args);
             return result(exitCode, args);
         }
@@ -116,6 +130,12 @@ public abstract class Tools {
                 result[i++] = className;
             }
             return result;
+        }
+
+        private static String[] collectArgs(String classFile) {
+            return new String[] {
+                "-v", "-s", "-c", "-p", classFile
+            };
         }
 
     }

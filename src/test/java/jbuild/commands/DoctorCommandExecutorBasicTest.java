@@ -272,6 +272,7 @@ public class DoctorCommandExecutorBasicTest {
                 Set.of(),
                 Either.right(jar.toString()),
                 "",
+                false,
                 classpath,
                 List.of());
 

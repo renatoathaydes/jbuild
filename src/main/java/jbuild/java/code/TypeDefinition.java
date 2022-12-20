@@ -1,13 +1,14 @@
 package jbuild.java.code;
 
-import jbuild.java.JavaType;
-import jbuild.util.Describable;
-import jbuild.util.JavaTypeUtils;
+import static java.util.stream.Collectors.toSet;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static java.util.stream.Collectors.toSet;
+import jbuild.java.JavaType;
+import jbuild.util.Describable;
+import jbuild.util.JavaTypeUtils;
 
 /**
  * Definition of a Java type.
@@ -25,15 +26,18 @@ public final class TypeDefinition implements Describable {
     // but are only referenced from the constant table (see the "FunctionalCode" test class' "peek(log::debug)" ref).
     public final Set<Code.Method> usedMethodHandles;
     public final Map<Definition.MethodDefinition, Set<Code>> methods;
+    public final List<AnnotationValues> annotationValues;
 
     public TypeDefinition(JavaType type,
                           Set<Definition.FieldDefinition> fields,
                           Set<Code.Method> usedMethodHandles,
-                          Map<Definition.MethodDefinition, Set<Code>> methods) {
+                          Map<Definition.MethodDefinition, Set<Code>> methods,
+                          List<AnnotationValues> annotationValues) {
         this.type = type;
         this.fields = fields;
         this.usedMethodHandles = usedMethodHandles;
         this.methods = methods;
+        this.annotationValues = annotationValues;
 
         this.typeName = type.typeId.name;
         this.implementedInterfaces = type.interfaces.stream()

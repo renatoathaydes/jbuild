@@ -53,7 +53,7 @@ public class FileUtilsTest {
 
         assertThatThrownBy(() -> future.get(2, TimeUnit.SECONDS))
                 .isInstanceOfAny(ExecutionException.class)
-                .getCause()
+                .cause()
                 .isInstanceOfAny(NoSuchFileException.class)
                 .withFailMessage(file.toFile().getPath());
     }

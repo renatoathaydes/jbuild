@@ -62,12 +62,12 @@ final class Options {
 
     List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(JBuildLog log) {
         return repositories.stream()
-            .map(address -> {
-                if (TextUtils.isHttp(address)) {
-                    return new HttpArtifactRetriever(log, address);
-                }
-                return new FileArtifactRetriever(Paths.get(address));
-            }).collect(toList());
+                .map(address -> {
+                    if (TextUtils.isHttp(address)) {
+                        return new HttpArtifactRetriever(log, address);
+                    }
+                    return new FileArtifactRetriever(Paths.get(address));
+                }).collect(toList());
     }
 
     static Options parse(String[] args) {
@@ -80,7 +80,8 @@ final class Options {
 
         for (i = 0; i < args.length; i++) {
             String arg = args[i].trim();
-            if (arg.isEmpty()) continue;
+            if (arg.isEmpty())
+                continue;
             if (expectingRepository) {
                 expectingRepository = false;
                 repositories.add(arg);
@@ -100,7 +101,7 @@ final class Options {
                 help = true;
             } else {
                 throw new JBuildException("invalid root option: " + arg + "." +
-                                          (!quiet ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                        (!quiet ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
             }
         }
 
@@ -113,7 +114,8 @@ final class Options {
             commandArgs = new ArrayList<>(args.length - i);
             for (; i < args.length; i++) {
                 var arg = args[i].trim();
-                if (arg.isEmpty()) continue;
+                if (arg.isEmpty())
+                    continue;
                 if ("--".equals(arg)) {
                     i++;
                     break;
@@ -129,7 +131,8 @@ final class Options {
             applicationArgs = new ArrayList<>(args.length - i);
             for (; i < args.length; i++) {
                 var arg = args[i].trim();
-                if (arg.isEmpty()) continue;
+                if (arg.isEmpty())
+                    continue;
                 applicationArgs.add(args[i]);
             }
         } else {
@@ -147,28 +150,28 @@ final class FetchOptions {
     static final String DESCRIPTION = "fetches Maven artifacts";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    Fetches Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
-        "      Options:" + LINE_END +
-        "        --directory" + LINE_END +
-        "        -d <dir>  output directory (default: working directory)." + LINE_END +
-        "      Note:" + LINE_END +
-        "        Artifacts are declared using syntax:" +
-        "            groupId:artifactId[:version[:extension[:classifier]]]" + LINE_END +
-        "        If version is empty, the latest version is fetched." + LINE_END +
-        "        If extension is empty, 'jar' is used." + LINE_END +
-        "        Common classifiers are:" + LINE_END +
-        "          - javadoc - fetches javadocs jar." + LINE_END +
-        "          - sources - fetches Java sources jar." + LINE_END +
-        "        Common extensions are:" + LINE_END +
-        "          - jar      - the default." + LINE_END +
-        "          - pom      - to fetch a POM." + LINE_END +
-        "          - jar.asc  - the PGP signature for a jar." + LINE_END +
-        "          - jar.sha1 - the SHA1 checksum for a jar." + LINE_END +
-        "      Examples:" + LINE_END +
-        "        jbuild " + NAME + " -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
-        "        jbuild " + NAME + " junit:junit:::sources";
+            "    Fetches Maven artifacts from the local Maven repo or Maven Central." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d <dir>  output directory (default: working directory)." + LINE_END +
+            "      Note:" + LINE_END +
+            "        Artifacts are declared using syntax:" +
+            "            groupId:artifactId[:version[:extension[:classifier]]]" + LINE_END +
+            "        If version is empty, the latest version is fetched." + LINE_END +
+            "        If extension is empty, 'jar' is used." + LINE_END +
+            "        Common classifiers are:" + LINE_END +
+            "          - javadoc - fetches javadocs jar." + LINE_END +
+            "          - sources - fetches Java sources jar." + LINE_END +
+            "        Common extensions are:" + LINE_END +
+            "          - jar      - the default." + LINE_END +
+            "          - pom      - to fetch a POM." + LINE_END +
+            "          - jar.asc  - the PGP signature for a jar." + LINE_END +
+            "          - jar.sha1 - the SHA1 checksum for a jar." + LINE_END +
+            "      Examples:" + LINE_END +
+            "        jbuild " + NAME + " -d libs org.apache.commons:commons-lang3:3.12.0" + LINE_END +
+            "        jbuild " + NAME + " junit:junit:::sources";
 
     final Set<String> artifacts;
     final String outDir;
@@ -191,12 +194,12 @@ final class FetchOptions {
                 if (isEither(arg, "-d", "--directory")) {
                     if (outDir != null) {
                         throw new JBuildException("fetch option " + arg +
-                            " must not appear more than once", USER_INPUT);
+                                " must not appear more than once", USER_INPUT);
                     }
                     nextIsDir = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -214,23 +217,23 @@ final class DepsOptions {
     static final String DESCRIPTION = "lists dependencies of Maven artifacts";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    List the dependencies of the given artifacts." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
-        "      Options:" + LINE_END +
-        "        --extra" + LINE_END +
-        "        -e        show extra information from the POMs (e.g. dependency-management)." + LINE_END +
-        "        --licenses" + LINE_END +
-        "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
-        "        --optional" + LINE_END +
-        "        -O        include optional dependencies." + LINE_END +
-        "        --scope" + LINE_END +
-        "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
-        "                  All scopes are listed by default." + LINE_END +
-        "        --transitive" + LINE_END +
-        "        -t        include transitive dependencies." + LINE_END +
-        "      Example:" + LINE_END +
-        "        jbuild " + NAME + " com.google.guava:guava:31.0.1-jre junit:junit:4.13.2";
+            "    List the dependencies of the given artifacts." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --extra" + LINE_END +
+            "        -e        show extra information from the POMs (e.g. dependency-management)." + LINE_END +
+            "        --licenses" + LINE_END +
+            "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
+            "        --optional" + LINE_END +
+            "        -O        include optional dependencies." + LINE_END +
+            "        --scope" + LINE_END +
+            "        -s <scope> scope to include (can be passed more than once)." + LINE_END +
+            "                  All scopes are listed by default." + LINE_END +
+            "        --transitive" + LINE_END +
+            "        -t        include transitive dependencies." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " com.google.guava:guava:31.0.1-jre junit:junit:4.13.2";
 
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
@@ -240,11 +243,11 @@ final class DepsOptions {
     final boolean showExtra;
 
     DepsOptions(Set<String> artifacts,
-                EnumSet<Scope> scopes,
-                boolean transitive,
-                boolean optional,
-                boolean licenses,
-                boolean showExtra) {
+            EnumSet<Scope> scopes,
+            boolean transitive,
+            boolean optional,
+            boolean licenses,
+            boolean showExtra) {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.transitive = transitive;
@@ -257,7 +260,7 @@ final class DepsOptions {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
         boolean transitive = false, optional = false,
-            licenses = false, expectScope = false, showExtra = false;
+                licenses = false, expectScope = false, showExtra = false;
 
         for (String arg : args) {
             if (expectScope) {
@@ -266,7 +269,7 @@ final class DepsOptions {
                     scopes.add(Scope.valueOf(arg.toUpperCase(Locale.ROOT)));
                 } catch (IllegalArgumentException e) {
                     throw new JBuildException("invalid scope value: '" + arg +
-                        "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
+                            "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
                 }
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
@@ -281,7 +284,7 @@ final class DepsOptions {
                     showExtra = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
                 artifacts.add(arg);
@@ -293,7 +296,8 @@ final class DepsOptions {
         }
 
         // if no scopes are included explicitly, use all
-        if (scopes.isEmpty()) scopes = EnumSet.allOf(Scope.class);
+        if (scopes.isEmpty())
+            scopes = EnumSet.allOf(Scope.class);
 
         return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional, licenses, showExtra);
     }
@@ -306,18 +310,19 @@ final class InstallOptions {
     static final String DESCRIPTION = "installs Maven artifacts and dependencies into a flat dir or local Maven repo";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    Install Maven artifacts from local or remote Maven repositories." + LINE_END +
-        "    Unlike " + FetchOptions.NAME + ", install downloads artifacts and their dependencies, and can write" + LINE_END +
-        "    them into a flat directory or in the format of a Maven repository." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
-        "      Options:" + LINE_END +
-        "        --directory" + LINE_END +
-        "        -d <dir>  (flat) output directory (default: java-libs)." + LINE_END +
-        "        --repository" + LINE_END +
-        "        -r <dir>  (Maven repository root) output directory." + LINE_END +
-        "        --non-transitive" + LINE_END +
-        "        -n        install direct dependencies only." + LINE_END +
+            "    Install Maven artifacts from local or remote Maven repositories." + LINE_END +
+            "    Unlike " + FetchOptions.NAME + ", install downloads artifacts and their dependencies, and can write"
+            + LINE_END +
+            "    them into a flat directory or in the format of a Maven repository." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | artifact...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d <dir>  (flat) output directory (default: java-libs)." + LINE_END +
+            "        --repository" + LINE_END +
+            "        -r <dir>  (Maven repository root) output directory." + LINE_END +
+            "        --non-transitive" + LINE_END +
+            "        -n        install direct dependencies only." + LINE_END +
             "        --maven-local" + LINE_END +
             "        -m        Install (also) on the local Maven repository (~/.m2/repository)." + LINE_END +
             "        --optional" + LINE_END +
@@ -347,14 +352,14 @@ final class InstallOptions {
     final boolean optional, transitive, mavenLocal, checksum;
 
     InstallOptions(Set<String> artifacts,
-                   Set<Pattern> exclusions,
-                   EnumSet<Scope> scopes,
-                   String outDir,
-                   String repoDir,
-                   boolean optional,
-                   boolean transitive,
-                   boolean mavenLocal,
-                   boolean checksum) {
+            Set<Pattern> exclusions,
+            EnumSet<Scope> scopes,
+            String outDir,
+            String repoDir,
+            boolean optional,
+            boolean transitive,
+            boolean mavenLocal,
+            boolean checksum) {
         this.artifacts = artifacts;
         this.exclusions = exclusions;
         this.scopes = scopes;
@@ -395,7 +400,7 @@ final class InstallOptions {
                     outDir = arg;
                 } else {
                     throw new JBuildException("cannot provide output directory more than once." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else if (expectRepoDir) {
                 expectRepoDir = false;
@@ -403,7 +408,7 @@ final class InstallOptions {
                     repoDir = arg;
                 } else {
                     throw new JBuildException("cannot provide repository directory more than once." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else if (expectExclusion) {
                 expectExclusion = false;
@@ -411,7 +416,7 @@ final class InstallOptions {
                     exclusions.add(Pattern.compile(arg));
                 } catch (PatternSyntaxException e) {
                     throw new JBuildException("Invalid regular expression: " + arg + ": " + e.getMessage(),
-                        USER_INPUT);
+                            USER_INPUT);
                 }
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
@@ -445,19 +450,21 @@ final class InstallOptions {
         }
 
         // if no scopes are included explicitly, use runtime
-        if (scopes.isEmpty()) scopes = EnumSet.of(Scope.RUNTIME);
-        if (outDir == null && repoDir == null && !mavenLocal) outDir = InstallCommandExecutor.LIBS_DIR;
+        if (scopes.isEmpty())
+            scopes = EnumSet.of(Scope.RUNTIME);
+        if (outDir == null && repoDir == null && !mavenLocal)
+            outDir = InstallCommandExecutor.LIBS_DIR;
         if (outDir != null && repoDir != null) {
             throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
-                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                    (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
         if (!transitive && mavenLocal) {
             throw new JBuildException("cannot specify both 'non-transitive' and 'maven-local' options together." +
-                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                    (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
         if (!transitive && repoDir != null) {
             throw new JBuildException("cannot specify both 'non-transitive' and 'repository' options together." +
-                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                    (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
 
         return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
@@ -472,26 +479,27 @@ final class DoctorOptions {
     static final String DESCRIPTION = "finds type-safe classpath given a set of jars";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s)." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <options...> <dir>" + LINE_END +
-        "      Options:" + LINE_END +
-        "        --entrypoint" + LINE_END +
-        "        -e <file> entry-point jar within the directory, or the application jar" + LINE_END +
-        "                  (can be passed more than once)." + LINE_END +
-        "        --exclude-type" + LINE_END +
-        "        -x <regex> exclude type from analysis, allowing it to be missing" + LINE_END +
-        "                  (can be passed more than once)." + LINE_END +
-        "      Example:" + LINE_END +
-        "        jbuild " + NAME + " java-libs -e app.jar";
+            "    Examines a directory trying to find a consistent set of jars (classpath) for the entrypoint(s) jar(s)."
+            + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options...> <dir>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --entrypoint" + LINE_END +
+            "        -e <file> entry-point jar within the directory, or the application jar" + LINE_END +
+            "                  (can be passed more than once)." + LINE_END +
+            "        --exclude-type" + LINE_END +
+            "        -x <regex> exclude type from analysis, allowing it to be missing" + LINE_END +
+            "                  (can be passed more than once)." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " java-libs -e app.jar";
 
     final String inputDir;
     final List<String> entryPoints;
     final Set<Pattern> typeExclusions;
 
     public DoctorOptions(String inputDir,
-                         List<String> entryPoints,
-                         Set<Pattern> typeExclusions) {
+            List<String> entryPoints,
+            Set<Pattern> typeExclusions) {
         this.inputDir = inputDir;
         this.entryPoints = unmodifiableList(entryPoints);
         this.typeExclusions = unmodifiableSet(typeExclusions);
@@ -517,12 +525,12 @@ final class DoctorOptions {
                     expectTypeExclusion = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
                 if (inputDir != null) {
                     throw new JBuildException("cannot provide more than one input directory for fix command." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
                 inputDir = arg;
             }
@@ -554,12 +562,12 @@ final class RequirementsOptions {
     static final String DESCRIPTION = "finds type requirements of jar(s)";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    " + LINE_END +
-        "    Determines the Java types required by a set of jars." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <jar...>" + LINE_END +
-        "      Example:" + LINE_END +
-        "        jbuild " + NAME + " app.jar lib.jar";
+            "    " + LINE_END +
+            "    Determines the Java types required by a set of jars." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <jar...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " app.jar lib.jar";
 
     final Set<String> jars;
 
@@ -573,7 +581,7 @@ final class RequirementsOptions {
         for (var arg : args) {
             if (arg.startsWith("-")) {
                 throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                    (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
             } else {
                 jars.add(arg);
             }
@@ -589,11 +597,11 @@ final class VersionsOptions {
     static final String DESCRIPTION = "list the versions of Maven artifacts";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    List the versions of the given artifacts that are available on configured repositories." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <artifact...>" + LINE_END +
-        "      Example:" + LINE_END +
-        "        jbuild " + NAME + " junit:junit";
+            "    List the versions of the given artifacts that are available on configured repositories." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <artifact...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " junit:junit";
 
     final Set<String> artifacts;
 
@@ -607,7 +615,7 @@ final class VersionsOptions {
         for (String arg : args) {
             if (arg.startsWith("-")) {
                 throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                    (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                        (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
             } else {
                 artifacts.add(arg);
             }
@@ -624,45 +632,50 @@ final class CompileOptions {
     static final String DESCRIPTION = "compiles java source code";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-        "    Compile all Java source files found the input directories." + LINE_END +
-        "      Usage:" + LINE_END +
-        "        jbuild " + NAME + " <options... | input-directory...> [-- <javac-args>]" + LINE_END +
-        "      Options:" + LINE_END +
-        "        --classpath" + LINE_END +
-        "        -cp <paths> Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
-        "        --directory" + LINE_END +
-        "        -d        output directory, where to put class files on." + LINE_END +
-        "        --resources" + LINE_END +
-        "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
-        "        --jar" + LINE_END +
-        "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
-        "        --main-class" + LINE_END +
-        "        -m <name> application's main class." + LINE_END +
-        "      Note:" + LINE_END +
-        "        The --directory and --jar options are mutually exclusive." + LINE_END +
-        "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
-        "        with sources read from either src/main/java, src/ or the working-directory." + LINE_END +
-        "        To pass further arguments directly to javac, use -- <args>." + LINE_END +
-        "        Default javac options used are: '-encoding utf-8 -Werr -parameters'." + LINE_END +
-        "        Passing javac classpath options explicitly overrides jbuild's -cp." + LINE_END +
-        "      Example:" + LINE_END +
-        "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
+            "    Compile all Java source files found the input directories." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <options... | input-directory...> [-- <javac-args>]" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --classpath" + LINE_END +
+            "        -cp <paths> Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
+            "        --directory" + LINE_END +
+            "        -d        output directory, where to put class files on." + LINE_END +
+            "        --resources" + LINE_END +
+            "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
+            "        --jar" + LINE_END +
+            "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
+            "        --jb-extension" + LINE_END +
+            "        -x        generate jb extension manifest (for use with the jb tool)." + LINE_END +
+            "        --main-class" + LINE_END +
+            "        -m <name> application's main class." + LINE_END +
+            "      Note:" + LINE_END +
+            "        The --directory and --jar options are mutually exclusive." + LINE_END +
+            "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
+            "        with sources read from either src/main/java, src/ or the working-directory." + LINE_END +
+            "        To pass further arguments directly to javac, use -- <args>." + LINE_END +
+            "        Default javac options used are: '-encoding utf-8 -Werr -parameters'." + LINE_END +
+            "        Passing javac classpath options explicitly overrides jbuild's -cp." + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
 
     final Set<String> inputDirectories;
     final Set<String> resourcesDirectories;
     final Either<String, String> outputDirOrJar;
     final String mainClass;
+    final boolean generateJbManifest;
     final String classpath;
 
     public CompileOptions(Set<String> inputDirectories,
-                          Set<String> resourcesDirectories,
-                          Either<String, String> outputDirOrJar,
-                          String mainClass,
-                          String classpath) {
+            Set<String> resourcesDirectories,
+            Either<String, String> outputDirOrJar,
+            String mainClass,
+            boolean generateJbManifest,
+            String classpath) {
         this.inputDirectories = inputDirectories;
         this.resourcesDirectories = resourcesDirectories;
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
+        this.generateJbManifest = generateJbManifest;
         this.classpath = classpath;
     }
 
@@ -670,19 +683,21 @@ final class CompileOptions {
         Set<String> inputDirectories = new LinkedHashSet<>(2);
         Set<String> resourcesDirectories = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
+        var generateJbManifest = false;
         var classpath = new StringBuilder();
 
         boolean waitingForClasspath = false,
-            waitingForDirectory = false,
-            waitingForResources = false,
-            waitingForJar = false,
-            waitingForMainClass = false;
+                waitingForDirectory = false,
+                waitingForResources = false,
+                waitingForJar = false,
+                waitingForMainClass = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
                 waitingForClasspath = false;
                 for (String part : arg.split("[;:]", -1)) {
-                    if (part.isBlank()) continue;
+                    if (part.isBlank())
+                        continue;
                     if (classpath.length() > 0) {
                         classpath.append(File.pathSeparatorChar);
                     }
@@ -694,7 +709,8 @@ final class CompileOptions {
             } else if (waitingForResources) {
                 waitingForResources = false;
                 for (String part : arg.split("[;:]", -1)) {
-                    if (part.isBlank()) continue;
+                    if (part.isBlank())
+                        continue;
                     resourcesDirectories.add(part);
                 }
             } else if (waitingForJar) {
@@ -706,29 +722,31 @@ final class CompileOptions {
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
+                } else if (isEither(arg, "-x", "--jb-extension")) {
+                    generateJbManifest = true;
                 } else if (isEither(arg, "-r", "--resources")) {
                     waitingForResources = true;
                 } else if (isEither(arg, "-d", "--directory")) {
                     if (outputDir != null) {
                         throw new JBuildException("cannot provide repository directory more than once." +
-                            (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForDirectory = true;
                 } else if (isEither(arg, "-j", "--jar")) {
                     if (jar != null) {
                         throw new JBuildException("cannot provide jar more than once." +
-                            (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForJar = true;
                 } else if (isEither(arg, "-m", "--main-class")) {
                     if (mainClass != null) {
                         throw new JBuildException("cannot provide main-class more than once." +
-                            (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForMainClass = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
                 inputDirectories.add(arg);
@@ -749,15 +767,16 @@ final class CompileOptions {
         }
         if (outputDir != null && jar != null) {
             throw new JBuildException("cannot specify both 'directory' and 'jar' options together." +
-                (verbose ? LINE_END + "Run jbuild --help for usage." : "") , USER_INPUT);
+                    (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
         if (outputDir == null && jar == null) {
             jar = "";
         }
         return new CompileOptions(inputDirectories,
-            resourcesDirectories,
-            outputDir != null ? Either.left(outputDir) : Either.right(jar),
-            mainClass == null ? "" : mainClass,
-            classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
+                resourcesDirectories,
+                outputDir != null ? Either.left(outputDir) : Either.right(jar),
+                mainClass == null ? "" : mainClass,
+                generateJbManifest,
+                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
     }
 }

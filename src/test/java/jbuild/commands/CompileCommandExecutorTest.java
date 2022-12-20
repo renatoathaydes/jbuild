@@ -45,6 +45,7 @@ public class CompileCommandExecutorTest {
                 Set.of("no-resources"),
                 Either.left(buildDir.toString()),
                 "",
+                false,
                 "",
                 List.of());
 
@@ -91,6 +92,7 @@ public class CompileCommandExecutorTest {
                 Set.of("no-resources"),
                 Either.left(buildDir.toString()),
                 "",
+                false,
                 "",
                 List.of());
 
@@ -103,6 +105,7 @@ public class CompileCommandExecutorTest {
                 Set.of("no-resources"),
                 Either.right(jar.toString()),
                 "",
+                false,
                 buildDir.toString(),
                 List.of());
 
@@ -154,6 +157,7 @@ public class CompileCommandExecutorTest {
                 Set.of(resDir.toFile().getAbsolutePath()),
                 Either.left(outDir.toFile().getAbsolutePath()),
                 "",
+                false,
                 "",
                 List.of());
 

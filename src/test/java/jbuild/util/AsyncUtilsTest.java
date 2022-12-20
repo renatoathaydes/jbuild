@@ -168,7 +168,7 @@ public class AsyncUtilsTest {
             return completedStage(ok);
         }).toCompletableFuture().get(1, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
-                .getCause()
+                .cause()
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("no");
 

@@ -1,15 +1,14 @@
 package jbuild.commands;
 
-import jbuild.errors.JBuildException;
-import jbuild.java.tools.CreateJarOptions;
-import jbuild.java.tools.CreateJarOptions.FileSet;
-import jbuild.java.tools.ToolRunResult;
-import jbuild.java.tools.Tools;
-import jbuild.log.JBuildLog;
-import jbuild.util.Either;
-import jbuild.util.FileUtils;
-import jbuild.util.JarFileFilter;
-import jbuild.util.NoOp;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.CollectionUtils.appendAsStream;
+import static jbuild.util.FileUtils.collectFiles;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -23,14 +22,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
-import static jbuild.util.CollectionUtils.appendAsStream;
+import jbuild.errors.JBuildException;
+import jbuild.java.tools.CreateJarOptions;
+import jbuild.java.tools.CreateJarOptions.FileSet;
+import jbuild.java.tools.ToolRunResult;
+import jbuild.java.tools.Tools;
+import jbuild.log.JBuildLog;
+import jbuild.util.Either;
+import jbuild.util.FileCollection;
+import jbuild.util.FileUtils;
+import jbuild.util.JarFileFilter;
+import jbuild.util.NoOp;
 
 public final class CompileCommandExecutor {
 
@@ -45,11 +47,12 @@ public final class CompileCommandExecutor {
     }
 
     public CompileCommandResult compile(Set<String> inputDirectories,
-                                        Set<String> resourcesDirectories,
-                                        Either<String, String> outputDirOrJar,
-                                        String mainClass,
-                                        String classpath,
-                                        List<String> compilerArgs) {
+            Set<String> resourcesDirectories,
+            Either<String, String> outputDirOrJar,
+            String mainClass,
+            boolean generateJbManifest,
+            String classpath,
+            List<String> compilerArgs) {
         var usingDefaultInputDirs = inputDirectories.isEmpty();
         if (usingDefaultInputDirs) {
             inputDirectories = computeDefaultSourceDirs();
@@ -70,8 +73,7 @@ public final class CompileCommandExecutor {
 
         var resourceFiles = appendAsStream(
                 collectFiles(inputDirectories, NON_JAVA_FILES_FILTER),
-                collectFiles(resourcesDirectories, ALL_FILES_FILTER)
-        ).collect(toList());
+                collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
 
         if (log.isVerbose()) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
@@ -98,10 +100,16 @@ public final class CompileCommandExecutor {
         }
 
         log.verbosePrintln(() -> "Compilation of class files successful. Creating jar at " + jarFile);
+        if (generateJbManifest) {
+            log.verbosePrintln("Generating jb manifest file");
+            var generator = new JbManifestGenerator(log);
+            var jbManifest = generator.generateJbManifest(outputDir);
+            copyResources(List.of(jbManifest), outputDir);
+        }
+
         var jarContent = new FileSet(Set.of(), outputDir);
         var jarResult = Tools.Jar.create().createJar(new CreateJarOptions(
-                jarFile, mainClass, false, "", jarContent, Map.of()
-        ));
+                jarFile, mainClass, false, "", jarContent, Map.of()));
         return new CompileCommandResult(compileResult, jarResult);
     }
 
@@ -131,7 +139,7 @@ public final class CompileCommandExecutor {
     }
 
     private static String computeClasspath(String classpath,
-                                           List<String> compilerArgs) {
+            List<String> compilerArgs) {
         if (compilerArgs.contains("-cp")
                 || compilerArgs.contains("--class-path")
                 || compilerArgs.contains("--classpath")) {
@@ -186,43 +194,6 @@ public final class CompileCommandExecutor {
         }
     }
 
-    private List<FileCollection> collectFiles(Set<String> directories,
-                                              FilenameFilter filter) {
-        return directories.stream()
-                .map(dirPath -> collectFiles(dirPath, filter))
-                .collect(toList());
-    }
-
-    private FileCollection collectFiles(String dirPath,
-                                        FilenameFilter filter) {
-        var dir = new File(dirPath);
-        if (dir.isDirectory()) {
-            var children = dir.listFiles();
-            if (children != null) {
-                return new FileCollection(dirPath, Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter))
-                        .collect(toList()));
-            }
-        } else {
-            log.verbosePrintln(() -> "Ignoring non-existing input directory: " + dirPath);
-        }
-        return new FileCollection(dirPath);
-    }
-
-    private Stream<String> fileOrChildDirectories(File file, FilenameFilter filter) {
-        if (file.isFile() && filter.accept(file.getParentFile(), file.getName())) {
-            return Stream.of(file.getPath());
-        }
-        if (file.isDirectory()) {
-            var children = file.listFiles();
-            if (children != null) {
-                return Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter));
-            }
-        }
-        return Stream.of();
-    }
-
     private Set<String> computeDefaultSourceDirs() {
         var srcMainJava = Paths.get("src", "main", "java");
         if (srcMainJava.toFile().isDirectory()) {
@@ -275,17 +246,4 @@ public final class CompileCommandExecutor {
         }
     }
 
-    private static final class FileCollection {
-        final String directory;
-        final List<String> files;
-
-        FileCollection(String directory) {
-            this(directory, List.of());
-        }
-
-        FileCollection(String directory, List<String> files) {
-            this.directory = directory;
-            this.files = files;
-        }
-    }
 }

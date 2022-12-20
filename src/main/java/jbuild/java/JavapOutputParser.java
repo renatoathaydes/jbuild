@@ -1,15 +1,18 @@
 package jbuild.java;
 
 import jbuild.errors.JBuildException;
+import jbuild.java.code.AnnotationValues;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -212,7 +215,9 @@ public final class JavapOutputParser {
             }
         }
 
-        return new JavaTypeDefinitions(fields, methodHandles, methods);
+        var annotationValues = findAnnotationValues(lines);
+
+        return new JavaTypeDefinitions(fields, methodHandles, methods, annotationValues);
     }
 
     private CodeSection processCode(Iterator<String> lines, String typeName, String methodName) {
@@ -287,6 +292,20 @@ public final class JavapOutputParser {
 
         throw new JBuildException("invalid javap output: ran out of output while expecting " +
                 "method signature parsing type: " + typeId.name, ACTION_ERROR);
+    }
+
+    private List<AnnotationValues> findAnnotationValues(Iterator<String> lines) {
+        var annotations = new ArrayList<AnnotationValues>(2);
+        var parser = new AnnotationValuesParser();
+        while (lines.hasNext()) {
+            var line = lines.next();
+            if (line.isBlank())
+                break;
+            if (line.equals("RuntimeInvisibleAnnotations:") || line.equals("RuntimeVisibleAnnotations:")) {
+                annotations.addAll(parser.parse(lines));
+            }
+        }
+        return annotations;
     }
 
     // special-case enum methods as it's not currently possible to find parent classes' methods yet
@@ -493,21 +512,24 @@ public final class JavapOutputParser {
         final Set<Definition.FieldDefinition> fields;
         final Set<Code.Method> methodHandles;
         final Map<Definition.MethodDefinition, Set<Code>> methods;
+        final List<AnnotationValues> annotationValues;
 
         JavaTypeDefinitions(Set<Definition.FieldDefinition> fields,
                             Set<Code.Method> methodHandles,
-                            Map<Definition.MethodDefinition, Set<Code>> methods) {
+                            Map<Definition.MethodDefinition, Set<Code>> methods,
+                            List<AnnotationValues> annotationValues) {
             this.fields = fields;
             this.methodHandles = methodHandles;
             this.methods = methods;
+            this.annotationValues = annotationValues;
         }
 
         TypeDefinition toTypeDefinition(JavaType type) {
-            return new TypeDefinition(type, fields, methodHandles, methods);
+            return new TypeDefinition(type, fields, methodHandles, methods, annotationValues);
         }
 
         public JavaTypeDefinitions withMethods(Map<Definition.MethodDefinition, Set<Code>> methods) {
-            return new JavaTypeDefinitions(fields, methodHandles, methods);
+            return new JavaTypeDefinitions(fields, methodHandles, methods, annotationValues);
         }
     }
 
