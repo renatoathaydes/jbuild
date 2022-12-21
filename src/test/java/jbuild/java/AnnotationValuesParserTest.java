@@ -1,17 +1,34 @@
 package jbuild.java;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class AnnotationValuesParserTest {
 
     final AnnotationValuesParser parser = new AnnotationValuesParser();
 
     @Test
-    void canParseAnnotation() {
+    void canParseAnnotationWithOneField() {
+        var example = "  0: #60(#61=s#62)\n" +
+                "    jbuild.api.JbTaskInfo(\n" +
+                "      name=\"my task\"\n" +
+                "    )\n" +
+                "ignore!";
+
+        var results = parser.parse(example.lines().iterator());
+
+        assertThat(results).hasSize(1);
+        var result = results.iterator().next();
+        assertThat(result.name).isEqualTo("jbuild.api.JbTaskInfo");
+        assertThat(result.getString("name")).isEqualTo("my task");
+        assertThat(result.getValues().keySet()).containsExactly("name");
+    }
+
+    @Test
+    void canParseAnnotationWithSeveralFields() {
         var example = "" +
                 "  0: #16(#17=s#18,#19=[s#20,s#21],#22=@#23(#24=I#25,#17=s#26))\n" +
                 "    jbuild.api.JbTaskInfo(\n" +
@@ -21,7 +38,9 @@ public class AnnotationValuesParserTest {
                 "        index=222\n" +
                 "        name=\"cust-phase\"\n" +
                 "      )\n" +
-                "    )\n";
+                "    )\n" +
+                "FOO\n" +
+                "BAR";
 
         var results = parser.parse(example.lines().iterator());
 

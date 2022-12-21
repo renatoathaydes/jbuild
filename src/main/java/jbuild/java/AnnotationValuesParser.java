@@ -1,19 +1,18 @@
 package jbuild.java;
 
+import jbuild.errors.JBuildException;
+import jbuild.errors.JBuildException.ErrorCause;
+import jbuild.java.code.AnnotationValues;
+
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import jbuild.errors.JBuildException;
-import jbuild.errors.JBuildException.ErrorCause;
-import jbuild.java.code.AnnotationValues;
-
 final class AnnotationValuesParser {
 
-    public Collection<AnnotationValues> parse(Iterator<String> lines) {
+    public List<AnnotationValues> parse(Iterator<String> lines) {
         if (!lines.hasNext()) {
             throw new JBuildException("Unexpected end of file",
                     ErrorCause.ACTION_ERROR);
@@ -33,7 +32,7 @@ final class AnnotationValuesParser {
     }
 
     private static boolean isIndexLine(String line) {
-        assert line.startsWith("  ");
+        if (!line.startsWith("  ")) return false;
         var colonIndex = line.indexOf(":", 2);
         if (colonIndex < 2) {
             return false;

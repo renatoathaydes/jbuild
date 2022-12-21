@@ -7,7 +7,6 @@ import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
 import jbuild.log.JBuildLog;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -295,17 +294,14 @@ public final class JavapOutputParser {
     }
 
     private List<AnnotationValues> findAnnotationValues(Iterator<String> lines) {
-        var annotations = new ArrayList<AnnotationValues>(2);
         var parser = new AnnotationValuesParser();
-        while (lines.hasNext()) {
+        if (lines.hasNext()) {
             var line = lines.next();
-            if (line.isBlank())
-                break;
             if (line.equals("RuntimeInvisibleAnnotations:") || line.equals("RuntimeVisibleAnnotations:")) {
-                annotations.addAll(parser.parse(lines));
+                return parser.parse(lines);
             }
         }
-        return annotations;
+        return List.of();
     }
 
     // special-case enum methods as it's not currently possible to find parent classes' methods yet

@@ -12,6 +12,10 @@ public final class AnnotationValues {
         this.values = values;
     }
 
+    public Map<String, Object> getValues() {
+        return values;
+    }
+
     public String getString(String key) {
         return (String) values.get(key);
     }
