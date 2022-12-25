@@ -1,4 +1,4 @@
-package jbuild.classes;
+package jbuild.classes.model;
 
 /**
  * attribute_info {

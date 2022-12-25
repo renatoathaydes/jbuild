@@ -1,4 +1,4 @@
-package jbuild.classes;
+package jbuild.classes.model;
 
 /**
  * cp_info {
@@ -80,7 +80,7 @@ public abstract class ConstPoolInfo {
     }
 
     public static final class Float extends ConstPoolInfo {
-        public static final short TAG = 3;
+        public static final short TAG = 4;
         public final float value;
 
         public Float(float value) {
@@ -106,6 +106,25 @@ public abstract class ConstPoolInfo {
         public Double(double value) {
             super(TAG);
             this.value = value;
+        }
+    }
+
+    public static final class NameAndType extends ConstPoolInfo {
+        public static final short TAG = 12;
+        public final short nameIndex;
+        public final short descriptorIndex;
+
+        /**
+         * CONSTANT_NameAndType_info {
+         *     u1 tag;
+         *     u2 name_index;
+         *     u2 descriptor_index;
+         * }
+         */
+        public NameAndType(short nameIndex, short descriptorIndex) {
+            super(TAG);
+            this.nameIndex=nameIndex;
+            this.descriptorIndex=descriptorIndex;
         }
     }
 

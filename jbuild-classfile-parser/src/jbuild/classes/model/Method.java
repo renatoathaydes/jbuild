@@ -1,4 +1,4 @@
-package jbuild.classes;
+package jbuild.classes.model;
 
 import java.util.List;
 

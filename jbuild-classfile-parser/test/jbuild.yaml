@@ -1,0 +1,15 @@
+imports:
+  - "../../build_properties.yaml"
+
+name: jbuild-classfile-parser-tests
+version: 0.0.0
+
+source-dirs: [ src ]
+resource-dirs: [ resources ]
+
+dependencies:
+  - jbuild-classfile-parser:
+      path: ../
+  - "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}"
+  - "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}"
+  - "org.assertj:assertj-core:{{versions.assertj}}"

@@ -1,4 +1,4 @@
-package jbuild.classes;
+package jbuild.classes.model;
 
 import java.util.List;
 
@@ -23,9 +23,12 @@ import java.util.List;
  * }
  */
 public final class ClassFile {
+
+    public static final int MAGIC = 0xCAFEBABE;
+
     public final int magic;
     public final short minorVersion;
-    public final short majorVersion;
+    public final MajorVersion majorVersion;
     public final List<ConstPoolInfo> constPoolEntries;
     public final short accessFlags;
     public final short thisClass;
@@ -48,7 +51,7 @@ public final class ClassFile {
                      List<Attribute> attributes) {
         this.magic = magic;
         this.minorVersion = minorVersion;
-        this.majorVersion = majorVersion;
+        this.majorVersion = new MajorVersion(majorVersion);
         this.constPoolEntries = constPoolEntries;
         this.accessFlags = accessFlags;
         this.thisClass = thisClass;
