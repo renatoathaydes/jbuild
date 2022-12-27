@@ -12,6 +12,11 @@ import java.util.List;
 
 public class JBuildClassFileParser {
 
+    /**
+     * Always the first item in the constant pool.
+     */
+    public static final ConstPoolInfo.Class FIRST_ITEM_SENTINEL = new ConstPoolInfo.Class((short) 0);
+
     ClassFile parse(InputStream input) throws IOException {
         var scanner = new PositionScanner(input);
         var magic = scanner.nextInt();
@@ -42,15 +47,20 @@ public class JBuildClassFileParser {
         var minor = scanner.nextShort();
         var major = scanner.nextShort();
         var constPool = parseConstPool(scanner, scanner.nextShort());
+        var accessFlags = scanner.nextShort();
+        var thisClass = scanner.nextShort();
+        var superClass = scanner.nextShort();
 
-        return new ClassFile(0, minor, major, constPool, (short) 0, (short) 0, (short) 0, new short[0], List.of(), List.of(), List.of());
+        return new ClassFile(0, minor, major, constPool, accessFlags, thisClass, superClass, new short[0], List.of(), List.of(), List.of());
     }
 
     private List<ConstPoolInfo> parseConstPool(PositionScanner scanner, short constPoolCount) {
         // The value of the constant_pool_count item is equal to the number of entries in the constant_pool table plus one
-        int constPoolSize = (0xff & constPoolCount) - 1;
+        int constPoolSize = 0xff & constPoolCount;
         var result = new ArrayList<ConstPoolInfo>(constPoolSize);
-        for (var i = 0; i < constPoolSize; i++) {
+        // first item is always a dummy value, so the rest of the items fall into the appropriate index
+        result.add(FIRST_ITEM_SENTINEL);
+        for (var i = 1; i < constPoolSize; i++) {
             result.add(parseConstPoolInfo(scanner));
         }
         return result;
@@ -105,6 +115,10 @@ final class PositionScanner {
         buffer = ByteBuffer.wrap(stream.readAllBytes());
         buffer.position(0);
         buffer.order(ByteOrder.BIG_ENDIAN);
+    }
+
+    int position() {
+        return buffer.position();
     }
 
     int nextInt() {
