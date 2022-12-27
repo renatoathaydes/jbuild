@@ -1,7 +1,10 @@
 package jbuild.classes;
 
+import jbuild.classes.model.AttributeInfo;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
+import jbuild.classes.model.FieldInfo;
+import jbuild.classes.model.MethodInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,8 +53,13 @@ public class JBuildClassFileParser {
         var accessFlags = scanner.nextShort();
         var thisClass = scanner.nextShort();
         var superClass = scanner.nextShort();
+        var interfaces = parseInterfaces(scanner, scanner.nextShort());
+        var fields = parseFields(scanner, scanner.nextShort());
+        var methods = parseMethods(scanner, scanner.nextShort());
+        var attributes = parseAttributes(scanner, scanner.nextShort());
 
-        return new ClassFile(0, minor, major, constPool, accessFlags, thisClass, superClass, new short[0], List.of(), List.of(), List.of());
+        return new ClassFile(minor, major, constPool, accessFlags, thisClass, superClass, interfaces,
+                fields, methods, attributes);
     }
 
     private List<ConstPoolInfo> parseConstPool(PositionScanner scanner, short constPoolCount) {
@@ -106,6 +114,80 @@ public class JBuildClassFileParser {
         }
     }
 
+    private short[] parseInterfaces(PositionScanner scanner, short interfaceCount) {
+        var result = new short[interfaceCount];
+        for (var i = 0; i < interfaceCount; i++) {
+            result[i] = scanner.nextShort();
+        }
+        return result;
+    }
+
+    private List<FieldInfo> parseFields(PositionScanner scanner, short interfaceCount) {
+        var result = new ArrayList<FieldInfo>(interfaceCount);
+        for (var i = 0; i < interfaceCount; i++) {
+            result.add(parseField(scanner));
+        }
+        return result;
+    }
+
+    /**
+     * field_info {
+     * u2             access_flags;
+     * u2             name_index;
+     * u2             descriptor_index;
+     * u2             attributes_count;
+     * attribute_info attributes[attributes_count];
+     * }
+     */
+    private FieldInfo parseField(PositionScanner scanner) {
+        return new FieldInfo(scanner.nextShort(),
+                scanner.nextShort(),
+                scanner.nextShort(),
+                parseAttributes(scanner, scanner.nextShort()));
+    }
+
+    private List<MethodInfo> parseMethods(PositionScanner scanner, short length) {
+        var result = new ArrayList<MethodInfo>(length);
+        for (var i = 0; i < length; i++) {
+            result.add(parseMethod(scanner));
+        }
+        return result;
+    }
+
+    /**
+     * method_info {
+     * u2             access_flags;
+     * u2             name_index;
+     * u2             descriptor_index;
+     * u2             attributes_count;
+     * attribute_info attributes[attributes_count];
+     * }
+     */
+    private MethodInfo parseMethod(PositionScanner scanner) {
+        return new MethodInfo(scanner.nextShort(),
+                scanner.nextShort(),
+                scanner.nextShort(),
+                parseAttributes(scanner, scanner.nextShort()));
+    }
+
+    /**
+     * attribute_info {
+     * u2 attribute_name_index;
+     * u4 attribute_length;
+     * u1 info[attribute_length];
+     * }
+     */
+    private List<AttributeInfo> parseAttributes(PositionScanner scanner, short length) {
+        var attributes = new ArrayList<AttributeInfo>(length);
+        for (var i = 0; i < length; i++) {
+            var nameIndex = scanner.nextShort();
+            var valueLength = scanner.nextInt();
+            var value = new byte[valueLength];
+            scanner.next(value);
+            attributes.add(new AttributeInfo(nameIndex, value));
+        }
+        return attributes;
+    }
 }
 
 final class PositionScanner {

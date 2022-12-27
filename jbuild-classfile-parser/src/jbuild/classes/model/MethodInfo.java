@@ -3,7 +3,7 @@ package jbuild.classes.model;
 import java.util.List;
 
 /**
- * field_info {
+ * method_info {
  * u2             access_flags;
  * u2             name_index;
  * u2             descriptor_index;
@@ -11,13 +11,13 @@ import java.util.List;
  * attribute_info attributes[attributes_count];
  * }
  */
-public final class Field {
+public final class MethodInfo {
     public final short accessFlags;
     public final short nameIndex;
     public final short descriptorIndex;
-    public final List<Attribute> attributes;
+    public final List<AttributeInfo> attributes;
 
-    public Field(short accessFlags, short nameIndex, short descriptorIndex, List<Attribute> attributes) {
+    public MethodInfo(short accessFlags, short nameIndex, short descriptorIndex, List<AttributeInfo> attributes) {
         this.accessFlags = accessFlags;
         this.nameIndex = nameIndex;
         this.descriptorIndex = descriptorIndex;

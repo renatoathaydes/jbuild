@@ -186,6 +186,27 @@ public class ParserTest {
 
         assertThat(classFile.thisClass).isEqualTo((short) 21);
         assertThat(classFile.superClass).isEqualTo((short) 2);
+        assertThat(classFile.interfaces).isEmpty();
+        assertThat(classFile.fields).isEmpty();
+
+        assertThat(classFile.methods).hasSize(2);
+
+        assertMethodAccessFlags(classFile.methods.get(0).accessFlags, true, false, false, false, false, false,
+                false, false, false, false, false, false);
+        assertThat(classFile.methods.get(0).nameIndex).isEqualTo((short) 5);
+        assertThat(classFile.methods.get(0).descriptorIndex).isEqualTo((short) 6);
+        assertThat(classFile.methods.get(0).attributes).hasSize(1);
+        assertThat(classFile.methods.get(0).attributes.get(0).nameIndex).isEqualTo((short) 23);
+
+        assertMethodAccessFlags(classFile.methods.get(1).accessFlags, true, false, false, true, false, false,
+                false, false, false, false, false, false);
+        assertThat(classFile.methods.get(1).nameIndex).isEqualTo((short) 25);
+        assertThat(classFile.methods.get(1).descriptorIndex).isEqualTo((short) 26);
+        assertThat(classFile.methods.get(1).attributes).hasSize(1);
+        assertThat(classFile.methods.get(1).attributes.get(0).nameIndex).isEqualTo((short) 23);
+
+        assertThat(classFile.attributes).hasSize(1);
+        assertThat(classFile.attributes.get(0).nameIndex).isEqualTo((short) 27);
     }
 
     private void assertClassAccessFlags(short flags, boolean isPublic, boolean isFinal, boolean isSuper,
@@ -200,5 +221,23 @@ public class ParserTest {
         assertThat(flags & 0x2000).isEqualTo(isAnnotation ? 0x2000 : 0);
         assertThat(flags & 0x4000).isEqualTo(isEnum ? 0x4000 : 0);
         assertThat(flags & 0x8000).isEqualTo(isModule ? 0x8000 : 0);
+    }
+
+    private void assertMethodAccessFlags(short flags, boolean isPublic, boolean isPrivate, boolean isProtected,
+                                         boolean isStatic, boolean isFinal, boolean isSynchronized,
+                                         boolean isBridge, boolean isVarargs, boolean isNative, boolean isAbstract,
+                                         boolean isStrict, boolean isSynthetic) {
+        assertThat(flags & 0x01).isEqualTo(isPublic ? 0x01 : 0);
+        assertThat(flags & 0x02).isEqualTo(isPrivate ? 0x02 : 0);
+        assertThat(flags & 0x04).isEqualTo(isProtected ? 0x04 : 0);
+        assertThat(flags & 0x08).isEqualTo(isStatic ? 0x08 : 0);
+        assertThat(flags & 0x10).isEqualTo(isFinal ? 0x10 : 0);
+        assertThat(flags & 0x20).isEqualTo(isSynchronized ? 0x20 : 0);
+        assertThat(flags & 0x40).isEqualTo(isBridge ? 0x40 : 0);
+        assertThat(flags & 0x80).isEqualTo(isVarargs ? 0x80 : 0);
+        assertThat(flags & 0x100).isEqualTo(isNative ? 0x100 : 0);
+        assertThat(flags & 0x400).isEqualTo(isAbstract ? 0x400 : 0);
+        assertThat(flags & 0x800).isEqualTo(isStrict ? 0x800 : 0);
+        assertThat(flags & 0x1000).isEqualTo(isSynthetic ? 0x1000 : 0);
     }
 }

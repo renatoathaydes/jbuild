@@ -26,7 +26,6 @@ public final class ClassFile {
 
     public static final int MAGIC = 0xCAFEBABE;
 
-    public final int magic;
     public final short minorVersion;
     public final MajorVersion majorVersion;
     public final List<ConstPoolInfo> constPoolEntries;
@@ -34,22 +33,20 @@ public final class ClassFile {
     public final short thisClass;
     public final short superClass;
     public final short[] interfaces;
-    public final List<Field> fields;
-    public final List<Method> methods;
-    public final List<Attribute> attributes;
+    public final List<FieldInfo> fields;
+    public final List<MethodInfo> methods;
+    public final List<AttributeInfo> attributes;
 
-    public ClassFile(int magic,
-                     short minorVersion,
+    public ClassFile(short minorVersion,
                      short majorVersion,
                      List<ConstPoolInfo> constPoolEntries,
                      short accessFlags,
                      short thisClass,
                      short superClass,
                      short[] interfaces,
-                     List<Field> fields,
-                     List<Method> methods,
-                     List<Attribute> attributes) {
-        this.magic = magic;
+                     List<FieldInfo> fields,
+                     List<MethodInfo> methods,
+                     List<AttributeInfo> attributes) {
         this.minorVersion = minorVersion;
         this.majorVersion = new MajorVersion(majorVersion);
         this.constPoolEntries = constPoolEntries;
