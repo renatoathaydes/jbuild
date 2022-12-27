@@ -209,6 +209,17 @@ public class ParserTest {
         assertThat(classFile.attributes.get(0).nameIndex).isEqualTo((short) 27);
     }
 
+    @Test
+    void canFindTypesReferredTo() throws Exception {
+        ClassFile classFile;
+        try (var stream = ParserTest.class.getResourceAsStream("/HelloWorld.class")) {
+            classFile = parser.parse(stream);
+        }
+
+        assertThat(classFile.getTypesReferredTo())
+                .containsExactlyInAnyOrder("java/io/PrintStream");
+    }
+
     private void assertClassAccessFlags(short flags, boolean isPublic, boolean isFinal, boolean isSuper,
                                         boolean isInterface, boolean isAbstract, boolean isSynthetic,
                                         boolean isAnnotation, boolean isEnum, boolean isModule) {

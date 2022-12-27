@@ -18,7 +18,7 @@ public class JBuildClassFileParser {
     /**
      * Always the first item in the constant pool.
      */
-    public static final ConstPoolInfo.Class FIRST_ITEM_SENTINEL = new ConstPoolInfo.Class((short) 0);
+    public static final ConstPoolInfo.Utf8 FIRST_ITEM_SENTINEL = new ConstPoolInfo.Utf8(new byte[0]);
 
     ClassFile parse(InputStream input) throws IOException {
         var scanner = new PositionScanner(input);
