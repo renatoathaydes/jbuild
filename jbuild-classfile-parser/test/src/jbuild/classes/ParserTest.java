@@ -5,6 +5,7 @@ import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.MajorVersion;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,10 +18,7 @@ public class ParserTest {
 
     @Test
     public void canParseHelloWorldClassFile() throws Exception {
-        ClassFile classFile;
-        try (var stream = ParserTest.class.getResourceAsStream("/HelloWorld.class")) {
-            classFile = parser.parse(stream);
-        }
+        ClassFile classFile = parseHelloWorldClass();
 
         assertThat(classFile.minorVersion).isEqualTo((short) 0);
         assertThat(classFile.majorVersion.toKnownVersion())
@@ -211,13 +209,18 @@ public class ParserTest {
 
     @Test
     void canFindTypesReferredTo() throws Exception {
-        ClassFile classFile;
-        try (var stream = ParserTest.class.getResourceAsStream("/HelloWorld.class")) {
-            classFile = parser.parse(stream);
-        }
+        ClassFile classFile = parseHelloWorldClass();
 
         assertThat(classFile.getTypesReferredTo())
                 .containsExactlyInAnyOrder("java/io/PrintStream");
+    }
+
+    private ClassFile parseHelloWorldClass() throws IOException {
+        ClassFile classFile;
+        try (var stream = ParserTest.class.getResourceAsStream("/HelloWorld.cls")) {
+            classFile = parser.parse(stream);
+        }
+        return classFile;
     }
 
     private void assertClassAccessFlags(short flags, boolean isPublic, boolean isFinal, boolean isSuper,
