@@ -8,8 +8,6 @@ import jbuild.classes.model.MethodInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +19,7 @@ public class JBuildClassFileParser {
     public static final ConstPoolInfo.Utf8 FIRST_ITEM_SENTINEL = new ConstPoolInfo.Utf8(new byte[0]);
 
     ClassFile parse(InputStream input) throws IOException {
-        var scanner = new PositionScanner(input);
+        var scanner = new ByteScanner(input);
         var magic = scanner.nextInt();
 
         // ClassFile {
@@ -62,7 +60,7 @@ public class JBuildClassFileParser {
                 fields, methods, attributes);
     }
 
-    private List<ConstPoolInfo> parseConstPool(PositionScanner scanner, short constPoolCount) {
+    private List<ConstPoolInfo> parseConstPool(ByteScanner scanner, short constPoolCount) {
         // The value of the constant_pool_count item is equal to the number of entries in the constant_pool table plus one
         int constPoolSize = 0xff & constPoolCount;
         var result = new ArrayList<ConstPoolInfo>(constPoolSize);
@@ -74,7 +72,7 @@ public class JBuildClassFileParser {
         return result;
     }
 
-    private ConstPoolInfo parseConstPoolInfo(PositionScanner scanner) {
+    private ConstPoolInfo parseConstPoolInfo(ByteScanner scanner) {
         var tag = scanner.nextByte();
         switch (tag) {
             case ConstPoolInfo.Class.TAG:
@@ -88,13 +86,13 @@ public class JBuildClassFileParser {
             case ConstPoolInfo.String.TAG:
                 return new ConstPoolInfo.String(scanner.nextShort());
             case ConstPoolInfo.Int.TAG:
-                return new ConstPoolInfo.Int(scanner.nextShort());
+                return new ConstPoolInfo.Int(scanner.nextInt());
             case ConstPoolInfo.Float.TAG:
-                return new ConstPoolInfo.Float(scanner.nextShort());
+                return new ConstPoolInfo.Float(scanner.nextFloat());
             case ConstPoolInfo.Long.TAG:
-                return new ConstPoolInfo.Long(scanner.nextShort());
+                return new ConstPoolInfo.Long(scanner.nextLong());
             case ConstPoolInfo.Double.TAG:
-                return new ConstPoolInfo.Double(scanner.nextShort());
+                return new ConstPoolInfo.Double(scanner.nextDouble());
             case ConstPoolInfo.NameAndType.TAG:
                 return new ConstPoolInfo.NameAndType(scanner.nextShort(), scanner.nextShort());
             case ConstPoolInfo.Utf8.TAG: {
@@ -110,11 +108,11 @@ public class JBuildClassFileParser {
             case ConstPoolInfo.InvokeDynamic.TAG:
                 return new ConstPoolInfo.InvokeDynamic(scanner.nextShort(), scanner.nextShort());
             default:
-                throw new ClassFileException("Unknown constant pool tag: " + tag, 0);
+                throw new ClassFileException("Unknown constant pool tag: " + tag, scanner.previousPosition());
         }
     }
 
-    private short[] parseInterfaces(PositionScanner scanner, short interfaceCount) {
+    private short[] parseInterfaces(ByteScanner scanner, short interfaceCount) {
         var result = new short[interfaceCount];
         for (var i = 0; i < interfaceCount; i++) {
             result[i] = scanner.nextShort();
@@ -122,7 +120,7 @@ public class JBuildClassFileParser {
         return result;
     }
 
-    private List<FieldInfo> parseFields(PositionScanner scanner, short interfaceCount) {
+    private List<FieldInfo> parseFields(ByteScanner scanner, short interfaceCount) {
         var result = new ArrayList<FieldInfo>(interfaceCount);
         for (var i = 0; i < interfaceCount; i++) {
             result.add(parseField(scanner));
@@ -139,14 +137,14 @@ public class JBuildClassFileParser {
      * attribute_info attributes[attributes_count];
      * }
      */
-    private FieldInfo parseField(PositionScanner scanner) {
+    private FieldInfo parseField(ByteScanner scanner) {
         return new FieldInfo(scanner.nextShort(),
                 scanner.nextShort(),
                 scanner.nextShort(),
                 parseAttributes(scanner, scanner.nextShort()));
     }
 
-    private List<MethodInfo> parseMethods(PositionScanner scanner, short length) {
+    private List<MethodInfo> parseMethods(ByteScanner scanner, short length) {
         var result = new ArrayList<MethodInfo>(length);
         for (var i = 0; i < length; i++) {
             result.add(parseMethod(scanner));
@@ -163,7 +161,7 @@ public class JBuildClassFileParser {
      * attribute_info attributes[attributes_count];
      * }
      */
-    private MethodInfo parseMethod(PositionScanner scanner) {
+    private MethodInfo parseMethod(ByteScanner scanner) {
         return new MethodInfo(scanner.nextShort(),
                 scanner.nextShort(),
                 scanner.nextShort(),
@@ -177,7 +175,7 @@ public class JBuildClassFileParser {
      * u1 info[attribute_length];
      * }
      */
-    private List<AttributeInfo> parseAttributes(PositionScanner scanner, short length) {
+    private List<AttributeInfo> parseAttributes(ByteScanner scanner, short length) {
         var attributes = new ArrayList<AttributeInfo>(length);
         for (var i = 0; i < length; i++) {
             var nameIndex = scanner.nextShort();
@@ -190,32 +188,3 @@ public class JBuildClassFileParser {
     }
 }
 
-final class PositionScanner {
-    private final ByteBuffer buffer;
-
-    public PositionScanner(InputStream stream) throws IOException {
-        buffer = ByteBuffer.wrap(stream.readAllBytes());
-        buffer.position(0);
-        buffer.order(ByteOrder.BIG_ENDIAN);
-    }
-
-    int position() {
-        return buffer.position();
-    }
-
-    int nextInt() {
-        return buffer.getInt();
-    }
-
-    short nextShort() {
-        return buffer.getShort();
-    }
-
-    byte nextByte() {
-        return buffer.get();
-    }
-
-    public void next(byte[] contents) {
-        buffer.get(contents);
-    }
-}

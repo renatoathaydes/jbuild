@@ -7,4 +7,12 @@ public class ClassFileException extends RuntimeException {
         super(message);
         this.offset = offset;
     }
+
+    @Override
+    public String toString() {
+        return "ClassFileException{" +
+                "message=" + getMessage() + ',' +
+                " offset=" + offset +
+                '}';
+    }
 }

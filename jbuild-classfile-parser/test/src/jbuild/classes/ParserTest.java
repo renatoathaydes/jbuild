@@ -3,6 +3,8 @@ package jbuild.classes;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.MajorVersion;
+import jbuild.classes.model.attributes.AnnotationInfo;
+import jbuild.classes.model.attributes.ElementValuePair;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -211,13 +213,54 @@ public class ParserTest {
     void canFindTypesReferredTo() throws Exception {
         ClassFile classFile = parseHelloWorldClass();
 
+        assertThat(classFile.getClassName())
+                .isEqualTo("HelloWorld");
         assertThat(classFile.getTypesReferredTo())
                 .containsExactlyInAnyOrder("java/io/PrintStream");
+
+        assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
+        assertThat(classFile.getRuntimeInvisibleAnnotations()).isEmpty();
+    }
+
+    @Test
+    void canParseAnnotations() throws Exception {
+        ClassFile classFile = parseExampleAnnotatedClass();
+
+        assertThat(classFile.getClassName())
+                .isEqualTo("jbuild/api/ExampleAnnotated");
+        assertThat(classFile.getTypesReferredTo()).isEmpty();
+        assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
+        assertThat(classFile.getRuntimeInvisibleAnnotations()).hasSize(1);
+
+        var annotation = classFile.getRuntimeInvisibleAnnotations().get(0);
+
+        assertThat(annotation.typeDescriptor).isEqualTo("Ljbuild/api/JbTaskInfo;");
+        assertThat(annotation.elementValuePairs).hasSize(3);
+        assertThat(annotation.elementValuePairs.get(0))
+                .isEqualTo(new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-task"));
+        assertThat(annotation.elementValuePairs.get(1))
+                .isEqualTo(new ElementValuePair("inputs", ElementValuePair.Type.ARRAY,
+                        List.of("*.txt", "*.json")));
+        assertThat(annotation.elementValuePairs.get(2))
+                .isEqualTo(new ElementValuePair("phase", ElementValuePair.Type.ANNOTATION,
+                        new AnnotationInfo("Ljbuild/api/CustomTaskPhase;", List.of(
+                                new ElementValuePair("index", ElementValuePair.Type.INT, 42),
+                                new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
+                        ))));
+
     }
 
     private ClassFile parseHelloWorldClass() throws IOException {
+        return parseClass("/HelloWorld.cls");
+    }
+
+    private ClassFile parseExampleAnnotatedClass() throws IOException {
+        return parseClass("/ExampleAnnotated.cls");
+    }
+
+    private ClassFile parseClass(String path) throws IOException {
         ClassFile classFile;
-        try (var stream = ParserTest.class.getResourceAsStream("/HelloWorld.cls")) {
+        try (var stream = ParserTest.class.getResourceAsStream(path)) {
             classFile = parser.parse(stream);
         }
         return classFile;

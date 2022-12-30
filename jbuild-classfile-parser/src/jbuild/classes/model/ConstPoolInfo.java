@@ -1,5 +1,7 @@
 package jbuild.classes.model;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * cp_info {
  * u1 tag;
@@ -135,6 +137,10 @@ public abstract class ConstPoolInfo {
         public Utf8(byte[] value) {
             super(TAG);
             this.value = value;
+        }
+
+        public java.lang.String asString() {
+            return new java.lang.String(value, StandardCharsets.UTF_8);
         }
     }
 

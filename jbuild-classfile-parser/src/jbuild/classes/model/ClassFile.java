@@ -1,10 +1,12 @@
 package jbuild.classes.model;
 
+import jbuild.classes.AnnotationParser;
+import jbuild.classes.model.attributes.AnnotationInfo;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -68,25 +70,52 @@ public final class ClassFile {
         this.attributes = attributes;
     }
 
+    public String getClassName() {
+        var thisClassInfo = (ConstPoolInfo.Class) constPoolEntries.get(thisClass);
+        return nameOf(thisClassInfo);
+    }
+
     public List<String> getTypesReferredTo() {
         if (typesReferredTo == null) {
             var thisClassInfo = (ConstPoolInfo.Class) constPoolEntries.get(thisClass);
             var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
-                .filter(e -> e.tag == ConstPoolInfo.Class.TAG)
-                .map(e -> (ConstPoolInfo.Class) e)
-                .filter(c -> c.nameIndex != thisClassNameIndex)
-                .map(this::nameOf)
-                .filter(Objects::nonNull)
-                .collect(toList());
+                    .filter(e -> e.tag == ConstPoolInfo.Class.TAG)
+                    .map(e -> (ConstPoolInfo.Class) e)
+                    .filter(c -> c.nameIndex != thisClassNameIndex)
+                    .map(this::nameOf)
+                    .filter(Objects::nonNull)
+                    .collect(toList());
         }
         return typesReferredTo;
+    }
+
+    public List<AnnotationInfo> getRuntimeVisibleAnnotations() {
+        return getAnnotationsAttribute("RuntimeVisibleAnnotations");
+    }
+
+    public List<AnnotationInfo> getRuntimeInvisibleAnnotations() {
+        return getAnnotationsAttribute("RuntimeInvisibleAnnotations");
+    }
+
+    private List<AnnotationInfo> getAnnotationsAttribute(String name) {
+        return attributes.stream()
+                .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
+                .findFirst()
+                .map(attribute -> new AnnotationParser(this)
+                        .parseAnnotationInfo(attribute.attributes))
+                .orElse(List.of());
     }
 
     private String nameOf(ConstPoolInfo.Class type) {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex);
         if (isJavaClassName(utf8)) return null;
-        return new String(utf8.value, StandardCharsets.UTF_8);
+        return utf8.asString();
+    }
+
+    private String getUtf8(short index) {
+        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(index);
+        return utf8.asString();
     }
 
     private static boolean isJavaClassName(ConstPoolInfo.Utf8 utf8) {
