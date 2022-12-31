@@ -5,8 +5,10 @@ import jbuild.classes.model.attributes.AnnotationInfo;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 
@@ -71,17 +73,26 @@ public final class ClassFile {
     }
 
     public String getClassName() {
-        var thisClassInfo = (ConstPoolInfo.Class) constPoolEntries.get(thisClass);
+        var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass);
         return nameOf(thisClassInfo);
+    }
+
+    public Set<String> getInterfaceNames() {
+        var result = new LinkedHashSet<String>(interfaces.length);
+        for (short interfaceIndex : interfaces) {
+            var interf = (ConstPoolInfo.ConstClass) constPoolEntries.get(interfaceIndex);
+            result.add(nameOf(interf));
+        }
+        return result;
     }
 
     public List<String> getTypesReferredTo() {
         if (typesReferredTo == null) {
-            var thisClassInfo = (ConstPoolInfo.Class) constPoolEntries.get(thisClass);
+            var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass);
             var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
-                    .filter(e -> e.tag == ConstPoolInfo.Class.TAG)
-                    .map(e -> (ConstPoolInfo.Class) e)
+                    .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG)
+                    .map(e -> (ConstPoolInfo.ConstClass) e)
                     .filter(c -> c.nameIndex != thisClassNameIndex)
                     .map(this::nameOf)
                     .filter(Objects::nonNull)
@@ -107,7 +118,7 @@ public final class ClassFile {
                 .orElse(List.of());
     }
 
-    private String nameOf(ConstPoolInfo.Class type) {
+    private String nameOf(ConstPoolInfo.ConstClass type) {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex);
         if (isJavaClassName(utf8)) return null;
         return utf8.asString();

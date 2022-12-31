@@ -119,22 +119,22 @@ public final class AnnotationParser {
     }
 
     private int nextConstInt(ByteScanner scanner) {
-        var i = (ConstPoolInfo.Int) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstInt) classFile.constPoolEntries.get(scanner.nextShort());
         return i.value;
     }
 
     private double nextConstDouble(ByteScanner scanner) {
-        var i = (ConstPoolInfo.Double) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstDouble) classFile.constPoolEntries.get(scanner.nextShort());
         return i.value;
     }
 
     private float nextConstFloat(ByteScanner scanner) {
-        var i = (ConstPoolInfo.Float) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstFloat) classFile.constPoolEntries.get(scanner.nextShort());
         return i.value;
     }
 
     private long nextConstLong(ByteScanner scanner) {
-        var i = (ConstPoolInfo.Long) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstLong) classFile.constPoolEntries.get(scanner.nextShort());
         return i.value;
     }
 

@@ -50,26 +50,26 @@ public class ParserTest {
         assertThat(constPoolInfo)
                 .containsExactly(JBuildClassFileParser.FIRST_ITEM_SENTINEL.getClass(),
                         ConstPoolInfo.MethodRef.class,
-                        ConstPoolInfo.Class.class,
+                        ConstPoolInfo.ConstClass.class,
                         ConstPoolInfo.NameAndType.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.FieldRef.class,
-                        ConstPoolInfo.Class.class,
+                        ConstPoolInfo.ConstClass.class,
                         ConstPoolInfo.NameAndType.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
-                        ConstPoolInfo.String.class,
+                        ConstPoolInfo.ConstString.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.MethodRef.class,
-                        ConstPoolInfo.Class.class,
+                        ConstPoolInfo.ConstClass.class,
                         ConstPoolInfo.NameAndType.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
-                        ConstPoolInfo.Class.class,
+                        ConstPoolInfo.ConstClass.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class,
@@ -85,7 +85,7 @@ public class ParserTest {
         assertThat((ConstPoolInfo.MethodRef) classFile.constPoolEntries.get(1))
                 .extracting(m -> m.nameAndTypeIndex)
                 .isEqualTo((short) 3);
-        assertThat((ConstPoolInfo.Class) classFile.constPoolEntries.get(2))
+        assertThat((ConstPoolInfo.ConstClass) classFile.constPoolEntries.get(2))
                 .extracting(m -> m.nameIndex)
                 .isEqualTo((short) 4);
         assertThat((ConstPoolInfo.NameAndType) classFile.constPoolEntries.get(3))
@@ -109,7 +109,7 @@ public class ParserTest {
         assertThat((ConstPoolInfo.FieldRef) classFile.constPoolEntries.get(7))
                 .extracting(m -> m.nameAndTypeIndex)
                 .isEqualTo((short) 9);
-        assertThat((ConstPoolInfo.Class) classFile.constPoolEntries.get(8))
+        assertThat((ConstPoolInfo.ConstClass) classFile.constPoolEntries.get(8))
                 .extracting(m -> m.nameIndex)
                 .isEqualTo((short) 10);
         assertThat((ConstPoolInfo.NameAndType) classFile.constPoolEntries.get(9))
@@ -127,7 +127,7 @@ public class ParserTest {
         assertThat((ConstPoolInfo.Utf8) classFile.constPoolEntries.get(12))
                 .extracting(m -> m.value)
                 .isEqualTo("Ljava/io/PrintStream;".getBytes(UTF_8));
-        assertThat((ConstPoolInfo.String) classFile.constPoolEntries.get(13))
+        assertThat((ConstPoolInfo.ConstString) classFile.constPoolEntries.get(13))
                 .extracting(m -> m.stringIndex)
                 .isEqualTo((short) 14);
         assertThat((ConstPoolInfo.Utf8) classFile.constPoolEntries.get(14))
@@ -139,7 +139,7 @@ public class ParserTest {
         assertThat((ConstPoolInfo.MethodRef) classFile.constPoolEntries.get(15))
                 .extracting(m -> m.nameAndTypeIndex)
                 .isEqualTo((short) 17);
-        assertThat((ConstPoolInfo.Class) classFile.constPoolEntries.get(16))
+        assertThat((ConstPoolInfo.ConstClass) classFile.constPoolEntries.get(16))
                 .extracting(m -> m.nameIndex)
                 .isEqualTo((short) 18);
         assertThat((ConstPoolInfo.NameAndType) classFile.constPoolEntries.get(17))
@@ -157,7 +157,7 @@ public class ParserTest {
         assertThat((ConstPoolInfo.Utf8) classFile.constPoolEntries.get(20))
                 .extracting(m -> m.value)
                 .isEqualTo("(Ljava/lang/String;)V".getBytes(UTF_8));
-        assertThat((ConstPoolInfo.Class) classFile.constPoolEntries.get(21))
+        assertThat((ConstPoolInfo.ConstClass) classFile.constPoolEntries.get(21))
                 .extracting(m -> m.nameIndex)
                 .isEqualTo((short) 22);
         assertThat((ConstPoolInfo.Utf8) classFile.constPoolEntries.get(22))

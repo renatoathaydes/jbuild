@@ -7,4 +7,4 @@ version: 0.8.0
 
 main-class: jbuild.cli.Main
 
-source-dirs: [ jbuild-api/src, src/main/java ]
+source-dirs: [ jbuild-api/src, jbuild-classfile-parser/src, src/main/java ]

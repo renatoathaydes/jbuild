@@ -6,7 +6,7 @@ public class ElementValuePair {
         BYTE('B'), CHAR('C'), DOUBLE('D'), FLOAT('F'), INT('I'), LONG('J'), SHORT('S'), BOOL('Z'),
         STRING('s'), ENUM('e'), CLASS('c'), ANNOTATION('@'), ARRAY('[');
 
-        char tag;
+        final char tag;
 
         Type(char tag) {
             this.tag = tag;

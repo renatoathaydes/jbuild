@@ -1,28 +1,27 @@
 package jbuild.commands;
 
-import static java.util.stream.Collectors.toList;
-import static jbuild.java.tools.Tools.verifyToolSuccessful;
+import jbuild.classes.JBuildClassFileParser;
+import jbuild.classes.model.ClassFile;
+import jbuild.classes.model.attributes.AnnotationInfo;
+import jbuild.classes.model.attributes.ElementValuePair;
+import jbuild.errors.JBuildException;
+import jbuild.errors.JBuildException.ErrorCause;
+import jbuild.log.JBuildLog;
+import jbuild.util.FileCollection;
+import jbuild.util.FileUtils;
+import jbuild.util.JavaTypeUtils;
 
+import java.io.FileInputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import jbuild.errors.JBuildException;
-import jbuild.errors.JBuildException.ErrorCause;
-import jbuild.java.JavapOutputParser;
-import jbuild.java.code.AnnotationValues;
-import jbuild.java.code.TypeDefinition;
-import jbuild.java.tools.Tools.Javap;
-import jbuild.log.JBuildLog;
-import jbuild.util.FileCollection;
-import jbuild.util.FileUtils;
-import jbuild.util.JavaTypeUtils;
+import static java.util.stream.Collectors.toList;
 
 final class JbManifestGenerator {
 
@@ -35,12 +34,15 @@ final class JbManifestGenerator {
     }
 
     FileCollection generateJbManifest(String classesDir) {
+        var startTime = System.currentTimeMillis();
         var types = findTypeDefinitions(classesDir);
         var extensions = findExtensions(types);
+        log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
+                (System.currentTimeMillis() - startTime) + " ms");
         return createManifest(extensions);
     }
 
-    private FileCollection createManifest(List<TypeDefinition> extensions) {
+    private FileCollection createManifest(List<ClassFile> extensions) {
         var yamlBuilder = new StringBuilder(4096);
         yamlBuilder.append("tasks:\n");
         for (var extension : extensions) {
@@ -62,27 +64,32 @@ final class JbManifestGenerator {
         return new FileCollection(dir.toString());
     }
 
-    private void createEntryForExtension(TypeDefinition extension, StringBuilder yamlBuilder) {
-        var className = JavaTypeUtils.typeNameToClassName(extension.typeName);
-        for (var annotation : extension.annotationValues) {
-            if (annotation.name.equals("jbuild.api.JbTaskInfo")) {
-                writeInfo(className, annotation, yamlBuilder);
-                break; // only one annotation is allowed
+    private void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
+        var className = JavaTypeUtils.typeNameToClassName("L" + extension.getClassName() + ';');
+        log.verbosePrintln(() -> "Creating jb manifest for " + className);
+        for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
+            if (annotation.typeDescriptor.equals("Ljbuild/api/JbTaskInfo;")) {
+                writeInfo(className, annotation.getMap(), yamlBuilder);
+                return; // only one annotation is allowed
             }
         }
+        throw new JBuildException(
+                "jb extension '" + className + "' is not annotated with @jbuild.api.JbTaskInfo",
+                ErrorCause.USER_INPUT);
     }
 
-    private void writeInfo(String className, AnnotationValues annotation, StringBuilder yamlBuilder) {
-        yamlBuilder.append("  \"").append(annotation.getString("name")).append("\":\n");
+    private void writeInfo(String className, Map<String, ElementValuePair> annotation, StringBuilder yamlBuilder) {
+        yamlBuilder.append("  \"").append(annotation.get("name").value).append("\":\n");
         yamlBuilder.append("    class-name: ").append(className).append('\n');
-        var description = annotation.getString("description");
-        if (!description.isBlank()) {
-            yamlBuilder.append("    description: ").append(description).append('\n');
+        var description = annotation.get("description");
+        if (description != null) {
+            yamlBuilder.append("    description: ").append(description.value).append('\n');
         }
-        var phase = annotation.getSub("phase");
-        if (phase.getInt("index") != 400) {
-            yamlBuilder.append("    phase:\n      \"").append(phase.getString("name"))
-                    .append("\": ").append(phase.getInt("index")).append('\n');
+        var phase = annotation.get("phase");
+        if (phase != null) {
+            var phaseAnnotation = ((AnnotationInfo) phase.value).getMap();
+            yamlBuilder.append("    phase:\n      \"").append(phaseAnnotation.get("name").value)
+                    .append("\": ").append(phaseAnnotation.get("index").value).append('\n');
         }
         writeStrings(annotation, "inputs", "inputs", yamlBuilder);
         writeStrings(annotation, "outputs", "outputs", yamlBuilder);
@@ -90,52 +97,46 @@ final class JbManifestGenerator {
         writeStrings(annotation, "dependents", "dependents", yamlBuilder);
     }
 
-    private static void writeStrings(AnnotationValues annotation,
-            String section,
-            String yamlName,
-            StringBuilder yamlBuilder) {
-        var values = annotation.getAllStrings(section);
-        if (!values.isEmpty()) {
+    private static void writeStrings(Map<String, ElementValuePair> annotation,
+                                     String section,
+                                     String yamlName,
+                                     StringBuilder yamlBuilder) {
+        var sectionValue = annotation.get(section);
+        if (sectionValue != null) {
+            var values = (List<?>) sectionValue.value;
             yamlBuilder.append("    ").append(yamlName).append(":\n");
             for (var value : values) {
-                yamlBuilder.append("      - \"").append(value.replaceAll("/", "//")).append("\"\n");
+                yamlBuilder.append("      - \"").append(value.toString().replaceAll("/", "//")).append("\"\n");
             }
         }
     }
 
-    private List<TypeDefinition> findExtensions(Collection<Map<String, TypeDefinition>> types) {
-        var extensions = new ArrayList<TypeDefinition>();
-        for (var typeMap : types) {
-            for (var typeDef : typeMap.values()) {
-                if (typeDef.implementedInterfaces.contains("jb.api.JbTask")) {
-                    extensions.add(typeDef);
-                }
+    private List<ClassFile> findExtensions(List<ClassFile> types) {
+        var extensions = new ArrayList<ClassFile>();
+        for (var type : types) {
+            if (type.getInterfaceNames().contains("jb.api.JbTask")) {
+                extensions.add(type);
             }
         }
         return extensions;
     }
 
-    private Collection<Map<String, TypeDefinition>> findTypeDefinitions(String directory) {
-        var javap = Javap.create();
-        var javapOutputParser = new JavapOutputParser(log);
+    private static List<ClassFile> findTypeDefinitions(String directory) {
+        var parser = new JBuildClassFileParser();
         var classFiles = FileUtils.collectFiles(directory, CLASS_FILES_FILTER);
         return classFiles.files.stream()
-                .map(classFile -> parseClassFile(javap, javapOutputParser, directory))
+                .map(classFile -> parseClassFile(parser, directory))
                 .collect(toList());
     }
 
-    private Map<String, TypeDefinition> parseClassFile(
-            Javap javap,
-            JavapOutputParser javapOutputParser,
+    private static ClassFile parseClassFile(
+            JBuildClassFileParser parser,
             String classFile) {
-        var toolResult = javap.run(classFile);
-        verifyToolSuccessful("javap", toolResult);
-
-        try (var stdoutStream = toolResult.getStdoutLines();
-                var ignored = toolResult.getStderrLines()) {
-            return javapOutputParser.processJavapOutput(stdoutStream.iterator());
-        } catch (JBuildException e) {
-            throw new JBuildException(e.getMessage() + " (class: " + classFile + ")", e.getErrorCause());
+        try (var stream = new FileInputStream(classFile)) {
+            return parser.parse(stream);
+        } catch (IOException e) {
+            throw new JBuildException("Unable to read class file at " + classFile + ": " + e,
+                    ErrorCause.ACTION_ERROR);
         }
 
     }

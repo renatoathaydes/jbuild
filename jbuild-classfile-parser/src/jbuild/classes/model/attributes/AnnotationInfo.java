@@ -1,6 +1,8 @@
 package jbuild.classes.model.attributes;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class AnnotationInfo {
     public final String typeDescriptor;
@@ -9,6 +11,14 @@ public final class AnnotationInfo {
     public AnnotationInfo(String typeDescriptor, List<ElementValuePair> elementValuePairs) {
         this.typeDescriptor = typeDescriptor;
         this.elementValuePairs = elementValuePairs;
+    }
+
+    public Map<String, ElementValuePair> getMap() {
+        var map = new LinkedHashMap<String, ElementValuePair>(elementValuePairs.size());
+        for (var pair : elementValuePairs) {
+            map.put(pair.name, pair);
+        }
+        return map;
     }
 
     @Override

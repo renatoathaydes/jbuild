@@ -15,11 +15,11 @@ public abstract class ConstPoolInfo {
         this.tag = tag;
     }
 
-    public static final class Class extends ConstPoolInfo {
+    public static final class ConstClass extends ConstPoolInfo {
         public static final short TAG = 7;
         public final short nameIndex;
 
-        public Class(short nameIndex) {
+        public ConstClass(short nameIndex) {
             super(TAG);
             this.nameIndex = nameIndex;
         }
@@ -61,51 +61,51 @@ public abstract class ConstPoolInfo {
         }
     }
 
-    public static final class String extends ConstPoolInfo {
+    public static final class ConstString extends ConstPoolInfo {
         public static final short TAG = 8;
         public final short stringIndex;
 
-        public String(short stringIndex) {
+        public ConstString(short stringIndex) {
             super(TAG);
             this.stringIndex = stringIndex;
         }
     }
 
-    public static final class Int extends ConstPoolInfo {
+    public static final class ConstInt extends ConstPoolInfo {
         public static final short TAG = 3;
         public final int value;
 
-        public Int(int value) {
+        public ConstInt(int value) {
             super(TAG);
             this.value = value;
         }
     }
 
-    public static final class Float extends ConstPoolInfo {
+    public static final class ConstFloat extends ConstPoolInfo {
         public static final short TAG = 4;
         public final float value;
 
-        public Float(float value) {
+        public ConstFloat(float value) {
             super(TAG);
             this.value = value;
         }
     }
 
-    public static final class Long extends ConstPoolInfo {
+    public static final class ConstLong extends ConstPoolInfo {
         public static final short TAG = 5;
         public final long value;
 
-        public Long(long value) {
+        public ConstLong(long value) {
             super(TAG);
             this.value = value;
         }
     }
 
-    public static final class Double extends ConstPoolInfo {
+    public static final class ConstDouble extends ConstPoolInfo {
         public static final short TAG = 6;
         public final double value;
 
-        public Double(double value) {
+        public ConstDouble(double value) {
             super(TAG);
             this.value = value;
         }

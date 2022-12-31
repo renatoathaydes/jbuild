@@ -9,10 +9,7 @@ public class ClassFileException extends RuntimeException {
     }
 
     @Override
-    public String toString() {
-        return "ClassFileException{" +
-                "message=" + getMessage() + ',' +
-                " offset=" + offset +
-                '}';
+    public String getMessage() {
+        return "[offset=" + offset + "]: " + super.getMessage();
     }
 }

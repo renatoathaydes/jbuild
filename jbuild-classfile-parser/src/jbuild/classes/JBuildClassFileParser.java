@@ -18,7 +18,7 @@ public class JBuildClassFileParser {
      */
     public static final ConstPoolInfo.Utf8 FIRST_ITEM_SENTINEL = new ConstPoolInfo.Utf8(new byte[0]);
 
-    ClassFile parse(InputStream input) throws IOException {
+    public ClassFile parse(InputStream input) throws IOException {
         var scanner = new ByteScanner(input);
         var magic = scanner.nextInt();
 
@@ -75,24 +75,24 @@ public class JBuildClassFileParser {
     private ConstPoolInfo parseConstPoolInfo(ByteScanner scanner) {
         var tag = scanner.nextByte();
         switch (tag) {
-            case ConstPoolInfo.Class.TAG:
-                return new ConstPoolInfo.Class(scanner.nextShort());
+            case ConstPoolInfo.ConstClass.TAG:
+                return new ConstPoolInfo.ConstClass(scanner.nextShort());
             case ConstPoolInfo.FieldRef.TAG:
                 return new ConstPoolInfo.FieldRef(scanner.nextShort(), scanner.nextShort());
             case ConstPoolInfo.MethodRef.TAG:
                 return new ConstPoolInfo.MethodRef(scanner.nextShort(), scanner.nextShort());
             case ConstPoolInfo.InterfaceMethodRef.TAG:
                 return new ConstPoolInfo.InterfaceMethodRef(scanner.nextShort(), scanner.nextShort());
-            case ConstPoolInfo.String.TAG:
-                return new ConstPoolInfo.String(scanner.nextShort());
-            case ConstPoolInfo.Int.TAG:
-                return new ConstPoolInfo.Int(scanner.nextInt());
-            case ConstPoolInfo.Float.TAG:
-                return new ConstPoolInfo.Float(scanner.nextFloat());
-            case ConstPoolInfo.Long.TAG:
-                return new ConstPoolInfo.Long(scanner.nextLong());
-            case ConstPoolInfo.Double.TAG:
-                return new ConstPoolInfo.Double(scanner.nextDouble());
+            case ConstPoolInfo.ConstString.TAG:
+                return new ConstPoolInfo.ConstString(scanner.nextShort());
+            case ConstPoolInfo.ConstInt.TAG:
+                return new ConstPoolInfo.ConstInt(scanner.nextInt());
+            case ConstPoolInfo.ConstFloat.TAG:
+                return new ConstPoolInfo.ConstFloat(scanner.nextFloat());
+            case ConstPoolInfo.ConstLong.TAG:
+                return new ConstPoolInfo.ConstLong(scanner.nextLong());
+            case ConstPoolInfo.ConstDouble.TAG:
+                return new ConstPoolInfo.ConstDouble(scanner.nextDouble());
             case ConstPoolInfo.NameAndType.TAG:
                 return new ConstPoolInfo.NameAndType(scanner.nextShort(), scanner.nextShort());
             case ConstPoolInfo.Utf8.TAG: {
