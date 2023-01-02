@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,14 +24,22 @@ public class RpcMainTest {
     final CountDownLatch stopper = new CountDownLatch(1);
 
     @BeforeEach
-    void start() {
+    void start() throws InterruptedException {
+        var startWait = new CountDownLatch(1);
         new Thread(() -> {
+            startWait.countDown();
             try {
                 new RpcMain().run(port, token, stopper);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }).start();
+
+        if (!startWait.await(2, TimeUnit.SECONDS)) {
+            throw new RuntimeException("timeout waiting for start up");
+        }
+        // time for the socket to get ready
+        Thread.sleep(10);
     }
 
     @AfterEach
