@@ -39,33 +39,46 @@ final class JbManifestGenerator {
         var extensions = findExtensions(types);
         log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
                 (System.currentTimeMillis() - startTime) + " ms");
+        if (extensions.isEmpty()) {
+            throw new JBuildException("Cannot generate jb manifest. " +
+                    "Failed to locate implementations of jbuild.api.JbTask", ErrorCause.USER_INPUT);
+        }
         return createManifest(extensions);
     }
 
     private FileCollection createManifest(List<ClassFile> extensions) {
+        var startTime = System.currentTimeMillis();
         var yamlBuilder = new StringBuilder(4096);
         yamlBuilder.append("tasks:\n");
         for (var extension : extensions) {
             createEntryForExtension(extension, yamlBuilder);
         }
-        return writeManifest(yamlBuilder);
+        var manifestFiles = writeManifest(yamlBuilder);
+        log.verbosePrintln(() -> "Created jb manifest in " + (System.currentTimeMillis() - startTime) + " ms");
+        return manifestFiles;
     }
 
     private FileCollection writeManifest(CharSequence manifestContents) {
         Path dir;
         try {
             dir = Files.createTempDirectory("jbuild-jb-manifest");
-            var manifest = dir.resolve("META-INF/jb/jb-extension.yaml");
-            manifest.getParent().toFile().mkdirs();
+        } catch (IOException e) {
+            throw new JBuildException("Unable to create temp directory: " + e, ErrorCause.IO_WRITE);
+        }
+        var manifest = dir.resolve("META-INF/jb/jb-extension.yaml");
+        try {
+            if (!manifest.getParent().toFile().mkdirs()) {
+                throw new JBuildException("Failed to create temp directory for jb manifest file", ErrorCause.IO_WRITE);
+            }
             Files.writeString(manifest, manifestContents, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new JBuildException("Failed to write jb manifest file: " + e, ErrorCause.IO_WRITE);
         }
-        return new FileCollection(dir.toString());
+        return new FileCollection(dir.toString(), List.of(manifest.toString()));
     }
 
     private void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
-        var className = JavaTypeUtils.typeNameToClassName("L" + extension.getClassName() + ';');
+        var className = JavaTypeUtils.typeNameToClassName('L' + extension.getClassName() + ';');
         log.verbosePrintln(() -> "Creating jb manifest for " + className);
         for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
             if (annotation.typeDescriptor.equals("Ljbuild/api/JbTaskInfo;")) {
@@ -114,7 +127,7 @@ final class JbManifestGenerator {
     private List<ClassFile> findExtensions(List<ClassFile> types) {
         var extensions = new ArrayList<ClassFile>();
         for (var type : types) {
-            if (type.getInterfaceNames().contains("jb.api.JbTask")) {
+            if (type.getInterfaceNames().contains("jbuild/api/JbTask")) {
                 extensions.add(type);
             }
         }
@@ -125,7 +138,7 @@ final class JbManifestGenerator {
         var parser = new JBuildClassFileParser();
         var classFiles = FileUtils.collectFiles(directory, CLASS_FILES_FILTER);
         return classFiles.files.stream()
-                .map(classFile -> parseClassFile(parser, directory))
+                .map(classFile -> parseClassFile(parser, classFile))
                 .collect(toList());
     }
 
