@@ -2,14 +2,12 @@ package jbuild.commands;
 
 import jbuild.TestSystemProperties;
 import jbuild.log.JBuildLog;
-import jbuild.util.Describable;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
 import java.util.Deque;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -81,7 +79,7 @@ public class RequirementsCommandTest {
         }
 
         @Override
-        public void onMissingType(List<Describable> referenceChain, String typeName) {
+        public void onMissingType(String typeName) {
             missingTypes.offer(typeName);
         }
 

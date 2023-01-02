@@ -1,5 +1,7 @@
 package jbuild.java;
 
+import jbuild.classes.JBuildClassFileParser;
+import jbuild.classes.model.ClassFile;
 import jbuild.errors.JBuildException;
 import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;
@@ -8,6 +10,7 @@ import jbuild.util.CachedSupplier;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,6 +28,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
@@ -87,6 +92,21 @@ public final class Jar {
                 "file=" + file +
                 ", typeCount=" + types.size() +
                 '}';
+    }
+
+    public List<ClassFile> parseAllTypes() {
+        var parser = new JBuildClassFileParser();
+        try (var zip = new ZipFile(file)) {
+            return zip.stream().filter(s -> !s.isDirectory() && s.getName().endsWith(".class")).map(stream -> {
+                try {
+                    return parser.parse(zip.getInputStream(stream));
+                } catch (IOException e) {
+                    throw new JBuildException("Error reading jar: " + file, JBuildException.ErrorCause.IO_READ);
+                }
+            }).collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new JBuildException("Error reading jar: " + file, JBuildException.ErrorCause.IO_READ);
+        }
     }
 
     /**
