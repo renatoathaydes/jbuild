@@ -109,7 +109,7 @@ public class RequirementsCommandExecutor {
         @Override
         public void onDone() {
             if (count == 0) {
-                log.println(() -> jar + " has no type requirements.");
+                log.println(() -> "  " + jar + " has no type requirements.");
             } else {
                 log.println(() -> "  total " + count +
                         " type" + (count == 1 ? "" : "s") + " listed.");
