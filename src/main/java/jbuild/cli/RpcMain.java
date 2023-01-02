@@ -27,20 +27,21 @@ public final class RpcMain {
         if (args.length != 0) {
             throw new JBuildException("Unexpected arguments provided", USER_INPUT);
         }
-        new RpcMain().run(0, new CountDownLatch(1));
+
+        // make sure to only serve RPC requests from the process that
+        // started this server.
+        var token = UUID.randomUUID().toString();
+
+        new RpcMain().run(0, token, new CountDownLatch(1));
     }
 
-    public void run(int port, CountDownLatch stopper) throws IOException {
+    public void run(int port, String token, CountDownLatch stopper) throws IOException {
         var threadId = new AtomicInteger();
         var executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), runnable -> {
             var thread = new Thread(runnable, "jbuild-rpc-" + threadId.incrementAndGet());
             thread.setDaemon(true);
             return thread;
         });
-
-        // make sure to only serve RPC requests from the process that
-        // started this server.
-        var token = UUID.randomUUID().toString();
 
         var server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
         server.setExecutor(executor);

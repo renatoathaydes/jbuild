@@ -9,8 +9,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
 import java.util.concurrent.CountDownLatch;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -19,13 +19,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class RpcMainTest {
 
     final int port = 9099;
+    final String token = "my-token";
     final CountDownLatch stopper = new CountDownLatch(1);
 
     @BeforeEach
     void start() {
         new Thread(() -> {
             try {
-                new RpcMain().run(port, stopper);
+                new RpcMain().run(port, token, stopper);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -41,9 +42,29 @@ public class RpcMainTest {
     void getMethodIsNotAccepted() throws IOException, InterruptedException {
         var client = HttpClient.newHttpClient();
         var response = client.send(
-                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc")).build(),
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+                        .header("Authorization", "Bearer " + token)
+                        .build(),
                 HttpResponse.BodyHandlers.ofString(UTF_8));
-        assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(503);
+        assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(405);
+    }
+
+    @Test
+    void postMethodWithoutAuthorizationIsNotAccepted() throws IOException, InterruptedException {
+        var client = HttpClient.newHttpClient();
+
+        var rpcMessage = "<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>" + CalledInRpcMainTest.class.getName() + ".greeting</methodName>\n" +
+                "    <params>\n" +
+                "    </params>\n" +
+                "</methodCall>";
+
+        var response = client.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+                        .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
+
+        assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(403);
     }
 
     @Test
@@ -58,6 +79,7 @@ public class RpcMainTest {
                 "</methodCall>";
 
         var response = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+                .header("Authorization", "Bearer " + token)
                 .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
 
         assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(200);
@@ -86,6 +108,7 @@ public class RpcMainTest {
                 "</methodCall>";
 
         var response = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+                .header("Authorization", "Bearer " + token)
                 .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
 
         assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(200);
