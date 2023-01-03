@@ -129,7 +129,7 @@ public final class Jar {
     /**
      * Asynchronous loader of {@link jbuild.java.tools.Tools.Jar} instances.
      */
-    public static final class Loader {
+    public static final class Loader implements AutoCloseable {
 
         private final JBuildLog log;
         private final ExecutorService loaderExecutorService;
@@ -145,6 +145,12 @@ public final class Jar {
 
         public Loader(JBuildLog log) {
             this(log, createExecutor(), createExecutor());
+        }
+
+        @Override
+        public void close() {
+            loaderExecutorService.shutdown();
+            parserExecutorService.shutdown();
         }
 
         public static ExecutorService createExecutor() {
@@ -276,7 +282,6 @@ public final class Jar {
                     " (partition " + partitionIndex + ") in " + totalTime.get() + "ms");
             return typeDefs;
         }
-
     }
 
     private static final class JarLoaderThreadFactory implements ThreadFactory {

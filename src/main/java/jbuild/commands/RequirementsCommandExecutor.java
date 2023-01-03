@@ -37,6 +37,7 @@ public class RequirementsCommandExecutor {
         return new RequirementsCommandExecutor(log);
     }
 
+    @SuppressWarnings("resource")
     public CompletionStage<Void> execute(Set<String> files) {
         var jarLoader = new Jar.Loader(log);
 
@@ -45,12 +46,15 @@ public class RequirementsCommandExecutor {
 
         var futures = files.stream().map(file ->
                         jarLoader.lazyLoad(new File(file)).thenCompose(
-                                jar -> supplyAsync(() -> typesRequiredBy(jar))
+                                jar -> supplyAsync(() -> typesRequiredBy(jar), reporterThread)
                                         .thenAcceptAsync(requiredTypes -> visit(jar, requiredTypes), reporterThread))
                 ).map(CompletionStage::toCompletableFuture)
                 .toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(futures).whenComplete((_1, _2) -> reporterThread.shutdown());
+        return CompletableFuture.allOf(futures).whenComplete((_1, _2) -> {
+            reporterThread.shutdown();
+            jarLoader.close();
+        });
     }
 
     private void visit(Jar jarFile, Set<String> requiredTypes) {
