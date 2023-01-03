@@ -404,7 +404,8 @@ public final class Main {
 
     private void requirements(Options options) throws ExecutionException, InterruptedException {
         var command = RequirementsCommandExecutor.createDefault(log);
-        command.execute(RequirementsOptions.parse(options.commandArgs, !options.quiet).jars).toCompletableFuture().get();
+        var reqOptions = RequirementsOptions.parse(options.commandArgs, !options.quiet);
+        command.execute(reqOptions.jars, reqOptions.perClass).toCompletableFuture().get();
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

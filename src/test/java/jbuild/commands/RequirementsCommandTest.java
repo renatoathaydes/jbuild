@@ -28,11 +28,11 @@ public class RequirementsCommandTest {
         var visitor = new TestVisitor();
         var command = new RequirementsCommandExecutor(log, visitor);
 
-        var result = command.execute(Set.of(TestSystemProperties.myClassesJar.getPath()));
+        var result = command.execute(Set.of(TestSystemProperties.myClassesJar.getPath()), false);
         result.toCompletableFuture().get(5, TimeUnit.MINUTES);
 
         assertThat(visitor.jars).containsExactly(TestSystemProperties.myClassesJar.getName());
-        assertThat(visitor.missingTypes).isEmpty();
+        assertThat(visitor.types).isEmpty();
         assertThat(visitor.done.get()).isTrue();
     }
 
@@ -45,11 +45,11 @@ public class RequirementsCommandTest {
         var visitor = new TestVisitor();
         var command = new RequirementsCommandExecutor(log, visitor);
 
-        var result = command.execute(Set.of(TestSystemProperties.otherClassesJar.getPath()));
+        var result = command.execute(Set.of(TestSystemProperties.otherClassesJar.getPath()), false);
         result.toCompletableFuture().get(5, TimeUnit.MINUTES);
 
         assertThat(visitor.jars).containsExactly(TestSystemProperties.otherClassesJar.getName());
-        assertThat(visitor.missingTypes).containsOnly(
+        assertThat(visitor.types).containsOnly(
                 "Lfoo/FunctionalCode;",
                 "Lfoo/Something;",
                 "Lfoo/MultiInterface;",
@@ -68,9 +68,9 @@ public class RequirementsCommandTest {
         assertThat(visitor.done.get()).isTrue();
     }
 
-    private static class TestVisitor implements RequirementsCommandExecutor.MissingTypeVisitor {
+    private static class TestVisitor implements RequirementsCommandExecutor.TypeVisitor {
         final Deque<String> jars = new LinkedBlockingDeque<>(64);
-        final Deque<String> missingTypes = new LinkedBlockingDeque<>(64);
+        final Deque<String> types = new LinkedBlockingDeque<>(64);
         final AtomicBoolean done = new AtomicBoolean();
 
         @Override
@@ -79,8 +79,13 @@ public class RequirementsCommandTest {
         }
 
         @Override
-        public void onMissingType(String typeName) {
-            missingTypes.offer(typeName);
+        public void startType(String type) {
+            throw new IllegalStateException("did not expect per requirements per type");
+        }
+
+        @Override
+        public void onRequiredType(String typeName) {
+            types.offer(typeName);
         }
 
         @Override

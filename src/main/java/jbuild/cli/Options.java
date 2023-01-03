@@ -565,29 +565,39 @@ final class RequirementsOptions {
             "    " + LINE_END +
             "    Determines the Java types required by a set of jars." + LINE_END +
             "      Usage:" + LINE_END +
-            "        jbuild " + NAME + " <jar...>" + LINE_END +
+            "        jbuild " + NAME + "<options...> <jar...>" + LINE_END +
+            "      Options:" + LINE_END +
+            "        --per-class" + LINE_END +
+            "        -c        show intra-jar requirements per-class" + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " app.jar lib.jar";
 
     final Set<String> jars;
+    final boolean perClass;
 
-    public RequirementsOptions(Set<String> jars) {
+    public RequirementsOptions(Set<String> jars, boolean perClass) {
         this.jars = unmodifiableSet(jars);
+        this.perClass = perClass;
     }
 
     static RequirementsOptions parse(List<String> args, boolean verbose) {
         var jars = new LinkedHashSet<String>(4);
+        var perClass = false;
 
         for (var arg : args) {
             if (arg.startsWith("-")) {
-                throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
-                        (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
+                if (isEither(arg, "-c", "--per-class")) {
+                    perClass = true;
+                } else {
+                    throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
+                            (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
+                }
             } else {
                 jars.add(arg);
             }
         }
 
-        return new RequirementsOptions(jars);
+        return new RequirementsOptions(jars, perClass);
     }
 }
 
