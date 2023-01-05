@@ -68,6 +68,7 @@ public class JavaTypeUtilsTest {
         assertThat(JavaTypeUtils.typeNameToClassName("F")).isEqualTo("float");
         assertThat(JavaTypeUtils.typeNameToClassName("Ljava/lang/String;")).isEqualTo("java.lang.String");
         assertThat(JavaTypeUtils.typeNameToClassName("LFoo;")).isEqualTo("Foo");
+        assertThat(JavaTypeUtils.typeNameToClassName("foo/Bar")).isEqualTo("foo.Bar");
         assertThat(JavaTypeUtils.typeNameToClassName("[I")).isEqualTo("int[]");
         assertThat(JavaTypeUtils.typeNameToClassName("[[[[I")).isEqualTo("int[][][][]");
         assertThat(JavaTypeUtils.typeNameToClassName("[LFoo;")).isEqualTo("Foo[]");

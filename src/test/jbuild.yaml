@@ -25,4 +25,4 @@ dependencies:
       path: ../../
   - otherTestClasses:
       path: ../otherTestClasses
-      scope: runtimeOnly
+      scope: runtime-only

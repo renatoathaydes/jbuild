@@ -213,7 +213,7 @@ public class ParserTest {
     void canFindTypesReferredTo() throws Exception {
         ClassFile classFile = parseHelloWorldClass();
 
-        assertThat(classFile.getClassName())
+        assertThat(classFile.getTypeName())
                 .isEqualTo("HelloWorld");
         assertThat(classFile.getTypesReferredTo())
                 .containsExactlyInAnyOrder("java/io/PrintStream");
@@ -226,7 +226,7 @@ public class ParserTest {
     void canParseAnnotations() throws Exception {
         ClassFile classFile = parseExampleAnnotatedClass();
 
-        assertThat(classFile.getClassName())
+        assertThat(classFile.getTypeName())
                 .isEqualTo("jbuild/api/ExampleAnnotated");
         assertThat(classFile.getTypesReferredTo()).isEmpty();
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();

@@ -78,7 +78,7 @@ final class JbManifestGenerator {
     }
 
     private void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
-        var className = JavaTypeUtils.typeNameToClassName('L' + extension.getClassName() + ';');
+        var className = JavaTypeUtils.typeNameToClassName(extension.getTypeName());
         log.verbosePrintln(() -> "Creating jb manifest for " + className);
         for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
             if (annotation.typeDescriptor.equals("Ljbuild/api/JbTaskInfo;")) {

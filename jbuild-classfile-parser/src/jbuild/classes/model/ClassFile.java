@@ -1,6 +1,7 @@
 package jbuild.classes.model;
 
 import jbuild.classes.AnnotationParser;
+import jbuild.classes.ByteScanner;
 import jbuild.classes.model.attributes.AnnotationInfo;
 
 import java.nio.charset.StandardCharsets;
@@ -72,7 +73,7 @@ public final class ClassFile {
         this.attributes = attributes;
     }
 
-    public String getClassName() {
+    public String getTypeName() {
         var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass);
         return nameOf(thisClassInfo);
     }
@@ -86,15 +87,21 @@ public final class ClassFile {
         return result;
     }
 
+    public String getSourceFile() {
+        return attributes.stream()
+                .filter(attr -> getUtf8(attr.nameIndex).equals("SourceFile"))
+                .map(attr -> getUtf8(new ByteScanner(attr.attributes).nextShort()))
+                .findFirst()
+                .orElseThrow();
+    }
+
     public List<String> getTypesReferredTo() {
         if (typesReferredTo == null) {
             var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass);
             var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
-                    .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG)
-                    .map(e -> (ConstPoolInfo.ConstClass) e)
-                    .filter(c -> c.nameIndex != thisClassNameIndex)
-                    .map(this::nameOf)
+                    .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG)
+                    .map(e -> typeName(e, thisClassNameIndex))
                     .filter(Objects::nonNull)
                     .collect(toList());
         }
@@ -127,6 +134,22 @@ public final class ClassFile {
     private String getUtf8(short index) {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(index);
         return utf8.asString();
+    }
+
+    private String typeName(ConstPoolInfo info, short ignoreIndex) {
+        if (info.tag == ConstPoolInfo.ConstClass.TAG) {
+            var classInfo = (ConstPoolInfo.ConstClass) info;
+            if (classInfo.nameIndex == ignoreIndex)
+                return null;
+            return nameOf(classInfo);
+        }
+        if (info.tag == ConstPoolInfo.NameAndType.TAG) {
+            var nameAndType = (ConstPoolInfo.NameAndType) info;
+            if (nameAndType.descriptorIndex == ignoreIndex)
+                return null;
+            return getUtf8(nameAndType.descriptorIndex);
+        }
+        throw new IllegalArgumentException("unsupported type: " + info.getClass().getSimpleName());
     }
 
     private static boolean isJavaClassName(ConstPoolInfo.Utf8 utf8) {

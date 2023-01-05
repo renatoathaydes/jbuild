@@ -130,7 +130,7 @@ public final class JavaTypeUtils {
             case 'Z':
                 return "boolean";
             default:
-                return basicTypeName;
+                return basicTypeName.replaceAll("/", ".");
         }
     }
 
@@ -229,6 +229,11 @@ public final class JavaTypeUtils {
                     result.add(type);
                     arrayDimension = 0;
                     index = typeEnd + 1;
+                    break;
+                }
+                case '(':
+                case ')': {
+                    index++;
                     break;
                 }
                 default:

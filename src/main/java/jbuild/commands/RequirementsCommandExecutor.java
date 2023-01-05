@@ -6,6 +6,7 @@ import jbuild.log.JBuildLog;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -23,15 +24,12 @@ public class RequirementsCommandExecutor {
     private final JBuildLog log;
     private final TypeVisitor missingTypeVisitor;
 
-    public RequirementsCommandExecutor(
-            JBuildLog log,
-            TypeVisitor visitor) {
+    public RequirementsCommandExecutor(JBuildLog log, TypeVisitor visitor) {
         this.log = log;
         this.missingTypeVisitor = visitor;
     }
 
-    private RequirementsCommandExecutor(
-            JBuildLog log) {
+    private RequirementsCommandExecutor(JBuildLog log) {
         this.log = log;
         this.missingTypeVisitor = new DefaultTypeVisitor();
     }
@@ -47,12 +45,11 @@ public class RequirementsCommandExecutor {
         // there can be no interleaving visiting jars
         var reporterThread = Executors.newSingleThreadExecutor();
 
-        var futures = files.stream().map(file ->
-                        jarLoader.lazyLoad(new File(file)).thenCompose(
-                                jar -> supplyAsync(() -> typesRequiredBy(jar, perClass), reporterThread)
-                                        .thenAcceptAsync(requiredTypes -> visit(jar, requiredTypes, perClass), reporterThread))
-                ).map(CompletionStage::toCompletableFuture)
-                .toArray(CompletableFuture[]::new);
+        var futures = files.stream()
+                .map(file -> jarLoader.lazyLoad(new File(file))
+                        .thenCompose(jar -> supplyAsync(() -> typesRequiredBy(jar, perClass), reporterThread)
+                                .thenAcceptAsync(requiredTypes -> visit(jar, requiredTypes, perClass), reporterThread)))
+                .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures).whenComplete((_1, _2) -> {
             reporterThread.shutdown();
@@ -60,62 +57,75 @@ public class RequirementsCommandExecutor {
         });
     }
 
-    private void visit(Jar jarFile, Map<String, ? extends Set<String>> requiredTypes, boolean perClass) {
+    private void visit(Jar jarFile, Map<String, TypeRequirements> requiredTypes, boolean perClass) {
         missingTypeVisitor.startJar(jarFile.file);
         if (perClass) {
-            requiredTypes.forEach((type, requirements) -> {
-                missingTypeVisitor.startType(type);
-                for (var requiredType : requirements) {
-                    missingTypeVisitor.onRequiredType(requiredType);
-                }
-            });
-        } else for (var types : requiredTypes.values()) {
-            for (var requiredType : types) {
-                missingTypeVisitor.onRequiredType(requiredType);
+            requiredTypes.forEach(missingTypeVisitor::handleTypeRequirements);
+        } else
+            for (var types : requiredTypes.values()) {
+                missingTypeVisitor.handleJarRequirements(types.requirements);
             }
-        }
         missingTypeVisitor.onDone();
     }
 
-    private Map<String, ? extends Set<String>> typesRequiredBy(Jar jar, boolean perClass) {
+    private Map<String, TypeRequirements> typesRequiredBy(Jar jar, boolean perClass) {
         var jarTypes = jar.types;
-        var resultMap = new TreeMap<String, TreeSet<String>>();
-        Function<String, TreeSet<String>> getSet;
+        var resultMap = new TreeMap<String, TypeRequirements>();
+        Function<ClassFile, TreeSet<String>> getSet;
         if (perClass) {
-            getSet = (type) -> {
+            getSet = (classFile) -> {
                 var set = new TreeSet<String>();
-                resultMap.put(type, set);
+                resultMap.put(classFile.getTypeName(), new TypeRequirements(classFile, set));
                 return set;
             };
         } else {
             var set = new TreeSet<String>();
-            resultMap.put("", set);
+            resultMap.put("", new TypeRequirements(null, set));
             getSet = (ignore) -> set;
         }
 
         for (ClassFile file : jar.parseAllTypes()) {
-            var requirements = getSet.apply(file.getClassName());
-            for (String type : file.getTypesReferredTo()) {
-                var typeName = JavaTypeUtils.cleanArrayTypeName(type);
-                if (JavaTypeUtils.isPrimitiveJavaType(typeName)) continue;
-                if (!JavaTypeUtils.isReferenceType(typeName)) {
-                    typeName = 'L' + typeName + ';';
+            var requirements = getSet.apply(file);
+            for (String typeItem : file.getTypesReferredTo()) {
+                // type may be a type descriptor
+                List<String> allTypes;
+                if (typeItem.contains("(")) {
+                    allTypes = JavaTypeUtils.parseMethodArgumentsTypes(typeItem);
+                } else {
+                    allTypes = List.of(typeItem);
                 }
-                if (!JavaTypeUtils.mayBeJavaStdLibType(typeName) &&
-                        (perClass || !jarTypes.contains(typeName))) {
-                    requirements.add(typeName);
+                for (var type : allTypes) {
+                    var typeName = JavaTypeUtils.cleanArrayTypeName(type);
+                    if (JavaTypeUtils.isPrimitiveJavaType(typeName))
+                        continue;
+                    if (!JavaTypeUtils.isReferenceType(typeName)) {
+                        typeName = 'L' + typeName + ';';
+                    }
+                    if (!JavaTypeUtils.mayBeJavaStdLibType(typeName) && (perClass || !jarTypes.contains(typeName))) {
+                        requirements.add(typeName);
+                    }
                 }
             }
         }
         return resultMap;
     }
 
+    public static final class TypeRequirements {
+        public final ClassFile classFile;
+        public final TreeSet<String> requirements;
+
+        public TypeRequirements(ClassFile classFile, TreeSet<String> requirements) {
+            this.classFile = classFile;
+            this.requirements = requirements;
+        }
+    }
+
     public interface TypeVisitor {
         void startJar(File jar);
 
-        void startType(String type);
+        void handleTypeRequirements(String type, TypeRequirements typeRequirements);
 
-        void onRequiredType(String typeName);
+        void handleJarRequirements(TreeSet<String> types);
 
         void onDone();
     }
@@ -134,15 +144,21 @@ public class RequirementsCommandExecutor {
         }
 
         @Override
-        public void startType(String type) {
+        public void handleTypeRequirements(String type, TypeRequirements typeRequirements) {
             perClass = true;
-            log.println("  - Type " + typeNameToClassName(type) + ':');
+            log.println(
+                    "  - " + typeNameToClassName(type) + '(' + typeRequirements.classFile.getSourceFile() + ')' + ':');
+            for (var requirement : typeRequirements.requirements) {
+                log.println("    * " + typeNameToClassName(requirement));
+            }
         }
 
         @Override
-        public void onRequiredType(String typeName) {
-            log.println("    * " + typeNameToClassName(typeName));
-            count++;
+        public void handleJarRequirements(TreeSet<String> types) {
+            for (var type : types) {
+                log.println("    * " + typeNameToClassName(type));
+                count++;
+            }
         }
 
         @Override

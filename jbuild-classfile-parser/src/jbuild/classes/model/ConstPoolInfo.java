@@ -118,15 +118,15 @@ public abstract class ConstPoolInfo {
 
         /**
          * CONSTANT_NameAndType_info {
-         *     u1 tag;
-         *     u2 name_index;
-         *     u2 descriptor_index;
+         * u1 tag;
+         * u2 name_index;
+         * u2 descriptor_index;
          * }
          */
         public NameAndType(short nameIndex, short descriptorIndex) {
             super(TAG);
-            this.nameIndex=nameIndex;
-            this.descriptorIndex=descriptorIndex;
+            this.nameIndex = nameIndex;
+            this.descriptorIndex = descriptorIndex;
         }
     }
 
