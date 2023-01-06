@@ -1,11 +1,19 @@
 package jbuild.commands;
 
+import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
+import jbuild.errors.JBuildException;
+import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.java.Jar;
 import jbuild.log.JBuildLog;
+import jbuild.util.Either;
+import jbuild.util.FileCollection;
+import jbuild.util.FileUtils;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,8 +21,10 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
@@ -46,10 +56,11 @@ public class RequirementsCommandExecutor {
         var reporterThread = Executors.newSingleThreadExecutor();
 
         var futures = files.stream()
-                .map(file -> jarLoader.lazyLoad(new File(file))
-                        .thenCompose(jar -> supplyAsync(() -> typesRequiredBy(jar, perClass), reporterThread)
-                                .thenAcceptAsync(requiredTypes -> visit(jar, requiredTypes, perClass), reporterThread)))
-                .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new);
+            .map(file -> typesSource(file, jarLoader, reporterThread).thenCompose(types -> supplyAsync(() -> types.map(
+                fileCollection -> typesRequiredBy(fileCollection, perClass),
+                jar -> typesRequiredBy(jar, perClass)), reporterThread
+            ).thenAcceptAsync(requiredTypes -> visit(file, requiredTypes, perClass), reporterThread)))
+            .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures).whenComplete((_1, _2) -> {
             reporterThread.shutdown();
@@ -57,8 +68,20 @@ public class RequirementsCommandExecutor {
         });
     }
 
-    private void visit(Jar jarFile, Map<String, TypeRequirements> requiredTypes, boolean perClass) {
-        missingTypeVisitor.startJar(jarFile.file);
+    private CompletionStage<Either<FileCollection, Jar>> typesSource(
+        String path,
+        Jar.Loader jarLoader,
+        ExecutorService executor) {
+        var file = new File(path);
+        if (file.isDirectory()) {
+            return supplyAsync(() -> Either.left(FileUtils.collectFiles(file.getPath(), FileUtils.CLASS_FILES_FILTER)), executor);
+        }
+        // treat path as a jar
+        return jarLoader.lazyLoad(file).thenApply(Either::right);
+    }
+
+    private void visit(String file, Map<String, TypeRequirements> requiredTypes, boolean perClass) {
+        missingTypeVisitor.start(file);
         if (perClass) {
             requiredTypes.forEach(missingTypeVisitor::handleTypeRequirements);
         } else
@@ -68,12 +91,59 @@ public class RequirementsCommandExecutor {
         missingTypeVisitor.onDone();
     }
 
+    private Map<String, TypeRequirements> typesRequiredBy(FileCollection fileCollection, boolean perClass) {
+        var parser = new JBuildClassFileParser();
+        var resultMap = new TreeMap<String, TypeRequirements>();
+        var getSet = createClassFileCollector(resultMap, perClass);
+        var types = fileCollection.files.stream()
+            .map(JavaTypeUtils::fileToTypeName)
+            .collect(Collectors.toSet());
+
+        log.verbosePrintln(() -> "Collecting types required by " + types.size() + " class files at " + fileCollection.directory);
+
+        var startTime = System.currentTimeMillis();
+
+        for (var file : fileCollection.files) {
+            try (var stream = new FileInputStream(file)) {
+                var classFile = parser.parse(stream);
+                collectRequirements(getSet, classFile, perClass, types);
+            } catch (IOException e) {
+                throw new JBuildException("Could not open file " + file + ": " + e, ErrorCause.IO_READ);
+            } catch (Exception e) {
+                throw new JBuildException("Error parsing " + file + ": " + e, ErrorCause.ACTION_ERROR);
+            }
+        }
+
+        log.verbosePrintln(() -> "Collected " + resultMap.values().stream().mapToInt(t -> t.requirements.size()).sum() +
+                                 " type requirements in " + (System.currentTimeMillis() - startTime) + "ms");
+
+        return resultMap;
+    }
+
     private Map<String, TypeRequirements> typesRequiredBy(Jar jar, boolean perClass) {
         var jarTypes = jar.types;
         var resultMap = new TreeMap<String, TypeRequirements>();
-        Function<ClassFile, TreeSet<String>> getSet;
+        var getSet = createClassFileCollector(resultMap, perClass);
+        var classFiles = jar.parseAllTypes();
+
+        log.verbosePrintln(() -> "Collecting types required by " + jar.file + "'s " + classFiles.size() + " class files");
+
+        var startTime = System.currentTimeMillis();
+
+        for (ClassFile file : classFiles) {
+            collectRequirements(getSet, file, perClass, jarTypes);
+        }
+
+        log.verbosePrintln(() -> "Collected " + resultMap.values().stream().mapToInt(t -> t.requirements.size()).sum() +
+                                 " type requirements in " + (System.currentTimeMillis() - startTime) + "ms");
+
+        return resultMap;
+    }
+
+    private Function<ClassFile, TreeSet<String>> createClassFileCollector(TreeMap<String, TypeRequirements> resultMap,
+                                                                          boolean perClass) {
         if (perClass) {
-            getSet = (classFile) -> {
+            return (classFile) -> {
                 var set = new TreeSet<String>();
                 resultMap.put(classFile.getTypeName(), new TypeRequirements(classFile, set));
                 return set;
@@ -81,33 +151,34 @@ public class RequirementsCommandExecutor {
         } else {
             var set = new TreeSet<String>();
             resultMap.put("", new TypeRequirements(null, set));
-            getSet = (ignore) -> set;
+            return (ignore) -> set;
         }
+    }
 
-        for (ClassFile file : jar.parseAllTypes()) {
-            var requirements = getSet.apply(file);
-            for (String typeItem : file.getTypesReferredTo()) {
-                // type may be a type descriptor
-                List<String> allTypes;
-                if (typeItem.contains("(")) {
-                    allTypes = JavaTypeUtils.parseMethodArgumentsTypes(typeItem);
-                } else {
-                    allTypes = List.of(typeItem);
+    private void collectRequirements(Function<ClassFile, TreeSet<String>> getSet, ClassFile file, boolean perClass,
+                                     Set<String> jarTypes) {
+        var requirements = getSet.apply(file);
+        for (String typeItem : file.getTypesReferredTo()) {
+            // type may be a type descriptor
+            List<String> allTypes;
+            if (typeItem.contains("(")) {
+                allTypes = JavaTypeUtils.parseMethodArgumentsTypes(typeItem);
+            } else {
+                allTypes = List.of(typeItem);
+            }
+            for (var type : allTypes) {
+                var typeName = JavaTypeUtils.cleanArrayTypeName(type);
+                if (JavaTypeUtils.isPrimitiveJavaType(typeName))
+                    continue;
+                if (!JavaTypeUtils.isReferenceType(typeName)) {
+                    typeName = 'L' + typeName + ';';
                 }
-                for (var type : allTypes) {
-                    var typeName = JavaTypeUtils.cleanArrayTypeName(type);
-                    if (JavaTypeUtils.isPrimitiveJavaType(typeName))
-                        continue;
-                    if (!JavaTypeUtils.isReferenceType(typeName)) {
-                        typeName = 'L' + typeName + ';';
-                    }
-                    if (!JavaTypeUtils.mayBeJavaStdLibType(typeName) && (perClass || !jarTypes.contains(typeName))) {
-                        requirements.add(typeName);
-                    }
+                if (!JavaTypeUtils.mayBeJavaStdLibType(typeName) &&
+                    (perClass || !jarTypes.contains(typeName))) {
+                    requirements.add(typeName);
                 }
             }
         }
-        return resultMap;
     }
 
     public static final class TypeRequirements {
@@ -121,7 +192,7 @@ public class RequirementsCommandExecutor {
     }
 
     public interface TypeVisitor {
-        void startJar(File jar);
+        void start(String path);
 
         void handleTypeRequirements(String type, TypeRequirements typeRequirements);
 
@@ -132,22 +203,21 @@ public class RequirementsCommandExecutor {
 
     private final class DefaultTypeVisitor implements TypeVisitor {
 
-        private File jar;
+        private String path;
         private int count;
         private boolean perClass;
 
         @Override
-        public void startJar(File jar) {
-            log.println("Required type(s) for " + jar + ':');
-            this.jar = jar;
+        public void start(String path) {
+            log.println("Required type(s) for " + path + ':');
+            this.path = path;
             count = 0;
         }
 
         @Override
         public void handleTypeRequirements(String type, TypeRequirements typeRequirements) {
             perClass = true;
-            log.println(
-                    "  - " + typeNameToClassName(type) + '(' + typeRequirements.classFile.getSourceFile() + ')' + ':');
+            log.println("  - " + typeNameToClassName(type) + " (" + typeRequirements.classFile.getSourceFile() + "):");
             for (var requirement : typeRequirements.requirements) {
                 log.println("    * " + typeNameToClassName(requirement));
             }
@@ -168,10 +238,9 @@ public class RequirementsCommandExecutor {
                 return;
             }
             if (count == 0) {
-                log.println(() -> "  " + jar + " has no type requirements.");
+                log.println(() -> "  " + path + " has no type requirements.");
             } else {
-                log.println(() -> "  total " + count +
-                        " type" + (count == 1 ? "" : "s") + " listed.");
+                log.println(() -> "  total " + count + " type" + (count == 1 ? "" : "s") + " listed.");
             }
         }
     }

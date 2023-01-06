@@ -2,6 +2,7 @@ package jbuild.util;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +61,15 @@ public class JavaTypeUtilsTest {
         assertThat(JavaTypeUtils.classNameToTypeName("int[][][][]")).isEqualTo("[[[[I");
         assertThat(JavaTypeUtils.classNameToTypeName("Foo[]")).isEqualTo("[LFoo;");
         assertThat(JavaTypeUtils.classNameToTypeName("Foo[][]")).isEqualTo("[[LFoo;");
+    }
+
+    @Test
+    void fileNameToTypeName() {
+        assertThat(JavaTypeUtils.fileToTypeName("Foo.class")).isEqualTo("LFoo;");
+        assertThat(JavaTypeUtils.fileToTypeName("p" + File.pathSeparator + "Foo.class")).isEqualTo("Lp/Foo;");
+        assertThat(JavaTypeUtils.fileToTypeName(
+            "pkg" + File.pathSeparator + "abc" + File.pathSeparator + "Some$Cls.class")
+        ).isEqualTo("Lpkg/abc/Some$Cls;");
     }
 
     @Test

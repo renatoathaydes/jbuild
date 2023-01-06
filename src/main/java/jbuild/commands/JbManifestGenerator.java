@@ -25,8 +25,6 @@ import static java.util.stream.Collectors.toList;
 
 final class JbManifestGenerator {
 
-    private static final FilenameFilter CLASS_FILES_FILTER = (dir, name) -> name.endsWith(".class");
-
     private final JBuildLog log;
 
     JbManifestGenerator(JBuildLog log) {
@@ -136,7 +134,7 @@ final class JbManifestGenerator {
 
     private static List<ClassFile> findTypeDefinitions(String directory) {
         var parser = new JBuildClassFileParser();
-        var classFiles = FileUtils.collectFiles(directory, CLASS_FILES_FILTER);
+        var classFiles = FileUtils.collectFiles(directory, FileUtils.CLASS_FILES_FILTER);
         return classFiles.files.stream()
                 .map(classFile -> parseClassFile(parser, classFile))
                 .collect(toList());

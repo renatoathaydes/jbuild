@@ -2,6 +2,7 @@ package jbuild.util;
 
 import jbuild.errors.JBuildException;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -55,6 +56,20 @@ public final class JavaTypeUtils {
             className = className.substring(0, firstBracket);
         }
         return result.append(typeName(className)).toString();
+    }
+
+    /**
+     * Convert a class file name to a type name.
+     *
+     * @param fileName class file name
+     * @return JVM internal class name
+     */
+    public static String fileToTypeName(String fileName) {
+        if (!fileName.endsWith(".class")) {
+            throw new IllegalArgumentException("Not a class file: " + fileName);
+        }
+        return 'L' + fileName.substring(0, fileName.length() - ".class".length())
+                .replaceAll(File.pathSeparator, "/") + ';';
     }
 
     private static String typeName(String basicClassName) {

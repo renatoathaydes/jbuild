@@ -214,9 +214,10 @@ public class ParserTest {
         ClassFile classFile = parseHelloWorldClass();
 
         assertThat(classFile.getTypeName())
-                .isEqualTo("HelloWorld");
+            .isEqualTo("LHelloWorld;");
         assertThat(classFile.getTypesReferredTo())
-                .containsExactlyInAnyOrder("java/io/PrintStream");
+            .containsExactlyInAnyOrder("()V",
+                "Ljava/io/PrintStream;", "(Ljava/lang/String;)V");
 
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).isEmpty();
@@ -227,8 +228,8 @@ public class ParserTest {
         ClassFile classFile = parseExampleAnnotatedClass();
 
         assertThat(classFile.getTypeName())
-                .isEqualTo("jbuild/api/ExampleAnnotated");
-        assertThat(classFile.getTypesReferredTo()).isEmpty();
+            .isEqualTo("Ljbuild/api/ExampleAnnotated;");
+        assertThat(classFile.getTypesReferredTo()).containsExactly("()V");
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).hasSize(1);
 
@@ -240,18 +241,29 @@ public class ParserTest {
                 .isEqualTo(new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-task"));
         assertThat(annotation.elementValuePairs.get(1))
                 .isEqualTo(new ElementValuePair("inputs", ElementValuePair.Type.ARRAY,
-                        List.of("*.txt", "*.json")));
+                                                List.of("*.txt", "*.json")));
         assertThat(annotation.elementValuePairs.get(2))
                 .isEqualTo(new ElementValuePair("phase", ElementValuePair.Type.ANNOTATION,
-                        new AnnotationInfo("Ljbuild/api/CustomTaskPhase;", List.of(
-                                new ElementValuePair("index", ElementValuePair.Type.INT, 42),
-                                new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
-                        ))));
+                                                new AnnotationInfo("Ljbuild/api/CustomTaskPhase;", List.of(
+                                                        new ElementValuePair("index", ElementValuePair.Type.INT, 42),
+                                                        new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
+                                                ))));
+    }
+    
+    @Test
+    void canParseDifficultClass() throws IOException {
+        ClassFile classFile = parseDifficultClass();
 
+        assertThat(classFile.getTypeName())
+            .isEqualTo("Ljbuild/util/AsyncUtils;");
     }
 
     private ClassFile parseHelloWorldClass() throws IOException {
         return parseClass("/HelloWorld.cls");
+    }
+
+    private ClassFile parseDifficultClass() throws IOException {
+        return parseClass("/AsyncUtils.cls");
     }
 
     private ClassFile parseExampleAnnotatedClass() throws IOException {

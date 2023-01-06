@@ -23,6 +23,8 @@ import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 
 public final class FileUtils {
 
+    public static final FilenameFilter CLASS_FILES_FILTER = (dir, name) -> name.endsWith(".class");
+
     public static boolean ensureDirectoryExists(File dir) {
         return dir.isDirectory() || dir.mkdirs();
     }

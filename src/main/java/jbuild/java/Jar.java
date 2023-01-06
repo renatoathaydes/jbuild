@@ -101,11 +101,17 @@ public final class Jar {
                 try {
                     return parser.parse(zip.getInputStream(stream));
                 } catch (IOException e) {
-                    throw new JBuildException("Error reading jar: " + file, JBuildException.ErrorCause.IO_READ);
+                    throw new JBuildException("Error reading jar: " + file + ": " + e,
+                                              JBuildException.ErrorCause.IO_READ);
+                } catch (Exception e) {
+                    throw new JBuildException("Error parsing " + stream.getName() +
+                                              " in jar: " + file + ": " + e,
+                                              JBuildException.ErrorCause.ACTION_ERROR);      
                 }
             }).collect(Collectors.toList());
         } catch (IOException e) {
-            throw new JBuildException("Error reading jar: " + file, JBuildException.ErrorCause.IO_READ);
+            throw new JBuildException("Error reading jar: " + file + ": " + e,
+                                      JBuildException.ErrorCause.IO_READ);
         }
     }
 

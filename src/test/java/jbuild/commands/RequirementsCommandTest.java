@@ -5,7 +5,6 @@ import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.PrintStream;
 import java.util.Deque;
 import java.util.HashMap;
@@ -145,8 +144,8 @@ public class RequirementsCommandTest {
         final AtomicBoolean done = new AtomicBoolean();
 
         @Override
-        public void startJar(File jar) {
-            jars.offer(jar.getName());
+        public void start(String path) {
+            jars.offer(path);
         }
 
         @Override
@@ -171,8 +170,8 @@ public class RequirementsCommandTest {
         final AtomicBoolean done = new AtomicBoolean();
 
         @Override
-        public void startJar(File jar) {
-            jars.offer(jar.getName());
+        public void start(String path) {
+            jars.offer(path);
         }
 
         @Override
