@@ -114,27 +114,27 @@ public final class AnnotationParser {
     }
 
     private String nextConstUf8(ByteScanner scanner) {
-        var utf8 = (ConstPoolInfo.Utf8) classFile.constPoolEntries.get(scanner.nextShort());
+        var utf8 = (ConstPoolInfo.Utf8) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return utf8.asString();
     }
 
     private int nextConstInt(ByteScanner scanner) {
-        var i = (ConstPoolInfo.ConstInt) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstInt) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return i.value;
     }
 
     private double nextConstDouble(ByteScanner scanner) {
-        var i = (ConstPoolInfo.ConstDouble) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstDouble) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return i.value;
     }
 
     private float nextConstFloat(ByteScanner scanner) {
-        var i = (ConstPoolInfo.ConstFloat) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstFloat) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return i.value;
     }
 
     private long nextConstLong(ByteScanner scanner) {
-        var i = (ConstPoolInfo.ConstLong) classFile.constPoolEntries.get(scanner.nextShort());
+        var i = (ConstPoolInfo.ConstLong) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return i.value;
     }
 

@@ -20,6 +20,16 @@ public class JBuildClassFileParser {
 
     public ClassFile parse(InputStream input) throws IOException {
         var scanner = new ByteScanner(input);
+        try {
+            return parse(scanner);
+        } catch (ClassFileException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ClassFileException("Unexpected error parsing class file", e, scanner.previousPosition());
+        }
+    }
+
+    private ClassFile parse(ByteScanner scanner) {
         var magic = scanner.nextInt();
 
         // ClassFile {
@@ -42,31 +52,30 @@ public class JBuildClassFileParser {
         //}
 
         if (magic != ClassFile.MAGIC) {
-            throw new ClassFileException("Not a Java class file", 0);
+            throw new ClassFileException("Not a Java class file (missing magic number)", 0);
         }
 
         var minor = scanner.nextShort();
         var major = scanner.nextShort();
-        var constPool = parseConstPool(scanner, scanner.nextShort());
+        var constPool = parseConstPool(scanner, scanner.nextShortIndex());
         var accessFlags = scanner.nextShort();
         var thisClass = scanner.nextShort();
         var superClass = scanner.nextShort();
-        var interfaces = parseInterfaces(scanner, scanner.nextShort());
-        var fields = parseFields(scanner, scanner.nextShort());
-        var methods = parseMethods(scanner, scanner.nextShort());
-        var attributes = parseAttributes(scanner, scanner.nextShort());
+        var interfaces = parseInterfaces(scanner, scanner.nextShortIndex());
+        var fields = parseFields(scanner, scanner.nextShortIndex());
+        var methods = parseMethods(scanner, scanner.nextShortIndex());
+        var attributes = parseAttributes(scanner, scanner.nextShortIndex());
 
         return new ClassFile(minor, major, constPool, accessFlags, thisClass, superClass, interfaces,
                 fields, methods, attributes);
     }
 
-    private List<ConstPoolInfo> parseConstPool(ByteScanner scanner, short constPoolCount) {
+    private List<ConstPoolInfo> parseConstPool(ByteScanner scanner, int constPoolCount) {
         // The value of the constant_pool_count item is equal to the number of entries in the constant_pool table plus one
-        int constPoolSize = 0xff & constPoolCount;
-        var result = new ArrayList<ConstPoolInfo>(constPoolSize);
+        var result = new ArrayList<ConstPoolInfo>(constPoolCount);
         // first item is always a dummy value, so the rest of the items fall into the appropriate index
         result.add(FIRST_ITEM_SENTINEL);
-        for (var i = 1; i < constPoolSize; i++) {
+        for (var i = 1; i < constPoolCount; i++) {
             result.add(parseConstPoolInfo(scanner));
         }
         return result;
@@ -96,7 +105,7 @@ public class JBuildClassFileParser {
             case ConstPoolInfo.NameAndType.TAG:
                 return new ConstPoolInfo.NameAndType(scanner.nextShort(), scanner.nextShort());
             case ConstPoolInfo.Utf8.TAG: {
-                var length = scanner.nextShort();
+                var length = scanner.nextShort() & 0xFFFF;
                 var contents = new byte[length];
                 scanner.next(contents);
                 return new ConstPoolInfo.Utf8(contents);
@@ -112,7 +121,7 @@ public class JBuildClassFileParser {
         }
     }
 
-    private short[] parseInterfaces(ByteScanner scanner, short interfaceCount) {
+    private short[] parseInterfaces(ByteScanner scanner, int interfaceCount) {
         var result = new short[interfaceCount];
         for (var i = 0; i < interfaceCount; i++) {
             result[i] = scanner.nextShort();
@@ -120,7 +129,7 @@ public class JBuildClassFileParser {
         return result;
     }
 
-    private List<FieldInfo> parseFields(ByteScanner scanner, short interfaceCount) {
+    private List<FieldInfo> parseFields(ByteScanner scanner, int interfaceCount) {
         var result = new ArrayList<FieldInfo>(interfaceCount);
         for (var i = 0; i < interfaceCount; i++) {
             result.add(parseField(scanner));
@@ -141,10 +150,10 @@ public class JBuildClassFileParser {
         return new FieldInfo(scanner.nextShort(),
                 scanner.nextShort(),
                 scanner.nextShort(),
-                parseAttributes(scanner, scanner.nextShort()));
+                parseAttributes(scanner, scanner.nextShortIndex()));
     }
 
-    private List<MethodInfo> parseMethods(ByteScanner scanner, short length) {
+    private List<MethodInfo> parseMethods(ByteScanner scanner, int length) {
         var result = new ArrayList<MethodInfo>(length);
         for (var i = 0; i < length; i++) {
             result.add(parseMethod(scanner));
@@ -165,7 +174,7 @@ public class JBuildClassFileParser {
         return new MethodInfo(scanner.nextShort(),
                 scanner.nextShort(),
                 scanner.nextShort(),
-                parseAttributes(scanner, scanner.nextShort()));
+                parseAttributes(scanner, scanner.nextShortIndex()));
     }
 
     /**
@@ -175,7 +184,7 @@ public class JBuildClassFileParser {
      * u1 info[attribute_length];
      * }
      */
-    private List<AttributeInfo> parseAttributes(ByteScanner scanner, short length) {
+    private List<AttributeInfo> parseAttributes(ByteScanner scanner, int length) {
         var attributes = new ArrayList<AttributeInfo>(length);
         for (var i = 0; i < length; i++) {
             var nameIndex = scanner.nextShort();

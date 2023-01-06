@@ -139,8 +139,8 @@ public abstract class ConstPoolInfo {
             this.value = value;
         }
 
-        public java.lang.String asString() {
-            return new java.lang.String(value, StandardCharsets.UTF_8);
+        public String asString() {
+            return new String(value, StandardCharsets.UTF_8);
         }
     }
 

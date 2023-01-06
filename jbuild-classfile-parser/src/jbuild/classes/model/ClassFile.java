@@ -10,8 +10,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * ClassFile {
@@ -49,7 +51,7 @@ public final class ClassFile {
     public final List<AttributeInfo> attributes;
 
     // cached values
-    private List<String> typesReferredTo;
+    private Set<String> typesReferredTo;
 
     public ClassFile(short minorVersion,
                      short majorVersion,
@@ -74,14 +76,14 @@ public final class ClassFile {
     }
 
     public String getTypeName() {
-        var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass);
+        var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass & 0xFFFF);
         return nameOf(thisClassInfo);
     }
 
     public Set<String> getInterfaceNames() {
         var result = new LinkedHashSet<String>(interfaces.length);
         for (short interfaceIndex : interfaces) {
-            var interf = (ConstPoolInfo.ConstClass) constPoolEntries.get(interfaceIndex);
+            var interf = (ConstPoolInfo.ConstClass) constPoolEntries.get(interfaceIndex & 0xFFFF);
             result.add(nameOf(interf));
         }
         return result;
@@ -95,15 +97,15 @@ public final class ClassFile {
                 .orElseThrow();
     }
 
-    public List<String> getTypesReferredTo() {
+    public Set<String> getTypesReferredTo() {
         if (typesReferredTo == null) {
-            var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass);
+            var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass & 0xFFFF);
             var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
                     .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG)
                     .map(e -> typeName(e, thisClassNameIndex))
                     .filter(Objects::nonNull)
-                    .collect(toList());
+                    .collect(toSet());
         }
         return typesReferredTo;
     }
@@ -126,13 +128,13 @@ public final class ClassFile {
     }
 
     private String nameOf(ConstPoolInfo.ConstClass type) {
-        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex);
+        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex & 0xFFFF);
         if (isJavaClassName(utf8)) return null;
-        return utf8.asString();
+        return 'L' + utf8.asString() + ';';
     }
 
     private String getUtf8(short index) {
-        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(index);
+        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(index & 0xFFFF);
         return utf8.asString();
     }
 

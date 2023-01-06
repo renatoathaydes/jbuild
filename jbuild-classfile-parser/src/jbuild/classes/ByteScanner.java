@@ -39,6 +39,11 @@ public final class ByteScanner {
         return buffer.getShort();
     }
 
+    public int nextShortIndex() {
+        latestBytesRead = 2;
+        return buffer.getShort() & 0xFFFF;
+    }
+
     public long nextLong() {
         latestBytesRead = 8;
         return buffer.getLong();
