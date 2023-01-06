@@ -33,7 +33,7 @@ public class RequirementsCommandTest {
         var result = command.execute(Set.of(TestSystemProperties.myClassesJar.getPath()), false);
         result.toCompletableFuture().get(5, TimeUnit.MINUTES);
 
-        assertThat(visitor.jars).containsExactly(TestSystemProperties.myClassesJar.getName());
+        assertThat(visitor.jars).containsExactly(TestSystemProperties.myClassesJar.getPath());
         assertThat(visitor.types).isEmpty();
         assertThat(visitor.done.get()).isTrue();
     }
@@ -50,7 +50,7 @@ public class RequirementsCommandTest {
         var result = command.execute(Set.of(TestSystemProperties.otherClassesJar.getPath()), false);
         result.toCompletableFuture().get(5, TimeUnit.MINUTES);
 
-        assertThat(visitor.jars).containsExactly(TestSystemProperties.otherClassesJar.getName());
+        assertThat(visitor.jars).containsExactly(TestSystemProperties.otherClassesJar.getPath());
         assertThat(visitor.types).containsOnly(
                 "Lfoo/FunctionalCode;",
                 "Lfoo/Something;",
@@ -82,59 +82,72 @@ public class RequirementsCommandTest {
         var result = command.execute(Set.of(TestSystemProperties.otherClassesJar.getPath()), true);
         result.toCompletableFuture().get(5, TimeUnit.MINUTES);
 
-        assertThat(visitor.jars).containsExactly(TestSystemProperties.otherClassesJar.getName());
-        assertThat(visitor.types).containsOnlyKeys("other/CallsSuperMethod", "other/CallsZortToCreateBar",
-                "other/ExtendsBar", "other/HasSomething", "other/ImplementsEmptyInterface", "other/ReadsFieldOfZort",
-                "other/UsesArrayOfFunctionalCode", "other/UsesBar", "other/UsesBaseA", "other/UsesBaseViaGenerics",
-                "other/UsesComplexType", "other/UsesEnum", "other/UsesFields", "other/UsesGenerics",
-                "other/UsesMethodHandleFromExampleLogger", "other/UsesMultiInterface", "other/UsesComplexType$Param",
-                "other/UsesEnum$1");
+        assertThat(visitor.jars).containsExactly(TestSystemProperties.otherClassesJar.getPath());
+        assertThat(visitor.types).containsOnlyKeys(
+                "Lother/CallsSuperMethod;",
+                "Lother/CallsZortToCreateBar;",
+                "Lother/ExtendsBar;",
+                "Lother/HasSomething;",
+                "Lother/ImplementsEmptyInterface;",
+                "Lother/ReadsFieldOfZort;",
+                "Lother/UsesArrayOfFunctionalCode;",
+                "Lother/UsesBar;",
+                "Lother/UsesBaseA;",
+                "Lother/UsesBaseViaGenerics;",
+                "Lother/UsesComplexType;",
+                "Lother/UsesEnum;",
+                "Lother/UsesFields;",
+                "Lother/UsesGenerics;",
+                "Lother/UsesMethodHandleFromExampleLogger;",
+                "Lother/UsesMultiInterface;",
+                "Lother/UsesComplexType$Param;",
+                "Lother/UsesEnum$1;");
         assertThat(visitor.done.get()).isTrue();
 
-        assertThat(visitor.types.get("other/CallsSuperMethod").requirements).containsExactly("Lfoo/Something;",
+        assertThat(visitor.types.get("Lother/CallsSuperMethod;").requirements).containsExactly("Lfoo/Something;",
                 "Lfoo/SomethingSpecific;");
 
-        assertThat(visitor.types.get("other/CallsZortToCreateBar").requirements).containsExactly("Lfoo/Bar;",
+        assertThat(visitor.types.get("Lother/CallsZortToCreateBar;").requirements).containsExactly("Lfoo/Bar;",
                 "Lfoo/Zort;");
 
-        assertThat(visitor.types.get("other/ExtendsBar").requirements).containsExactly("Lfoo/Bar;");
+        assertThat(visitor.types.get("Lother/ExtendsBar;").requirements).containsExactly("Lfoo/Bar;");
 
-        assertThat(visitor.types.get("other/HasSomething").requirements).containsExactly("Lfoo/Something;");
+        assertThat(visitor.types.get("Lother/HasSomething;").requirements).containsExactly("Lfoo/Something;");
 
-        assertThat(visitor.types.get("other/ImplementsEmptyInterface").requirements)
+        assertThat(visitor.types.get("Lother/ImplementsEmptyInterface;").requirements)
                 .containsExactly("Lfoo/EmptyInterface;");
 
-        assertThat(visitor.types.get("other/ReadsFieldOfZort").requirements).containsExactly("Lfoo/Bar;", "Lfoo/Zort;");
+        assertThat(visitor.types.get("Lother/ReadsFieldOfZort;").requirements).containsExactly("Lfoo/Bar;", "Lfoo/Zort;");
 
-        assertThat(visitor.types.get("other/UsesArrayOfFunctionalCode").requirements)
+        assertThat(visitor.types.get("Lother/UsesArrayOfFunctionalCode;").requirements)
                 .containsExactly("Lfoo/FunctionalCode;");
 
-        assertThat(visitor.types.get("other/UsesBar").requirements).containsExactly("Lfoo/Bar;");
+        assertThat(visitor.types.get("Lother/UsesBar;").requirements).containsExactly("Lfoo/Bar;");
 
-        assertThat(visitor.types.get("other/UsesBaseA").requirements).containsExactly("Lgenerics/BaseA;");
+        assertThat(visitor.types.get("Lother/UsesBaseA;").requirements).containsExactly("Lgenerics/BaseA;");
 
-        assertThat(visitor.types.get("other/UsesBaseViaGenerics").requirements).containsExactly("Lgenerics/Base;");
+        assertThat(visitor.types.get("Lother/UsesBaseViaGenerics;").requirements).containsExactly("Lgenerics/Base;");
 
-        assertThat(visitor.types.get("other/UsesComplexType").requirements).containsExactly(
+        assertThat(visitor.types.get("Lother/UsesComplexType;").requirements).containsExactly(
                 "Lfoo/Zort;", "Lgenerics/ComplexType;", "Lother/UsesComplexType$Param;");
 
-        assertThat(visitor.types.get("other/UsesEnum").requirements).containsExactly(
+        assertThat(visitor.types.get("Lother/UsesEnum;").requirements).containsExactly(
                 "Lfoo/SomeEnum;", "Lother/UsesEnum$1;");
 
-        assertThat(visitor.types.get("other/UsesFields").requirements).containsExactly("Lfoo/Fields;");
+        assertThat(visitor.types.get("Lother/UsesFields;").requirements).containsExactly("Lfoo/Fields;");
 
-        assertThat(visitor.types.get("other/UsesGenerics").requirements).containsExactly(
+        assertThat(visitor.types.get("Lother/UsesGenerics;").requirements).containsExactly(
                 "Lgenerics/Base;", "Lgenerics/BaseA;", "Lgenerics/Generics;");
 
-        assertThat(visitor.types.get("other/UsesMethodHandleFromExampleLogger").requirements)
+        assertThat(visitor.types.get("Lother/UsesMethodHandleFromExampleLogger;").requirements)
                 .containsExactly("Lfoo/ExampleLogger;");
 
-        assertThat(visitor.types.get("other/UsesMultiInterface").requirements).containsExactly("Lfoo/MultiInterface;");
+        assertThat(visitor.types.get("Lother/UsesMultiInterface;").requirements).containsExactly("Lfoo/MultiInterface;");
 
-        assertThat(visitor.types.get("other/UsesComplexType$Param").requirements)
+        assertThat(visitor.types.get("Lother/UsesComplexType$Param;").requirements)
                 .containsExactly("Lfoo/EmptyInterface;", "Lgenerics/Generics;", "Lother/UsesComplexType;");
 
-        assertThat(visitor.types.get("other/UsesEnum$1").requirements)
+        assertThat(visitor.types.get("Lother/UsesEnum$1;").requirements)
                 .containsExactly("Lfoo/SomeEnum;", "Lother/UsesEnum;");
     }
 

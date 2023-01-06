@@ -130,7 +130,12 @@ public final class ClassFile {
     private String nameOf(ConstPoolInfo.ConstClass type) {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex & 0xFFFF);
         if (isJavaClassName(utf8)) return null;
-        return 'L' + utf8.asString() + ';';
+        var name = utf8.asString();
+        if (name.startsWith("[")) {
+            // array types are already in the type name format
+            return name;
+        }
+        return 'L' + name + ';';
     }
 
     private String getUtf8(short index) {
