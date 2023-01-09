@@ -6,5 +6,6 @@ name: jbuild
 version: 0.8.0
 
 main-class: jbuild.cli.Main
+javac-args: [ "--release=11" ]
 
 source-dirs: [ jbuild-api/src, jbuild-classfile-parser/src, src/main/java ]
