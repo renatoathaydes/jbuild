@@ -20,6 +20,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 
@@ -36,10 +38,10 @@ final class JbManifestGenerator {
         var types = findTypeDefinitions(classesDir);
         var extensions = findExtensions(types);
         log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
-                (System.currentTimeMillis() - startTime) + " ms");
+            (System.currentTimeMillis() - startTime) + " ms");
         if (extensions.isEmpty()) {
             throw new JBuildException("Cannot generate jb manifest. " +
-                    "Failed to locate implementations of jbuild.api.JbTask", ErrorCause.USER_INPUT);
+                "Failed to locate implementations of jbuild.api.JbTask", ErrorCause.USER_INPUT);
         }
         return createManifest(extensions);
     }
@@ -85,8 +87,8 @@ final class JbManifestGenerator {
             }
         }
         throw new JBuildException(
-                "jb extension '" + className + "' is not annotated with @jbuild.api.JbTaskInfo",
-                ErrorCause.USER_INPUT);
+            "jb extension '" + className + "' is not annotated with @jbuild.api.JbTaskInfo",
+            ErrorCause.USER_INPUT);
     }
 
     private void writeInfo(String className, Map<String, ElementValuePair> annotation, StringBuilder yamlBuilder) {
@@ -100,7 +102,7 @@ final class JbManifestGenerator {
         if (phase != null) {
             var phaseAnnotation = ((AnnotationInfo) phase.value).getMap();
             yamlBuilder.append("    phase:\n      \"").append(phaseAnnotation.get("name").value)
-                    .append("\": ").append(phaseAnnotation.get("index").value).append('\n');
+                .append("\": ").append(phaseAnnotation.get("index").value).append('\n');
         }
         writeStrings(annotation, "inputs", "inputs", yamlBuilder);
         writeStrings(annotation, "outputs", "outputs", yamlBuilder);
@@ -122,32 +124,26 @@ final class JbManifestGenerator {
         }
     }
 
-    private List<ClassFile> findExtensions(List<ClassFile> types) {
-        var extensions = new ArrayList<ClassFile>();
-        for (var type : types) {
-            if (type.getInterfaceNames().contains("jbuild/api/JbTask")) {
-                extensions.add(type);
-            }
-        }
-        return extensions;
+    private List<ClassFile> findExtensions(Stream<ClassFile> types) {
+        return types.filter(type -> type.getInterfaceNames().contains("Ljbuild/api/JbTask;"))
+            .collect(toList());
     }
 
-    private static List<ClassFile> findTypeDefinitions(String directory) {
+    private static Stream<ClassFile> findTypeDefinitions(String directory) {
         var parser = new JBuildClassFileParser();
         var classFiles = FileUtils.collectFiles(directory, FileUtils.CLASS_FILES_FILTER);
         return classFiles.files.stream()
-                .map(classFile -> parseClassFile(parser, classFile))
-                .collect(toList());
+            .map(classFile -> parseClassFile(parser, classFile));
     }
 
     private static ClassFile parseClassFile(
-            JBuildClassFileParser parser,
-            String classFile) {
+        JBuildClassFileParser parser,
+        String classFile) {
         try (var stream = new FileInputStream(classFile)) {
             return parser.parse(stream);
         } catch (IOException e) {
             throw new JBuildException("Unable to read class file at " + classFile + ": " + e,
-                    ErrorCause.ACTION_ERROR);
+                ErrorCause.ACTION_ERROR);
         }
 
     }
