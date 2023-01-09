@@ -20,11 +20,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.TextUtils.isEither;
 
 public final class RpcMain {
 
     public static void main(String[] args) throws IOException {
-        if (args.length != 0) {
+        var verbose = false;
+        if (args.length == 1 && isEither(args[0], "-V", "--verbose")) {
+            verbose = true;
+        } else if (args.length != 0) {
             throw new JBuildException("Unexpected arguments provided", USER_INPUT);
         }
 
@@ -32,10 +36,10 @@ public final class RpcMain {
         // started this server.
         var token = UUID.randomUUID().toString();
 
-        new RpcMain().run(0, token, new CountDownLatch(1));
+        new RpcMain().run(0, token, verbose, new CountDownLatch(1));
     }
 
-    public void run(int port, String token, CountDownLatch stopper) throws IOException {
+    public void run(int port, String token, boolean verbose, CountDownLatch stopper) throws IOException {
         var threadId = new AtomicInteger();
         var executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), runnable -> {
             var thread = new Thread(runnable, "jbuild-rpc-" + threadId.incrementAndGet());
@@ -47,10 +51,11 @@ public final class RpcMain {
         server.setExecutor(executor);
 
         // the caller must read the first 2 lines: PORT and TOKEN
-        System.out.println("" + server.getAddress().getPort());
+        System.out.println(server.getAddress().getPort());
         System.out.println(token);
 
-        var rpcCaller = new RpcCaller(RpcMain.class.getName());
+        var logger = createLogger(verbose);
+        var rpcCaller = new RpcCaller(RpcMain.class.getName(), logger);
         var serverContext = new JBuildHttpHandler(rpcCaller, server, token);
         server.createContext("/jbuild", serverContext);
 
