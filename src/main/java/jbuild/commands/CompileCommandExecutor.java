@@ -95,11 +95,11 @@ public final class CompileCommandExecutor {
 
         var compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
                 computeClasspath(classpath, compilerArgs), compilerArgs);
-        if (jarFile == null || compileResult.exitCode() != 0) {
+        if (compileResult.exitCode() != 0) {
             return new CompileCommandResult(compileResult, null);
         }
 
-        log.verbosePrintln(() -> "Compilation of class files successful. Creating jar at " + jarFile);
+        log.verbosePrintln(() -> "Compilation of class files successful on directory: " + outputDir);
         if (generateJbManifest) {
             log.verbosePrintln("Generating jb manifest file");
             var generator = new JbManifestGenerator(log);
@@ -107,6 +107,11 @@ public final class CompileCommandExecutor {
             copyResources(List.of(jbManifest), outputDir);
         }
 
+        if (jarFile == null) {
+            return new CompileCommandResult(compileResult, null);
+        }
+
+        log.verbosePrintln(() -> "Creating jar file at " + jarFile);
         var jarContent = new FileSet(Set.of(), outputDir);
         var jarResult = Tools.Jar.create().createJar(new CreateJarOptions(
                 jarFile, mainClass, false, "", jarContent, Map.of()));
