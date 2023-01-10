@@ -8,6 +8,7 @@ source-dirs: [ java ]
 resource-dirs: [ resources ]
 output-dir: "{{CLASSES_DIR}}"
 test-reports-dir: ../../build/test-reports/test
+javac-args: [ "--release={{versions.java}}" ]
 
 test-java-args:
   - "-Dtests.repo.dir=resources/jbuild/commands/repo"

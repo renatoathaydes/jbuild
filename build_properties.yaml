@@ -1,5 +1,6 @@
 properties:
     versions:
+        java: 11
         junit: 5.9.1
         assertj: 3.23.1
         commons-io: 2.11.0

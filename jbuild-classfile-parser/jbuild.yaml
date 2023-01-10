@@ -1,5 +1,6 @@
 group: com.athaydes.jbuild
 name: jbuild-classfile-parser
 version: 0.8.0
+javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ src ]

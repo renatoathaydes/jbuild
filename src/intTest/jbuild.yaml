@@ -9,6 +9,7 @@ source-dirs: [ java ]
 resource-dirs: [ resources ]
 output-dir: "{{CLASSES_DIR}}"
 test-reports-dir: ../../build/test-reports/intTest
+javac-args: [ "--release={{versions.java}}" ]
 
 test-java-args:
   - "-Dtests.int-tests.repo={{INTEGRATION_TEST_REPO_DIR}}"

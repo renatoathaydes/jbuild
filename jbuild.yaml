@@ -1,11 +1,12 @@
 imports:
     - errorprone.yaml
+    - build_properties.yaml
 
 group: com.athaydes.jbuild
 name: jbuild
 version: 0.8.0
 
 main-class: jbuild.cli.Main
-javac-args: [ "--release=11" ]
+javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ jbuild-api/src, jbuild-classfile-parser/src, src/main/java ]
