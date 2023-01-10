@@ -29,7 +29,7 @@ public class RpcMainTest {
         new Thread(() -> {
             startWait.countDown();
             try {
-                new RpcMain().run(port, token, stopper);
+                new RpcMain().run(port, token, false, stopper);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
