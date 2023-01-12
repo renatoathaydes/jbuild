@@ -9,6 +9,7 @@ import jbuild.classes.model.MethodInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class JBuildClassFileParser {
@@ -73,10 +74,20 @@ public class JBuildClassFileParser {
     private List<ConstPoolInfo> parseConstPool(ByteScanner scanner, int constPoolCount) {
         // The value of the constant_pool_count item is equal to the number of entries in the constant_pool table plus one
         var result = new ArrayList<ConstPoolInfo>(constPoolCount);
+        for (var i = 0; i < constPoolCount; i++) {
+            result.add(null);
+        }
         // first item is always a dummy value, so the rest of the items fall into the appropriate index
-        result.add(FIRST_ITEM_SENTINEL);
+        result.set(0, FIRST_ITEM_SENTINEL);
         for (var i = 1; i < constPoolCount; i++) {
-            result.add(parseConstPoolInfo(scanner));
+            var info = parseConstPoolInfo(scanner);
+            result.set(i, info);
+            final var tag = info.tag;
+            if (tag == ConstPoolInfo.ConstLong.TAG ||
+                tag == ConstPoolInfo.ConstDouble.TAG) {
+                // All 8-byte constants take up two entries in the constant_pool table
+                i++;
+            }
         }
         return result;
     }

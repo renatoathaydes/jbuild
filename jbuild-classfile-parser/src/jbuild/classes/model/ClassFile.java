@@ -102,7 +102,8 @@ public final class ClassFile {
             var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass & 0xFFFF);
             var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
-                    .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG)
+                    .filter(e -> e != null &&
+                                 (e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG))
                     .map(e -> typeName(e, thisClassNameIndex))
                     .filter(Objects::nonNull)
                     .collect(toSet());
