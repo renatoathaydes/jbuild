@@ -1,14 +1,16 @@
 package jbuild.commands;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
-import static jbuild.util.CollectionUtils.appendAsStream;
-import static jbuild.util.FileUtils.collectFiles;
+import jbuild.errors.JBuildException;
+import jbuild.java.tools.CreateJarOptions;
+import jbuild.java.tools.CreateJarOptions.FileSet;
+import jbuild.java.tools.ToolRunResult;
+import jbuild.java.tools.Tools;
+import jbuild.log.JBuildLog;
+import jbuild.util.Either;
+import jbuild.util.FileCollection;
+import jbuild.util.FileUtils;
+import jbuild.util.JarFileFilter;
+import jbuild.util.NoOp;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -22,17 +24,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import jbuild.errors.JBuildException;
-import jbuild.java.tools.CreateJarOptions;
-import jbuild.java.tools.CreateJarOptions.FileSet;
-import jbuild.java.tools.ToolRunResult;
-import jbuild.java.tools.Tools;
-import jbuild.log.JBuildLog;
-import jbuild.util.Either;
-import jbuild.util.FileCollection;
-import jbuild.util.FileUtils;
-import jbuild.util.JarFileFilter;
-import jbuild.util.NoOp;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
+import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.CollectionUtils.appendAsStream;
+import static jbuild.util.FileUtils.collectFiles;
 
 public final class CompileCommandExecutor {
 
@@ -47,22 +47,21 @@ public final class CompileCommandExecutor {
     }
 
     public CompileCommandResult compile(Set<String> inputDirectories,
-            Set<String> resourcesDirectories,
-            Either<String, String> outputDirOrJar,
-            String mainClass,
-            boolean generateJbManifest,
-            String classpath,
-            List<String> compilerArgs) {
-        var usingDefaultInputDirs = inputDirectories.isEmpty();
+                                        Set<String> resourcesDirectories,
+                                        Either<String, String> outputDirOrJar,
+                                        String mainClass,
+                                        boolean generateJbManifest,
+                                        String classpath,
+                                        List<String> compilerArgs,
+                                        IncrementalChanges incrementalChanges) {
+        var usingDefaultInputDirs = inputDirectories.isEmpty() && incrementalChanges == null;
         if (usingDefaultInputDirs) {
             inputDirectories = computeDefaultSourceDirs();
         }
         if (resourcesDirectories.isEmpty()) {
             resourcesDirectories = computeDefaultResourceDirs();
         }
-        var sourceFiles = collectFiles(inputDirectories, JAVA_FILES_FILTER)
-                .stream().flatMap(col -> col.files.stream())
-                .collect(toSet());
+        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges);
         if (sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
                     ? "src/main/java/, src/ and '.'"
@@ -75,7 +74,7 @@ public final class CompileCommandExecutor {
                 collectFiles(inputDirectories, NON_JAVA_FILES_FILTER),
                 collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
 
-        if (log.isVerbose()) {
+        if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
             if (resourceFiles.isEmpty()) {
                 log.verbosePrintln("No resource files found.");
@@ -89,12 +88,26 @@ public final class CompileCommandExecutor {
         var outputDir = outputDirOrJar.map(
                 outDir -> outDir,
                 jar -> getTempDirectory());
+
+        log.verbosePrintln(() -> "Compilation output will be sent to " + outputDir);
+
         var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
+
+        if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
+            log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedFiles.size() +
+                    " files from previous compilation");
+            if (jarFile == null) {
+                deleteClassFilesFromDir(incrementalChanges.deletedFiles, outputDir);
+            } else {
+                deleteClassFilesFromJar(incrementalChanges.deletedFiles, jarFile);
+            }
+        }
 
         copyResources(resourceFiles, outputDir);
 
         var compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
-                computeClasspath(classpath, compilerArgs), compilerArgs);
+                computeClasspath(classpath, compilerArgs, incrementalChanges == null ? null : outputDirOrJar),
+                compilerArgs);
         if (compileResult.exitCode() != 0) {
             return new CompileCommandResult(compileResult, null);
         }
@@ -111,11 +124,57 @@ public final class CompileCommandExecutor {
             return new CompileCommandResult(compileResult, null);
         }
 
-        log.verbosePrintln(() -> "Creating jar file at " + jarFile);
+        return new CompileCommandResult(compileResult,
+                jar(mainClass, outputDir, jarFile, incrementalChanges));
+    }
+
+    private ToolRunResult jar(String mainClass,
+                              String outputDir,
+                              String jarFile,
+                              IncrementalChanges incrementalChanges) {
         var jarContent = new FileSet(Set.of(), outputDir);
-        var jarResult = Tools.Jar.create().createJar(new CreateJarOptions(
-                jarFile, mainClass, false, "", jarContent, Map.of()));
-        return new CompileCommandResult(compileResult, jarResult);
+
+        if (incrementalChanges == null) {
+            log.verbosePrintln(() -> "Creating jar file at " + jarFile);
+            return Tools.Jar.create().createJar(new CreateJarOptions(
+                    jarFile, mainClass, false, "", jarContent, Map.of()));
+        }
+
+        log.verbosePrintln(() -> "Updating jar file at " + jarFile);
+        return Tools.Jar.create().updateJar(jarFile, jarContent);
+    }
+
+    private Set<String> computeSourceFiles(Set<String> inputDirectories,
+                                           IncrementalChanges incrementalChanges) {
+        Stream<String> incrementalFiles = Stream.of();
+        if (incrementalChanges != null) {
+            log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedFiles.size()
+                    + " files added or modified since last compilation");
+            incrementalFiles = incrementalChanges.addedFiles.stream();
+        }
+        return Stream
+                .concat(incrementalFiles,
+                        collectFiles(inputDirectories, JAVA_FILES_FILTER).stream()
+                                .flatMap(col -> col.files.stream()))
+                .collect(toSet());
+    }
+
+    private void deleteClassFilesFromDir(Set<String> deletedFiles, String outputDir) {
+        var dir = Paths.get(outputDir);
+        if (!dir.toFile().isDirectory()) {
+            throw new JBuildException("The outputDir does not exist.", JBuildException.ErrorCause.USER_INPUT);
+        }
+        for (var file : deletedFiles) {
+            var toDelete = dir.relativize(Paths.get(file));
+            log.println("Deleting incremental file: " + toDelete);
+            if (!toDelete.toFile().delete()) {
+                log.println("WARNING: could not delete file: " + toDelete);
+            }
+        }
+    }
+
+    private void deleteClassFilesFromJar(Set<String> deletedFiles, String jarFile) {
+        throw new UnsupportedOperationException("Cannot delete from jar yet");
     }
 
     private void copyResources(List<FileCollection> resourceFiles, String outputDir) {
@@ -144,16 +203,24 @@ public final class CompileCommandExecutor {
     }
 
     private static String computeClasspath(String classpath,
-            List<String> compilerArgs) {
+                                           List<String> compilerArgs,
+                                           Either<String, String> outputDirOrJar) {
         if (compilerArgs.contains("-cp")
                 || compilerArgs.contains("--class-path")
                 || compilerArgs.contains("--classpath")) {
             // explicit classpath was provided, use that only
             return "";
         }
-        return Stream.of(classpath.split(File.pathSeparator))
-                .map(CompileCommandExecutor::computeClasspathPart)
-                .filter(not(String::isBlank))
+
+        var previousOutput = outputDirOrJar == null
+                ? Stream.<String>of()
+                : Stream.of((String) outputDirOrJar.map(dir -> dir, jar -> jar));
+
+        return Stream.concat(
+                        previousOutput,
+                        Stream.of(classpath.split(File.pathSeparator))
+                                .map(CompileCommandExecutor::computeClasspathPart)
+                                .filter(not(String::isBlank)))
                 .collect(joining(File.pathSeparator));
     }
 

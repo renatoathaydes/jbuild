@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -47,7 +46,8 @@ public class CompileCommandExecutorTest {
                 "",
                 false,
                 "",
-                List.of());
+                List.of(),
+                null);
 
         verifyToolSuccessful("compile", result.getCompileResult());
         assertThat(result.getJarResult()).isNotPresent();
@@ -94,7 +94,8 @@ public class CompileCommandExecutorTest {
                 "",
                 false,
                 "",
-                List.of());
+                List.of(),
+                null);
 
         verifyToolSuccessful("compile", result.getCompileResult());
         assertThat(result.getJarResult()).isNotPresent();
@@ -107,7 +108,8 @@ public class CompileCommandExecutorTest {
                 "",
                 false,
                 buildDir.toString(),
-                List.of());
+                List.of(),
+                null);
 
         verifyToolSuccessful("compile", result.getCompileResult());
         assertThat(result.getJarResult()).isPresent();
@@ -151,7 +153,6 @@ public class CompileCommandExecutorTest {
         Files.write(myFooRes, List.of("foo bar"));
 
         var outDir = dir.resolve("output");
-        System.out.println("outDir=" + outDir);
 
         command.compile(Set.of(src.toFile().getAbsolutePath()),
                 Set.of(resDir.toFile().getAbsolutePath()),
@@ -159,15 +160,81 @@ public class CompileCommandExecutorTest {
                 "",
                 false,
                 "",
-                List.of());
+                List.of(),
+                null);
 
         var outMyRes = outDir.resolve(myRes.getFileName().toString());
         var outMyFooRes = outDir.resolve(Paths.get("foo", myFooRes.getFileName().toString()));
 
         assertThat(outDir).isDirectory();
-        System.out.println("Files in outDir: " + Arrays.toString(outDir.toFile().list()));
         assertThat(outMyRes).isRegularFile().hasContent("hello");
         assertThat(outMyFooRes).isRegularFile().hasContent("foo bar");
+    }
+
+    @Test
+    void incrementalCompilationWithOnlyModifiedFile() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var jar = dir.resolve("lib.jar");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+
+        var utilJava = src.resolve("Util.java");
+        Files.write(utilJava, List.of("class Util {",
+                "  static String message() { return \"hello world\"; }",
+                "}"));
+
+        var mainJava = src.resolve("Main.java");
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Util.message());",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                null);
+
+        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", firstResult.getJarResult().get());
+        assertThat(jar).isRegularFile();
+
+        // change the Util class
+        Files.write(utilJava, List.of("class Util {",
+                "  static String message() { return \"bye world\"; }",
+                "}"));
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(), Set.of(utilJava.toString())));
+
+        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", secondResult.getJarResult().get());
+
+        // Run the jar to make sure the change was handled correctly
+        var javaProc = new ProcessBuilder("java", "-jar", jar.toString()).start();
+        var javaExitCode = javaProc.waitFor();
+
+        assertThat(javaExitCode).isZero();
+        assertThat(javaProc.getInputStream()).hasContent("bye world");
     }
 
 }

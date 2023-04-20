@@ -68,7 +68,7 @@ public final class CreateJarOptions {
         }
     }
 
-    private static void addFileSetTo(List<String> result, FileSet fileSet) {
+    static void addFileSetTo(List<String> result, FileSet fileSet) {
         if (!fileSet.rootDir.isBlank()) {
             result.add("-C");
             result.add(fileSet.rootDir);

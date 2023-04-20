@@ -274,7 +274,8 @@ public class DoctorCommandExecutorBasicTest {
                 "",
                 false,
                 classpath,
-                List.of());
+                List.of(),
+                null);
 
         if (!result.isSuccessful()) {
             verifyToolSuccessful("compile", result.getCompileResult());

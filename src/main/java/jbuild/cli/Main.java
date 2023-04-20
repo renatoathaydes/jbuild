@@ -202,7 +202,8 @@ public final class Main {
         var result = commandExecutor.compile(
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass,
-                compileOptions.generateJbManifest, compileOptions.classpath, options.applicationArgs
+                compileOptions.generateJbManifest, compileOptions.classpath, options.applicationArgs,
+                compileOptions.incrementalChanges
         );
         verifyToolSuccessful("javac", result.getCompileResult());
         result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));

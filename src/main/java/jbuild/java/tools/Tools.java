@@ -4,7 +4,6 @@ import jbuild.errors.JBuildException;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -51,10 +50,20 @@ public abstract class Tools {
      */
     public static void verifyToolSuccessful(String tool, ToolRunResult result) {
         if (result.exitCode() != 0) {
-            throw new JBuildException("unexpected error when executing " + tool + " " + Arrays.toString(result.getArgs()) +
+            throw new JBuildException("unexpected error when executing " + tool + " " +
+                    argsString(result.getArgs()) +
                     ". Tool output:" + LINE_END + result.getStdout() +
                     LINE_END + LINE_END + "stderr:" + LINE_END + result.getStderr(), ACTION_ERROR);
         }
+    }
+
+    private static String argsString(String[] args) {
+        if (args.length > 10) {
+            var shortArgs = new String[10];
+            System.arraycopy(args, 0, shortArgs, 0, 10);
+            return String.join(" ", shortArgs) + "...";
+        }
+        return String.join(" ", args);
     }
 
     protected PrintStream stdout() {
@@ -133,8 +142,8 @@ public abstract class Tools {
         }
 
         private static String[] collectArgs(String classFile) {
-            return new String[] {
-                "-v", "-s", "-c", "-p", classFile
+            return new String[]{
+                    "-v", "-s", "-c", "-p", classFile
             };
         }
 
@@ -176,7 +185,27 @@ public abstract class Tools {
          * @return result
          */
         public ToolRunResult createJar(CreateJarOptions options) {
-            var args = options.toArgs(true).toArray(new String[0]);
+            return run(options.toArgs(true));
+        }
+
+        /**
+         * Update a jar by adding files to it.
+         *
+         * @param jarFile to update
+         * @param fileSet files to add
+         * @return result
+         */
+        public ToolRunResult updateJar(String jarFile,
+                                       CreateJarOptions.FileSet fileSet) {
+            var args = new ArrayList<String>();
+            args.add("uf");
+            args.add(jarFile);
+            CreateJarOptions.addFileSetTo(args, fileSet);
+            return run(args);
+        }
+
+        private ToolRunResult run(List<String> argList) {
+            var args = argList.toArray(new String[0]);
             var exitCode = tool.run(new PrintStream(stdout(), false, ISO_8859_1),
                     new PrintStream(stderr(), false, ISO_8859_1),
                     args);

@@ -3,6 +3,7 @@ package jbuild.cli;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
+import jbuild.commands.IncrementalChanges;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.errors.JBuildException;
@@ -658,6 +659,9 @@ final class CompileOptions {
             "        -x        generate jb extension manifest (for use with the jb tool)." + LINE_END +
             "        --main-class" + LINE_END +
             "        -m <name> application's main class." + LINE_END +
+            "      Incremental compilation options:" + LINE_END +
+            "        --deleted <file>  deleted file since last compilation." + LINE_END +
+            "        --added <file>    added/modified file since last compilation." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --jar options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
@@ -674,24 +678,29 @@ final class CompileOptions {
     final String mainClass;
     final boolean generateJbManifest;
     final String classpath;
+    final IncrementalChanges incrementalChanges;
 
     public CompileOptions(Set<String> inputDirectories,
-            Set<String> resourcesDirectories,
-            Either<String, String> outputDirOrJar,
-            String mainClass,
-            boolean generateJbManifest,
-            String classpath) {
+                          Set<String> resourcesDirectories,
+                          Either<String, String> outputDirOrJar,
+                          String mainClass,
+                          boolean generateJbManifest,
+                          String classpath,
+                          IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
         this.resourcesDirectories = resourcesDirectories;
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
         this.generateJbManifest = generateJbManifest;
         this.classpath = classpath;
+        this.incrementalChanges = incrementalChanges;
     }
 
     static CompileOptions parse(List<String> args, boolean verbose) {
         Set<String> inputDirectories = new LinkedHashSet<>(2);
         Set<String> resourcesDirectories = new LinkedHashSet<>(2);
+        Set<String> deletedFiles = new LinkedHashSet<>(2);
+        Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
         var generateJbManifest = false;
         var classpath = new StringBuilder();
@@ -700,7 +709,9 @@ final class CompileOptions {
                 waitingForDirectory = false,
                 waitingForResources = false,
                 waitingForJar = false,
-                waitingForMainClass = false;
+                waitingForMainClass = false,
+                waitingForDeleted = false,
+                waitingForAdded = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
@@ -729,6 +740,12 @@ final class CompileOptions {
             } else if (waitingForMainClass) {
                 waitingForMainClass = false;
                 mainClass = arg;
+            } else if (waitingForDeleted) {
+                waitingForDeleted = false;
+                deletedFiles.add(arg);
+            } else if (waitingForAdded) {
+                waitingForAdded = false;
+                addedFiles.add(arg);
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
@@ -754,6 +771,10 @@ final class CompileOptions {
                                 (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForMainClass = true;
+                } else if ("--added".equals(arg)) {
+                    waitingForAdded = true;
+                } else if ("--deleted".equals(arg)) {
+                    waitingForDeleted = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
                             (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
@@ -775,6 +796,12 @@ final class CompileOptions {
         if (waitingForMainClass) {
             throw new JBuildException("expecting value for '--main-class' option", USER_INPUT);
         }
+        if (waitingForDeleted) {
+            throw new JBuildException("expecting value for '--deleted' option", USER_INPUT);
+        }
+        if (waitingForAdded) {
+            throw new JBuildException("expecting value for '--added' option", USER_INPUT);
+        }
         if (outputDir != null && jar != null) {
             throw new JBuildException("cannot specify both 'directory' and 'jar' options together." +
                     (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
@@ -782,11 +809,18 @@ final class CompileOptions {
         if (outputDir == null && jar == null) {
             jar = "";
         }
+
+        IncrementalChanges incrementalChanges =
+                (deletedFiles.isEmpty() && addedFiles.isEmpty())
+                        ? null
+                        : new IncrementalChanges(deletedFiles, addedFiles);
+
         return new CompileOptions(inputDirectories,
                 resourcesDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
                 generateJbManifest,
-                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
+                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString(),
+                incrementalChanges);
     }
 }
