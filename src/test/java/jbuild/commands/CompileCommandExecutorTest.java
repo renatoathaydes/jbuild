@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.java.JavapOutputParser;
+import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static jbuild.java.JavapOutputParserTest.javap;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
@@ -235,6 +237,156 @@ public class CompileCommandExecutorTest {
 
         assertThat(javaExitCode).isZero();
         assertThat(javaProc.getInputStream()).hasContent("bye world");
+    }
+
+    @Test
+    void incrementalCompilationWithModifiedAndAddedFiles() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var jar = dir.resolve("lib.jar");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+
+        var utilJava = src.resolve("Util.java");
+        Files.write(utilJava, List.of("class Util {",
+                "  static String message() { return \"hello world\"; }",
+                "}"));
+
+        var mainJava = src.resolve("Main.java");
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Util.message());",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                null);
+
+        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", firstResult.getJarResult().get());
+        assertThat(jar).isRegularFile();
+
+        // change the Util class to delegate to another, new class
+        Files.write(utilJava, List.of("class Util {",
+                "  static String message() { return SecondaryUtil.msg(); }",
+                "}"));
+
+        // create the new class
+        var util2Java = src.resolve("SecondaryUtil.java");
+        Files.write(util2Java, List.of("class SecondaryUtil {",
+                "  static String msg() { return \"secondary util message\"; }",
+                "}"));
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(),
+                        Set.of(utilJava.toString(), util2Java.toString())));
+
+        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", secondResult.getJarResult().get());
+
+        // Run the jar to make sure the change was handled correctly
+        var javaProc = new ProcessBuilder("java", "-jar", jar.toString()).start();
+        var javaExitCode = javaProc.waitFor();
+
+        assertThat(javaExitCode).isZero();
+        assertThat(javaProc.getInputStream()).hasContent("secondary util message");
+    }
+
+    @Test
+    void incrementalCompilationWithModifiedAndDeletedFile() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var jar = dir.resolve("lib.jar");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+
+        var utilJava = src.resolve("Util.java");
+        Files.write(utilJava, List.of("class Util {",
+                "  static String message() { return \"hello world\"; }",
+                "}"));
+
+        var mainJava = src.resolve("Main.java");
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Util.message());",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                null);
+
+        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", firstResult.getJarResult().get());
+        assertThat(jar).isRegularFile();
+
+        // delete the Util class
+        assert utilJava.toFile().delete();
+
+        // make Main independent of Util
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(\"Main hello world\");",
+                "  }",
+                "}"));
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(utilJava.toString()), Set.of(mainJava.toString())));
+
+        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", secondResult.getJarResult().get());
+
+        // Run the jar to make sure the change was handled correctly
+        var javaProc = new ProcessBuilder("java", "-jar", jar.toString()).start();
+        var javaExitCode = javaProc.waitFor();
+
+        assertThat(javaExitCode).isZero();
+        assertThat(javaProc.getInputStream()).hasContent("Main hello world");
+
+        // make sure the jar was patched correctly
+        var patchedJarContents = Tools.Jar.create().listContents(jar.toString()).getStdoutLines()
+                .collect(Collectors.toList());
+
+        assertThat(patchedJarContents).containsExactly("META-INF/", "META-INF/MANIFEST.MF", "Main.class");
     }
 
 }
