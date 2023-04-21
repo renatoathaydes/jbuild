@@ -33,6 +33,7 @@ import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.CollectionUtils.appendAsStream;
 import static jbuild.util.FileUtils.collectFiles;
+import static jbuild.util.FileUtils.replaceExtension;
 
 public final class CompileCommandExecutor {
 
@@ -96,10 +97,12 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
             log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedFiles.size() +
                     " files from previous compilation");
+
+            var classFilesToRemove = computeFilesToRemove(inputDirectories, incrementalChanges);
             if (jarFile == null) {
-                deleteClassFilesFromDir(incrementalChanges.deletedFiles, outputDir);
+                deleteClassFilesFromDir(classFilesToRemove, outputDir);
             } else {
-                deleteClassFilesFromJar(incrementalChanges.deletedFiles, jarFile);
+                deleteClassFilesFromJar(classFilesToRemove, jarFile);
             }
         }
 
@@ -126,6 +129,18 @@ public final class CompileCommandExecutor {
 
         return new CompileCommandResult(compileResult,
                 jar(mainClass, outputDir, jarFile, incrementalChanges));
+    }
+
+    private static Set<String> computeFilesToRemove(Set<String> inputDirectories,
+                                                    IncrementalChanges incrementalChanges) {
+        return incrementalChanges.deletedFiles.stream()
+                .map(file -> {
+                    var dir = inputDirectories.stream().filter(file::startsWith).findFirst()
+                            .orElseThrow(() -> new JBuildException("Deleted source file '" + file +
+                                    "' not found in any source directory", ACTION_ERROR));
+                    return replaceExtension(file.substring(dir.length() + 1), ".java", ".class");
+                })
+                .collect(toSet());
     }
 
     private ToolRunResult jar(String mainClass,
@@ -174,7 +189,15 @@ public final class CompileCommandExecutor {
     }
 
     private void deleteClassFilesFromJar(Set<String> deletedFiles, String jarFile) {
-        throw new UnsupportedOperationException("Cannot delete from jar yet");
+        var startTime = log.isVerbose() ? System.currentTimeMillis() : 0L;
+        try {
+            FileUtils.patchJar(new File(jarFile), ".", Set.of(), deletedFiles);
+        } catch (IOException e) {
+            throw new JBuildException("Could not path existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
+        }
+        if (log.isVerbose()) {
+            log.verbosePrintln("Deleted files from jar in " + (System.currentTimeMillis() - startTime) + "ms");
+        }
     }
 
     private void copyResources(List<FileCollection> resourceFiles, String outputDir) {
