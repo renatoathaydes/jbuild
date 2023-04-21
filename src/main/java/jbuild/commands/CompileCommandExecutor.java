@@ -109,7 +109,8 @@ public final class CompileCommandExecutor {
         copyResources(resourceFiles, outputDir);
 
         var compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
-                computeClasspath(classpath, compilerArgs, incrementalChanges == null ? null : outputDirOrJar),
+                computeClasspath(classpath, compilerArgs, incrementalChanges == null ? null :
+                        jarFile == null ? outputDir : jarFile),
                 compilerArgs);
         if (compileResult.exitCode() != 0) {
             return new CompileCommandResult(compileResult, null);
@@ -156,7 +157,12 @@ public final class CompileCommandExecutor {
         }
 
         log.verbosePrintln(() -> "Updating jar file at " + jarFile);
-        return Tools.Jar.create().updateJar(jarFile, jarContent);
+        long startTime = System.currentTimeMillis();
+        var result = Tools.Jar.create().updateJar(jarFile, jarContent);
+        if (log.isVerbose()) {
+            log.verbosePrintln("Updated jar in " + (System.currentTimeMillis() - startTime) + " ms");
+        }
+        return result;
     }
 
     private Set<String> computeSourceFiles(Set<String> inputDirectories,
@@ -227,7 +233,7 @@ public final class CompileCommandExecutor {
 
     private static String computeClasspath(String classpath,
                                            List<String> compilerArgs,
-                                           Either<String, String> outputDirOrJar) {
+                                           String previousOutput) {
         if (compilerArgs.contains("-cp")
                 || compilerArgs.contains("--class-path")
                 || compilerArgs.contains("--classpath")) {
@@ -235,12 +241,8 @@ public final class CompileCommandExecutor {
             return "";
         }
 
-        var previousOutput = outputDirOrJar == null
-                ? Stream.<String>of()
-                : Stream.of((String) outputDirOrJar.map(dir -> dir, jar -> jar));
-
         return Stream.concat(
-                        previousOutput,
+                        previousOutput == null ? Stream.of() : Stream.of(previousOutput),
                         Stream.of(classpath.split(File.pathSeparator))
                                 .map(CompileCommandExecutor::computeClasspathPart)
                                 .filter(not(String::isBlank)))
