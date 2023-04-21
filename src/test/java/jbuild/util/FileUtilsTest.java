@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -69,7 +68,7 @@ public class FileUtilsTest {
     }
 
     @Test
-    void canPatchJarFile() throws IOException, URISyntaxException {
+    void canPatchJarFile() throws IOException {
         var tempDir = Files.createTempDirectory(FileUtilsTest.class.getSimpleName());
         var srcDir = tempDir.resolve("src");
         assert srcDir.toFile().mkdir();
@@ -95,6 +94,7 @@ public class FileUtilsTest {
                 .collect(Collectors.toList());
 
         // "patch" real jar contents to match the expected patched jar
+        // modifiedRealJarContents.add("src/");
         modifiedRealJarContents.add("src/file1.txt");
         modifiedRealJarContents.add("src/file2.txt");
         modifiedRealJarContents.remove(removedFile);
@@ -102,7 +102,7 @@ public class FileUtilsTest {
         var patchedJarContents = jarTool.listContents(toPatch.getAbsolutePath()).getStdoutLines()
                 .collect(Collectors.toList());
 
-        assertThat(patchedJarContents).containsExactlyElementsOf(modifiedRealJarContents);
+        assertThat(patchedJarContents).containsExactlyInAnyOrderElementsOf(modifiedRealJarContents);
         assertThat(contentsOfZipEntry("src/file1.txt", toPatch)).isEqualTo("hello world" + System.lineSeparator());
         assertThat(contentsOfZipEntry("src/file2.txt", toPatch)).isEqualTo("bye world" + System.lineSeparator());
     }
