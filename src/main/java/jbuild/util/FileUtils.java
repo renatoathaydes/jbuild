@@ -116,13 +116,6 @@ public final class FileUtils {
         return new FileCollection(dirPath);
     }
 
-    public static String replaceExtension(String path, String expectedExt, String newExt) {
-        if (path.endsWith(expectedExt)) {
-            return path.substring(0, path.length() - expectedExt.length()) + newExt;
-        }
-        return path;
-    }
-
     // FIXME sort the entries in the jar as the jar tool does, add directory entries
     public static void patchJar(File jarFile,
                                 String baseDir,

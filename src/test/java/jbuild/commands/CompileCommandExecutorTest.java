@@ -12,6 +12,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -369,7 +370,7 @@ public class CompileCommandExecutorTest {
                 false,
                 "",
                 List.of(),
-                new IncrementalChanges(Set.of(utilJava.toString()), Set.of(mainJava.toString())));
+                new IncrementalChanges(Set.of("Util.class"), Set.of(mainJava.toString())));
 
         verifyToolSuccessful("compile", secondResult.getCompileResult());
         assertThat(secondResult.getJarResult()).isPresent();
@@ -387,6 +388,89 @@ public class CompileCommandExecutorTest {
                 .collect(Collectors.toList());
 
         assertThat(patchedJarContents).containsExactly("META-INF/", "META-INF/MANIFEST.MF", "Main.class");
+    }
+
+    @Test
+    void incrementalCompilationWithModifiedAndDeletedFileInPackageAndOutputDir() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var outputDir = dir.resolve("build");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+        var util = src.resolve("util");
+        assert util.toFile().mkdir();
+        var main = src.resolve("main");
+        assert main.toFile().mkdir();
+
+        var utilJava = util.resolve("Util.java");
+        Files.write(utilJava, List.of("package util; public class Util {",
+                "  public static String message() { return \"hello world\"; }",
+                "}"));
+
+        var mainJava = main.resolve("Main.java");
+        Files.write(mainJava, List.of("package main; import util.Util; class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Util.message());",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.left(outputDir.toFile().getAbsolutePath()),
+                "",
+                false,
+                "",
+                List.of(),
+                null);
+
+        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getJarResult()).isNotPresent();
+        assertThat(outputDir).isDirectory();
+
+        // delete the Util class
+        assert utilJava.toFile().delete();
+        assert util.toFile().delete();
+
+        // make Main independent of Util
+        Files.write(mainJava, List.of("package main; class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(\"Main hello world\");",
+                "  }",
+                "}"));
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(),
+                Either.left(outputDir.toFile().getAbsolutePath()),
+                "",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(Paths.get("util", "Util.class").toString()), Set.of(mainJava.toString())));
+
+        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getJarResult()).isNotPresent();
+
+        // Run the jar to make sure the change was handled correctly
+        var javaProc = new ProcessBuilder("java", "-cp", outputDir.toString(), "main.Main").start();
+        var javaExitCode = javaProc.waitFor();
+
+        assertThat(javaExitCode).isZero();
+        assertThat(javaProc.getInputStream()).hasContent("Main hello world");
+
+        // make sure the class files were patched correctly
+        assertThat(outputDir).isDirectoryContaining(path ->
+                Objects.equals("main", path.getFileName().toString()));
+
+        var outMain = outputDir.resolve("main");
+        assertThat(outMain).isDirectoryContaining(path ->
+                Objects.equals("Main.class", path.getFileName().toString()));
+        assertThat(outMain.resolve("Main.class")).isRegularFile();
     }
 
 }
