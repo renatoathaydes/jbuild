@@ -5,14 +5,11 @@ import jbuild.errors.JBuildException;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
-import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -20,9 +17,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 import static java.util.stream.Collectors.toList;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
@@ -114,40 +108,6 @@ public final class FileUtils {
             }
         }
         return new FileCollection(dirPath);
-    }
-
-    // FIXME sort the entries in the jar as the jar tool does, add directory entries
-    public static void patchJar(File jarFile,
-                                String baseDir,
-                                Set<String> add,
-                                Set<String> delete) throws IOException {
-        if (add.isEmpty() && delete.isEmpty()) return;
-        var newFile = Files.createTempFile("jbuild-temp-jar-", ".jar").toFile();
-        var newJar = new ZipOutputStream(new FileOutputStream(newFile));
-        try (var jar = new ZipFile(jarFile, ZipFile.OPEN_READ)) {
-            var entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                var entry = entries.nextElement();
-                if (delete.contains(entry.getName())) continue;
-                newJar.putNextEntry(entry);
-                var entryStream = jar.getInputStream(entry);
-                entryStream.transferTo(newJar);
-                entryStream.close();
-                newJar.closeEntry();
-            }
-            for (var toAdd : add) {
-                var file = new File(baseDir, toAdd);
-                try (var in = new FileInputStream(file)) {
-                    newJar.putNextEntry(new ZipEntry(toAdd));
-                    in.transferTo(newJar);
-                    newJar.closeEntry();
-                }
-            }
-        }
-        newJar.close();
-        if (!newFile.renameTo(jarFile)) {
-            throw new IOException("unable to replace jar file with new contents: " + jarFile);
-        }
     }
 
     private static Stream<String> fileOrChildDirectories(File file, FilenameFilter filter) {

@@ -10,6 +10,7 @@ import jbuild.util.Either;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
 import jbuild.util.JarFileFilter;
+import jbuild.util.JarPatcher;
 import jbuild.util.NoOp;
 
 import java.io.File;
@@ -104,6 +105,7 @@ public final class CompileCommandExecutor {
             }
         }
 
+        // FIXME incremental compilation may need to handle this differently
         copyResources(resourceFiles, outputDir);
 
         var compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
@@ -182,7 +184,7 @@ public final class CompileCommandExecutor {
     private void deleteClassFilesFromJar(Set<String> deletedFiles, String jarFile) {
         var startTime = log.isVerbose() ? System.currentTimeMillis() : 0L;
         try {
-            FileUtils.patchJar(new File(jarFile), ".", Set.of(), deletedFiles);
+            JarPatcher.patchJar(new File(jarFile), ".", Set.of(), deletedFiles);
         } catch (IOException e) {
             throw new JBuildException("Could not path existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
         }
