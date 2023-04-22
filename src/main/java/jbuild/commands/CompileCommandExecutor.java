@@ -33,7 +33,6 @@ import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.CollectionUtils.appendAsStream;
 import static jbuild.util.FileUtils.collectFiles;
-import static jbuild.util.FileUtils.replaceExtension;
 
 public final class CompileCommandExecutor {
 
@@ -94,15 +93,14 @@ public final class CompileCommandExecutor {
 
         var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
 
-        if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
-            log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedFiles.size() +
-                    " files from previous compilation");
+        if (incrementalChanges != null && !incrementalChanges.deletedClassFiles.isEmpty()) {
+            log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedClassFiles.size() +
+                    " class files from previous compilation");
 
-            var classFilesToRemove = computeFilesToRemove(inputDirectories, incrementalChanges);
             if (jarFile == null) {
-                deleteClassFilesFromDir(classFilesToRemove, outputDir);
+                deleteClassFilesFromDir(incrementalChanges.deletedClassFiles, outputDir);
             } else {
-                deleteClassFilesFromJar(classFilesToRemove, jarFile);
+                deleteClassFilesFromJar(incrementalChanges.deletedClassFiles, jarFile);
             }
         }
 
@@ -132,18 +130,6 @@ public final class CompileCommandExecutor {
                 jar(mainClass, outputDir, jarFile, incrementalChanges));
     }
 
-    private static Set<String> computeFilesToRemove(Set<String> inputDirectories,
-                                                    IncrementalChanges incrementalChanges) {
-        return incrementalChanges.deletedFiles.stream()
-                .map(file -> {
-                    var dir = inputDirectories.stream().filter(file::startsWith).findFirst()
-                            .orElseThrow(() -> new JBuildException("Deleted source file '" + file +
-                                    "' not found in any source directory", ACTION_ERROR));
-                    return replaceExtension(file.substring(dir.length() + 1), ".java", ".class");
-                })
-                .collect(toSet());
-    }
-
     private ToolRunResult jar(String mainClass,
                               String outputDir,
                               String jarFile,
@@ -169,9 +155,9 @@ public final class CompileCommandExecutor {
                                            IncrementalChanges incrementalChanges) {
         Stream<String> incrementalFiles = Stream.of();
         if (incrementalChanges != null) {
-            log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedFiles.size()
+            log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedSourceFiles.size()
                     + " files added or modified since last compilation");
-            incrementalFiles = incrementalChanges.addedFiles.stream();
+            incrementalFiles = incrementalChanges.addedSourceFiles.stream();
         }
         return Stream
                 .concat(incrementalFiles,
@@ -183,11 +169,10 @@ public final class CompileCommandExecutor {
     private void deleteClassFilesFromDir(Set<String> deletedFiles, String outputDir) {
         var dir = Paths.get(outputDir);
         if (!dir.toFile().isDirectory()) {
-            throw new JBuildException("The outputDir does not exist.", JBuildException.ErrorCause.USER_INPUT);
+            throw new JBuildException("The outputDir does not exist, cannot delete files from it", USER_INPUT);
         }
         for (var file : deletedFiles) {
-            var toDelete = dir.relativize(Paths.get(file));
-            log.println("Deleting incremental file: " + toDelete);
+            var toDelete = dir.resolve(file);
             if (!toDelete.toFile().delete()) {
                 log.println("WARNING: could not delete file: " + toDelete);
             }
