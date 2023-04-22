@@ -39,7 +39,7 @@ public class RpcMainTest {
             throw new RuntimeException("timeout waiting for start up");
         }
         // time for the socket to get ready
-        Thread.sleep(10);
+        Thread.sleep(500);
     }
 
     @AfterEach
