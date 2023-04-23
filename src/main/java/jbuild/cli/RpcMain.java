@@ -153,6 +153,7 @@ public final class RpcMain {
             exchange.getResponseHeaders().set("Content-Type", "text/xml; charset=utf-8");
             exchange.sendResponseHeaders(statusCode, body.size());
             exchange.getResponseBody().write(body.toByteArray());
+            exchange.close();
         }
     }
 }

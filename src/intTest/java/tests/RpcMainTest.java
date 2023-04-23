@@ -1,8 +1,8 @@
 package tests;
 
 import jbuild.cli.RpcMain;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -11,7 +11,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -19,12 +22,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class RpcMainTest {
 
-    final int port = 9099;
-    final String token = "my-token";
-    final CountDownLatch stopper = new CountDownLatch(1);
+    static final int port = 9099;
+    static final String token = "my-token";
+    static final CountDownLatch stopper = new CountDownLatch(1);
+    static final HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(1))
+            .executor(Executors.newSingleThreadExecutor())
+            .build();
+    private static final URI rpcEndpoint = URI.create("http://localhost:" + port + "/jbuild-rpc");
 
-    @BeforeEach
-    void start() throws InterruptedException {
+    @BeforeAll
+    static void start() throws InterruptedException {
         var startWait = new CountDownLatch(1);
         new Thread(() -> {
             startWait.countDown();
@@ -38,20 +46,50 @@ public class RpcMainTest {
         if (!startWait.await(2, TimeUnit.SECONDS)) {
             throw new RuntimeException("timeout waiting for start up");
         }
-        // time for the socket to get ready
-        Thread.sleep(500);
+
+        ensureHttpServerResponding();
     }
 
-    @AfterEach
-    void stop() {
+    @AfterAll
+    static void stop() {
         stopper.countDown();
+        client.executor().ifPresent(e -> ((ExecutorService) e).shutdown());
+    }
+
+    private static void ensureHttpServerResponding() {
+        Throwable error = null;
+        var tries = 0;
+        while (tries < 5) {
+            try {
+                client.send(
+                        HttpRequest.newBuilder(rpcEndpoint).build(),
+                        HttpResponse.BodyHandlers.ofString(UTF_8));
+                // success if no Exception!
+                return;
+            } catch (IOException e) {
+                error = e;
+
+                // retry
+                tries++;
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(ex);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+
+        throw new RuntimeException("Unable to connect with the server in time. Last error: " + error);
     }
 
     @Test
     void getMethodIsNotAccepted() throws IOException, InterruptedException {
-        var client = HttpClient.newHttpClient();
         var response = client.send(
-                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+                HttpRequest.newBuilder(rpcEndpoint)
                         .header("Authorization", "Bearer " + token)
                         .build(),
                 HttpResponse.BodyHandlers.ofString(UTF_8));
@@ -70,7 +108,7 @@ public class RpcMainTest {
                 "</methodCall>";
 
         var response = client.send(
-                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+                HttpRequest.newBuilder(rpcEndpoint)
                         .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
 
         assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(403);
@@ -87,7 +125,7 @@ public class RpcMainTest {
                 "    </params>\n" +
                 "</methodCall>";
 
-        var response = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+        var response = client.send(HttpRequest.newBuilder(rpcEndpoint)
                 .header("Authorization", "Bearer " + token)
                 .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
 
@@ -103,8 +141,6 @@ public class RpcMainTest {
 
     @Test
     void canPostRpcMessageWithVarargsArgument() throws IOException, InterruptedException {
-        var client = HttpClient.newHttpClient();
-
         var rpcMessage = "<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>" + CalledInRpcMainTest.class.getName() + ".takeSomeArgs</methodName>\n" +
@@ -116,7 +152,7 @@ public class RpcMainTest {
                 "    </params>\n" +
                 "</methodCall>";
 
-        var response = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/jbuild-rpc"))
+        var response = client.send(HttpRequest.newBuilder(rpcEndpoint)
                 .header("Authorization", "Bearer " + token)
                 .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
 
