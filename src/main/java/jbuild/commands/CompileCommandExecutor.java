@@ -184,7 +184,7 @@ public final class CompileCommandExecutor {
     private void deleteClassFilesFromJar(Set<String> deletedFiles, String jarFile) {
         var startTime = log.isVerbose() ? System.currentTimeMillis() : 0L;
         try {
-            JarPatcher.patchJar(new File(jarFile), ".", Set.of(), deletedFiles);
+            JarPatcher.deleteFromJar(new File(jarFile), deletedFiles);
         } catch (IOException e) {
             throw new JBuildException("Could not path existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
         }
