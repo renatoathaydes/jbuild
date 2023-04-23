@@ -1,5 +1,6 @@
 imports:
-  - "../build_properties.yaml"
+  - ../errorprone.yaml
+  - ../build_properties.yaml
 
 group: com.athaydes.jbuild
 name: jbuild-classfile-parser
