@@ -560,29 +560,29 @@ final class DoctorOptions {
 final class RequirementsOptions {
 
     static final String NAME = "requirements";
-    static final String DESCRIPTION = "finds type requirements of jar(s)";
+    static final String DESCRIPTION = "finds type requirements of jars and class files";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
             "    " + LINE_END +
-            "    Determines the Java types required by a set of jars." + LINE_END +
+            "    Determines the Java types required by a set of jars or class files." + LINE_END +
             "      Usage:" + LINE_END +
-            "        jbuild " + NAME + "<options...> <jar...>" + LINE_END +
+            "        jbuild " + NAME + "<options...> <file...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --per-class" + LINE_END +
             "        -c        show intra-jar requirements per-class" + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " app.jar lib.jar";
 
-    final Set<String> jars;
+    final Set<String> files;
     final boolean perClass;
 
-    public RequirementsOptions(Set<String> jars, boolean perClass) {
-        this.jars = unmodifiableSet(jars);
+    public RequirementsOptions(Set<String> files, boolean perClass) {
+        this.files = unmodifiableSet(files);
         this.perClass = perClass;
     }
 
     static RequirementsOptions parse(List<String> args, boolean verbose) {
-        var jars = new LinkedHashSet<String>(4);
+        var files = new LinkedHashSet<String>(4);
         var perClass = false;
 
         for (var arg : args) {
@@ -594,11 +594,11 @@ final class RequirementsOptions {
                             (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
-                jars.add(arg);
+                files.add(arg);
             }
         }
 
-        return new RequirementsOptions(jars, perClass);
+        return new RequirementsOptions(files, perClass);
     }
 }
 
