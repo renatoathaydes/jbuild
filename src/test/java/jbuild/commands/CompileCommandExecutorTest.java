@@ -251,8 +251,8 @@ public class CompileCommandExecutorTest {
     @Test
     void incrementalCompilationWithOnlyModifiedResourceFile() throws Exception {
         var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(System.out);
-        var log = new JBuildLog(out, true);
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -313,6 +313,133 @@ public class CompileCommandExecutorTest {
 
         assertThat(unzipEntry(jar, resource.getFileName().toString()))
                 .isEqualToIgnoringNewLines("new resource contents");
+    }
+
+    @Test
+    void incrementalCompilationWithOnlyDeletedResourceFileJar() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var jar = dir.resolve("lib.jar");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdirs();
+        var rsrc = dir.resolve("resources");
+        assert rsrc.resolve("assets").toFile().mkdirs();
+
+        var resource = rsrc.resolve(Paths.get("assets", "style.css"));
+        Files.write(resource, List.of("body { color: red; }"));
+
+        var mainJava = src.resolve("Main.java");
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Main.class.getResource(\"assets/style.css\"));",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(rsrc.toFile().getAbsolutePath()),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                null);
+
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
+        assertThat(firstResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", firstResult.getJarResult().get());
+        assertThat(jar).isRegularFile();
+
+        // delete the resource dir
+        assert resource.toFile().delete();
+        assert resource.toFile().getParentFile().delete();
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(rsrc.toFile().getAbsolutePath()),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(resource.toString()), Set.of()));
+
+        assertThat(secondResult.getCompileResult()).isEmpty();
+        assertThat(secondResult.getJarResult()).isEmpty();
+
+        var patchedJarContents = Tools.Jar.create().listContents(jar.toString()).getStdoutLines()
+                .collect(Collectors.toList());
+
+        assertThat(patchedJarContents).containsExactlyInAnyOrder("META-INF/", "META-INF/MANIFEST.MF", "Main.class");
+    }
+
+    @Test
+    void incrementalCompilationWithOnlyDeletedResourceFileDir() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var outputDir = dir.resolve("build");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdirs();
+        var rsrc = dir.resolve("resources");
+        assert rsrc.resolve("assets").toFile().mkdirs();
+
+        var resource = rsrc.resolve(Paths.get("assets", "style.css"));
+        Files.write(resource, List.of("body { color: red; }"));
+
+        var mainJava = src.resolve("Main.java");
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Main.class.getResource(\"assets/style.css\"));",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(rsrc.toFile().getAbsolutePath()),
+                Either.left(outputDir.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                null);
+
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
+        assertThat(firstResult.getJarResult()).isEmpty();
+        assertThat(outputDir).isDirectory();
+
+        // delete the resource dir
+        assert resource.toFile().delete();
+        assert resource.toFile().getParentFile().delete();
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(rsrc.toFile().getAbsolutePath()),
+                Either.left(outputDir.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(resource.toString()), Set.of()));
+
+        assertThat(secondResult.getCompileResult()).isEmpty();
+        assertThat(secondResult.getJarResult()).isEmpty();
+
+        var expectedOutput = Set.of(Paths.get("META-INF"),
+                Paths.get("META-INF", "MANIFEST.MF"),
+                Paths.get("Main.class"));
+
+        assertThat(outputDir).isDirectoryRecursivelyContaining((file) ->
+                expectedOutput.contains(outputDir.relativize(file)));
     }
 
     @Test

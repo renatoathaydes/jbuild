@@ -22,6 +22,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,11 +90,6 @@ public final class CompileCommandExecutor {
             }
         }
 
-        if (sourceFiles.isEmpty() && resourceFiles.isEmpty()) {
-            log.println("No sources to compile. No resource files found. Nothing to do!");
-            return new CompileCommandResult(null, null);
-        }
-
         var outputDir = outputDirOrJar.map(
                 outDir -> outDir,
                 jar -> getTempDirectory());
@@ -102,15 +98,25 @@ public final class CompileCommandExecutor {
 
         var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
 
+        var deletionsDone = false;
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
-            log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedFiles.size() +
-                    " files from previous compilation");
-
-            if (jarFile == null) {
-                deleteClassFilesFromDir(incrementalChanges.deletedFiles, outputDir);
-            } else {
-                deleteClassFilesFromJar(incrementalChanges.deletedFiles, jarFile);
+            var deletions = computeDeletedFiles(
+                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles);
+            if (!deletions.isEmpty()) {
+                if (jarFile == null) {
+                    deleteFilesFromDir(deletions, outputDir);
+                } else {
+                    deleteFilesFromJar(deletions, jarFile);
+                }
+                deletionsDone = true;
             }
+        }
+
+        if (sourceFiles.isEmpty() && resourceFiles.isEmpty()) {
+            if (!deletionsDone) {
+                log.println("No sources to compile. No resource files found. Nothing to do!");
+            }
+            return new CompileCommandResult(null, null);
         }
 
         if (!ensureDirectoryExists(new File(outputDir))) {
@@ -187,6 +193,43 @@ public final class CompileCommandExecutor {
                 .collect(toSet());
     }
 
+    private Set<String> computeDeletedFiles(Set<String> inputDirectories,
+                                            Set<String> resourcesDirectories,
+                                            Set<String> deletedFiles) {
+        var directories = new HashSet<String>(inputDirectories.size() + resourcesDirectories.size());
+        for (String resourcesDirectory : inputDirectories) {
+            directories.add(ensureEndsWith(resourcesDirectory, File.separatorChar));
+        }
+        for (String resourcesDirectory : resourcesDirectories) {
+            directories.add(ensureEndsWith(resourcesDirectory, File.separatorChar));
+        }
+        var result = new HashSet<String>(deletedFiles.size());
+        for (String file : deletedFiles) {
+            if (file.endsWith(".class")) {
+                // class files must be passed with the exact output path, unlike resources
+                result.add(file);
+            } else {
+                // resource files need to be relativized
+                var found = false;
+                for (var dir : directories) {
+                    if (file.startsWith(dir)) {
+                        result.add(file.substring(dir.length()));
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    log.println(() -> "WARNING: cannot delete resource as it is not under any resource directory: " + file);
+                }
+            }
+        }
+        if (!result.isEmpty()) {
+            log.verbosePrintln(() -> "Deleting " + result.size() + " resource file" +
+                    (result.size() == 1 ? "" : "s") + " from output");
+        }
+        return result;
+    }
+
     private List<FileCollection> computeResourceFiles(Set<String> inputDirectories,
                                                       Set<String> resourcesDirectories,
                                                       IncrementalChanges incrementalChanges) {
@@ -232,7 +275,7 @@ public final class CompileCommandExecutor {
                 collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
     }
 
-    private void deleteClassFilesFromDir(Set<String> deletedFiles, String outputDir) {
+    private void deleteFilesFromDir(Set<String> deletedFiles, String outputDir) {
         var dir = Paths.get(outputDir);
         if (!dir.toFile().isDirectory()) {
             throw new JBuildException("The outputDir does not exist, cannot delete files from it", USER_INPUT);
@@ -245,7 +288,7 @@ public final class CompileCommandExecutor {
         }
     }
 
-    private void deleteClassFilesFromJar(Set<String> deletedFiles, String jarFile) {
+    private void deleteFilesFromJar(Set<String> deletedFiles, String jarFile) {
         var startTime = log.isVerbose() ? System.currentTimeMillis() : 0L;
         try {
             JarPatcher.deleteFromJar(new File(jarFile), deletedFiles);
