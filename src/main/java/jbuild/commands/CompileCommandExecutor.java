@@ -19,6 +19,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +37,8 @@ import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.CollectionUtils.appendAsStream;
 import static jbuild.util.FileUtils.collectFiles;
+import static jbuild.util.FileUtils.ensureDirectoryExists;
+import static jbuild.util.TextUtils.ensureEndsWith;
 
 public final class CompileCommandExecutor {
 
@@ -63,7 +68,7 @@ public final class CompileCommandExecutor {
             resourcesDirectories = computeDefaultResourceDirs();
         }
         var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges);
-        if (sourceFiles.isEmpty()) {
+        if (incrementalChanges == null && sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
                     ? "src/main/java/, src/ and '.'"
                     : String.join(", ", inputDirectories);
@@ -71,9 +76,7 @@ public final class CompileCommandExecutor {
                     "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
-        var resourceFiles = appendAsStream(
-                collectFiles(inputDirectories, NON_JAVA_FILES_FILTER),
-                collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
+        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges);
 
         if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
@@ -86,6 +89,11 @@ public final class CompileCommandExecutor {
             }
         }
 
+        if (sourceFiles.isEmpty() && resourceFiles.isEmpty()) {
+            log.println("No sources to compile. No resource files found. Nothing to do!");
+            return new CompileCommandResult(null, null);
+        }
+
         var outputDir = outputDirOrJar.map(
                 outDir -> outDir,
                 jar -> getTempDirectory());
@@ -94,29 +102,38 @@ public final class CompileCommandExecutor {
 
         var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
 
-        if (incrementalChanges != null && !incrementalChanges.deletedClassFiles.isEmpty()) {
-            log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedClassFiles.size() +
-                    " class files from previous compilation");
+        if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
+            log.verbosePrintln(() -> "Deleting " + incrementalChanges.deletedFiles.size() +
+                    " files from previous compilation");
 
             if (jarFile == null) {
-                deleteClassFilesFromDir(incrementalChanges.deletedClassFiles, outputDir);
+                deleteClassFilesFromDir(incrementalChanges.deletedFiles, outputDir);
             } else {
-                deleteClassFilesFromJar(incrementalChanges.deletedClassFiles, jarFile);
+                deleteClassFilesFromJar(incrementalChanges.deletedFiles, jarFile);
             }
         }
 
-        // FIXME incremental compilation may need to handle this differently
-        copyResources(resourceFiles, outputDir);
-
-        var compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
-                computeClasspath(classpath, compilerArgs, incrementalChanges == null ? null :
-                        jarFile == null ? outputDir : jarFile),
-                compilerArgs);
-        if (compileResult.exitCode() != 0) {
-            return new CompileCommandResult(compileResult, null);
+        if (!ensureDirectoryExists(new File(outputDir))) {
+            throw new JBuildException(outputDir + " directory could not be created", IO_WRITE);
         }
 
-        log.verbosePrintln(() -> "Compilation of class files successful on directory: " + outputDir);
+        copyResources(resourceFiles, outputDir);
+
+        ToolRunResult compileResult;
+        if (sourceFiles.isEmpty()) {
+            log.verbosePrintln("No source files to compile");
+            compileResult = null;
+        } else {
+            compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
+                    computeClasspath(classpath, compilerArgs, incrementalChanges == null ? null :
+                            jarFile == null ? outputDir : jarFile),
+                    compilerArgs);
+            if (compileResult.exitCode() != 0) {
+                return new CompileCommandResult(compileResult, null);
+            }
+            log.verbosePrintln(() -> "Compilation successful on directory: " + outputDir);
+        }
+
         if (generateJbManifest) {
             log.verbosePrintln("Generating jb manifest file");
             var generator = new JbManifestGenerator(log);
@@ -155,17 +172,64 @@ public final class CompileCommandExecutor {
 
     private Set<String> computeSourceFiles(Set<String> inputDirectories,
                                            IncrementalChanges incrementalChanges) {
-        Stream<String> incrementalFiles = Stream.of();
         if (incrementalChanges != null) {
-            log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedSourceFiles.size()
-                    + " files added or modified since last compilation");
-            incrementalFiles = incrementalChanges.addedSourceFiles.stream();
+            var sourceFiles = incrementalChanges.addedFiles.stream()
+                    .filter(p -> p.endsWith(".java"))
+                    .collect(toSet());
+            if (!sourceFiles.isEmpty()) {
+                log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedFiles.size()
+                        + " files added or modified since last compilation");
+            }
+            return sourceFiles;
         }
-        return Stream
-                .concat(incrementalFiles,
-                        collectFiles(inputDirectories, JAVA_FILES_FILTER).stream()
-                                .flatMap(col -> col.files.stream()))
+        return collectFiles(inputDirectories, JAVA_FILES_FILTER).stream()
+                .flatMap(col -> col.files.stream())
                 .collect(toSet());
+    }
+
+    private List<FileCollection> computeResourceFiles(Set<String> inputDirectories,
+                                                      Set<String> resourcesDirectories,
+                                                      IncrementalChanges incrementalChanges) {
+        if (incrementalChanges != null) {
+            var resourcesByDir = new HashMap<String, List<String>>(
+                    inputDirectories.size() + resourcesDirectories.size());
+            for (String resourcesDirectory : inputDirectories) {
+                resourcesByDir.put(ensureEndsWith(resourcesDirectory, File.separatorChar), new ArrayList<>());
+            }
+            for (String resourcesDirectory : resourcesDirectories) {
+                resourcesByDir.put(ensureEndsWith(resourcesDirectory, File.separatorChar), new ArrayList<>());
+            }
+            for (String file : incrementalChanges.addedFiles) {
+                if (!file.endsWith(".java")) {
+                    String dir = null;
+                    for (var resourceDir : resourcesByDir.keySet()) {
+                        if (file.startsWith(resourceDir)) {
+                            dir = resourceDir;
+                            break;
+                        }
+                    }
+                    if (dir == null) {
+                        log.println(() -> "WARNING: ignoring resource as it is not under any resource directory: " + file);
+                    } else {
+                        resourcesByDir.get(dir).add(file);
+                    }
+                }
+            }
+            var resourceCount = resourcesByDir.values().stream()
+                    .mapToInt(Collection::size)
+                    .sum();
+            if (resourceCount > 0) {
+                log.verbosePrintln(() -> "Including " + resourceCount + " added or modified resource files on output");
+                return resourcesByDir.entrySet().stream()
+                        .filter(e -> !e.getValue().isEmpty())
+                        .map(e -> new FileCollection(e.getKey(), e.getValue()))
+                        .collect(toList());
+            }
+            return List.of();
+        }
+        return appendAsStream(
+                collectFiles(inputDirectories, NON_JAVA_FILES_FILTER),
+                collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
     }
 
     private void deleteClassFilesFromDir(Set<String> deletedFiles, String outputDir) {
@@ -194,11 +258,8 @@ public final class CompileCommandExecutor {
     }
 
     private void copyResources(List<FileCollection> resourceFiles, String outputDir) {
-        var out = new File(outputDir);
-        if (!out.mkdirs() && !out.isDirectory()) {
-            throw new JBuildException(outputDir + " directory could not be created", IO_WRITE);
-        }
-        var outPath = out.toPath();
+        if (resourceFiles.isEmpty()) return;
+        var outPath = Paths.get(outputDir);
         try {
             for (var resourceCollection : resourceFiles) {
                 var srcDir = Paths.get(resourceCollection.directory);
@@ -318,11 +379,12 @@ public final class CompileCommandExecutor {
         }
 
         public boolean isSuccessful() {
-            return compileResult.exitCode() == 0 && (jarResult != null && jarResult.exitCode() == 0);
+            return (compileResult == null || compileResult.exitCode() == 0)
+                    && (jarResult == null || jarResult.exitCode() == 0);
         }
 
-        public ToolRunResult getCompileResult() {
-            return compileResult;
+        public Optional<ToolRunResult> getCompileResult() {
+            return Optional.ofNullable(compileResult);
         }
 
         public Optional<ToolRunResult> getJarResult() {

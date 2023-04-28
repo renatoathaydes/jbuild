@@ -7,6 +7,13 @@ public final class TextUtils {
 
     public static final String LINE_END = System.lineSeparator();
 
+    public static String ensureEndsWith(String text, char end) {
+        if (text.charAt(text.length() - 1) != end) {
+            return text + end;
+        }
+        return text;
+    }
+
     public static String firstNonBlank(String a, String b) {
         if (a == null || a.isBlank()) {
             return b;

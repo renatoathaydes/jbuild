@@ -205,7 +205,7 @@ public final class Main {
                 compileOptions.generateJbManifest, compileOptions.classpath, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
-        verifyToolSuccessful("javac", result.getCompileResult());
+        result.getCompileResult().ifPresent(res -> verifyToolSuccessful("javac", res));
         result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));
     }
 
@@ -245,16 +245,16 @@ public final class Main {
         var depsCommandExecutor = createDepsCommandExecutor(options);
 
         depsCommandExecutor.fetchDependencyTree(
-                artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
-            .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
-                if (err == null && ok.isPresent()) {
-                    treeLogger.log(ok.get()).whenComplete((ok2, err2) -> latch.countDown());
-                } else try {
-                    reportErrors(anyError, artifact, err);
-                } finally {
-                    latch.countDown();
-                }
-            }));
+                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
+                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
+                    if (err == null && ok.isPresent()) {
+                        treeLogger.log(ok.get()).whenComplete((ok2, err2) -> latch.countDown());
+                    } else try {
+                        reportErrors(anyError, artifact, err);
+                    } finally {
+                        latch.countDown();
+                    }
+                }));
 
         latch.await();
 
@@ -524,7 +524,7 @@ public final class Main {
         log.println(message);
         if (!quiet) {
             log.println(() -> "JBuild failed in " + time(startTime) +
-                              "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
+                    "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
         }
         exit.accept(exitCode(cause));
     }

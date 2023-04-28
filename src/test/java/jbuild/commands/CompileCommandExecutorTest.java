@@ -9,12 +9,15 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 
 import static jbuild.java.JavapOutputParserTest.javap;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
@@ -52,7 +55,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", result.getCompileResult());
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
         assertThat(result.getJarResult()).isNotPresent();
 
         var fooClass = buildDir.resolve("Foo.class");
@@ -100,7 +104,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", result.getCompileResult());
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
         assertThat(result.getJarResult()).isNotPresent();
 
         // then, compile Bar into a jar, using buildDir as its classpath
@@ -114,7 +119,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", result.getCompileResult());
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
         assertThat(result.getJarResult()).isPresent();
         verifyToolSuccessful("jar", result.getJarResult().get());
 
@@ -208,7 +214,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
         assertThat(firstResult.getJarResult()).isPresent();
         verifyToolSuccessful("jar", firstResult.getJarResult().get());
         assertThat(jar).isRegularFile();
@@ -228,7 +235,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 new IncrementalChanges(Set.of(), Set.of(utilJava.toString())));
 
-        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", secondResult.getCompileResult().get());
         assertThat(secondResult.getJarResult()).isPresent();
         verifyToolSuccessful("jar", secondResult.getJarResult().get());
 
@@ -238,6 +246,73 @@ public class CompileCommandExecutorTest {
 
         assertThat(javaExitCode).isZero();
         assertThat(javaProc.getInputStream()).hasContent("bye world");
+    }
+
+    @Test
+    void incrementalCompilationWithOnlyModifiedResourceFile() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(System.out);
+        var log = new JBuildLog(out, true);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var jar = dir.resolve("lib.jar");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+        var rsrc = dir.resolve("resources");
+        assert rsrc.toFile().mkdir();
+
+        var resource = rsrc.resolve("res.txt");
+        Files.write(resource, List.of("my resource"));
+
+        var mainJava = src.resolve("Main.java");
+        Files.write(mainJava, List.of("class Main {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(Main.class.getResource(\"res.txt\"));",
+                "  }",
+                "}"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(rsrc.toFile().getAbsolutePath()),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                null);
+
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
+        assertThat(firstResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", firstResult.getJarResult().get());
+        assertThat(jar).isRegularFile();
+
+        // change the resource only
+        Files.write(resource, List.of("new resource contents"));
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of(rsrc.toFile().getAbsolutePath()),
+                Either.right(jar.toFile().getAbsolutePath()),
+                "Main",
+                false,
+                "",
+                List.of(),
+                new IncrementalChanges(Set.of(), Set.of(resource.toString())));
+
+        assertThat(secondResult.getCompileResult()).isEmpty();
+        assertThat(secondResult.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", secondResult.getJarResult().get());
+
+        var patchedJarContents = Tools.Jar.create().listContents(jar.toString()).getStdoutLines()
+                .collect(Collectors.toList());
+
+        assertThat(patchedJarContents).containsExactlyInAnyOrder("META-INF/", "META-INF/MANIFEST.MF",
+                "Main.class", resource.getFileName().toString());
+
+        assertThat(unzipEntry(jar, resource.getFileName().toString()))
+                .isEqualToIgnoringNewLines("new resource contents");
     }
 
     @Test
@@ -274,7 +349,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
         assertThat(firstResult.getJarResult()).isPresent();
         verifyToolSuccessful("jar", firstResult.getJarResult().get());
         assertThat(jar).isRegularFile();
@@ -301,7 +377,8 @@ public class CompileCommandExecutorTest {
                 new IncrementalChanges(Set.of(),
                         Set.of(utilJava.toString(), util2Java.toString())));
 
-        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", secondResult.getCompileResult().get());
         assertThat(secondResult.getJarResult()).isPresent();
         verifyToolSuccessful("jar", secondResult.getJarResult().get());
 
@@ -347,7 +424,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
         assertThat(firstResult.getJarResult()).isPresent();
         verifyToolSuccessful("jar", firstResult.getJarResult().get());
         assertThat(jar).isRegularFile();
@@ -372,7 +450,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 new IncrementalChanges(Set.of("Util.class"), Set.of(mainJava.toString())));
 
-        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", secondResult.getCompileResult().get());
         assertThat(secondResult.getJarResult()).isPresent();
         verifyToolSuccessful("jar", secondResult.getJarResult().get());
 
@@ -428,7 +507,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 null);
 
-        verifyToolSuccessful("compile", firstResult.getCompileResult());
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
         assertThat(firstResult.getJarResult()).isNotPresent();
         assertThat(outputDir).isDirectory();
 
@@ -453,7 +533,8 @@ public class CompileCommandExecutorTest {
                 List.of(),
                 new IncrementalChanges(Set.of(Paths.get("util", "Util.class").toString()), Set.of(mainJava.toString())));
 
-        verifyToolSuccessful("compile", secondResult.getCompileResult());
+        assertThat(secondResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", secondResult.getCompileResult().get());
         assertThat(secondResult.getJarResult()).isNotPresent();
 
         // Run the jar to make sure the change was handled correctly
@@ -471,6 +552,13 @@ public class CompileCommandExecutorTest {
         assertThat(outMain).isDirectoryContaining(path ->
                 Objects.equals("Main.class", path.getFileName().toString()));
         assertThat(outMain.resolve("Main.class")).isRegularFile();
+    }
+
+    private static String unzipEntry(Path jar, String entry) throws IOException {
+        try (var zip = new ZipFile(jar.toFile())) {
+            var rsrcEntry = zip.getEntry(entry);
+            return new String(zip.getInputStream(rsrcEntry).readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
 }
