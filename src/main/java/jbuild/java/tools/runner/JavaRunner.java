@@ -2,9 +2,14 @@ package jbuild.java.tools.runner;
 
 import jbuild.errors.JBuildException;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -43,6 +48,28 @@ public final class JavaRunner {
         }
     }
 
+    private final URL[] classpath;
+
+    public JavaRunner(String classpath) {
+        if (classpath.isBlank()) {
+            this.classpath = new URL[0];
+        } else {
+            var parts = classpath.split(File.pathSeparator);
+            this.classpath = new URL[parts.length];
+            for (var i = 0; i < parts.length; i++) {
+                try {
+                    this.classpath[i] = new URL(parts[i]);
+                } catch (MalformedURLException e) {
+                    throw new JBuildException("Invalid classpath URL: " + parts[i], USER_INPUT);
+                }
+            }
+        }
+    }
+
+    public JavaRunner() {
+        this("");
+    }
+
     public Object run(RpcMethodCall methodCall) {
         return run(methodCall.getClassName(), methodCall.getMethodName(), methodCall.getParameters());
     }
@@ -50,7 +77,7 @@ public final class JavaRunner {
     public Object run(String className, String method, Object... args) {
         Class<?> type;
         try {
-            type = Class.forName(className);
+            type = loadClass(className);
         } catch (ClassNotFoundException e) {
             throw new JBuildException("Class " + className + " does not exist", USER_INPUT);
         }
@@ -81,6 +108,19 @@ public final class JavaRunner {
 
         throw new JBuildException("Unable to find method that could be invoked with the provided arguments: " +
                 Arrays.toString(args) + " (" + typesOf(args) + ")", USER_INPUT);
+    }
+
+    private Class<?> loadClass(String className) throws ClassNotFoundException {
+        if (classpath.length == 0) {
+            return Class.forName(className);
+        }
+        try (var classLoader = new URLClassLoader(classpath)) {
+            return classLoader.loadClass(className);
+        } catch (IOException e) {
+            throw new JBuildException(
+                    "Error creating ClassLoader from classpath: " + Arrays.toString(classpath),
+                    JBuildException.ErrorCause.IO_READ);
+        }
     }
 
     private static ParamMatch matchByCount(Method method, int argsCount) {
@@ -191,7 +231,7 @@ public final class JavaRunner {
 
     private static Object[] addEmptyArrayAtEnd(Class<?>[] parameterTypes, Object[] args) {
         var varargsArg = convertArrayType(parameterTypes[parameterTypes.length - 1].getComponentType(),
-                                          new Object[0]);
+                new Object[0]);
         var result = new Object[args.length + 1];
         result[result.length - 1] = varargsArg;
         System.arraycopy(args, 0, result, 0, args.length);

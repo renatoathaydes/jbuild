@@ -74,17 +74,37 @@ public final class RpcMain {
         }
     }
 
-    public Object run(String className, String methodName, Object... args)
+    /**
+     * Run an arbitrary class and method.
+     *
+     * @param classpath  classpath to use
+     * @param className  name of the class
+     * @param methodName name of the method
+     * @param args       method arguments
+     * @return the result of the method call
+     * @throws ExecutionException   when a problem occurs within an async call
+     * @throws InterruptedException if the Thread is interrupted
+     */
+    public Object run(String classpath, String className, String methodName, String... args)
             throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<>();
         try {
-            new JavaRunner().run(className, methodName, args);
+            new JavaRunner(classpath).run(className, methodName, (Object[]) args);
         } catch (Throwable t) {
             completion.completeExceptionally(t);
         }
         return completion.get();
     }
 
+    /**
+     * This method is expected to be called via XML-RPC.
+     *
+     * @param args JBuild arguments
+     * @return exit code
+     * @throws ExecutionException   when a problem occurs within an async call
+     * @throws InterruptedException if the Thread is interrupted
+     */
+    @SuppressWarnings("unused")
     public int runJBuild(String... args) throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<Integer>();
         try {
