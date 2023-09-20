@@ -9,9 +9,11 @@ import jbuild.classes.model.MethodInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * Java class file parser.
+ */
 public class JBuildClassFileParser {
 
     /**
@@ -19,6 +21,13 @@ public class JBuildClassFileParser {
      */
     public static final ConstPoolInfo.Utf8 FIRST_ITEM_SENTINEL = new ConstPoolInfo.Utf8(new byte[0]);
 
+    /**
+     * Parse a single class file.
+     *
+     * @param input class file bytes
+     * @return the class file
+     * @throws IOException if IO fails
+     */
     public ClassFile parse(InputStream input) throws IOException {
         var scanner = new ByteScanner(input);
         try {
@@ -84,7 +93,7 @@ public class JBuildClassFileParser {
             result.set(i, info);
             final var tag = info.tag;
             if (tag == ConstPoolInfo.ConstLong.TAG ||
-                tag == ConstPoolInfo.ConstDouble.TAG) {
+                    tag == ConstPoolInfo.ConstDouble.TAG) {
                 // All 8-byte constants take up two entries in the constant_pool table
                 i++;
             }

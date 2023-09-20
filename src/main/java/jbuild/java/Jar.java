@@ -102,16 +102,16 @@ public final class Jar {
                     return parser.parse(zip.getInputStream(stream));
                 } catch (IOException e) {
                     throw new JBuildException("Error reading jar: " + file + ": " + e,
-                                              JBuildException.ErrorCause.IO_READ);
+                            JBuildException.ErrorCause.IO_READ);
                 } catch (Exception e) {
                     throw new JBuildException("Error parsing " + stream.getName() +
-                                              " in jar: " + file + ": " + e,
-                                              JBuildException.ErrorCause.ACTION_ERROR);      
+                            " in jar: " + file + ": " + e,
+                            JBuildException.ErrorCause.ACTION_ERROR);
                 }
             }).collect(Collectors.toList());
         } catch (IOException e) {
             throw new JBuildException("Error reading jar: " + file + ": " + e,
-                                      JBuildException.ErrorCause.IO_READ);
+                    JBuildException.ErrorCause.IO_READ);
         }
     }
 
@@ -125,10 +125,6 @@ public final class Jar {
         public ParsedJar(File file, Map<String, TypeDefinition> typeByName) {
             this.file = file;
             this.typeByName = typeByName;
-        }
-
-        public Set<String> getTypes() {
-            return typeByName.keySet();
         }
     }
 
@@ -268,25 +264,21 @@ public final class Jar {
 
         private Map<String, TypeDefinition> parse(File jar, Collection<String> classNames, int partitionIndex) {
             var startTime = System.currentTimeMillis();
-            var javap = Tools.Javap.create();
-            var toolResult = javap.run(jar.getAbsolutePath(), classNames);
-            var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
-            log.verbosePrintln(() -> "javap " + jar + " (partition " + partitionIndex +
-                    ") completed in " + totalTime.get() + "ms");
-            verifyToolSuccessful("javap", toolResult);
-            startTime = System.currentTimeMillis();
-            var javapOutputParser = new JavapOutputParser(log);
-            Map<String, TypeDefinition> typeDefs;
-            try (var stdoutStream = toolResult.getStdoutLines();
-                 var ignored = toolResult.getStderrLines()) {
-                typeDefs = javapOutputParser.processJavapOutput(stdoutStream.iterator());
-            } catch (JBuildException e) {
-                throw new JBuildException(e.getMessage() + " (jar: " + jar + ")", e.getErrorCause());
+            var result = new HashMap<String, TypeDefinition>(classNames.size());
+            var parser = new JBuildClassFileParser();
+            try (var zip = new ZipFile(jar)) {
+                for (var className : classNames) {
+                    var entry = zip.getEntry(JavaTypeUtils.classNameToFile(className));
+                    var classFile = parser.parse(zip.getInputStream(entry));
+                    result.put(className, TypeDefinitionFactory.INSTANCE.create(classFile));
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-            totalTime.set(System.currentTimeMillis() - startTime);
-            log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar +
-                    " (partition " + partitionIndex + ") in " + totalTime.get() + "ms");
-            return typeDefs;
+            var totalTime = System.currentTimeMillis() - startTime;
+            log.verbosePrintln(() -> "ClassFileParser for " + jar + " (partition " + partitionIndex +
+                    ") completed in " + totalTime + "ms");
+            return result;
         }
     }
 

@@ -43,7 +43,7 @@ import static jbuild.util.TextUtils.durationText;
 
 public final class Main {
 
-    static final String JBUILD_VERSION = "0.0";
+    static final String JBUILD_VERSION = "1.0";
 
     static final String JBUILD_HEADER =
             "------ JBuild Basic CLI ------" + LINE_END +

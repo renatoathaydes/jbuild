@@ -8,3 +8,5 @@ version: 0.8.0
 javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ src ]
+resource-dirs: [ resources ]
+

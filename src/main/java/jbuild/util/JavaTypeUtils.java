@@ -72,6 +72,17 @@ public final class JavaTypeUtils {
                 .replaceAll(File.pathSeparator, "/") + ';';
     }
 
+    /**
+     * Convert a class name to its equivalent file name, assuming Java standard file locations based on
+     * the class' package.
+     *
+     * @param className name of a class
+     * @return file path
+     */
+    public static String classNameToFile(String className) {
+        return className.replaceAll("\\.", "/") + ".class";
+    }
+
     private static String typeName(String basicClassName) {
         switch (basicClassName) {
             case "byte":
