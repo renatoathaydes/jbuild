@@ -57,8 +57,9 @@ public final class JavaRunner {
             var parts = classpath.split(File.pathSeparator);
             this.classpath = new URL[parts.length];
             for (var i = 0; i < parts.length; i++) {
+                var file = new File(parts[i]);
                 try {
-                    this.classpath[i] = new URL(parts[i]);
+                    this.classpath[i] = file.toURI().toURL();
                 } catch (MalformedURLException e) {
                     throw new JBuildException("Invalid classpath URL: " + parts[i], USER_INPUT);
                 }

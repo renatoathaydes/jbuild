@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -161,6 +162,67 @@ public class RpcMainTest {
                 .isEqualTo("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
                         "<methodResponse><params><param>" +
                         "<value><int>34</int></value>" + "</param></params></methodResponse>");
+        assertThat(response.headers().firstValue("Content-Type")).isPresent().get()
+                .isEqualTo("text/xml; charset=utf-8");
+    }
+
+    // Test class in hello.jar:
+    // package hello;
+    // public final class Hi {
+    //    public String getMessage() { return "Hello world"; }
+    //    public String sayHi(String name) { return "Hi " + name; }
+    //}
+    @Test
+    void canRunClassUsingCustomClasspath() throws IOException, InterruptedException {
+        var jarsDir = System.getProperty("tests.int-tests.resources");
+        assertThat(jarsDir).withFailMessage("Set the system property 'tests.int-tests.resources'").isNotBlank();
+
+        var jarsAbsoluteDir = new File(jarsDir).getAbsolutePath();
+
+        // RpcMain#run(String classpath, String className, String methodName, String... args)
+        var rpcMessage = "<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>" + RpcMain.class.getName() + ".run</methodName>\n" +
+                "    <params>\n" +
+                "<param><value><string>" + jarsAbsoluteDir + "/hello.jar</string></value></param>" +
+                "<param><value><string>hello.Hi</string></value></param>" +
+                "<param><value><string>getMessage</string></value></param>" +
+                "    </params>\n" +
+                "</methodCall>";
+
+        var response = client.send(HttpRequest.newBuilder(rpcEndpoint)
+                .header("Authorization", "Bearer " + token)
+                .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
+
+        assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(200);
+        assertThat(response.body())
+                .isEqualTo("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                        "<methodResponse><params><param>" +
+                        "<value><string>Hello world</string></value>" + "</param></params></methodResponse>");
+        assertThat(response.headers().firstValue("Content-Type")).isPresent().get()
+                .isEqualTo("text/xml; charset=utf-8");
+
+        // RpcMain#run(String classpath, String className, String methodName, String... args)
+        rpcMessage = "<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>" + RpcMain.class.getName() + ".run</methodName>\n" +
+                "    <params>\n" +
+                "<param><value><string>" + jarsAbsoluteDir + "/hello.jar</string></value></param>" +
+                "<param><value><string>hello.Hi</string></value></param>" +
+                "<param><value><string>sayHi</string></value></param>" +
+                "<param><value><array><data><value><string>Joe</string></value></data></array></value></param>" +
+                "    </params>\n" +
+                "</methodCall>";
+
+        response = client.send(HttpRequest.newBuilder(rpcEndpoint)
+                .header("Authorization", "Bearer " + token)
+                .POST(BodyPublishers.ofString(rpcMessage)).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
+
+        assertThat(response.statusCode()).withFailMessage(response::toString).isEqualTo(200);
+        assertThat(response.body())
+                .isEqualTo("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                        "<methodResponse><params><param>" +
+                        "<value><string>Hi Joe</string></value>" + "</param></params></methodResponse>");
         assertThat(response.headers().firstValue("Content-Type")).isPresent().get()
                 .isEqualTo("text/xml; charset=utf-8");
     }

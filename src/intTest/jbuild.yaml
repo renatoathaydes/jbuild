@@ -4,7 +4,8 @@ imports:
 properties:
   CLASSES_DIR: build/classes
   INTEGRATION_TEST_REPO_DIR: build/integration-test-mvn-repo
-    
+  INTEGRATION_TEST_RESOURCES_DIR: resources
+
 source-dirs: [ java ]
 resource-dirs: [ resources ]
 output-dir: "{{CLASSES_DIR}}"
@@ -13,6 +14,7 @@ javac-args: [ "--release={{versions.java}}" ]
 
 test-java-args:
   - "-Dtests.int-tests.repo={{INTEGRATION_TEST_REPO_DIR}}"
+  - "-Dtests.int-tests.resources={{INTEGRATION_TEST_RESOURCES_DIR}}"
 
 test-java-env:
   MAVEN_HOME: "{{INTEGRATION_TEST_REPO_DIR}}"
