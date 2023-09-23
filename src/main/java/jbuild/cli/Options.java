@@ -29,6 +29,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.isEither;
 
@@ -38,6 +39,7 @@ final class Options {
     final boolean help;
     final boolean version;
     final boolean quiet;
+    final String workingDir;
     final String command;
     final List<String> repositories;
     final List<String> commandArgs;
@@ -47,6 +49,7 @@ final class Options {
             boolean help,
             boolean version,
             boolean quiet,
+            String workingDir,
             String command,
             List<String> repositories,
             List<String> commandArgs,
@@ -55,28 +58,28 @@ final class Options {
         this.help = help;
         this.version = version;
         this.quiet = quiet;
+        this.workingDir = workingDir;
         this.command = command;
         this.repositories = repositories;
         this.commandArgs = commandArgs;
         this.applicationArgs = applicationArgs;
     }
 
-    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(JBuildLog log) {
+    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(String workingDir, JBuildLog log) {
         return repositories.stream()
                 .map(address -> {
                     if (TextUtils.isHttp(address)) {
                         return new HttpArtifactRetriever(log, address);
                     }
-                    return new FileArtifactRetriever(Paths.get(address));
+                    return new FileArtifactRetriever(Paths.get(relativize(workingDir, address)));
                 }).collect(toList());
     }
 
     static Options parse(String[] args) {
-        boolean verbose = false, help = false, version = false, quiet = false;
-        String command = "";
         var repositories = new ArrayList<String>(4);
-
-        var expectingRepository = false;
+        boolean verbose = false, help = false, version = false, quiet = false;
+        String command = "", workingDir = ".";
+        boolean expectingRepository = false, expectingWorkingDir = false;
         int i;
 
         for (i = 0; i < args.length; i++) {
@@ -86,12 +89,17 @@ final class Options {
             if (expectingRepository) {
                 expectingRepository = false;
                 repositories.add(arg);
+            } else if (expectingWorkingDir) {
+                expectingWorkingDir = false;
+                workingDir = arg;
             } else if (!arg.startsWith("-")) {
                 command = arg;
                 i++;
                 break;
             } else if (isEither(arg, "-r", "--repository")) {
                 expectingRepository = true;
+            } else if (isEither(arg, "-w", "--working-dir")) {
+                expectingWorkingDir = true;
             } else if (isEither(arg, "-V", "--verbose")) {
                 verbose = true;
             } else if (isEither(arg, "-v", "--version")) {
@@ -108,6 +116,9 @@ final class Options {
 
         if (expectingRepository) {
             throw new JBuildException("expecting value for 'repository' option", USER_INPUT);
+        }
+        if (expectingWorkingDir) {
+            throw new JBuildException("expecting value for 'working-dir' option", USER_INPUT);
         }
 
         List<String> commandArgs;
@@ -140,7 +151,8 @@ final class Options {
             applicationArgs = List.of();
         }
 
-        return new Options(verbose, help, version, quiet, command, repositories, commandArgs, applicationArgs);
+        return new Options(verbose, help, version, quiet, workingDir,
+                command, repositories, commandArgs, applicationArgs);
     }
 
 }
@@ -244,11 +256,11 @@ final class DepsOptions {
     final boolean showExtra;
 
     DepsOptions(Set<String> artifacts,
-            EnumSet<Scope> scopes,
-            boolean transitive,
-            boolean optional,
-            boolean licenses,
-            boolean showExtra) {
+                EnumSet<Scope> scopes,
+                boolean transitive,
+                boolean optional,
+                boolean licenses,
+                boolean showExtra) {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.transitive = transitive;
@@ -353,14 +365,14 @@ final class InstallOptions {
     final boolean optional, transitive, mavenLocal, checksum;
 
     InstallOptions(Set<String> artifacts,
-            Set<Pattern> exclusions,
-            EnumSet<Scope> scopes,
-            String outDir,
-            String repoDir,
-            boolean optional,
-            boolean transitive,
-            boolean mavenLocal,
-            boolean checksum) {
+                   Set<Pattern> exclusions,
+                   EnumSet<Scope> scopes,
+                   String outDir,
+                   String repoDir,
+                   boolean optional,
+                   boolean transitive,
+                   boolean mavenLocal,
+                   boolean checksum) {
         this.artifacts = artifacts;
         this.exclusions = exclusions;
         this.scopes = scopes;
@@ -499,8 +511,8 @@ final class DoctorOptions {
     final Set<Pattern> typeExclusions;
 
     public DoctorOptions(String inputDir,
-            List<String> entryPoints,
-            Set<Pattern> typeExclusions) {
+                         List<String> entryPoints,
+                         Set<Pattern> typeExclusions) {
         this.inputDir = inputDir;
         this.entryPoints = unmodifiableList(entryPoints);
         this.typeExclusions = unmodifiableSet(typeExclusions);

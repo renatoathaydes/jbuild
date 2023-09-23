@@ -17,6 +17,7 @@ test-java-args:
   - "-Dtests.other-test-classes.jar={{TEST_JARS_DIR}}/other-tests.jar"
   - "-Dtests.real-jars.osgiaas-cli-api.jar=real-jars/osgiaas-cli-api-0.7.jar"
   - "-Dtests.real-jars.jline.jar=real-jars/jline-2.14.2.jar"
+  - "-Dtests.real-jars.jb-api.jar=../../jbuild-api/build/jbuild-api.jar"
 
 dependencies:
   - "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}"

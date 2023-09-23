@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 
 public final class FileUtils {
@@ -27,6 +28,23 @@ public final class FileUtils {
 
     public static boolean ensureDirectoryExists(File dir) {
         return dir.isDirectory() || dir.mkdirs();
+    }
+
+    public static Set<String> relativize(String dir, Set<String> paths) {
+        return relativizeStream(dir, paths.stream()).collect(toSet());
+    }
+
+    public static Stream<String> relativizeStream(String dir, Stream<String> paths) {
+        if (dir.equals(".") || dir.isBlank()) return paths;
+        var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
+        return paths.map(path ->
+                path.startsWith(File.separator) ? path : String.join(File.separator, root, path));
+    }
+
+    public static String relativize(String dir, String path) {
+        if (dir.equals(".") || dir.isBlank() || path.startsWith(File.separator)) return path;
+        var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
+        return String.join(File.separator, root, path);
     }
 
     public static CompletableFuture<byte[]> readAllBytes(Path file) {

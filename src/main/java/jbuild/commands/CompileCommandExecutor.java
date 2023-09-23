@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static java.util.function.Predicate.not;
@@ -39,6 +40,7 @@ import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.CollectionUtils.appendAsStream;
 import static jbuild.util.FileUtils.collectFiles;
 import static jbuild.util.FileUtils.ensureDirectoryExists;
+import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.ensureEndsWith;
 
 public final class CompileCommandExecutor {
@@ -46,6 +48,7 @@ public final class CompileCommandExecutor {
     private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) -> name.endsWith(".java");
     private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) -> !name.endsWith(".java");
     private static final FilenameFilter ALL_FILES_FILTER = (dir, name) -> true;
+    private static final Pattern DEFAULT_JAR_FROM_WORKING_DIR = Pattern.compile("[a-zA-Z0-9]");
 
     private final JBuildLog log;
 
@@ -61,12 +64,32 @@ public final class CompileCommandExecutor {
                                         String classpath,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges) {
+        return compile(".", inputDirectories, resourcesDirectories,
+                outputDirOrJar, mainClass, generateJbManifest, classpath, compilerArgs, incrementalChanges);
+    }
+
+    public CompileCommandResult compile(String workingDir,
+                                        Set<String> inputDirectories,
+                                        Set<String> resourcesDirectories,
+                                        Either<String, String> outputDirOrJar,
+                                        String mainClass,
+                                        boolean generateJbManifest,
+                                        String classpath,
+                                        List<String> compilerArgs,
+                                        IncrementalChanges incrementalChanges) {
         var usingDefaultInputDirs = inputDirectories.isEmpty() && incrementalChanges == null;
         if (usingDefaultInputDirs) {
-            inputDirectories = computeDefaultSourceDirs();
+            inputDirectories = computeDefaultSourceDirs(workingDir);
+        } else {
+            inputDirectories = relativize(workingDir, inputDirectories);
         }
         if (resourcesDirectories.isEmpty()) {
-            resourcesDirectories = computeDefaultResourceDirs();
+            resourcesDirectories = computeDefaultResourceDirs(workingDir);
+        } else {
+            resourcesDirectories = relativize(workingDir, resourcesDirectories);
+        }
+        if (incrementalChanges != null) {
+            incrementalChanges = incrementalChanges.relativize(workingDir);
         }
         var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges);
         if (incrementalChanges == null && sourceFiles.isEmpty()) {
@@ -91,12 +114,12 @@ public final class CompileCommandExecutor {
         }
 
         var outputDir = outputDirOrJar.map(
-                outDir -> outDir,
+                outDir -> relativize(workingDir, outDir),
                 jar -> getTempDirectory());
 
         log.verbosePrintln(() -> "Compilation output will be sent to " + outputDir);
 
-        var jarFile = outputDirOrJar.map(NoOp.fun(), this::jarOrDefault);
+        var jarFile = outputDirOrJar.map(NoOp.fun(), jar -> jarOrDefault(workingDir, jar));
 
         var deletionsDone = false;
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
@@ -131,8 +154,8 @@ public final class CompileCommandExecutor {
             compileResult = null;
         } else {
             compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
-                    computeClasspath(classpath, compilerArgs, incrementalChanges == null ? null :
-                            jarFile == null ? outputDir : jarFile),
+                    computeClasspath(relativize(workingDir, classpath), compilerArgs,
+                            incrementalChanges == null ? null : jarFile == null ? outputDir : jarFile),
                     compilerArgs);
             if (compileResult.exitCode() != 0) {
                 return new CompileCommandResult(compileResult, null);
@@ -359,13 +382,16 @@ public final class CompileCommandExecutor {
         return classpath;
     }
 
-    private String jarOrDefault(String jar) {
+    private String jarOrDefault(String workingDir, String jar) {
         if (jar.isBlank()) {
+            if (DEFAULT_JAR_FROM_WORKING_DIR.matcher(workingDir).find()) {
+                return relativize(workingDir, new File(workingDir).getName() + ".jar");
+            }
             var dir = System.getProperty("user.dir");
             if (dir != null) {
                 var path = new File(dir).getName() + ".jar";
                 log.verbosePrintln(() -> "Using default jar name based on working dir: " + path);
-                return path;
+                return relativize(workingDir, path);
             } else {
                 log.verbosePrintln("Using default jar name: lib.jar");
                 return "lib.jar";
@@ -382,28 +408,28 @@ public final class CompileCommandExecutor {
         }
     }
 
-    private Set<String> computeDefaultSourceDirs() {
-        var srcMainJava = Paths.get("src", "main", "java");
+    private Set<String> computeDefaultSourceDirs(String workingDir) {
+        var srcMainJava = Paths.get(workingDir, "src", "main", "java");
         if (srcMainJava.toFile().isDirectory()) {
             log.verbosePrintln(() -> "Using source directory: " + srcMainJava);
             return Set.of(srcMainJava.toString());
         }
-        var src = Paths.get("src");
+        var src = Paths.get(workingDir, "src");
         if (src.toFile().isDirectory()) {
             log.verbosePrintln(() -> "Using source directory: " + src);
             return Set.of(src.toString());
         }
-        log.verbosePrintln(() -> "Using working directory as source directory: " + Paths.get(".").toAbsolutePath());
+        log.verbosePrintln(() -> "Using working directory as source directory: " + Paths.get(workingDir).toAbsolutePath());
         return Set.of(".");
     }
 
-    private Set<String> computeDefaultResourceDirs() {
-        var srcMainResources = Paths.get("src", "main", "resources");
+    private Set<String> computeDefaultResourceDirs(String workingDir) {
+        var srcMainResources = Paths.get(workingDir, "src", "main", "resources");
         if (srcMainResources.toFile().isDirectory()) {
             log.verbosePrintln(() -> "Using resource directory: " + srcMainResources);
             return Set.of(srcMainResources.toString());
         }
-        var res = Paths.get("resources");
+        var res = Paths.get(workingDir, "resources");
         if (res.toFile().isDirectory()) {
             log.verbosePrintln(() -> "Using resource directory: " + res);
             return Set.of(res.toString());

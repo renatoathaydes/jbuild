@@ -1,5 +1,6 @@
 package jbuild.commands;
 
+import jbuild.TestSystemProperties;
 import jbuild.java.JavapOutputParser;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
@@ -16,9 +17,9 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
+import static java.util.stream.Collectors.toList;
 import static jbuild.java.JavapOutputParserTest.javap;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,6 +71,48 @@ public class CompileCommandExecutorTest {
                 javap(buildDir.toString(), "Foo", "Bar"));
 
         assertThat(types.keySet()).contains("LFoo;", "LBar;");
+    }
+
+    @Test
+    void canCompileClassFilesOnWorkingDir() throws IOException {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var src = dir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var myClass = pkg.resolve("MyClass.java");
+        Files.write(myClass, List.of("package pkg;\n" +
+                "public class MyClass {}\n" +
+                "final class OtherClass {}"));
+
+        var buildDir = dir.resolve("build");
+
+        // use workingDir argument, and all other paths relative to it
+        var result = command.compile(
+                dir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.left("build"),
+                "",
+                false,
+                "",
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isNotPresent();
+
+        var myClassFile = buildDir.resolve(Paths.get("pkg", "MyClass.class"));
+        var otherClassFile = buildDir.resolve(Paths.get("pkg", "OtherClass.class"));
+
+        var buildFiles = buildDir.resolve("pkg").toFile().listFiles();
+
+        assertThat(buildFiles).containsExactlyInAnyOrder(myClassFile.toFile(), otherClassFile.toFile());
     }
 
     @Test
@@ -133,6 +176,58 @@ public class CompileCommandExecutorTest {
                 javap(jar.toString(), "Bar"));
 
         assertThat(types.keySet()).contains("LBar;");
+    }
+
+    @Test
+    void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws IOException {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var rootDir = dir.resolve("mylib");
+        var src = rootDir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var barJava = pkg.resolve("MyExtension.java");
+        Files.write(barJava, List.of(
+                "package pkg;",
+                "import jbuild.api.*;",
+                "@JbTaskInfo(name = \"my-extension\")",
+                "public class MyExtension implements JbTask {",
+                "  @Override",
+                "  public void run(String... args) {}",
+                "}"));
+        var jar = rootDir.resolve("mylib.jar");
+
+        // compile jar as a jb extension
+        var result = command.compile(
+                rootDir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.right(""), // let the default jar name be used
+                "",
+                true,
+                TestSystemProperties.jbApiJar.getAbsolutePath(),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", result.getJarResult().get());
+
+        var jarResult = Tools.Jar.create().listContents(jar.toString());
+        verifyToolSuccessful("jar tf", jarResult);
+        assertThat(jarResult.getStdoutLines().collect(toList()))
+                .containsExactly(
+                        "META-INF/",
+                        "META-INF/MANIFEST.MF",
+                        "META-INF/jb/",
+                        "META-INF/jb/jb-extension.yaml",
+                        "pkg/",
+                        "pkg/MyExtension.class");
     }
 
     @Test
@@ -306,7 +401,7 @@ public class CompileCommandExecutorTest {
         verifyToolSuccessful("jar", secondResult.getJarResult().get());
 
         var patchedJarContents = Tools.Jar.create().listContents(jar.toString()).getStdoutLines()
-                .collect(Collectors.toList());
+                .collect(toList());
 
         assertThat(patchedJarContents).containsExactlyInAnyOrder("META-INF/", "META-INF/MANIFEST.MF",
                 "Main.class", resource.getFileName().toString());
@@ -373,7 +468,7 @@ public class CompileCommandExecutorTest {
         assertThat(secondResult.getJarResult()).isEmpty();
 
         var patchedJarContents = Tools.Jar.create().listContents(jar.toString()).getStdoutLines()
-                .collect(Collectors.toList());
+                .collect(toList());
 
         assertThat(patchedJarContents).containsExactlyInAnyOrder("META-INF/", "META-INF/MANIFEST.MF", "Main.class");
     }
@@ -591,7 +686,7 @@ public class CompileCommandExecutorTest {
 
         // make sure the jar was patched correctly
         var patchedJarContents = Tools.Jar.create().listContents(jar.toString()).getStdoutLines()
-                .collect(Collectors.toList());
+                .collect(toList());
 
         assertThat(patchedJarContents).containsExactly("META-INF/", "META-INF/MANIFEST.MF", "Main.class");
     }

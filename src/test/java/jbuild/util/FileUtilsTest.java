@@ -2,13 +2,16 @@ package jbuild.util;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
@@ -55,5 +58,27 @@ public class FileUtilsTest {
                 .isInstanceOfAny(ExecutionException.class)
                 .cause()
                 .isInstanceOfAny(NoSuchFileException.class);
+    }
+
+    @Test
+    void canRelativizePath() {
+        final var sep = File.separator;
+        assertThat(FileUtils.relativize("foo", "bar.zort"))
+                .isEqualTo(String.join(sep, "foo", "bar.zort"));
+        assertThat(FileUtils.relativize(sep + "foo", "bar.zort"))
+                .isEqualTo(String.join(sep, sep + "foo", "bar.zort"));
+        assertThat(FileUtils.relativize(sep + "foo", sep + "bar.zort"))
+                .isEqualTo(String.join(sep, sep + "bar.zort"));
+        assertThat(FileUtils.relativize("foo" + sep, "bar.zort"))
+                .isEqualTo(String.join(sep, "foo", "bar.zort"));
+        assertThat(FileUtils.relativize(sep + "foo" + sep, "bar" + File.separator + "zort.txt"))
+                .isEqualTo(String.join(sep, sep + "foo", "bar", "zort.txt"));
+    }
+
+    @Test
+    void canRelativizePaths() {
+        final var sep = File.separator;
+        assertThat(FileUtils.relativize("foo", Set.of("bar.zort", sep + "file.txt")))
+                .isEqualTo(Set.of(String.join(sep, "foo", "bar.zort"), sep + "file.txt"));
     }
 }
