@@ -1,6 +1,6 @@
 package jbuild.java.tools;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -10,8 +10,8 @@ import java.util.Set;
 import java.util.spi.ToolProvider;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.LINE_END;
 
 /**

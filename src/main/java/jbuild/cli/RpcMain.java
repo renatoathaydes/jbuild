@@ -3,7 +3,7 @@ package jbuild.cli;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.java.tools.runner.JavaRunner;
 import jbuild.java.tools.runner.RpcCaller;
 import jbuild.log.JBuildLog;
@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.isEither;
 
 public final class RpcMain {

@@ -1,6 +1,6 @@
 package jbuild.util;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import static java.util.stream.Collectors.joining;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 
 /**
  * Utility class to help handle Java types.

@@ -1,9 +1,9 @@
 package jbuild.commands;
 
+import jbuild.api.JBuildException;
+import jbuild.api.JBuildException.ErrorCause;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
-import jbuild.errors.JBuildException;
-import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.java.Jar;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;

@@ -1,6 +1,6 @@
 package jbuild.java;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.java.code.Code;
 import jbuild.java.code.Definition;
 import jbuild.java.code.TypeDefinition;
@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.java.code.Code.Field.Instruction.getfield;
 import static jbuild.java.code.Code.Field.Instruction.getstatic;
 import static jbuild.java.code.Code.Field.Instruction.putfield;

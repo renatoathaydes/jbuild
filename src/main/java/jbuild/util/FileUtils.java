@@ -1,7 +1,7 @@
 package jbuild.util;
 
+import jbuild.api.JBuildException;
 import jbuild.errors.CloseException;
-import jbuild.errors.JBuildException;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 
 public final class FileUtils {
 

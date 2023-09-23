@@ -1,10 +1,10 @@
 package jbuild.artifact.file;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.commands.MavenPomRetriever;
 import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
-import jbuild.errors.JBuildException;
 import jbuild.maven.MavenPom;
 import jbuild.util.AsyncUtils;
 import jbuild.util.Describable;

@@ -1,6 +1,6 @@
 package jbuild.commands;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.java.CallHierarchyVisitor;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
@@ -31,8 +31,8 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.allFilesInDir;
 import static jbuild.util.TextUtils.LINE_END;

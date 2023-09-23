@@ -1,5 +1,7 @@
 package jbuild.cli;
 
+import jbuild.api.JBuildException;
+import jbuild.api.JBuildException.ErrorCause;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.ArtifactFileWriter;
@@ -12,8 +14,6 @@ import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.RequirementsCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
-import jbuild.errors.JBuildException;
-import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenUtils;
 import jbuild.util.Describable;
@@ -33,10 +33,10 @@ import java.util.function.Function;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
-import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;

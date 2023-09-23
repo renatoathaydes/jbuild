@@ -1,6 +1,6 @@
 package jbuild.java.tools.runner;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.util.XmlUtils;
 import org.xml.sax.SAXException;
@@ -12,8 +12,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 
 public final class RpcCaller {
 

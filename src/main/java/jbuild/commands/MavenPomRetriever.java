@@ -1,9 +1,9 @@
 package jbuild.commands;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.errors.ArtifactRetrievalError;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenPom;
 import jbuild.maven.MavenUtils;
@@ -30,8 +30,8 @@ import static java.util.concurrent.CompletableFuture.failedStage;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.commands.FetchCommandExecutor.reportErrors;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.importsOf;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapEntries;

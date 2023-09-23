@@ -1,6 +1,6 @@
 package jbuild.cli;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

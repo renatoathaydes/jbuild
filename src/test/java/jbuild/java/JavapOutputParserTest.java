@@ -30,9 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class JavapOutputParserTest {
 
     // FIXME
-    // Caused by: java.util.concurrent.CompletionException: jbuild.errors.JBuildException: invalid javap output: expected method signature but got 'SourceFile: "StringProperties.java"'. Current type is: Lorg/eclipse/sisu/wire/StringProperties; (jar: java-libs/org.eclipse.sisu.inject-0.3.4.jar)
-    // java.util.concurrent.CompletionException: jbuild.errors.JBuildException: invalid javap output: expected method signature but got 'SourceFile: "ProvidedPropertyBinding.java"'. Current type is: Lorg/eclipse/sisu/plexus/ProvidedPropertyBinding; (jar: java-libs/org.eclipse.sisu.plexus-0.3.0.jar)
-    //  ERRORS:[java.util.concurrent.CompletionException: jbuild.errors.JBuildException: invalid javap output: expected method signature but got 'SourceFile: "StringProperties.java"'. Current type is: Lorg/eclipse/sisu/wire/StringProperties; (jar: java-libs/org.eclipse.sisu.inject-0.3.4.jar),
+    // Caused by: java.util.concurrent.CompletionException: jbuild.api.JBuildException: invalid javap output: expected method signature but got 'SourceFile: "StringProperties.java"'. Current type is: Lorg/eclipse/sisu/wire/StringProperties; (jar: java-libs/org.eclipse.sisu.inject-0.3.4.jar)
+    // java.util.concurrent.CompletionException: jbuild.api.JBuildException: invalid javap output: expected method signature but got 'SourceFile: "ProvidedPropertyBinding.java"'. Current type is: Lorg/eclipse/sisu/plexus/ProvidedPropertyBinding; (jar: java-libs/org.eclipse.sisu.plexus-0.3.0.jar)
+    //  ERRORS:[java.util.concurrent.CompletionException: jbuild.api.JBuildException: invalid javap output: expected method signature but got 'SourceFile: "StringProperties.java"'. Current type is: Lorg/eclipse/sisu/wire/StringProperties; (jar: java-libs/org.eclipse.sisu.inject-0.3.4.jar),
 
     @Test
     void canParseBasicClass() {

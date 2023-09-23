@@ -1,6 +1,6 @@
 package jbuild.commands;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.java.tools.CreateJarOptions;
 import jbuild.java.tools.CreateJarOptions.FileSet;
 import jbuild.java.tools.ToolRunResult;
@@ -33,9 +33,9 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.IO_WRITE;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.CollectionUtils.appendAsStream;
 import static jbuild.util.FileUtils.collectFiles;
 import static jbuild.util.FileUtils.ensureDirectoryExists;

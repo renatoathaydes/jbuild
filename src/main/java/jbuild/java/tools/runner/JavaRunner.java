@@ -1,6 +1,6 @@
 package jbuild.java.tools.runner;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,8 +14,8 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 
 public final class JavaRunner {
 

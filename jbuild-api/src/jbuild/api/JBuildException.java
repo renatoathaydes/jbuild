@@ -1,4 +1,4 @@
-package jbuild.errors;
+package jbuild.api;
 
 public class JBuildException extends RuntimeException {
     public enum ErrorCause {

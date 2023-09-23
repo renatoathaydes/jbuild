@@ -1,26 +1,23 @@
 package jbuild.commands;
 
+import jbuild.api.JBuildException;
+import jbuild.api.JBuildException.ErrorCause;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
-import jbuild.errors.JBuildException;
-import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.log.JBuildLog;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.FileInputStream;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;

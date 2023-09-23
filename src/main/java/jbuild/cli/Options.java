@@ -1,12 +1,12 @@
 package jbuild.cli;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
 import jbuild.commands.IncrementalChanges;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
@@ -28,7 +28,7 @@ import java.util.regex.PatternSyntaxException;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.isEither;
 
