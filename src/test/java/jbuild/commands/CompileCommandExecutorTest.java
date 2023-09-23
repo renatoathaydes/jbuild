@@ -543,7 +543,7 @@ public class CompileCommandExecutorTest {
 
         // initial compilation
         final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.right(jar.toFile().getAbsolutePath()),
                 "Main",
                 false,
@@ -569,7 +569,7 @@ public class CompileCommandExecutorTest {
 
         // incremental compilation
         final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.right(jar.toFile().getAbsolutePath()),
                 "Main",
                 false,
@@ -626,7 +626,7 @@ public class CompileCommandExecutorTest {
 
         // initial compilation
         final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.left(outputDir.toFile().getAbsolutePath()),
                 "",
                 false,
@@ -652,7 +652,7 @@ public class CompileCommandExecutorTest {
 
         // incremental compilation
         final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
-                Set.of(),
+                Set.of("no-resources"),
                 Either.left(outputDir.toFile().getAbsolutePath()),
                 "",
                 false,
