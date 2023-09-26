@@ -1,10 +1,13 @@
 package jbuild.java.tools.runner;
 
 import jbuild.api.JBuildException;
+import jbuild.cli.RpcMain;
+import jbuild.log.JBuildLog;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
@@ -49,8 +52,10 @@ public final class JavaRunner {
     }
 
     private final URL[] classpath;
+    private final JBuildLog log;
 
-    public JavaRunner(String classpath) {
+    public JavaRunner(String classpath, JBuildLog log) {
+        this.log = log;
         if (classpath.isBlank()) {
             this.classpath = new URL[0];
         } else {
@@ -67,17 +72,15 @@ public final class JavaRunner {
         }
     }
 
-    public JavaRunner() {
-        this("");
-    }
-
     public Object run(RpcMethodCall methodCall) {
         return run(methodCall.getClassName(), methodCall.getMethodName(), methodCall.getParameters());
     }
 
     public Object run(String className, String method, Object... args) {
         Class<?> type;
-        try {
+        if (className == null || className.isBlank()) { // use RcpMain
+            type = RpcMain.class;
+        } else try {
             type = loadClass(className);
         } catch (ClassNotFoundException e) {
             throw new JBuildException("Class " + className + " does not exist", USER_INPUT);
@@ -91,7 +94,7 @@ public final class JavaRunner {
         if (matchMethod.isPresent()) {
             Object object;
             try {
-                object = type.getConstructor().newInstance();
+                object = createReceiverType(type);
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                      NoSuchMethodException e) {
                 throw new JBuildException(e.toString(), USER_INPUT);
@@ -109,6 +112,20 @@ public final class JavaRunner {
 
         throw new JBuildException("Unable to find method that could be invoked with the provided arguments: " +
                 Arrays.toString(args) + " (" + typesOf(args) + ")", USER_INPUT);
+    }
+
+    private Object createReceiverType(Class<?> type) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+        Constructor<?> logConstructor = null;
+        try {
+            logConstructor = type.getConstructor(JBuildLog.class);
+        } catch (NoSuchMethodException e) {
+            log.verbosePrintln(() -> "Class " + type.getName() + " does not have a constructor that accepts JBuildLog." +
+                    " Calling default constructor.");
+        }
+        if (logConstructor != null) {
+            return logConstructor.newInstance(log);
+        }
+        return type.getConstructor().newInstance();
     }
 
     private Class<?> loadClass(String className) throws ClassNotFoundException {

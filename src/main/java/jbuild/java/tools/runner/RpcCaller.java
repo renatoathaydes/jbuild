@@ -19,7 +19,7 @@ public final class RpcCaller {
 
     private final String defaultReceiverClassName;
     private final JBuildLog log;
-    private final JavaRunner runner = new JavaRunner();
+    private final JavaRunner runner;
 
     public RpcCaller(String defaultReceiverClassName) {
         this(defaultReceiverClassName, new JBuildLog(System.out, false));
@@ -28,6 +28,7 @@ public final class RpcCaller {
     public RpcCaller(String defaultReceiverClassName, JBuildLog log) {
         this.defaultReceiverClassName = defaultReceiverClassName;
         this.log = log;
+        this.runner = new JavaRunner("", log);
     }
 
     public void call(InputStream input, OutputStream output) throws Exception {
@@ -71,7 +72,7 @@ public final class RpcCaller {
         } finally {
             if (log.isVerbose()) {
                 log.verbosePrintln("RPC Method call completed in " + (System.currentTimeMillis() - startTime) + "ms - " +
-                                (error == null ? result : error));
+                        (error == null ? result : error));
             }
         }
 

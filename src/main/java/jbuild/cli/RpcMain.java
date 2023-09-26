@@ -24,6 +24,12 @@ import static jbuild.util.TextUtils.isEither;
 
 public final class RpcMain {
 
+    private final JBuildLog log;
+
+    public RpcMain(JBuildLog log) {
+        this.log = log;
+    }
+
     public static void main(String[] args) throws IOException {
         var verbose = false;
         if (args.length == 1 && isEither(args[0], "-V", "--verbose")) {
@@ -36,10 +42,10 @@ public final class RpcMain {
         // started this server.
         var token = UUID.randomUUID().toString();
 
-        new RpcMain().run(0, token, verbose, new CountDownLatch(1));
+        RpcMain.run(0, token, verbose, new CountDownLatch(1));
     }
 
-    public void run(int port, String token, boolean verbose, CountDownLatch stopper) throws IOException {
+    public static void run(int port, String token, boolean verbose, CountDownLatch stopper) throws IOException {
         var threadId = new AtomicInteger();
         var executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), runnable -> {
             var thread = new Thread(runnable, "jbuild-rpc-" + threadId.incrementAndGet());
@@ -54,9 +60,7 @@ public final class RpcMain {
         System.out.println(server.getAddress().getPort());
         System.out.println(token);
 
-        var logger = createLogger(verbose);
-        var rpcCaller = new RpcCaller(RpcMain.class.getName(), logger);
-        var serverContext = new JBuildHttpHandler(rpcCaller, server, token);
+        var serverContext = new JBuildHttpHandler(server, token, verbose);
         server.createContext("/jbuild", serverContext);
 
         server.start();
@@ -89,7 +93,7 @@ public final class RpcMain {
             throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<>();
         try {
-            var obj = new JavaRunner(classpath).run(className, methodName, (Object[]) args);
+            var obj = new JavaRunner(classpath, log).run(className, methodName, (Object[]) args);
             completion.complete(obj);
         } catch (Throwable t) {
             completion.completeExceptionally(t);
@@ -109,7 +113,7 @@ public final class RpcMain {
     public int runJBuild(String... args) throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<Integer>();
         try {
-            new Main(args, completion::complete, RpcMain::createLogger);
+            new Main(args, completion::complete, (verbose) -> log);
         } catch (Throwable t) {
             completion.completeExceptionally(t);
         }
@@ -121,28 +125,35 @@ public final class RpcMain {
         return "RpcMain";
     }
 
-    private static JBuildLog createLogger(boolean verbose) {
-        // the only output to System.out should be the RPC messages
-        return new JBuildLog(System.err, verbose);
+    private static JBuildLog createLogger(boolean verbose, String prefix) {
+        return new JBuildLog(System.out, verbose, prefix);
     }
 
     private static final class JBuildHttpHandler implements HttpHandler {
 
-        private final RpcCaller rpcCaller;
         private final HttpServer server;
         private final String token;
+        private final boolean verbose;
 
-        public JBuildHttpHandler(RpcCaller rpcCaller, HttpServer server, String token) {
-            this.rpcCaller = rpcCaller;
+        public JBuildHttpHandler(HttpServer server, String token, boolean verbose) {
             this.server = server;
             this.token = token;
+            this.verbose = verbose;
         }
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            var out = new ByteArrayOutputStream(4096);
+            var requestHeaders = exchange.getRequestHeaders();
+            var trackId = requestHeaders.getFirst("Track-Id");
+            var logger = createLogger(verbose, trackId);
+            logger.verbosePrintln(() -> "JBuild RPC received " + (trackId.isBlank()
+                    ? "no Track-Id. Cannot associate logger messages with requests."
+                    : "Track-Id: " + trackId));
+            var rpcCaller = new RpcCaller(null, logger);
+
+            var out = new ByteArrayOutputStream(1024);
             var code = 200;
-            if (!isGoodToken(exchange.getRequestHeaders().getFirst("Authorization"))) {
+            if (!isGoodToken(requestHeaders.getFirst("Authorization"))) {
                 code = 403;
                 out.write("<?xml version=\"1.0\"?><error>Forbidden</error>".getBytes(UTF_8));
             } else if ("POST".equals(exchange.getRequestMethod())) {
