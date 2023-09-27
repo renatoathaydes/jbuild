@@ -1,6 +1,6 @@
 package jbuild.cli;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
 import org.junit.jupiter.api.Test;

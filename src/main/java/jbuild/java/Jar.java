@@ -1,8 +1,8 @@
 package jbuild.java;
 
+import jbuild.api.JBuildException;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
-import jbuild.errors.JBuildException;
 import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
@@ -33,8 +33,8 @@ import java.util.zip.ZipFile;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.TIMEOUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.TIMEOUT;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 
 /**

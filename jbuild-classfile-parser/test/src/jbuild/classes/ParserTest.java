@@ -258,12 +258,36 @@ public class ParserTest {
             .isEqualTo("Ljbuild/util/AsyncUtils;");
     }
 
+    @Test
+    void canParseReallyDifficultClass() throws IOException {
+        ClassFile classFile = parseReallyDifficultClass();
+
+        assertThat(classFile.getTypeName())
+            .isEqualTo("Ljbuild/artifact/http/DefaultHttpClient;");
+        assertThat(classFile.getTypesReferredTo()).containsExactlyInAnyOrder(
+                "Ljava/time/Duration;",
+                "Ljava/net/http/HttpClient;",
+                "(J)Ljava/time/Duration;",
+                "()V",
+                "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;",
+                "Ljava/net/http/HttpClient$Builder;",
+                "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;",
+                "()Ljava/net/http/HttpClient;",
+                "Ljava/net/http/HttpClient$Redirect;",
+                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;",
+                "()Ljava/net/http/HttpClient$Builder;");
+    }
+
     private ClassFile parseHelloWorldClass() throws IOException {
         return parseClass("/HelloWorld.cls");
     }
 
     private ClassFile parseDifficultClass() throws IOException {
         return parseClass("/AsyncUtils.cls");
+    }
+
+    private ClassFile parseReallyDifficultClass() throws IOException {
+        return parseClass("/DefaultHttpClient.cls");
     }
 
     private ClassFile parseExampleAnnotatedClass() throws IOException {

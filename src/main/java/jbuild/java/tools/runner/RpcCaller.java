@@ -1,6 +1,7 @@
 package jbuild.java.tools.runner;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
+import jbuild.log.JBuildLog;
 import jbuild.util.XmlUtils;
 import org.xml.sax.SAXException;
 
@@ -11,16 +12,23 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 
 public final class RpcCaller {
 
     private final String defaultReceiverClassName;
-    private final JavaRunner runner = new JavaRunner();
+    private final JBuildLog log;
+    private final JavaRunner runner;
 
     public RpcCaller(String defaultReceiverClassName) {
+        this(defaultReceiverClassName, new JBuildLog(System.out, false));
+    }
+
+    public RpcCaller(String defaultReceiverClassName, JBuildLog log) {
         this.defaultReceiverClassName = defaultReceiverClassName;
+        this.log = log;
+        this.runner = new JavaRunner("", log);
     }
 
     public void call(InputStream input, OutputStream output) throws Exception {
@@ -36,6 +44,7 @@ public final class RpcCaller {
     }
 
     private RpcResponse call(DocumentBuilder db, InputStream stream) {
+        var startTime = System.currentTimeMillis();
         RpcMethodCall methodCall;
         try {
             methodCall = methodCall(db, stream);
@@ -43,15 +52,28 @@ public final class RpcCaller {
             throw new JBuildException("Error parsing RPC methodCall: " + e, USER_INPUT);
         }
 
-        Object result;
+        if (log.isVerbose()) {
+            log.verbosePrintln("Parsed RPC Method call in " + (System.currentTimeMillis() - startTime) + "ms - " + methodCall);
+            startTime = System.currentTimeMillis();
+        }
+
+        Object result = null;
+        Exception error = null;
 
         try {
             result = runner.run(methodCall);
         } catch (RuntimeException e) {
+            error = e;
             var cause = e.getCause();
             return RpcResponse.error(cause == null ? e : cause);
         } catch (Exception e) {
+            error = e;
             return RpcResponse.error(e);
+        } finally {
+            if (log.isVerbose()) {
+                log.verbosePrintln("RPC Method call completed in " + (System.currentTimeMillis() - startTime) + "ms - " +
+                        (error == null ? result : error));
+            }
         }
 
         try {

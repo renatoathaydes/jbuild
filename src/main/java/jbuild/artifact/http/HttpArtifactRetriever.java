@@ -1,5 +1,6 @@
 package jbuild.artifact.http;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactResolution;
@@ -8,7 +9,6 @@ import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.Version;
 import jbuild.artifact.VersionRange;
 import jbuild.errors.HttpError;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.ArtifactKey;
 import jbuild.maven.MavenUtils;
@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 import static jbuild.util.AsyncUtils.withRetries;
 

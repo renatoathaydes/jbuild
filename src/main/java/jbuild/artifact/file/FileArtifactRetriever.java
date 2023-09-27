@@ -1,5 +1,6 @@
 package jbuild.artifact.file;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactResolution;
@@ -8,7 +9,6 @@ import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.Version;
 import jbuild.artifact.VersionRange;
 import jbuild.errors.FileRetrievalError;
-import jbuild.errors.JBuildException;
 import jbuild.maven.MavenUtils;
 import jbuild.util.Either;
 
@@ -25,7 +25,7 @@ import java.util.concurrent.CompletionStage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static java.util.stream.Collectors.toList;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
 import static jbuild.maven.MavenUtils.standardBasePath;
 import static jbuild.util.FileUtils.readAllBytes;

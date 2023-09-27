@@ -1,5 +1,6 @@
 package jbuild.commands;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
@@ -9,7 +10,6 @@ import jbuild.artifact.Version;
 import jbuild.artifact.VersionRange;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.errors.ArtifactRetrievalError;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.util.CollectionUtils;
 import jbuild.util.Describable;
@@ -29,8 +29,8 @@ import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.commands.FetchCommandExecutor.FetchHandleResult.continueIf;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.mapValues;

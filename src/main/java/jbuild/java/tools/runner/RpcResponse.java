@@ -1,6 +1,6 @@
 package jbuild.java.tools.runner;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.errors.XmlWriterException;
 import jbuild.util.XmlUtils;
 import org.w3c.dom.Document;

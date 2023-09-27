@@ -1,2 +1,6 @@
+imports:
+    - "../../build_properties.yaml"
+
 source-dirs: [ java ]
 output-jar: ../../build/tests/my-tests.jar
+javac-args: [ "--release={{versions.java}}" ]

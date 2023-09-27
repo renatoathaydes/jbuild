@@ -1,9 +1,9 @@
 package jbuild.commands;
 
+import jbuild.api.JBuildException;
+import jbuild.api.JBuildException.ErrorCause;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
-import jbuild.errors.JBuildException;
-import jbuild.errors.JBuildException.ErrorCause;
 import jbuild.java.Jar;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
@@ -56,11 +56,11 @@ public class RequirementsCommandExecutor {
         var reporterThread = Executors.newSingleThreadExecutor();
 
         var futures = files.stream()
-            .map(file -> typesSource(file, jarLoader, reporterThread).thenCompose(types -> supplyAsync(() -> types.map(
-                fileCollection -> typesRequiredBy(fileCollection, perClass),
-                jar -> typesRequiredBy(jar, perClass)), reporterThread
-            ).thenAcceptAsync(requiredTypes -> visit(file, requiredTypes, perClass), reporterThread)))
-            .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new);
+                .map(file -> typesSource(file, jarLoader, reporterThread).thenCompose(types -> supplyAsync(() -> types.map(
+                        fileCollection -> typesRequiredBy(fileCollection, perClass),
+                        jar -> typesRequiredBy(jar, perClass)), reporterThread
+                ).thenAcceptAsync(requiredTypes -> visit(file, requiredTypes, perClass), reporterThread)))
+                .map(CompletionStage::toCompletableFuture).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures).whenComplete((_1, _2) -> {
             reporterThread.shutdown();
@@ -69,12 +69,16 @@ public class RequirementsCommandExecutor {
     }
 
     private CompletionStage<Either<FileCollection, Jar>> typesSource(
-        String path,
-        Jar.Loader jarLoader,
-        ExecutorService executor) {
+            String path,
+            Jar.Loader jarLoader,
+            ExecutorService executor) {
         var file = new File(path);
         if (file.isDirectory()) {
             return supplyAsync(() -> Either.left(FileUtils.collectFiles(file.getPath(), FileUtils.CLASS_FILES_FILTER)), executor);
+        }
+        if (file.getName().endsWith(".class")) {
+            var classFile = new FileCollection(file.getParent(), List.of(file.getPath()));
+            return supplyAsync(() -> Either.left(classFile), executor);
         }
         // treat path as a jar
         return jarLoader.lazyLoad(file).thenApply(Either::right);
@@ -96,8 +100,8 @@ public class RequirementsCommandExecutor {
         var resultMap = new TreeMap<String, TypeRequirements>();
         var getSet = createClassFileCollector(resultMap, perClass);
         var types = fileCollection.files.stream()
-            .map(JavaTypeUtils::fileToTypeName)
-            .collect(Collectors.toSet());
+                .map(JavaTypeUtils::fileToTypeName)
+                .collect(Collectors.toSet());
 
         log.verbosePrintln(() -> "Collecting types required by " + types.size() + " class files at " + fileCollection.directory);
 
@@ -115,7 +119,7 @@ public class RequirementsCommandExecutor {
         }
 
         log.verbosePrintln(() -> "Collected " + resultMap.values().stream().mapToInt(t -> t.requirements.size()).sum() +
-                                 " type requirements in " + (System.currentTimeMillis() - startTime) + "ms");
+                " type requirements in " + (System.currentTimeMillis() - startTime) + "ms");
 
         return resultMap;
     }
@@ -135,7 +139,7 @@ public class RequirementsCommandExecutor {
         }
 
         log.verbosePrintln(() -> "Collected " + resultMap.values().stream().mapToInt(t -> t.requirements.size()).sum() +
-                                 " type requirements in " + (System.currentTimeMillis() - startTime) + "ms");
+                " type requirements in " + (System.currentTimeMillis() - startTime) + "ms");
 
         return resultMap;
     }
@@ -174,7 +178,7 @@ public class RequirementsCommandExecutor {
                     typeName = 'L' + typeName + ';';
                 }
                 if (!JavaTypeUtils.mayBeJavaStdLibType(typeName) &&
-                    (perClass || !jarTypes.contains(typeName))) {
+                        (perClass || !jarTypes.contains(typeName))) {
                     requirements.add(typeName);
                 }
             }

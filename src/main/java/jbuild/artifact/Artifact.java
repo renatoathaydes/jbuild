@@ -1,12 +1,12 @@
 package jbuild.artifact;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.maven.DependencyType;
 import jbuild.util.WritableXml;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.TextUtils.firstNonBlank;
 import static jbuild.util.TextUtils.requireNonBlank;
 import static jbuild.util.TextUtils.trimStart;

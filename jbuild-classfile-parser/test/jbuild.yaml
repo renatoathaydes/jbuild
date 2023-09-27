@@ -6,6 +6,7 @@ version: 0.0.0
 
 source-dirs: [ src ]
 resource-dirs: [ resources ]
+javac-args: [ "--release=11" ]
 
 dependencies:
   - jbuild-classfile-parser:

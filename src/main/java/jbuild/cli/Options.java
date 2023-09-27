@@ -1,11 +1,12 @@
 package jbuild.cli;
 
+import jbuild.api.JBuildException;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.artifact.http.HttpArtifactRetriever;
+import jbuild.commands.IncrementalChanges;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
-import jbuild.errors.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
@@ -27,7 +28,8 @@ import java.util.regex.PatternSyntaxException;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
-import static jbuild.errors.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.isEither;
 
@@ -37,6 +39,7 @@ final class Options {
     final boolean help;
     final boolean version;
     final boolean quiet;
+    final String workingDir;
     final String command;
     final List<String> repositories;
     final List<String> commandArgs;
@@ -46,6 +49,7 @@ final class Options {
             boolean help,
             boolean version,
             boolean quiet,
+            String workingDir,
             String command,
             List<String> repositories,
             List<String> commandArgs,
@@ -54,28 +58,28 @@ final class Options {
         this.help = help;
         this.version = version;
         this.quiet = quiet;
+        this.workingDir = workingDir;
         this.command = command;
         this.repositories = repositories;
         this.commandArgs = commandArgs;
         this.applicationArgs = applicationArgs;
     }
 
-    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(JBuildLog log) {
+    List<ArtifactRetriever<? extends ArtifactRetrievalError>> getRetrievers(String workingDir, JBuildLog log) {
         return repositories.stream()
                 .map(address -> {
                     if (TextUtils.isHttp(address)) {
                         return new HttpArtifactRetriever(log, address);
                     }
-                    return new FileArtifactRetriever(Paths.get(address));
+                    return new FileArtifactRetriever(Paths.get(relativize(workingDir, address)));
                 }).collect(toList());
     }
 
     static Options parse(String[] args) {
-        boolean verbose = false, help = false, version = false, quiet = false;
-        String command = "";
         var repositories = new ArrayList<String>(4);
-
-        var expectingRepository = false;
+        boolean verbose = false, help = false, version = false, quiet = false;
+        String command = "", workingDir = ".";
+        boolean expectingRepository = false, expectingWorkingDir = false;
         int i;
 
         for (i = 0; i < args.length; i++) {
@@ -85,12 +89,17 @@ final class Options {
             if (expectingRepository) {
                 expectingRepository = false;
                 repositories.add(arg);
+            } else if (expectingWorkingDir) {
+                expectingWorkingDir = false;
+                workingDir = arg;
             } else if (!arg.startsWith("-")) {
                 command = arg;
                 i++;
                 break;
             } else if (isEither(arg, "-r", "--repository")) {
                 expectingRepository = true;
+            } else if (isEither(arg, "-w", "--working-dir")) {
+                expectingWorkingDir = true;
             } else if (isEither(arg, "-V", "--verbose")) {
                 verbose = true;
             } else if (isEither(arg, "-v", "--version")) {
@@ -107,6 +116,9 @@ final class Options {
 
         if (expectingRepository) {
             throw new JBuildException("expecting value for 'repository' option", USER_INPUT);
+        }
+        if (expectingWorkingDir) {
+            throw new JBuildException("expecting value for 'working-dir' option", USER_INPUT);
         }
 
         List<String> commandArgs;
@@ -139,7 +151,8 @@ final class Options {
             applicationArgs = List.of();
         }
 
-        return new Options(verbose, help, version, quiet, command, repositories, commandArgs, applicationArgs);
+        return new Options(verbose, help, version, quiet, workingDir,
+                command, repositories, commandArgs, applicationArgs);
     }
 
 }
@@ -243,11 +256,11 @@ final class DepsOptions {
     final boolean showExtra;
 
     DepsOptions(Set<String> artifacts,
-            EnumSet<Scope> scopes,
-            boolean transitive,
-            boolean optional,
-            boolean licenses,
-            boolean showExtra) {
+                EnumSet<Scope> scopes,
+                boolean transitive,
+                boolean optional,
+                boolean licenses,
+                boolean showExtra) {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.transitive = transitive;
@@ -352,14 +365,14 @@ final class InstallOptions {
     final boolean optional, transitive, mavenLocal, checksum;
 
     InstallOptions(Set<String> artifacts,
-            Set<Pattern> exclusions,
-            EnumSet<Scope> scopes,
-            String outDir,
-            String repoDir,
-            boolean optional,
-            boolean transitive,
-            boolean mavenLocal,
-            boolean checksum) {
+                   Set<Pattern> exclusions,
+                   EnumSet<Scope> scopes,
+                   String outDir,
+                   String repoDir,
+                   boolean optional,
+                   boolean transitive,
+                   boolean mavenLocal,
+                   boolean checksum) {
         this.artifacts = artifacts;
         this.exclusions = exclusions;
         this.scopes = scopes;
@@ -498,8 +511,8 @@ final class DoctorOptions {
     final Set<Pattern> typeExclusions;
 
     public DoctorOptions(String inputDir,
-            List<String> entryPoints,
-            Set<Pattern> typeExclusions) {
+                         List<String> entryPoints,
+                         Set<Pattern> typeExclusions) {
         this.inputDir = inputDir;
         this.entryPoints = unmodifiableList(entryPoints);
         this.typeExclusions = unmodifiableSet(typeExclusions);
@@ -559,29 +572,29 @@ final class DoctorOptions {
 final class RequirementsOptions {
 
     static final String NAME = "requirements";
-    static final String DESCRIPTION = "finds type requirements of jar(s)";
+    static final String DESCRIPTION = "finds type requirements of jars and class files";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
             "    " + LINE_END +
-            "    Determines the Java types required by a set of jars." + LINE_END +
+            "    Determines the Java types required by a set of jars or class files." + LINE_END +
             "      Usage:" + LINE_END +
-            "        jbuild " + NAME + "<options...> <jar...>" + LINE_END +
+            "        jbuild " + NAME + "<options...> <file...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --per-class" + LINE_END +
             "        -c        show intra-jar requirements per-class" + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " app.jar lib.jar";
 
-    final Set<String> jars;
+    final Set<String> files;
     final boolean perClass;
 
-    public RequirementsOptions(Set<String> jars, boolean perClass) {
-        this.jars = unmodifiableSet(jars);
+    public RequirementsOptions(Set<String> files, boolean perClass) {
+        this.files = unmodifiableSet(files);
         this.perClass = perClass;
     }
 
     static RequirementsOptions parse(List<String> args, boolean verbose) {
-        var jars = new LinkedHashSet<String>(4);
+        var files = new LinkedHashSet<String>(4);
         var perClass = false;
 
         for (var arg : args) {
@@ -593,11 +606,11 @@ final class RequirementsOptions {
                             (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                 }
             } else {
-                jars.add(arg);
+                files.add(arg);
             }
         }
 
-        return new RequirementsOptions(jars, perClass);
+        return new RequirementsOptions(files, perClass);
     }
 }
 
@@ -658,6 +671,9 @@ final class CompileOptions {
             "        -x        generate jb extension manifest (for use with the jb tool)." + LINE_END +
             "        --main-class" + LINE_END +
             "        -m <name> application's main class." + LINE_END +
+            "      Incremental compilation options:" + LINE_END +
+            "        --deleted <file>  deleted file since last compilation." + LINE_END +
+            "        --added <file>    added/modified file since last compilation." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --jar options are mutually exclusive." + LINE_END +
             "        By default, the equivalent of '-j <working-directory>.jar -cp java-libs' is used," + LINE_END +
@@ -674,24 +690,29 @@ final class CompileOptions {
     final String mainClass;
     final boolean generateJbManifest;
     final String classpath;
+    final IncrementalChanges incrementalChanges;
 
     public CompileOptions(Set<String> inputDirectories,
-            Set<String> resourcesDirectories,
-            Either<String, String> outputDirOrJar,
-            String mainClass,
-            boolean generateJbManifest,
-            String classpath) {
+                          Set<String> resourcesDirectories,
+                          Either<String, String> outputDirOrJar,
+                          String mainClass,
+                          boolean generateJbManifest,
+                          String classpath,
+                          IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
         this.resourcesDirectories = resourcesDirectories;
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
         this.generateJbManifest = generateJbManifest;
         this.classpath = classpath;
+        this.incrementalChanges = incrementalChanges;
     }
 
     static CompileOptions parse(List<String> args, boolean verbose) {
         Set<String> inputDirectories = new LinkedHashSet<>(2);
         Set<String> resourcesDirectories = new LinkedHashSet<>(2);
+        Set<String> deletedFiles = new LinkedHashSet<>(2);
+        Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
         var generateJbManifest = false;
         var classpath = new StringBuilder();
@@ -700,7 +721,9 @@ final class CompileOptions {
                 waitingForDirectory = false,
                 waitingForResources = false,
                 waitingForJar = false,
-                waitingForMainClass = false;
+                waitingForMainClass = false,
+                waitingForDeleted = false,
+                waitingForAdded = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
@@ -729,6 +752,12 @@ final class CompileOptions {
             } else if (waitingForMainClass) {
                 waitingForMainClass = false;
                 mainClass = arg;
+            } else if (waitingForDeleted) {
+                waitingForDeleted = false;
+                deletedFiles.add(arg);
+            } else if (waitingForAdded) {
+                waitingForAdded = false;
+                addedFiles.add(arg);
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
@@ -754,6 +783,10 @@ final class CompileOptions {
                                 (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForMainClass = true;
+                } else if ("--added".equals(arg)) {
+                    waitingForAdded = true;
+                } else if ("--deleted".equals(arg)) {
+                    waitingForDeleted = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
                             (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
@@ -775,6 +808,12 @@ final class CompileOptions {
         if (waitingForMainClass) {
             throw new JBuildException("expecting value for '--main-class' option", USER_INPUT);
         }
+        if (waitingForDeleted) {
+            throw new JBuildException("expecting value for '--deleted' option", USER_INPUT);
+        }
+        if (waitingForAdded) {
+            throw new JBuildException("expecting value for '--added' option", USER_INPUT);
+        }
         if (outputDir != null && jar != null) {
             throw new JBuildException("cannot specify both 'directory' and 'jar' options together." +
                     (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
@@ -782,11 +821,18 @@ final class CompileOptions {
         if (outputDir == null && jar == null) {
             jar = "";
         }
+
+        IncrementalChanges incrementalChanges =
+                (deletedFiles.isEmpty() && addedFiles.isEmpty())
+                        ? null
+                        : new IncrementalChanges(deletedFiles, addedFiles);
+
         return new CompileOptions(inputDirectories,
                 resourcesDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
                 generateJbManifest,
-                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString());
+                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString(),
+                incrementalChanges);
     }
 }

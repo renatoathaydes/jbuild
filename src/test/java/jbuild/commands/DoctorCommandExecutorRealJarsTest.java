@@ -1,6 +1,6 @@
 package jbuild.commands;
 
-import jbuild.errors.JBuildException;
+import jbuild.api.JBuildException;
 import jbuild.log.JBuildLog;
 import jbuild.util.NonEmptyCollection;
 import org.assertj.core.api.AbstractThrowableAssert;

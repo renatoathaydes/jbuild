@@ -1,7 +1,7 @@
 package util;
 
+import jbuild.api.JBuildException;
 import jbuild.cli.Main;
-import jbuild.errors.JBuildException;
 import jbuild.java.tools.MemoryToolRunResult;
 import jbuild.java.tools.ToolRunResult;
 import jbuild.log.JBuildLog;
@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static jbuild.errors.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.util.TextUtils.LINE_END;
 import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
 
