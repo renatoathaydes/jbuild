@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DoctorCommandExecutorBasicTest {
 
     @Test
-    void canFindMissingTypeInClasspath() throws IOException {
+    void canFindMissingTypeInClasspath() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
         var barJar = barJarPath.toFile();
@@ -119,7 +119,7 @@ public class DoctorCommandExecutorBasicTest {
     }
 
     @Test
-    void canFindTransitiveIncompatibility() throws IOException {
+    void canFindTransitiveIncompatibility() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
 
         // this jar is used by messages.jar but won't be used by the final application!
@@ -251,7 +251,7 @@ public class DoctorCommandExecutorBasicTest {
     private static void createJar(Path jar,
                                   Path rootDir,
                                   Map<Path, String> sourceByPath,
-                                  String classpath) {
+                                  String classpath) throws Exception {
         sourceByPath.forEach((path, source) -> {
             var src = rootDir.resolve(path);
             src.toFile().getParentFile().mkdirs();

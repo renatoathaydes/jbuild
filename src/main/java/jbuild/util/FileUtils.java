@@ -30,6 +30,12 @@ public final class FileUtils {
         return dir.isDirectory() || dir.mkdirs();
     }
 
+    public static String withoutExtension(String path) {
+        var dotIndex = path.lastIndexOf('.');
+        if (dotIndex <= 0) return path;
+        return path.substring(0, dotIndex);
+    }
+
     public static Set<String> relativize(String dir, Set<String> paths) {
         return relativizeStream(dir, paths.stream()).collect(toSet());
     }

@@ -4,4 +4,4 @@ build/
 /.gradle/
 /.task/
 /out/
-.jbuild-cache/
+.jb-cache/

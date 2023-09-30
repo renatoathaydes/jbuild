@@ -667,6 +667,10 @@ final class CompileOptions {
             "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
             "        --jar" + LINE_END +
             "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
+            "        --sources-jar" + LINE_END +
+            "        -sj       whether to create a sources jar (name: <jar-name>-sources.jar)." + LINE_END +
+            "        --javadoc-jar" + LINE_END +
+            "        -dj       whether to create a javadocs jar (name: <jar-name>-javadoc.jar)." + LINE_END +
             "        --jb-extension" + LINE_END +
             "        -x        generate jb extension manifest (for use with the jb tool)." + LINE_END +
             "        --main-class" + LINE_END +
@@ -689,6 +693,8 @@ final class CompileOptions {
     final Either<String, String> outputDirOrJar;
     final String mainClass;
     final boolean generateJbManifest;
+    final boolean createSourcesJar;
+    final boolean createJavadocsJar;
     final String classpath;
     final IncrementalChanges incrementalChanges;
 
@@ -697,6 +703,8 @@ final class CompileOptions {
                           Either<String, String> outputDirOrJar,
                           String mainClass,
                           boolean generateJbManifest,
+                          boolean createSourcesJar,
+                          boolean createJavadocsJar,
                           String classpath,
                           IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
@@ -704,6 +712,8 @@ final class CompileOptions {
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
         this.generateJbManifest = generateJbManifest;
+        this.createSourcesJar = createSourcesJar;
+        this.createJavadocsJar = createJavadocsJar;
         this.classpath = classpath;
         this.incrementalChanges = incrementalChanges;
     }
@@ -714,7 +724,6 @@ final class CompileOptions {
         Set<String> deletedFiles = new LinkedHashSet<>(2);
         Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
-        var generateJbManifest = false;
         var classpath = new StringBuilder();
 
         boolean waitingForClasspath = false,
@@ -723,7 +732,10 @@ final class CompileOptions {
                 waitingForJar = false,
                 waitingForMainClass = false,
                 waitingForDeleted = false,
-                waitingForAdded = false;
+                waitingForAdded = false,
+                generateJbManifest = false,
+                createSourcesJar = false,
+                createJavadocsJar = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
@@ -763,6 +775,10 @@ final class CompileOptions {
                     waitingForClasspath = true;
                 } else if (isEither(arg, "-x", "--jb-extension")) {
                     generateJbManifest = true;
+                } else if (isEither(arg, "-sj", "--sources-jar")) {
+                    createSourcesJar = true;
+                } else if (isEither(arg, "-dj", "--javadoc-jar")) {
+                    createJavadocsJar = true;
                 } else if (isEither(arg, "-r", "--resources")) {
                     waitingForResources = true;
                 } else if (isEither(arg, "-d", "--directory")) {
@@ -832,6 +848,8 @@ final class CompileOptions {
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
                 generateJbManifest,
+                createSourcesJar,
+                createJavadocsJar,
                 classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString(),
                 incrementalChanges);
     }

@@ -197,7 +197,7 @@ public final class Main {
         }
     }
 
-    private void compile(Options options) {
+    private void compile(Options options) throws Exception {
         var compileOptions = CompileOptions.parse(options.commandArgs, options.quiet);
 
         var commandExecutor = new CompileCommandExecutor(log);
@@ -206,11 +206,14 @@ public final class Main {
                 options.workingDir,
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass,
-                compileOptions.generateJbManifest, compileOptions.classpath, options.applicationArgs,
+                compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
+                compileOptions.classpath, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res -> verifyToolSuccessful("javac", res));
         result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));
+        result.getJavadocJarResult().ifPresent(jarResult -> verifyToolSuccessful("javadocJar", jarResult));
+        result.getSourcesJarResult().ifPresent(jarResult -> verifyToolSuccessful("sourcesJar", jarResult));
     }
 
     private void doctor(Options options) throws ExecutionException, InterruptedException {

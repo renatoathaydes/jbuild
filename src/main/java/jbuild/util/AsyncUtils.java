@@ -1,19 +1,21 @@
 package jbuild.util;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -57,15 +59,21 @@ public final class AsyncUtils {
             return completedStage(List.of());
         }
 
-        var results = new ConcurrentLinkedDeque<Either<T, Throwable>>();
+        var results = new ArrayList<Either<T, Throwable>>(list.size());
+        var completedCount = new AtomicInteger(0);
         var future = new CompletableFuture<Collection<Either<T, Throwable>>>();
 
-        list.forEach(value -> value.whenComplete((ok, err) -> {
-            results.add(err == null ? Either.left(ok) : Either.right(err));
-            if (results.size() == list.size()) {
-                future.complete(results);
-            }
-        }));
+        for (int i = 0; i < list.size(); i++) {
+            final var index = i;
+            results.add(null);
+            list.get(index).whenComplete((ok, err) -> {
+                results.set(index, err == null ? Either.left(ok) : Either.right(err));
+                var count = completedCount.incrementAndGet();
+                if (count == list.size()) {
+                    future.complete(results);
+                }
+            });
+        }
 
         return future;
     }
@@ -76,22 +84,28 @@ public final class AsyncUtils {
             return completedStage(List.of());
         }
 
-        var done = new AtomicBoolean(false);
-        var results = new ConcurrentLinkedDeque<T>();
+        var failed = new AtomicBoolean(false);
+        var completedCount = new AtomicInteger(0);
+        var results = new ArrayList<T>(list.size());
         var future = new CompletableFuture<Collection<T>>();
 
-        list.forEach(value -> value.whenComplete((ok, err) -> {
-            if (err != null) {
-                if (done.compareAndSet(false, true)) {
-                    future.completeExceptionally(err);
+        for (int i = 0; i < list.size(); i++) {
+            final var index = i;
+            results.add(null);
+            list.get(index).whenComplete((ok, err) -> {
+                if (err != null) {
+                    if (failed.compareAndSet(false, true)) {
+                        future.completeExceptionally(err);
+                    }
+                } else if (!failed.get()) {
+                    results.set(index, ok);
+                    var count = completedCount.incrementAndGet();
+                    if (count == list.size()) {
+                        future.complete(results);
+                    }
                 }
-            } else {
-                results.add(ok);
-                if (results.size() == list.size()) {
-                    future.complete(results);
-                }
-            }
-        }));
+            });
+        }
 
         return future;
     }
@@ -183,6 +197,14 @@ public final class AsyncUtils {
         });
 
         return future;
+    }
+
+    public static <T> CompletionStage<T> runAsyncTiming(Supplier<T> supplier, BiConsumer<Duration, T> onSuccess) {
+        var startTime = Instant.now();
+        return CompletableFuture.supplyAsync(supplier).thenApply(result -> {
+            onSuccess.accept(Duration.between(startTime, Instant.now()), result);
+            return result;
+        });
     }
 
     @SuppressWarnings("FutureReturnValueIgnored")

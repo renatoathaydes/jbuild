@@ -81,4 +81,15 @@ public class FileUtilsTest {
         assertThat(FileUtils.relativize("foo", Set.of("bar.zort", sep + "file.txt")))
                 .isEqualTo(Set.of(String.join(sep, "foo", "bar.zort"), sep + "file.txt"));
     }
+
+    @Test
+    void canRemoveFileExtension() {
+        assertThat(FileUtils.withoutExtension("")).isEqualTo("");
+        assertThat(FileUtils.withoutExtension(".")).isEqualTo(".");
+        assertThat(FileUtils.withoutExtension("a.")).isEqualTo("a");
+        assertThat(FileUtils.withoutExtension("a.b")).isEqualTo("a");
+        assertThat(FileUtils.withoutExtension("a.b.c")).isEqualTo("a.b");
+        assertThat(FileUtils.withoutExtension("hello.txt")).isEqualTo("hello");
+        assertThat(FileUtils.withoutExtension("a.b/c.d/foo.jar")).isEqualTo("a.b/c.d/foo");
+    }
 }

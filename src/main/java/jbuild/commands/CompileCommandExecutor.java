@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -27,9 +28,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static java.util.concurrent.CompletableFuture.completedStage;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -37,6 +44,8 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.AsyncUtils.awaitSuccessValues;
+import static jbuild.util.AsyncUtils.runAsyncTiming;
 import static jbuild.util.CollectionUtils.appendAsStream;
 import static jbuild.util.FileUtils.collectFiles;
 import static jbuild.util.FileUtils.ensureDirectoryExists;
@@ -63,9 +72,11 @@ public final class CompileCommandExecutor {
                                         boolean generateJbManifest,
                                         String classpath,
                                         List<String> compilerArgs,
-                                        IncrementalChanges incrementalChanges) {
+                                        IncrementalChanges incrementalChanges)
+            throws InterruptedException, ExecutionException {
         return compile(".", inputDirectories, resourcesDirectories,
-                outputDirOrJar, mainClass, generateJbManifest, classpath, compilerArgs, incrementalChanges);
+                outputDirOrJar, mainClass, generateJbManifest, false, false,
+                classpath, compilerArgs, incrementalChanges);
     }
 
     public CompileCommandResult compile(String workingDir,
@@ -74,9 +85,12 @@ public final class CompileCommandExecutor {
                                         Either<String, String> outputDirOrJar,
                                         String mainClass,
                                         boolean generateJbManifest,
+                                        boolean createSourcesJar,
+                                        boolean createJavadocsJar,
                                         String classpath,
                                         List<String> compilerArgs,
-                                        IncrementalChanges incrementalChanges) {
+                                        IncrementalChanges incrementalChanges)
+            throws InterruptedException, ExecutionException {
         var usingDefaultInputDirs = inputDirectories.isEmpty() && incrementalChanges == null;
         if (usingDefaultInputDirs) {
             inputDirectories = computeDefaultSourceDirs(workingDir);
@@ -139,7 +153,7 @@ public final class CompileCommandExecutor {
             if (!deletionsDone) {
                 log.println("No sources to compile. No resource files found. Nothing to do!");
             }
-            return new CompileCommandResult(null, null);
+            return new CompileCommandResult();
         }
 
         if (!ensureDirectoryExists(new File(outputDir))) {
@@ -148,19 +162,23 @@ public final class CompileCommandExecutor {
 
         copyResources(resourceFiles, outputDir);
 
-        ToolRunResult compileResult;
+        var computedClasspath = computeClasspath(relativize(workingDir, classpath),
+                incrementalChanges == null ? null : jarFile == null ? outputDir : jarFile);
+
+        ToolRunResult compileResult = null;
         if (sourceFiles.isEmpty()) {
-            log.verbosePrintln("No source files to compile");
-            compileResult = null;
-        } else {
-            compileResult = Tools.Javac.create().compile(sourceFiles, outputDir,
-                    computeClasspath(relativize(workingDir, classpath), compilerArgs,
-                            incrementalChanges == null ? null : jarFile == null ? outputDir : jarFile),
-                    compilerArgs);
-            if (compileResult.exitCode() != 0) {
-                return new CompileCommandResult(compileResult, null);
+            log.println("No source files to compile");
+            if (resourceFiles.isEmpty()) {
+                return new CompileCommandResult();
             }
-            log.verbosePrintln(() -> "Compilation successful on directory: " + outputDir);
+        } else {
+            compileResult = runAsyncTiming(() -> Tools.Javac.create().compile(sourceFiles, outputDir,
+                            computedClasspath, compilerArgs),
+                    createLogTimer("Compilation successful on directory '" + outputDir + "'"))
+                    .toCompletableFuture().get();
+            if (compileResult.exitCode() != 0) {
+                return new CompileCommandResult(compileResult);
+            }
         }
 
         if (generateJbManifest) {
@@ -171,32 +189,82 @@ public final class CompileCommandExecutor {
         }
 
         if (jarFile == null) {
-            return new CompileCommandResult(compileResult, null);
+            return new CompileCommandResult(compileResult);
         }
+        var jarResults = awaitSuccessValues(List.of(
+                jar(mainClass, outputDir, jarFile, incrementalChanges),
+                createSourcesJar
+                        ? sourcesJar(inputDirectories, jarFile)
+                        : completedStage(null),
+                createJavadocsJar
+                        ? createJavadoc(computedClasspath, sourceFiles)
+                        .thenCompose(result -> javadocJar(result, jarFile))
+                        : completedStage(null)))
+                .toCompletableFuture().get().iterator();
 
         return new CompileCommandResult(compileResult,
-                jar(mainClass, outputDir, jarFile, incrementalChanges));
+                jarResults.next(), jarResults.next(), jarResults.next());
     }
 
-    private ToolRunResult jar(String mainClass,
-                              String outputDir,
-                              String jarFile,
-                              IncrementalChanges incrementalChanges) {
+    private CompletionStage<Either<ToolRunResult, String>> createJavadoc(String classpath, Set<String> sourceFiles) {
+        String outputDir;
+        try {
+            outputDir = Files.createTempDirectory("jbuild-javadocs-").toString();
+        } catch (IOException e) {
+            return CompletableFuture.failedFuture(
+                    new JBuildException("Unable to create temp dir for javadocs: " + e, IO_WRITE));
+        }
+        return supplyAsync(() -> {
+            var startTime = System.currentTimeMillis();
+            var toolResult = Tools.Javadoc.create().createJavadoc(classpath, sourceFiles, outputDir);
+            if (toolResult.exitCode() == 0) {
+                log.verbosePrintln(() -> "Created javadoc in " + (System.currentTimeMillis() - startTime) + " ms");
+                return Either.right(outputDir);
+            }
+            return Either.left(toolResult);
+        });
+    }
+
+    private CompletionStage<ToolRunResult> jar(String mainClass,
+                                               String outputDir,
+                                               String jarFile,
+                                               IncrementalChanges incrementalChanges) {
         var jarContent = new FileSet(Set.of(), outputDir);
 
         if (incrementalChanges == null) {
             log.verbosePrintln(() -> "Creating jar file at " + jarFile);
-            return Tools.Jar.create().createJar(new CreateJarOptions(
-                    jarFile, mainClass, false, "", jarContent, Map.of()));
+            return runAsyncTiming(() -> Tools.Jar.create().createJar(new CreateJarOptions(
+                            jarFile, mainClass, false, "", jarContent, Map.of())),
+                    createLogTimer("Created jar"));
         }
 
         log.verbosePrintln(() -> "Updating jar file at " + jarFile);
-        long startTime = System.currentTimeMillis();
-        var result = Tools.Jar.create().updateJar(jarFile, jarContent);
-        if (log.isVerbose()) {
-            log.verbosePrintln("Updated jar in " + (System.currentTimeMillis() - startTime) + " ms");
-        }
-        return result;
+        return runAsyncTiming(() -> Tools.Jar.create().updateJar(jarFile, jarContent),
+                createLogTimer("Updated jar"));
+    }
+
+    private CompletionStage<ToolRunResult> sourcesJar(Set<String> inputDirs, String jarFile) {
+        var sourcesJar = FileUtils.withoutExtension(jarFile) + "-sources.jar";
+        log.verbosePrintln(() -> "Creating sources jar file at " + sourcesJar);
+        return runAsyncTiming(() -> Tools.Jar.create().createJar(sourcesJar, inputDirs),
+                createLogTimer("Created sources jar"));
+    }
+
+    private CompletionStage<ToolRunResult> javadocJar(Either<ToolRunResult, String> javadocResult, String jarFile) {
+        return javadocResult.map(CompletableFuture::completedFuture, inputDir -> {
+            var javadocJar = FileUtils.withoutExtension(jarFile) + "-javadoc.jar";
+            log.verbosePrintln(() -> "Creating javadoc jar file at " + javadocJar);
+            return runAsyncTiming(() -> Tools.Jar.create().createJar(javadocJar, Set.of(inputDir)),
+                    createLogTimer("Created javadoc jar"));
+        });
+    }
+
+    private BiConsumer<Duration, ToolRunResult> createLogTimer(String messagePrefix) {
+        return (duration, result) -> {
+            if (result.exitCode() == 0) {
+                log.verbosePrintln(() -> messagePrefix + " in " + duration.toMillis() + " ms");
+            }
+        };
     }
 
     private Set<String> computeSourceFiles(Set<String> inputDirectories,
@@ -346,15 +414,7 @@ public final class CompileCommandExecutor {
     }
 
     private static String computeClasspath(String classpath,
-                                           List<String> compilerArgs,
                                            String previousOutput) {
-        if (compilerArgs.contains("-cp")
-                || compilerArgs.contains("--class-path")
-                || compilerArgs.contains("--classpath")) {
-            // explicit classpath was provided, use that only
-            return "";
-        }
-
         return Stream.concat(
                         previousOutput == null ? Stream.of() : Stream.of(previousOutput),
                         Stream.of(classpath.split(File.pathSeparator))
@@ -441,15 +501,32 @@ public final class CompileCommandExecutor {
     public static final class CompileCommandResult {
         private final ToolRunResult compileResult;
         private final ToolRunResult jarResult;
+        private final ToolRunResult sourcesJarResult;
+        private final ToolRunResult javadocJarResult;
 
-        public CompileCommandResult(ToolRunResult compileResult, ToolRunResult jarResult) {
+        public CompileCommandResult(ToolRunResult compileResult,
+                                    ToolRunResult jarResult,
+                                    ToolRunResult sourcesJarResult,
+                                    ToolRunResult javadocJarResult) {
             this.compileResult = compileResult;
             this.jarResult = jarResult;
+            this.sourcesJarResult = sourcesJarResult;
+            this.javadocJarResult = javadocJarResult;
+        }
+
+        public CompileCommandResult() {
+            this(null, null, null, null);
+        }
+
+        public CompileCommandResult(ToolRunResult compileResult) {
+            this(compileResult, null, null, null);
         }
 
         public boolean isSuccessful() {
             return (compileResult == null || compileResult.exitCode() == 0)
-                    && (jarResult == null || jarResult.exitCode() == 0);
+                    && (jarResult == null || jarResult.exitCode() == 0)
+                    && (sourcesJarResult == null || sourcesJarResult.exitCode() == 0)
+                    && (javadocJarResult == null || javadocJarResult.exitCode() == 0);
         }
 
         public Optional<ToolRunResult> getCompileResult() {
@@ -458,6 +535,14 @@ public final class CompileCommandExecutor {
 
         public Optional<ToolRunResult> getJarResult() {
             return Optional.ofNullable(jarResult);
+        }
+
+        public Optional<ToolRunResult> getSourcesJarResult() {
+            return Optional.ofNullable(sourcesJarResult);
+        }
+
+        public Optional<ToolRunResult> getJavadocJarResult() {
+            return Optional.ofNullable(javadocJarResult);
         }
     }
 

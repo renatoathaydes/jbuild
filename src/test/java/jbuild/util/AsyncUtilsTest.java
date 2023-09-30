@@ -3,6 +3,7 @@ package jbuild.util;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -153,6 +154,58 @@ public class AsyncUtilsTest {
         var firstTime = timesIter.next();
         var secondTime = timesIter.next();
         assertThat(secondTime).isBetween(firstTime + delayTime, firstTime + delayTime + 500);
+    }
+
+    @Test
+    void canWaitForSuccessValues() throws ExecutionException, InterruptedException {
+        var result = AsyncUtils.awaitSuccessValues(List.of(completedStage(1), completedStage(2)))
+                .toCompletableFuture().get();
+        assertThat(result).containsExactly(1, 2);
+    }
+
+    @Test
+    void canWaitForSuccessValuesNulls() throws ExecutionException, InterruptedException {
+        var result = AsyncUtils.awaitSuccessValues(List.of(completedStage(1), completedStage(null), completedStage(null)))
+                .toCompletableFuture().get();
+        assertThat(result).containsExactly(1, null, null);
+    }
+
+    @Test
+    void canWaitForSuccessValuesWithDelays() throws ExecutionException, InterruptedException {
+        var result = AsyncUtils.awaitSuccessValues(List.of(supplyAsync(() -> {
+                    delay(5);
+                    return 42;
+                }), supplyAsync(() -> 24)))
+                .toCompletableFuture().get();
+        assertThat(result).containsExactlyInAnyOrder(42, 24);
+    }
+
+    @Test
+    void canRunAsyncWithTiming() throws Exception {
+        var resultRef = new AtomicReference<List<Object>>();
+        var result = AsyncUtils.runAsyncTiming(() -> {
+                    delay(20);
+                    return "done";
+                }, (duration, value) -> resultRef.set(List.of(duration, value)))
+                .toCompletableFuture().get();
+        assertThat(result).isEqualTo("done");
+        assertThat(resultRef.get()).isNotNull();
+        assertThat(resultRef.get().get(1)).isEqualTo("done");
+        assertThat(resultRef.get().get(0)).isInstanceOf(Duration.class);
+        assertThat((Duration) resultRef.get().get(0))
+                .isBetween(Duration.ofMillis(20), Duration.ofMillis(250));
+
+    }
+
+    @Test
+    void canWaitForSuccessValuesWhenFails() throws ExecutionException, InterruptedException {
+        assertThatThrownBy(() -> AsyncUtils.awaitSuccessValues(List.of(completedStage(1),
+                        failedFuture(new IllegalArgumentException("failed"))))
+                .toCompletableFuture().get())
+                .isInstanceOf(ExecutionException.class)
+                .cause()
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("failed");
     }
 
     @Test

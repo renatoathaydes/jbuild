@@ -8,7 +8,6 @@ import jbuild.util.Either;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class CompileCommandExecutorTest {
 
     @Test
-    void canCompileClassFiles() throws IOException {
+    void canCompileClassFiles() throws Exception {
         var bytesOut = new ByteArrayOutputStream();
         var out = new PrintStream(bytesOut);
         var log = new JBuildLog(out, false);
@@ -59,6 +58,8 @@ public class CompileCommandExecutorTest {
         assertThat(result.getCompileResult()).isPresent();
         verifyToolSuccessful("compile", result.getCompileResult().get());
         assertThat(result.getJarResult()).isNotPresent();
+        assertThat(result.getSourcesJarResult()).isNotPresent();
+        assertThat(result.getJavadocJarResult()).isNotPresent();
 
         var fooClass = buildDir.resolve("Foo.class");
         var barClass = buildDir.resolve("Bar.class");
@@ -74,7 +75,7 @@ public class CompileCommandExecutorTest {
     }
 
     @Test
-    void canCompileClassFilesOnWorkingDir() throws IOException {
+    void canCompileClassFilesOnWorkingDir() throws Exception {
         var bytesOut = new ByteArrayOutputStream();
         var out = new PrintStream(bytesOut);
         var log = new JBuildLog(out, false);
@@ -99,6 +100,8 @@ public class CompileCommandExecutorTest {
                 Either.left("build"),
                 "",
                 false,
+                false,
+                false,
                 "",
                 List.of(),
                 null);
@@ -106,6 +109,8 @@ public class CompileCommandExecutorTest {
         assertThat(result.getCompileResult()).isPresent();
         verifyToolSuccessful("compile", result.getCompileResult().get());
         assertThat(result.getJarResult()).isNotPresent();
+        assertThat(result.getSourcesJarResult()).isNotPresent();
+        assertThat(result.getJavadocJarResult()).isNotPresent();
 
         var myClassFile = buildDir.resolve(Paths.get("pkg", "MyClass.class"));
         var otherClassFile = buildDir.resolve(Paths.get("pkg", "OtherClass.class"));
@@ -116,7 +121,7 @@ public class CompileCommandExecutorTest {
     }
 
     @Test
-    void canCompileToJarUsingClasspathOption() throws IOException {
+    void canCompileToJarUsingClasspathOption() throws Exception {
         var bytesOut = new ByteArrayOutputStream();
         var out = new PrintStream(bytesOut);
         var log = new JBuildLog(out, false);
@@ -179,7 +184,7 @@ public class CompileCommandExecutorTest {
     }
 
     @Test
-    void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws IOException {
+    void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws Exception {
         var bytesOut = new ByteArrayOutputStream();
         var out = new PrintStream(bytesOut);
         var log = new JBuildLog(out, false);
@@ -209,6 +214,8 @@ public class CompileCommandExecutorTest {
                 Either.right(""), // let the default jar name be used
                 "",
                 true,
+                false,
+                false,
                 TestSystemProperties.jbApiJar.getAbsolutePath(),
                 List.of(),
                 null);
@@ -231,7 +238,85 @@ public class CompileCommandExecutorTest {
     }
 
     @Test
-    void canCopyResources() throws IOException {
+    void canCompileToJarAndSourcesAndJavadocJar() throws Exception {
+        var bytesOut = new ByteArrayOutputStream();
+        var out = new PrintStream(bytesOut);
+        var log = new JBuildLog(out, false);
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var rootDir = dir.resolve("mylib");
+        var src = rootDir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var myClassJava = pkg.resolve("MyClass.java");
+        Files.write(myClassJava, List.of(
+                "package pkg;",
+                "/**",
+                " * This is Javadoc.",
+                " **/",
+                "public class MyClass {",
+                "  /**",
+                "   * The hello method.",
+                "   **/",
+                "  public void hello() {}",
+                "}"));
+        var jar = rootDir.resolve("mylib.jar");
+        var sourcesJar = rootDir.resolve("mylib-sources.jar");
+        var javadocJar = rootDir.resolve("mylib-javadoc.jar");
+
+        // compile jar, sources-jar and javadoc-jar
+        var result = command.compile(
+                rootDir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.right(""), // let the default jar name be used
+                "",
+                false,
+                true,
+                true,
+                "",
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", result.getJarResult().get());
+        assertThat(result.getSourcesJarResult()).isPresent();
+        verifyToolSuccessful("sourcesJar", result.getSourcesJarResult().get());
+        assertThat(result.getJavadocJarResult()).isPresent();
+        verifyToolSuccessful("javadocJar", result.getJavadocJarResult().get());
+
+        var jarResult = Tools.Jar.create().listContents(jar.toString());
+        verifyToolSuccessful("jar tf", jarResult);
+        assertThat(jarResult.getStdoutLines().collect(toList()))
+                .containsExactly(
+                        "META-INF/",
+                        "META-INF/MANIFEST.MF",
+                        "pkg/",
+                        "pkg/MyClass.class");
+
+        var sourceJarResult = Tools.Jar.create().listContents(sourcesJar.toString());
+        verifyToolSuccessful("jar tf", sourceJarResult);
+        assertThat(sourceJarResult.getStdoutLines().collect(toList()))
+                .containsExactly(
+                        "META-INF/",
+                        "META-INF/MANIFEST.MF",
+                        "pkg/",
+                        "pkg/MyClass.java");
+
+        var javadocJarResult = Tools.Jar.create().listContents(javadocJar.toString());
+        verifyToolSuccessful("jar tf", javadocJarResult);
+        assertThat(javadocJarResult.getStdoutLines().collect(toList()))
+                .contains(
+                        "index.html",
+                        "pkg/",
+                        "pkg/MyClass.html");
+    }
+
+    @Test
+    void canCopyResources() throws Exception {
         var bytesOut = new ByteArrayOutputStream();
         var out = new PrintStream(bytesOut);
         var log = new JBuildLog(out, false);
@@ -776,7 +861,7 @@ public class CompileCommandExecutorTest {
         assertThat(outMain.resolve("Main.class")).isRegularFile();
     }
 
-    private static String unzipEntry(Path jar, String entry) throws IOException {
+    private static String unzipEntry(Path jar, String entry) throws Exception {
         try (var zip = new ZipFile(jar.toFile())) {
             var rsrcEntry = zip.getEntry(entry);
             return new String(zip.getInputStream(rsrcEntry).readAllBytes(), StandardCharsets.UTF_8);

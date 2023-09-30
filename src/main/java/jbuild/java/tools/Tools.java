@@ -78,6 +78,14 @@ public abstract class Tools {
         return streams.result(exitCode, args);
     }
 
+    protected ToolRunResult run(List<String> argList) {
+        var args = argList.toArray(new String[0]);
+        var exitCode = tool.run(new PrintStream(stdout(), false, ISO_8859_1),
+                new PrintStream(stderr(), false, ISO_8859_1),
+                args);
+        return result(exitCode, args);
+    }
+
     /**
      * The javap tool.
      */
@@ -150,6 +158,38 @@ public abstract class Tools {
     }
 
     /**
+     * The javadoc tool.
+     */
+    public static final class Javadoc extends Tools {
+        private static final ToolProvider toolProvider = Tools.lookupTool("javadoc");
+
+        public static Javadoc create() {
+            return new Javadoc(toolProvider);
+        }
+
+        private Javadoc(ToolProvider tool) {
+            super(tool, new MemoryStreams());
+        }
+
+        /**
+         * Create Javadoc.
+         *
+         * @param classpath   Java classpath
+         * @param outputDir   destination directory
+         * @param sourceFiles Java source files
+         * @return result
+         */
+        public ToolRunResult createJavadoc(String classpath,
+                                           Set<String> sourceFiles,
+                                           String outputDir) {
+            var args = new ArrayList<>(List.of("-cp", classpath, "-d", outputDir));
+            args.addAll(sourceFiles);
+            return run(args);
+        }
+
+    }
+
+    /**
      * The jar tool.
      */
     public static final class Jar extends Tools {
@@ -180,12 +220,30 @@ public abstract class Tools {
 
         /**
          * Create a jar according to the provided options.
+         * <p>
+         * This method creates the "main" jar, with class files. For general-purpose jars
+         * like sources and javadoc jars, use {@link Jar#createJar(String, Set)} instead.
          *
          * @param options create jar options
          * @return result
          */
         public ToolRunResult createJar(CreateJarOptions options) {
             return run(options.toArgs(true));
+        }
+
+        /**
+         * Create an archive jar.
+         *
+         * @param jar  destination jar
+         * @param dirs input directories
+         * @return result
+         */
+        public ToolRunResult createJar(String jar, Set<String> dirs) {
+            var args = new ArrayList<>(List.of("--create", "--file", jar));
+            for (var sourceDir : dirs) {
+                args.addAll(List.of("-C", sourceDir, "."));
+            }
+            return run(args);
         }
 
         /**
@@ -202,14 +260,6 @@ public abstract class Tools {
             args.add(jarFile);
             CreateJarOptions.addFileSetTo(args, fileSet);
             return run(args);
-        }
-
-        private ToolRunResult run(List<String> argList) {
-            var args = argList.toArray(new String[0]);
-            var exitCode = tool.run(new PrintStream(stdout(), false, ISO_8859_1),
-                    new PrintStream(stderr(), false, ISO_8859_1),
-                    args);
-            return result(exitCode, args);
         }
 
     }
@@ -240,12 +290,7 @@ public abstract class Tools {
                                      String classpath,
                                      List<String> compilerArgs) {
             validateCompilerArgs(compilerArgs);
-            var args = collectArgs(sourceFiles, outDir, classpath, compilerArgs);
-            var exitCode = tool.run(
-                    new PrintStream(stdout(), false, ISO_8859_1),
-                    new PrintStream(stderr(), false, ISO_8859_1),
-                    args);
-            return result(exitCode, args);
+            return run(collectArgs(sourceFiles, outDir, classpath, compilerArgs));
         }
 
         private void validateCompilerArgs(List<String> compilerArgs) {
@@ -261,12 +306,11 @@ public abstract class Tools {
             }
         }
 
-        @SuppressWarnings("SuspiciousToArrayCall")
-        private static String[] collectArgs(Set<String> files,
-                                            String outDir,
-                                            String classpath,
-                                            List<String> compilerArgs) {
-            var result = new ArrayList<>();
+        private static List<String> collectArgs(Set<String> files,
+                                                String outDir,
+                                                String classpath,
+                                                List<String> compilerArgs) {
+            var result = new ArrayList<String>();
 
             if (!compilerArgs.contains("-encoding")) {
                 result.add("-encoding");
@@ -288,7 +332,7 @@ public abstract class Tools {
             result.addAll(compilerArgs);
             result.addAll(files);
 
-            return result.toArray(String[]::new);
+            return result;
         }
     }
 
