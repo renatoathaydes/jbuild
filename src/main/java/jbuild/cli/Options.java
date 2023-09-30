@@ -837,6 +837,10 @@ final class CompileOptions {
         if (outputDir == null && jar == null) {
             jar = "";
         }
+        if (outputDir != null && (createJavadocsJar || createSourcesJar)) {
+            throw new JBuildException("the --sources-jar and --javadoc-jar options are only allowed " +
+                    "when compiling to a jar, hence cannot be used with the --directory option.", USER_INPUT);
+        }
 
         IncrementalChanges incrementalChanges =
                 (deletedFiles.isEmpty() && addedFiles.isEmpty())
