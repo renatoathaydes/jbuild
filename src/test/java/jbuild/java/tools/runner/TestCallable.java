@@ -15,6 +15,10 @@ public class TestCallable {
         return s + ": " + a;
     }
 
+    String add(String a, String s) {
+        return s + ", " + a;
+    }
+
     String varargs(double d, String... s) {
         return Arrays.toString(s) + ": " + d;
     }

@@ -1,7 +1,9 @@
 package jbuild.java.tools.runner;
 
+import jbuild.api.JBuildException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 import java.util.Arrays;
 import java.util.List;
@@ -57,7 +59,16 @@ public final class RpcMethodCall {
     }
 
     private static Object extractValue(Element value) {
-        var child = (Element) value.getFirstChild();
+        var node = value.getFirstChild();
+        var nodeType = node.getNodeType();
+        if (nodeType == Node.TEXT_NODE) {
+            return node.getTextContent();
+        }
+        if (nodeType != Node.ELEMENT_NODE) {
+            throw new JBuildException("Invalid XML-RPC Value (not a string or element): " + node,
+                    JBuildException.ErrorCause.USER_INPUT);
+        }
+        var child = (Element) node;
         switch (child.getTagName()) {
             case "string":
                 return child.getTextContent();
