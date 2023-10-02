@@ -172,7 +172,7 @@ public final class CompileCommandExecutor {
                 return new CompileCommandResult();
             }
         } else {
-            compileResult = runAsyncTiming(() -> Tools.Javac.create().compile(sourceFiles, outputDir,
+            compileResult = runAsyncTiming(() -> Tools.Javac.create(log).compile(sourceFiles, outputDir,
                             computedClasspath, compilerArgs),
                     createLogTimer("Compilation successful on directory '" + outputDir + "'"))
                     .toCompletableFuture().get();

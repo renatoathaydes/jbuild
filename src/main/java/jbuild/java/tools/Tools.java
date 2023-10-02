@@ -1,6 +1,7 @@
 package jbuild.java.tools;
 
 import jbuild.api.JBuildException;
+import jbuild.log.JBuildLog;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -268,12 +269,15 @@ public abstract class Tools {
 
         private static final ToolProvider toolProvider = lookupTool("javac");
 
-        public static Javac create() {
-            return new Javac(toolProvider);
+        private final JBuildLog log;
+
+        public static Javac create(JBuildLog log) {
+            return new Javac(toolProvider, log);
         }
 
-        private Javac(ToolProvider tool) {
+        private Javac(ToolProvider tool, JBuildLog log) {
             super(tool, new MemoryStreams());
+            this.log = log;
         }
 
         /**
@@ -290,7 +294,9 @@ public abstract class Tools {
                                      String classpath,
                                      List<String> compilerArgs) {
             validateCompilerArgs(compilerArgs);
-            return run(collectArgs(sourceFiles, outDir, classpath, compilerArgs));
+            var args = collectArgs(sourceFiles, outDir, classpath, compilerArgs);
+            log.verbosePrintln(() -> "Compile command: javac " + String.join(" ", args));
+            return run(args);
         }
 
         private void validateCompilerArgs(List<String> compilerArgs) {

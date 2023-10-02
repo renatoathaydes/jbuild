@@ -1,5 +1,6 @@
 package jbuild.java.tools;
 
+import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -31,7 +32,8 @@ public class JavacToolTest {
                 "    }\n" +
                 "}");
 
-        var result = Tools.Javac.create().compile(Set.of(javaSrc.toString()), outDir.getPath(), "", List.of());
+        var result = Tools.Javac.create(new JBuildLog(System.out, false))
+                .compile(Set.of(javaSrc.toString()), outDir.getPath(), "", List.of());
         verifyToolSuccessful("javac", result);
 
         assertThat(outDir).isDirectory();
