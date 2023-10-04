@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static java.util.Collections.unmodifiableMap;
@@ -193,10 +194,21 @@ public final class MavenPom {
         if (scopes.size() == Scope.values().length && includeOptionals) {
             return dependencies;
         }
+        return getDependencies(scopes, dep -> includeOptionals || !dep.optional);
+    }
 
+    /**
+     * Filter the dependencies of this POM that are included in the given scopes
+     * and satisfy the provided filter.
+     *
+     * @param scopes to include
+     * @param filter dependencies to be included
+     * @return dependencies matching the given parameters
+     */
+    public Set<Dependency> getDependencies(EnumSet<Scope> scopes,
+                                           Predicate<Dependency> filter) {
         return dependencies.stream()
-                .filter(dep -> (scopes.contains(dep.scope) &&
-                        (includeOptionals || !dep.optional)))
+                .filter(dep -> (scopes.contains(dep.scope) && filter.test(dep)))
                 .collect(toSet());
     }
 

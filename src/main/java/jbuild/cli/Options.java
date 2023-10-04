@@ -29,6 +29,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.cli.Options.compilePattern;
 import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.isEither;
@@ -155,6 +156,15 @@ final class Options {
                 command, repositories, commandArgs, applicationArgs);
     }
 
+    static Pattern compilePattern(String arg) {
+        try {
+            return Pattern.compile(arg);
+        } catch (PatternSyntaxException e) {
+            throw new JBuildException("Invalid regular expression: " + arg + ": " + e.getMessage(),
+                    USER_INPUT);
+        }
+    }
+
 }
 
 final class FetchOptions {
@@ -245,11 +255,15 @@ final class DepsOptions {
             "                  All scopes are listed by default." + LINE_END +
             "        --transitive" + LINE_END +
             "        -t        include transitive dependencies." + LINE_END +
+            "        --exclusion" + LINE_END +
+            "        -x <regex> dependency exclusion regex pattern, matches against coordinates" + LINE_END +
+            "                   (can be passed more than once)." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " com.google.guava:guava:31.0.1-jre junit:junit:4.13.2";
 
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
+    final Set<Pattern> exclusions;
     final boolean transitive;
     final boolean optional;
     final boolean licenses;
@@ -257,12 +271,14 @@ final class DepsOptions {
 
     DepsOptions(Set<String> artifacts,
                 EnumSet<Scope> scopes,
+                Set<Pattern> exclusions,
                 boolean transitive,
                 boolean optional,
                 boolean licenses,
                 boolean showExtra) {
         this.artifacts = artifacts;
         this.scopes = scopes;
+        this.exclusions = exclusions;
         this.transitive = transitive;
         this.optional = optional;
         this.licenses = licenses;
@@ -272,7 +288,8 @@ final class DepsOptions {
     static DepsOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
-        boolean transitive = false, optional = false,
+        var exclusions = new LinkedHashSet<Pattern>();
+        boolean transitive = false, optional = false, expectExclusion = false,
                 licenses = false, expectScope = false, showExtra = false;
 
         for (String arg : args) {
@@ -284,6 +301,9 @@ final class DepsOptions {
                     throw new JBuildException("invalid scope value: '" + arg +
                             "'. Acceptable values are: " + Arrays.toString(Scope.values()), USER_INPUT);
                 }
+            } else if (expectExclusion) {
+                expectExclusion = false;
+                exclusions.add(compilePattern(arg));
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
@@ -295,6 +315,8 @@ final class DepsOptions {
                     licenses = true;
                 } else if (isEither(arg, "-e", "--extra")) {
                     showExtra = true;
+                } else if (isEither(arg, "-x", "--exclusion")) {
+                    expectExclusion = true;
                 } else {
                     throw new JBuildException("invalid " + NAME + " option: " + arg + "." +
                             (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
@@ -307,12 +329,16 @@ final class DepsOptions {
         if (expectScope) {
             throw new JBuildException("expecting value for 'scope' option", USER_INPUT);
         }
+        if (expectExclusion) {
+            throw new JBuildException("expecting value for 'exclusion' option", USER_INPUT);
+        }
 
         // if no scopes are included explicitly, use all
         if (scopes.isEmpty())
             scopes = EnumSet.allOf(Scope.class);
 
-        return new DepsOptions(unmodifiableSet(artifacts), scopes, transitive, optional, licenses, showExtra);
+        return new DepsOptions(unmodifiableSet(artifacts), scopes, exclusions,
+                transitive, optional, licenses, showExtra);
     }
 
 }
@@ -425,12 +451,7 @@ final class InstallOptions {
                 }
             } else if (expectExclusion) {
                 expectExclusion = false;
-                try {
-                    exclusions.add(Pattern.compile(arg));
-                } catch (PatternSyntaxException e) {
-                    throw new JBuildException("Invalid regular expression: " + arg + ": " + e.getMessage(),
-                            USER_INPUT);
-                }
+                exclusions.add(compilePattern(arg));
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;

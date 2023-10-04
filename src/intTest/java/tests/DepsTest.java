@@ -27,6 +27,22 @@ public class DepsTest extends JBuildTestRunner {
     }
 
     @Test
+    void canListGuavaDependenciesWithExclusions() {
+        var result = runWithIntTestRepo("deps", "-x", ".*checker.*", Artifacts.GUAVA);
+
+        verifySuccessful("jbuild deps", result);
+        assertThat(result.getStdout()).startsWith("Dependencies of " + Artifacts.GUAVA + ":" + LE +
+                "  - scope compile" + LE +
+                "    * com.google.code.findbugs:jsr305:3.0.2 [compile]" + LE +
+                "    * com.google.errorprone:error_prone_annotations:2.7.1 [compile]" + LE +
+                "    * com.google.guava:failureaccess:1.0.1 [compile]" + LE +
+                "    * com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava [compile]" + LE +
+                "    * com.google.j2objc:j2objc-annotations:1.3 [compile]" + LE +
+                "  5 compile dependencies listed" + LE +
+                "JBuild success in ");
+    }
+
+    @Test
     void canListApacheCommonsCompressDependenciesIncludingOptionalsAndSingleScope() {
         var result = runWithIntTestRepo("deps", Artifacts.APACHE_COMMONS_COMPRESS, "-O", "-s", "compile");
 

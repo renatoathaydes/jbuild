@@ -2,6 +2,7 @@ package jbuild.maven;
 
 import jbuild.artifact.Artifact;
 
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +34,23 @@ public final class DependencyTree {
     }
 
     /**
+     * Filter the dependencies that are included in the given scopes,
+     * optionally including optional dependencies.
+     *
+     * @param scopes           to include
+     * @param includeOptionals whether to include optional dependencies
+     * @return dependencies matching the given parameters
+     */
+    public Set<Dependency> getDependencies(EnumSet<Scope> scopes, boolean includeOptionals) {
+        var artifactSet = dependencies.stream()
+                .map(dep -> dep.root.artifact.getCoordinates())
+                .collect(Collectors.toSet());
+        return root.pom.getDependencies(scopes, dep ->
+                (includeOptionals || !dep.optional) &&
+                        artifactSet.contains(dep.artifact.getCoordinates()));
+    }
+
+    /**
      * @return a Set containing the flattened elements of this dependency tree. Notice that the tree may contain
      * the same artifact with multiple versions as no version clash resolution is performed.
      */
@@ -49,8 +67,8 @@ public final class DependencyTree {
                 result.add(dependency.root);
             }
             current = current.stream()
-                .flatMap(c -> c.dependencies.stream())
-                .collect(Collectors.toList());
+                    .flatMap(c -> c.dependencies.stream())
+                    .collect(Collectors.toList());
         }
     }
 

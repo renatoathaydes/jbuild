@@ -253,7 +253,8 @@ public final class Main {
         var depsCommandExecutor = createDepsCommandExecutor(options);
 
         depsCommandExecutor.fetchDependencyTree(
-                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional)
+                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional,
+                        depsOptions.exclusions)
                 .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
                     if (err == null && ok.isPresent()) {
                         treeLogger.log(ok.get()).whenComplete((ok2, err2) -> latch.countDown());

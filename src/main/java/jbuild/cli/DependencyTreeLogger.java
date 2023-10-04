@@ -65,7 +65,7 @@ final class DependencyTreeLogger {
 
         log.println(":");
 
-        var deps = tree.root.pom.getDependencies(expandScopes(options.scopes), options.optional);
+        var deps = tree.getDependencies(expandScopes(options.scopes), options.optional);
 
         if (deps.isEmpty()) {
             log.println("  * no dependencies");
@@ -79,7 +79,7 @@ final class DependencyTreeLogger {
 
     private void logDependencyTreeAndLicenses(DependencyTree tree, Set<Dependency> deps) {
         var groupedDeps = deps.stream()
-            .collect(groupingBy(dep -> dep.scope));
+                .collect(groupingBy(dep -> dep.scope));
 
         var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
 
@@ -98,7 +98,7 @@ final class DependencyTreeLogger {
                     dependencyCount = scopeDeps.size();
                 }
                 log.println(() -> "  " + dependencyCount + " " + scope +
-                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+                        " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
         }
 
@@ -120,8 +120,8 @@ final class DependencyTreeLogger {
                          String indent,
                          Scope scope) {
         var childByKey = dependencies.stream()
-            .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
-                NonEmptyCollection::of, NonEmptyCollection::of));
+                .collect(toMap(c -> ArtifactKey.of(c.root.artifact),
+                        NonEmptyCollection::of, NonEmptyCollection::of));
 
         for (var dep : sorted(scopeDeps, comparing(dep -> dep.artifact.getCoordinates()))) {
             var isNew = !chain.contains(dep);
@@ -143,8 +143,7 @@ final class DependencyTreeLogger {
                     }
                     for (var next : nextBranch) {
                         chain.add(next);
-                        var nextDeps = next.root.pom
-                            .getDependencies(scope.transitiveScopes(), options.optional);
+                        var nextDeps = next.getDependencies(scope.transitiveScopes(), options.optional);
                         logTree(chain, next.dependencies, nextDeps, allLicenses, indent + INDENT, scope);
                         chain.remove(next);
                     }
@@ -160,21 +159,21 @@ final class DependencyTreeLogger {
     private void logLicenses(Set<License> allLicenses) {
         log.println("All licenses listed (see https://spdx.org/licenses/ for more information):");
         allLicenses.stream()
-            .map(DependencyTreeLogger::licenseString)
-            .collect(toCollection(TreeSet::new))
-            .forEach(license -> log.println("  * " + license));
+                .map(DependencyTreeLogger::licenseString)
+                .collect(toCollection(TreeSet::new))
+                .forEach(license -> log.println("  * " + license));
     }
 
     private static String displayLicenses(Set<License> licenses) {
         return licenses.stream()
-            .map(lic -> '{' + licenseString(lic) + '}')
-            .collect(joining(", ", " [", "]"));
+                .map(lic -> '{' + licenseString(lic) + '}')
+                .collect(joining(", ", " [", "]"));
     }
 
     private static String displayDependency(String indent, Dependency dep, String displayVersion) {
         var version = displayVersion == null ? dep.artifact.version : displayVersion;
         return indent + "* " + ArtifactKey.of(dep.artifact).getCoordinates() + ':' + version + ' ' +
-            dependencyExtra(dep, false);
+                dependencyExtra(dep, false);
     }
 
     private static String dependencyExtra(Dependency dep) {
@@ -185,13 +184,13 @@ final class DependencyTreeLogger {
         var classifier = dep.getClassifier();
         var type = dep.type;
         return (includeVersion ? ":" + dep.artifact.version + " " : "") +
-            "[" + dep.scope + "]" +
-            (dep.optional ? "[optional]" : "") +
-            (type == DependencyType.JAR ? "" : "(" + type.string() + ")") +
-            (classifier.isBlank() ? "" : "{" + classifier + "}") +
-            (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
-                .map(ArtifactKey::getCoordinates)
-                .collect(joining(", ", ":exclusions:[", "]")));
+                "[" + dep.scope + "]" +
+                (dep.optional ? "[optional]" : "") +
+                (type == DependencyType.JAR ? "" : "(" + type.string() + ")") +
+                (classifier.isBlank() ? "" : "{" + classifier + "}") +
+                (dep.exclusions.isEmpty() ? "" : dep.exclusions.stream()
+                        .map(ArtifactKey::getCoordinates)
+                        .collect(joining(", ", ":exclusions:[", "]")));
     }
 
     private void logExtra(DependencyTree tree) {
@@ -215,7 +214,7 @@ final class DependencyTreeLogger {
                 }
                 var dependencyCount = parent.getDependencies().size();
                 log.println(() -> "      " + dependencyCount + " " +
-                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+                        " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
             parent = parent.getParentPom().orElse(null);
         }
@@ -224,12 +223,12 @@ final class DependencyTreeLogger {
             log.println("    <empty>");
         } else {
             for (var dep : sorted(pom.getDependencyManagement().entrySet(),
-                comparing(dep -> dep.getKey().getCoordinates()))) {
+                    comparing(dep -> dep.getKey().getCoordinates()))) {
                 log.println(displayEntry(dep));
             }
             var dependencyCount = pom.getDependencyManagement().size();
             log.println(() -> "  " + dependencyCount + " " +
-                " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
+                    " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
         }
     }
 
@@ -239,9 +238,9 @@ final class DependencyTreeLogger {
             return displayDependency(INDENT, entry.getValue().first, null);
         }
         return INDENT + "* " + entry.getKey().getCoordinates() +
-            entry.getValue().stream()
-                .map(DependencyTreeLogger::dependencyExtra)
-                .collect(joining(", ", "{", "}"));
+                entry.getValue().stream()
+                        .map(DependencyTreeLogger::dependencyExtra)
+                        .collect(joining(", ", "{", "}"));
     }
 
     private static String licenseString(License license) {
@@ -369,11 +368,11 @@ final class DependencyTreeLogger {
             var artifact = node.root.artifact;
             chain.add(artifact);
             var byVersion = chainByArtifactKey.computeIfAbsent(
-                ArtifactKey.of(artifact),
-                (ignore) -> new VersionsEntry()
+                    ArtifactKey.of(artifact),
+                    (ignore) -> new VersionsEntry()
             ).chainsByVersion.computeIfAbsent(
-                artifact.version,
-                (ignore) -> new ArrayList<>(2)
+                    artifact.version,
+                    (ignore) -> new ArrayList<>(2)
             );
             // only count if artifact is unique
             if (byVersion.isEmpty()) size++;
@@ -393,8 +392,8 @@ final class DependencyTreeLogger {
 
         private static String chainString(List<Artifact> chain) {
             return chain.stream()
-                .map(Artifact::getCoordinates)
-                .collect(joining(" -> "));
+                    .map(Artifact::getCoordinates)
+                    .collect(joining(" -> "));
         }
 
         boolean contains(Dependency dependency) {
@@ -409,8 +408,8 @@ final class DependencyTreeLogger {
                 var byVersion = entry.chainsByVersion;
                 if (byVersion.size() > 1) {
                     log.println("  The artifact " +
-                        key.groupId + ":" + key.artifactId +
-                        " is required with more than one version:");
+                            key.groupId + ":" + key.artifactId +
+                            " is required with more than one version:");
                     byVersion.forEach((version, chains) -> {
                         for (String chain : chains) {
                             log.println("    * " + version + " (" + chain + ")");
