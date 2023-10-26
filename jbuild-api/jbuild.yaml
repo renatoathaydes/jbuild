@@ -3,8 +3,10 @@ imports:
     - ../build_properties.yaml
 
 group: com.athaydes.jbuild
-name: jbuild-api
+module: jbuild-api
 version: 0.8.0
+description: JBuild Java API for extending the jb tool.
+
 javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ src ]
