@@ -4,6 +4,7 @@ imports:
 
 group: com.athaydes.jbuild
 module: jbuild-api
+name: JBuild API
 version: 0.8.0
 description: JBuild Java API for extending the jb tool.
 

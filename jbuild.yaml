@@ -4,6 +4,7 @@ imports:
 
 group: com.athaydes.jbuild
 module: jbuild
+name: JBuild
 version: 0.8.0
 description: Java CLI and Library for building and analysing Java projects.
 
