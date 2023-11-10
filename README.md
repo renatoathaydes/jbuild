@@ -18,7 +18,7 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [x] fetch artifacts from HTTP repositories.
 - [x] fetch artifacts transitively (install command).
 - [x] specify file and HTTP repositories locations.
-- [ ] fetch and check PGP signatures.
+- [ ] fetch and check PGP signatures (done by `jb`).
 - [x] list direct dependencies of artifacts.
 - [x] list transitive dependencies of artifacts.
 - [x] list available versions of artifacts.
@@ -31,7 +31,7 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [ ] find unused jars/classes/methods, given a classpath and jar entry-points.
 - [ ] automatically prune classpath, removing unused jars.
 - [x] compile and package Java applications.
-- [ ] generate POM.
+- [ ] generate POM (done by `jb`).
 
 ## Non-features
 
@@ -100,13 +100,16 @@ Currently implemented detections:
 Version: 0.0
 
 Utility to build Java (JVM) applications.
-<<<< This is work in progress! >>>>
 
 Usage:
     jbuild <root-options...> <cmd> <cmd-args...> 
 Root Options:
+    --quiet
+     -q       print only minimum output.
     --repository
      -r       Maven repository to use to locate artifacts (file location or HTTP URL).
+    --working-dir
+     -w       The working directory to use.
     --verbose
     -V        log verbose output.
     --version
@@ -121,7 +124,7 @@ Available commands:
   * doctor - finds type-safe classpath given a set of jars
   * fetch - fetches Maven artifacts
   * install - installs Maven artifacts and dependencies into a flat dir or local Maven repo
-  * requirements - finds type requirements of jar(s)
+  * requirements - finds type requirements of jars and class files
   * versions - list the versions of Maven artifacts
   * help - displays this help message or help for one of the other commands
 
@@ -134,8 +137,8 @@ Examples:
   # install latest version of Guava and all its dependencies in directory 'java-libs/'
   jbuild install com.google.guava:guava
 
-  # show all version of Spring available on the Spring repository
-  jbuild versions -r https://repo.spring.io/artifactory/release/ org.springframework:spring-core
+  # show all version of javax.inject on the RedHat repository
+  jbuild -r https://maven.repository.redhat.com/ga/ versions javax.inject:javax.inject
 
   # fetch the Guava POM
   jbuild fetch com.google.guava:guava:31.0.1-jre:pom
@@ -147,10 +150,10 @@ Examples:
 
 ## Java API
 
-The Javadocs will be published at some point.
+[![javadoc](https://javadoc.io/badge2/com.athaydes.jbuild/jbuild/javadoc.svg)](https://javadoc.io/doc/com.athaydes.jbuild/jbuild)
 
-For now, please refer to the CLI code, [jbuild.cli.Main](src/main/java/jbuild/cli/Main.java),
-and [the tests](src/test/java/jbuild/).
+Also refer to the CLI code, [jbuild.cli.Main](src/main/java/jbuild/cli/Main.java),
+and [the tests](src/test/java/jbuild/) to learn more.
 
 ## Building
 
