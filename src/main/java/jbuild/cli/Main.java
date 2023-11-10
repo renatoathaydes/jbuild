@@ -53,7 +53,6 @@ public final class Main {
 
     static final String USAGE =
             "Utility to build Java (JVM) applications." + LINE_END +
-                    "<<<< This is work in progress! >>>>" + LINE_END +
                     LINE_END +
                     "Usage:" + LINE_END +
                     "    jbuild <root-options...> <cmd> <cmd-args...> " + LINE_END +
@@ -88,8 +87,8 @@ public final class Main {
                     "Examples:" + LINE_END +
                     "  # install latest version of Guava and all its dependencies in directory 'java-libs/'" + LINE_END +
                     "  jbuild install com.google.guava:guava" + LINE_END + LINE_END +
-                    "  # show all version of Spring available on the Spring repository" + LINE_END +
-                    "  jbuild versions -r https://repo.spring.io/artifactory/release/ org.springframework:spring-core" + LINE_END + LINE_END +
+                    "  # show all version of javax.inject on the RedHat repository" + LINE_END +
+                    "  jbuild -r https://maven.repository.redhat.com/ga/ versions javax.inject:javax.inject" + LINE_END + LINE_END +
                     "  # fetch the Guava POM" + LINE_END +
                     "  jbuild fetch com.google.guava:guava:31.0.1-jre:pom" + LINE_END + LINE_END +
                     "  # compile all Java sources in 'src/' or 'src/main/java' into a jar" + LINE_END +
