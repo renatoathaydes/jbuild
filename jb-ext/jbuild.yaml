@@ -1,0 +1,16 @@
+imports:
+  - ../errorprone.yaml
+  - ../build_properties.yaml
+
+group: com.athaydes.jbuild
+module: jb-ext
+name: JBuild Extension
+version: 0.0.0
+description: jb extension to run code at compile time.
+
+javac-args: [ "--release={{versions.java}}" ]
+
+dependencies:
+  - com.athaydes.jbuild:jbuild-api:0.8.0:
+      path: ../jbuild-api
+      scope: compile-only
