@@ -121,7 +121,11 @@ public final class Main {
         }
 
         if (options.version || options.command.equals("version")) {
-            System.out.print(options.quiet ? JBUILD_VERSION + LINE_END : JBUILD_HEADER);
+            if (options.quiet) {
+                log.println(JBUILD_VERSION);
+            } else {
+                System.out.print(JBUILD_HEADER);
+            }
             exit.accept(0);
             return;
         }
