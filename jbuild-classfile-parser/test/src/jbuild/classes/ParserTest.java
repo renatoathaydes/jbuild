@@ -5,6 +5,7 @@ import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.MajorVersion;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
+import jbuild.classes.model.attributes.MethodParameter;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -264,6 +265,8 @@ public class ParserTest {
         // only generic methods have a Signature attribute
         assertThat(classFile.getSignatureAttribute(constructors.get(0)))
                 .isNotPresent();
+        assertThat(classFile.getMethodParameters(constructors.get(0)))
+                .isEqualTo(List.of(new MethodParameter(MethodParameter.AccessFlag.NONE, "hello")));
 
         assertThat(classFile.getTypeDescriptor(constructors.get(1)))
                 .isEqualTo("(Ljava/lang/String;ZLjava/util/List;)V");
@@ -271,6 +274,11 @@ public class ParserTest {
                 .isPresent()
                 .get()
                 .isEqualTo("(Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V");
+        assertThat(classFile.getMethodParameters(constructors.get(1)))
+                .isEqualTo(List.of(
+                        new MethodParameter(MethodParameter.AccessFlag.NONE, "foo"),
+                        new MethodParameter(MethodParameter.AccessFlag.ACC_FINAL, "bar"),
+                        new MethodParameter(MethodParameter.AccessFlag.NONE, "strings")));
     }
 
     @Test

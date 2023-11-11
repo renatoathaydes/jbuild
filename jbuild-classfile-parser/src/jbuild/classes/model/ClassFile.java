@@ -3,6 +3,7 @@ package jbuild.classes.model;
 import jbuild.classes.AnnotationParser;
 import jbuild.classes.ByteScanner;
 import jbuild.classes.model.attributes.AnnotationInfo;
+import jbuild.classes.model.attributes.MethodParameter;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -128,22 +129,40 @@ public final class ClassFile {
         return getUtf8(methodInfo.descriptorIndex);
     }
 
+    /**
+     * Get the Signature attribute of the method if available.
+     *
+     * @param methodInfo the method (must be obtained from this class file)
+     * @return the value of the Signature attribute or empty if unavailable.
+     */
     public Optional<String> getSignatureAttribute(MethodInfo methodInfo) {
         return methodInfo.attributes.stream()
                 .filter(attr -> "Signature".equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map(attr -> {
-                    var signatureIndex = AttributeInfo.signatureAttributeValueIndex(attr);
-                    return getUtf8(signatureIndex);
-                });
+                .map(attr -> getUtf8(attr.signatureAttributeValueIndex()));
+    }
+
+    /**
+     * Get the MethodParameters attribute if available.
+     *
+     * @param methodInfo the method (must be obtained from this class file)
+     * @return the value of the MethodParameters attribute or the empty List if unavailable.
+     */
+    public List<MethodParameter> getMethodParameters(MethodInfo methodInfo) {
+        var methodParamsParser = new MethodParametersParser(this);
+        return methodInfo.attributes.stream()
+                .filter(attr -> "MethodParameters".equals(getUtf8(attr.nameIndex)))
+                .findFirst()
+                .map((attr) -> methodParamsParser.parseMethodParameters(attr.attributes))
+                .orElse(List.of());
     }
 
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {
+        var annotationParser = new AnnotationParser(this);
         return attributes.stream()
                 .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map(attribute -> new AnnotationParser(this)
-                        .parseAnnotationInfo(attribute.attributes))
+                .map(attribute -> annotationParser.parseAnnotationInfo(attribute.attributes))
                 .orElse(List.of());
     }
 

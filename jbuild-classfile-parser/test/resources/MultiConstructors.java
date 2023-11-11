@@ -7,7 +7,7 @@ public class MultiConstructors {
 
     }
 
-    public MultiConstructors(String foo, boolean bar, List<String> strings) {
+    public MultiConstructors(String foo, final boolean bar, List<String> strings) {
 
     }
 }
