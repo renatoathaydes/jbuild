@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -80,6 +80,11 @@ public final class ClassFile {
         return nameOf(thisClassInfo);
     }
 
+    public List<MethodInfo> getConstructors() {
+        return methods.stream().filter((m) -> getUtf8(m.nameIndex).equals("<init>"))
+                .collect(toList());
+    }
+
     public Set<String> getInterfaceNames() {
         var result = new LinkedHashSet<String>(interfaces.length);
         for (short interfaceIndex : interfaces) {
@@ -103,7 +108,7 @@ public final class ClassFile {
             var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
                     .filter(e -> e != null &&
-                                 (e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG))
+                            (e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG))
                     .map(e -> typeName(e, thisClassNameIndex))
                     .filter(Objects::nonNull)
                     .collect(toSet());
@@ -117,6 +122,20 @@ public final class ClassFile {
 
     public List<AnnotationInfo> getRuntimeInvisibleAnnotations() {
         return getAnnotationsAttribute("RuntimeInvisibleAnnotations");
+    }
+
+    public String getTypeDescriptor(MethodInfo methodInfo) {
+        return getUtf8(methodInfo.descriptorIndex);
+    }
+
+    public Optional<String> getSignatureAttribute(MethodInfo methodInfo) {
+        return methodInfo.attributes.stream()
+                .filter(attr -> "Signature".equals(getUtf8(attr.nameIndex)))
+                .findFirst()
+                .map(attr -> {
+                    var signatureIndex = AttributeInfo.signatureAttributeValueIndex(attr);
+                    return getUtf8(signatureIndex);
+                });
     }
 
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {
@@ -144,16 +163,16 @@ public final class ClassFile {
         return utf8.asString();
     }
 
-    private String typeName(ConstPoolInfo info, short ignoreIndex) {
+    private String typeName(ConstPoolInfo info, short nameIndex) {
         if (info.tag == ConstPoolInfo.ConstClass.TAG) {
             var classInfo = (ConstPoolInfo.ConstClass) info;
-            if (classInfo.nameIndex == ignoreIndex)
+            if (classInfo.nameIndex == nameIndex)
                 return null;
             return nameOf(classInfo);
         }
         if (info.tag == ConstPoolInfo.NameAndType.TAG) {
             var nameAndType = (ConstPoolInfo.NameAndType) info;
-            if (nameAndType.descriptorIndex == ignoreIndex)
+            if (nameAndType.descriptorIndex == nameIndex)
                 return null;
             return getUtf8(nameAndType.descriptorIndex);
         }

@@ -214,10 +214,10 @@ public class ParserTest {
         ClassFile classFile = parseHelloWorldClass();
 
         assertThat(classFile.getTypeName())
-            .isEqualTo("LHelloWorld;");
+                .isEqualTo("LHelloWorld;");
         assertThat(classFile.getTypesReferredTo())
-            .containsExactlyInAnyOrder("()V",
-                "Ljava/io/PrintStream;", "(Ljava/lang/String;)V");
+                .containsExactlyInAnyOrder("()V",
+                        "Ljava/io/PrintStream;", "(Ljava/lang/String;)V");
 
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).isEmpty();
@@ -228,7 +228,7 @@ public class ParserTest {
         ClassFile classFile = parseExampleAnnotatedClass();
 
         assertThat(classFile.getTypeName())
-            .isEqualTo("Ljbuild/api/ExampleAnnotated;");
+                .isEqualTo("Ljbuild/api/ExampleAnnotated;");
         assertThat(classFile.getTypesReferredTo()).containsExactly("()V");
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).hasSize(1);
@@ -241,21 +241,44 @@ public class ParserTest {
                 .isEqualTo(new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-task"));
         assertThat(annotation.elementValuePairs.get(1))
                 .isEqualTo(new ElementValuePair("inputs", ElementValuePair.Type.ARRAY,
-                                                List.of("*.txt", "*.json")));
+                        List.of("*.txt", "*.json")));
         assertThat(annotation.elementValuePairs.get(2))
                 .isEqualTo(new ElementValuePair("phase", ElementValuePair.Type.ANNOTATION,
-                                                new AnnotationInfo("Ljbuild/api/CustomTaskPhase;", List.of(
-                                                        new ElementValuePair("index", ElementValuePair.Type.INT, 42),
-                                                        new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
-                                                ))));
+                        new AnnotationInfo("Ljbuild/api/CustomTaskPhase;", List.of(
+                                new ElementValuePair("index", ElementValuePair.Type.INT, 42),
+                                new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
+                        ))));
     }
-    
+
+    @Test
+    void canFindClassConstructors() throws IOException {
+        ClassFile classFile = parseMultiConstructorsClass();
+
+        assertThat(classFile.getTypeName())
+                .isEqualTo("Lmain/MultiConstructors;");
+
+        var constructors = classFile.getConstructors();
+        assertThat(constructors).hasSize(2);
+        assertThat(classFile.getTypeDescriptor(constructors.get(0)))
+                .isEqualTo("(Ljava/lang/String;)V");
+        // only generic methods have a Signature attribute
+        assertThat(classFile.getSignatureAttribute(constructors.get(0)))
+                .isNotPresent();
+
+        assertThat(classFile.getTypeDescriptor(constructors.get(1)))
+                .isEqualTo("(Ljava/lang/String;ZLjava/util/List;)V");
+        assertThat(classFile.getSignatureAttribute(constructors.get(1)))
+                .isPresent()
+                .get()
+                .isEqualTo("(Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V");
+    }
+
     @Test
     void canParseDifficultClass() throws IOException {
         ClassFile classFile = parseDifficultClass();
 
         assertThat(classFile.getTypeName())
-            .isEqualTo("Ljbuild/util/AsyncUtils;");
+                .isEqualTo("Ljbuild/util/AsyncUtils;");
     }
 
     @Test
@@ -263,7 +286,7 @@ public class ParserTest {
         ClassFile classFile = parseReallyDifficultClass();
 
         assertThat(classFile.getTypeName())
-            .isEqualTo("Ljbuild/artifact/http/DefaultHttpClient;");
+                .isEqualTo("Ljbuild/artifact/http/DefaultHttpClient;");
         assertThat(classFile.getTypesReferredTo()).containsExactlyInAnyOrder(
                 "Ljava/time/Duration;",
                 "Ljava/net/http/HttpClient;",
@@ -280,6 +303,10 @@ public class ParserTest {
 
     private ClassFile parseHelloWorldClass() throws IOException {
         return parseClass("/HelloWorld.cls");
+    }
+
+    private ClassFile parseMultiConstructorsClass() throws IOException {
+        return parseClass("/MultiConstructors.cls");
     }
 
     private ClassFile parseDifficultClass() throws IOException {

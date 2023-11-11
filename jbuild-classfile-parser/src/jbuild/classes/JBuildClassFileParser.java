@@ -9,9 +9,11 @@ import jbuild.classes.model.MethodInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * A Java Language class file parser.
+ */
 public class JBuildClassFileParser {
 
     /**

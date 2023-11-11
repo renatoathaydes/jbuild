@@ -25,4 +25,19 @@ public final class AttributeInfo {
                 ", attributes=" + Arrays.toString(attributes) +
                 '}';
     }
+
+    /**
+     * Signature_attribute {
+     * u2 attribute_name_index;
+     * u4 attribute_length;
+     * u2 signature_index;
+     * }
+     *
+     * @param info attribute representing a Signature
+     * @return the index of the signature in the constant pool.
+     */
+    public static short signatureAttributeValueIndex(AttributeInfo info) {
+        assert info.attributes.length == 2;
+        return (short) ((info.attributes[0] << 1) | (info.attributes[1]));
+    }
 }
