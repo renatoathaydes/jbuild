@@ -32,28 +32,38 @@ public class JBuildClassFileParser {
         }
     }
 
+    /**
+     * Parse a class file's bytes provided by the given scanner.
+     * <p>
+     * Class file specification as described in:
+     * <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html">The class File Format</a>.
+     *
+     * <pre>
+     *  ClassFile {
+     *     u4             magic;
+     *     u2             minor_version;
+     *     u2             major_version;
+     *     u2             constant_pool_count;
+     *     cp_info        constant_pool[constant_pool_count-1];
+     *     u2             access_flags;
+     *     u2             this_class;
+     *     u2             super_class;
+     *     u2             interfaces_count;
+     *     u2             interfaces[interfaces_count];
+     *     u2             fields_count;
+     *     field_info     fields[fields_count];
+     *     u2             methods_count;
+     *     method_info    methods[methods_count];
+     *     u2             attributes_count;
+     *     attribute_info attributes[attributes_count];
+     * }
+     * </pre>
+     *
+     * @param scanner class file bytes scanner
+     * @return the class file
+     */
     private ClassFile parse(ByteScanner scanner) {
         var magic = scanner.nextInt();
-
-        // ClassFile {
-        //    u4             magic;
-        //    u2             minor_version;
-        //    u2             major_version;
-        //    u2             constant_pool_count;
-        //    cp_info        constant_pool[constant_pool_count-1];
-        //    u2             access_flags;
-        //    u2             this_class;
-        //    u2             super_class;
-        //    u2             interfaces_count;
-        //    u2             interfaces[interfaces_count];
-        //    u2             fields_count;
-        //    field_info     fields[fields_count];
-        //    u2             methods_count;
-        //    method_info    methods[methods_count];
-        //    u2             attributes_count;
-        //    attribute_info attributes[attributes_count];
-        //}
-
         if (magic != ClassFile.MAGIC) {
             throw new ClassFileException("Not a Java class file (missing magic number)", 0);
         }
@@ -86,7 +96,7 @@ public class JBuildClassFileParser {
             result.set(i, info);
             final var tag = info.tag;
             if (tag == ConstPoolInfo.ConstLong.TAG ||
-                tag == ConstPoolInfo.ConstDouble.TAG) {
+                    tag == ConstPoolInfo.ConstDouble.TAG) {
                 // All 8-byte constants take up two entries in the constant_pool table
                 i++;
             }

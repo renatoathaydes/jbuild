@@ -125,7 +125,7 @@ public final class ClassFile {
         return getAnnotationsAttribute("RuntimeInvisibleAnnotations");
     }
 
-    public String getTypeDescriptor(MethodInfo methodInfo) {
+    public String getMethodTypeDescriptor(MethodInfo methodInfo) {
         return getUtf8(methodInfo.descriptorIndex);
     }
 

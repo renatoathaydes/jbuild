@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ParserTest {
+public class JBuildClassFileParserTest {
 
     JBuildClassFileParser parser = new JBuildClassFileParser();
 
@@ -260,7 +260,7 @@ public class ParserTest {
 
         var constructors = classFile.getConstructors();
         assertThat(constructors).hasSize(2);
-        assertThat(classFile.getTypeDescriptor(constructors.get(0)))
+        assertThat(classFile.getMethodTypeDescriptor(constructors.get(0)))
                 .isEqualTo("(Ljava/lang/String;)V");
         // only generic methods have a Signature attribute
         assertThat(classFile.getSignatureAttribute(constructors.get(0)))
@@ -268,7 +268,7 @@ public class ParserTest {
         assertThat(classFile.getMethodParameters(constructors.get(0)))
                 .isEqualTo(List.of(new MethodParameter(MethodParameter.AccessFlag.NONE, "hello")));
 
-        assertThat(classFile.getTypeDescriptor(constructors.get(1)))
+        assertThat(classFile.getMethodTypeDescriptor(constructors.get(1)))
                 .isEqualTo("(Ljava/lang/String;ZLjava/util/List;)V");
         assertThat(classFile.getSignatureAttribute(constructors.get(1)))
                 .isPresent()
@@ -331,7 +331,7 @@ public class ParserTest {
 
     private ClassFile parseClass(String path) throws IOException {
         ClassFile classFile;
-        try (var stream = ParserTest.class.getResourceAsStream(path)) {
+        try (var stream = JBuildClassFileParserTest.class.getResourceAsStream(path)) {
             classFile = parser.parse(stream);
         }
         return classFile;
