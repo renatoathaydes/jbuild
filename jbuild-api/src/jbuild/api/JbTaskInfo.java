@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 
 /**
  * Mandatory annotation for all implementations of {@link JbTask}.
- *
+ * <p>
  * The `jb` utility reads the information provided by this annotation and
  * generates a YAML metadata file during compilation. This file is then used at
  * runtime to efficiently find all tasks provided by a jar.
@@ -31,10 +31,11 @@ public @interface JbTaskInfo {
      * Get the task phase.
      * <p>
      * Built-in phases are {@code setup}, {@code build} and {@code tearDown}.
+     * Use index {@code -1} for existing phases.
      *
      * @return task phase
      */
-    CustomTaskPhase phase() default @CustomTaskPhase(name = "build", index = 500);
+    TaskPhase phase() default @TaskPhase(name = "build");
 
     /**
      * Get the task inputs.

@@ -1,9 +1,11 @@
 package jbuild.log;
 
+import jbuild.api.JBuildLogger;
+
 import java.io.PrintStream;
 import java.util.function.Supplier;
 
-public final class JBuildLog {
+public final class JBuildLog implements JBuildLogger {
 
     public final PrintStream out;
     private final boolean verbose;
@@ -27,26 +29,32 @@ public final class JBuildLog {
         this.enabled = enabled;
     }
 
+    @Override
     public boolean isEnabled() {
         return enabled;
     }
 
+    @Override
     public void println(CharSequence message) {
         if (enabled) doPrintln(message);
     }
 
+    @Override
     public void print(CharSequence message) {
         if (enabled) doPrint(message);
     }
 
+    @Override
     public void println(Supplier<? extends CharSequence> messageGetter) {
         if (enabled) doPrintln(messageGetter.get());
     }
 
+    @Override
     public void print(Supplier<? extends CharSequence> messageGetter) {
         if (enabled) doPrint(messageGetter.get());
     }
 
+    @Override
     public void print(Throwable throwable) {
         if (prefix == null) {
             throwable.printStackTrace(out);
@@ -58,14 +66,17 @@ public final class JBuildLog {
         }
     }
 
+    @Override
     public void verbosePrintln(CharSequence message) {
         if (isVerbose()) doPrintln(message);
     }
 
+    @Override
     public void verbosePrintln(Supplier<? extends CharSequence> messageGetter) {
         if (isVerbose()) doPrintln(messageGetter.get());
     }
 
+    @Override
     public boolean isVerbose() {
         return enabled && verbose;
     }
