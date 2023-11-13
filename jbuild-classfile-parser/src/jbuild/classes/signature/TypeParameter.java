@@ -27,6 +27,14 @@ public final class TypeParameter {
         this.interfaceBoundTypeSignatures = interfaceBoundTypeSignatures;
     }
 
+    public TypeParameter(String identifier) {
+        this(identifier, null, List.of());
+    }
+
+    public TypeParameter(String identifier, JavaTypeSignature.ReferenceTypeSignature classBoundTypeSignature) {
+        this(identifier, classBoundTypeSignature, List.of());
+    }
+
     public Optional<JavaTypeSignature.ReferenceTypeSignature> getClassBoundTypeSignature() {
         return Optional.ofNullable(classBoundTypeSignature);
     }

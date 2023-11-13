@@ -3,8 +3,9 @@ package jbuild.classes.signature;
 import java.util.List;
 
 /**
- * <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.9.1">JavaTypeSignature</a>.
- *
+ * A Java type signature represents either a reference type or a primitive type of the Java programming language.
+ * <p>
+ * See <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.9.1">JavaTypeSignature</a>.
  * <pre>
  * JavaTypeSignature:
  *   ReferenceTypeSignature

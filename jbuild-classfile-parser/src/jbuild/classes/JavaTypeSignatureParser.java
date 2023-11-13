@@ -1,5 +1,6 @@
 package jbuild.classes;
 
+import jbuild.classes.signature.ClassSignature;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ArrayTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
@@ -32,7 +33,7 @@ public final class JavaTypeSignatureParser {
         @Override
         public String toString() {
             return errorMessage + '\n' + typeSignature + '\n' +
-                    " ".repeat(Math.max(0, index - 1)) +
+                    " ".repeat(Math.max(0, index)) +
                     '^';
         }
     }
@@ -55,6 +56,25 @@ public final class JavaTypeSignatureParser {
     }
 
     /**
+     * Parse a {@link ClassSignature}.
+     *
+     * @param typeSignature class signature
+     * @return the class signature
+     */
+    public ClassSignature parseClassSignature(String typeSignature) {
+        var typeParameters = parseTypeParameters(typeSignature);
+        ensureCharHere('L', typeSignature, "SuperclassSignature");
+        var superClass = parseClassTypeSignature(typeSignature);
+        final var len = typeSignature.length();
+        var superInterfaces = new ArrayList<ClassTypeSignature>(2);
+        while (state.index < len) {
+            ensureCharHere('L', typeSignature, "SuperinterfaceSignature");
+            superInterfaces.add(parseClassTypeSignature(typeSignature));
+        }
+        return new ClassSignature(typeParameters, superClass, superInterfaces);
+    }
+
+    /**
      * Parse a {@link MethodSignature}.
      *
      * @param typeSignature Method signature descriptor
@@ -63,7 +83,7 @@ public final class JavaTypeSignatureParser {
     public MethodSignature parseMethodSignature(String typeSignature) {
         state.index = 0;
         var typeParameters = parseTypeParameters(typeSignature);
-        ensureCharHere('(', typeSignature);
+        ensureCharHere('(', typeSignature, "MethodSignature type parameters");
         var methodArgs = new ArrayList<JavaTypeSignature>(4);
         while (next(typeSignature, () ->
                 "expected to find end of MethodSignature but reached the end of the type") != ')') {
@@ -75,10 +95,12 @@ public final class JavaTypeSignatureParser {
     }
 
     private JavaTypeSignature parseTypeSignature(String typeSignature, int arrayDimensions) {
-        var index = state.index;
-        if (typeSignature.isBlank()) throw new JavaTypeParseException(index, typeSignature, "blank string");
-        var baseType = JavaTypeSignature.BaseType.pickOrNull(typeSignature.charAt(index));
-        if (baseType != null) return maybeAsArray(baseType, arrayDimensions);
+        var ch = next(typeSignature, false, () -> "expected TypeSignature but reached the end of the type");
+        var baseType = JavaTypeSignature.BaseType.pickOrNull(ch);
+        if (baseType != null) {
+            state.index++;
+            return maybeAsArray(baseType, arrayDimensions);
+        }
         return parseReferenceTypeSignature(typeSignature, arrayDimensions);
     }
 
@@ -104,10 +126,9 @@ public final class JavaTypeSignatureParser {
     private ClassTypeSignature parseClassTypeSignature(String typeSignature) {
         var packages = new ArrayList<String>(4);
         String nextPart;
-        char end;
         while (true) {
             nextPart = parseIdentifier(typeSignature);
-            end = next(typeSignature, () ->
+            var end = next(typeSignature, () ->
                     "expected PackageSpecifier or SimpleClassTypeSignature but reached the end of the type");
             if (end == '/') packages.add(nextPart);
             else {
@@ -117,6 +138,8 @@ public final class JavaTypeSignatureParser {
         }
         var packageName = String.join(".", packages);
         var simpleTypeSignature = parseSimpleClassType(typeSignature, nextPart);
+        var end = next(typeSignature, () ->
+                "expected ';' after SimpleClassTypeSignature but reached the end of the type");
         switch (end) {
             case ';':
                 return new ClassTypeSignature(packageName, simpleTypeSignature);
@@ -131,7 +154,7 @@ public final class JavaTypeSignatureParser {
     }
 
     private SimpleClassTypeSignature parseSimpleClassType(String typeSignature, String identifier) {
-        if (state.index < identifier.length()) {
+        if (state.index < typeSignature.length()) {
             var ch = typeSignature.charAt(state.index);
             if (ch == '<') {
                 state.index++;
@@ -146,9 +169,9 @@ public final class JavaTypeSignatureParser {
         var result = new ArrayList<SimpleClassTypeSignature>(2);
         while (state.index < typeSignature.length()) {
             var identifier = parseIdentifier(typeSignature);
+            result.add(parseSimpleClassType(typeSignature, identifier));
             var end = next(typeSignature, () ->
                     "expected end of ClassTypeSignatureSuffix but reached the end of the type");
-            result.add(parseSimpleClassType(typeSignature, identifier));
             if (end == ';') return result;
             if (end != '.') {
                 throw new JavaTypeParseException(state.index - 1, typeSignature,
@@ -166,6 +189,7 @@ public final class JavaTypeSignatureParser {
             var ch = next(typeSignature, () ->
                     "expected end of type arguments but reached the end of the type");
             if (ch == '>') return result;
+            state.index--;
         }
     }
 
@@ -191,11 +215,10 @@ public final class JavaTypeSignatureParser {
 
     private TypeVariableSignature parseTypeVariableSignature(String typeSignature) {
         var identifier = parseIdentifier(typeSignature);
-        var index = state.index;
         var end = next(typeSignature, () ->
                 "expected identifier ending at ';' but reached the end of the type");
         if (end != ';') {
-            throw new JavaTypeParseException(index, typeSignature, "invalid character '" + end +
+            throw new JavaTypeParseException(state.index - 1, typeSignature, "invalid character '" + end +
                     "' after TypeVariableSignature identifier");
         }
         return new TypeVariableSignature(identifier);
@@ -207,7 +230,7 @@ public final class JavaTypeSignatureParser {
         if (ch != '<') return List.of();
         state.index++;
         var typeParameter = parseTypeParameter(typeSignature);
-        var result = new ArrayList<TypeParameter>(4);
+        var result = new ArrayList<TypeParameter>(2);
         result.add(typeParameter);
         ch = next(typeSignature, false, () -> "expected TypeParameter '>' but reached the end the type");
         while (ch != '>') {
@@ -220,7 +243,7 @@ public final class JavaTypeSignatureParser {
 
     private TypeParameter parseTypeParameter(String typeSignature) {
         var identifier = parseIdentifier(typeSignature);
-        ensureCharHere(':', typeSignature);
+        ensureCharHere(':', typeSignature, "TypeParameter ClassBound");
         var beforeClassBound = next(typeSignature, false, () ->
                 "expected ClassBound but reached the end the type");
         switch (beforeClassBound) {
@@ -314,11 +337,12 @@ public final class JavaTypeSignatureParser {
         return result;
     }
 
-    private void ensureCharHere(char ch, String typeSignature) {
-        var here = next(typeSignature, () -> "expected '" + ch + "' but reached the end of the type");
+    private void ensureCharHere(char ch, String typeSignature, String expectation) {
+        var here = next(typeSignature, () -> "expected '" + ch + "' (" + expectation +
+                ") but reached the end of the type");
         if (here != ch) {
             throw new JavaTypeParseException(state.index, typeSignature,
-                    "expected '" + ch + "' but found '" + here + "' instead");
+                    "expected '" + ch + "' (" + expectation + ") but found '" + here + "' instead");
         }
     }
 

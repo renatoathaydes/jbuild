@@ -36,6 +36,11 @@ public final class ClassSignature {
         this.superInterfaceSignatures = superInterfaceSignatures;
     }
 
+    public ClassSignature(List<TypeParameter> typeParameters,
+                          ClassTypeSignature superclassSignature) {
+        this(typeParameters, superclassSignature, List.of());
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
