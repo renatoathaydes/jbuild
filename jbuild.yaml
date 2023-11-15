@@ -13,4 +13,4 @@ javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ jbuild-api/src, jbuild-classfile-parser/src, src/main/java ]
 
-#extension-project: jb-ext
+extension-project: jb-ext

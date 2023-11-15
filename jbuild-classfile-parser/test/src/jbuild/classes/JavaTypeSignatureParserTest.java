@@ -2,7 +2,13 @@ package jbuild.classes;
 
 import jbuild.classes.signature.ClassSignature;
 import jbuild.classes.signature.JavaTypeSignature;
+import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
+import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.TypeVariableSignature;
+import jbuild.classes.signature.MethodSignature;
+import jbuild.classes.signature.MethodSignature.MethodResult.MethodReturnType;
+import jbuild.classes.signature.MethodSignature.MethodResult.VoidDescriptor;
 import jbuild.classes.signature.SimpleClassTypeSignature;
+import jbuild.classes.signature.SimpleClassTypeSignature.WildCardIndicator;
 import jbuild.classes.signature.TypeParameter;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +17,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JavaTypeSignatureParserTest {
+
+    public static final ClassTypeSignature OBJECT = new ClassTypeSignature("java.lang",
+            new SimpleClassTypeSignature("Object"));
+
+    public static final ClassTypeSignature LIST = new ClassTypeSignature("java.util",
+            new SimpleClassTypeSignature("List"));
+
     private final JavaTypeSignatureParser parser = new JavaTypeSignatureParser();
 
     @Test
@@ -23,9 +36,7 @@ public class JavaTypeSignatureParserTest {
     @Test
     void canParseArrayTypeSignature() {
         assertThat(parser.parseTypeSignature("[Ljava/lang/Object;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ArrayTypeSignature((short) 1,
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
-                                new SimpleClassTypeSignature("Object"))));
+                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ArrayTypeSignature((short) 1, OBJECT));
     }
 
     @Test
@@ -43,19 +54,17 @@ public class JavaTypeSignatureParserTest {
 
     @Test
     void canParseSimpleClassTypeSignature() {
-        assertThat(parser.parseTypeSignature("Ljava/lang/Object;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
-                        new SimpleClassTypeSignature("Object")));
+        assertThat(parser.parseTypeSignature("Ljava/lang/Object;")).isEqualTo(OBJECT);
     }
 
     @Test
     void canParseClassTypeSignatureWithSuffix() {
         assertThat(parser.parseTypeSignature("Lorg/T1.T2;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("org",
+                .isEqualTo(new ClassTypeSignature("org",
                         new SimpleClassTypeSignature("T1"), List.of(new SimpleClassTypeSignature("T2"))));
 
         assertThat(parser.parseTypeSignature("Lorg/T1.T2.T3.T4;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("org",
+                .isEqualTo(new ClassTypeSignature("org",
                         new SimpleClassTypeSignature("T1"),
                         List.of(new SimpleClassTypeSignature("T2"), new SimpleClassTypeSignature("T3"),
                                 new SimpleClassTypeSignature("T4"))));
@@ -64,10 +73,10 @@ public class JavaTypeSignatureParserTest {
     @Test
     void canParseClassTypeSignatureGeneric() {
         assertThat(parser.parseTypeSignature("LFoo<LBar;>;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                .isEqualTo(new ClassTypeSignature("",
                         new SimpleClassTypeSignature("Foo",
                                 List.of(new SimpleClassTypeSignature.TypeArgument.Reference(
-                                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                                        new ClassTypeSignature("",
                                                 new SimpleClassTypeSignature("Bar")))))));
     }
 
@@ -75,23 +84,23 @@ public class JavaTypeSignatureParserTest {
     void canParseClassTypeSignatureGenericWildcardTypeVariable() {
         var typeArgs = List.<SimpleClassTypeSignature.TypeArgument>of(
                 new SimpleClassTypeSignature.TypeArgument.Reference(
-                        new JavaTypeSignature.ReferenceTypeSignature.TypeVariableSignature("V"),
-                        SimpleClassTypeSignature.WildCardIndicator.PLUS),
+                        new TypeVariableSignature("V"),
+                        WildCardIndicator.PLUS),
                 new SimpleClassTypeSignature.TypeArgument.Reference(
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("Bar")),
-                        SimpleClassTypeSignature.WildCardIndicator.MINUS)
+                        WildCardIndicator.MINUS)
         );
 
         assertThat(parser.parseTypeSignature("La/b/C<+TV;-LBar;>;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("a.b",
+                .isEqualTo(new ClassTypeSignature("a.b",
                         new SimpleClassTypeSignature("C", typeArgs)));
     }
 
     @Test
     void canParseClassTypeSignatureGenericWithStar() {
         assertThat(parser.parseTypeSignature("La/b/C<*>;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("a.b",
+                .isEqualTo(new ClassTypeSignature("a.b",
                         new SimpleClassTypeSignature("C", List.of(
                                 SimpleClassTypeSignature.TypeArgument.Star.INSTANCE))));
     }
@@ -100,17 +109,16 @@ public class JavaTypeSignatureParserTest {
     void canParseClassTypeSignatureGenericNestedGeneric() {
         var nestedTypeArgs = List.<SimpleClassTypeSignature.TypeArgument>of(
                 new SimpleClassTypeSignature.TypeArgument.Reference(
-                        new JavaTypeSignature.ReferenceTypeSignature.TypeVariableSignature("Generic"),
-                        SimpleClassTypeSignature.WildCardIndicator.PLUS),
+                        new TypeVariableSignature("Generic"),
+                        WildCardIndicator.PLUS),
                 SimpleClassTypeSignature.TypeArgument.Star.INSTANCE,
                 new SimpleClassTypeSignature.TypeArgument.Reference(
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.util",
-                                new SimpleClassTypeSignature("List")),
-                        SimpleClassTypeSignature.WildCardIndicator.MINUS)
+                        LIST,
+                        WildCardIndicator.MINUS)
         );
 
         assertThat(parser.parseTypeSignature("La/b/C<*>.D<+TGeneric;*-Ljava/util/List;>.E;"))
-                .isEqualTo(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("a.b",
+                .isEqualTo(new ClassTypeSignature("a.b",
                         new SimpleClassTypeSignature("C", List.of(
                                 SimpleClassTypeSignature.TypeArgument.Star.INSTANCE)),
                         List.of(new SimpleClassTypeSignature("D", nestedTypeArgs),
@@ -120,18 +128,15 @@ public class JavaTypeSignatureParserTest {
     @Test
     void canParseClassSignature() {
         assertThat(parser.parseClassSignature("Ljava/lang/Object;"))
-                .isEqualTo(new ClassSignature(List.of(),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
-                                new SimpleClassTypeSignature("Object"))));
+                .isEqualTo(new ClassSignature(List.of(), OBJECT));
     }
 
     @Test
     void canParseClassSignatureWithInterface() {
         assertThat(parser.parseClassSignature("Ljava/lang/Object;Lrunner/Run;"))
                 .isEqualTo(new ClassSignature(List.of(),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
-                                new SimpleClassTypeSignature("Object")),
-                        List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("runner",
+                        OBJECT,
+                        List.of(new ClassTypeSignature("runner",
                                 new SimpleClassTypeSignature("Run")))));
     }
 
@@ -139,13 +144,13 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureWithInterfaces() {
         assertThat(parser.parseClassSignature("LS;LA;LB;LC;"))
                 .isEqualTo(new ClassSignature(List.of(),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("S")),
-                        List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        List.of(new ClassTypeSignature("",
                                         new SimpleClassTypeSignature("A")),
-                                new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                                new ClassTypeSignature("",
                                         new SimpleClassTypeSignature("B")),
-                                new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                                new ClassTypeSignature("",
                                         new SimpleClassTypeSignature("C")))));
     }
 
@@ -153,8 +158,7 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureGeneric() {
         assertThat(parser.parseClassSignature("<A:>Ljava/lang/Object;"))
                 .isEqualTo(new ClassSignature(List.of(new TypeParameter("A")),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
-                                new SimpleClassTypeSignature("Object"))));
+                        OBJECT));
     }
 
     @Test
@@ -163,7 +167,7 @@ public class JavaTypeSignatureParserTest {
                 .isEqualTo(new ClassSignature(List.of(new TypeParameter("Foo",
                         new JavaTypeSignature.ReferenceTypeSignature.ArrayTypeSignature((short) 1,
                                 JavaTypeSignature.BaseType.Z))),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("A"))));
     }
 
@@ -171,11 +175,11 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureGenericWithOnlyInterfaceBounds() {
         assertThat(parser.parseClassSignature("<F::Ljava/lang/Runnable;:Lanother/Interface;>LA;"))
                 .isEqualTo(new ClassSignature(List.of(new TypeParameter("F", null,
-                        List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
+                        List.of(new ClassTypeSignature("java.lang",
                                         new SimpleClassTypeSignature("Runnable")),
-                                new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("another",
+                                new ClassTypeSignature("another",
                                         new SimpleClassTypeSignature("Interface"))))),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("A"))));
     }
 
@@ -183,11 +187,11 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureGenericWithClassBoundAndInterfaceBound() {
         assertThat(parser.parseClassSignature("<F:Lsome/Bound;:Lanother/Interface;>LA;"))
                 .isEqualTo(new ClassSignature(List.of(new TypeParameter("F",
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("some",
+                        new ClassTypeSignature("some",
                                 new SimpleClassTypeSignature("Bound")),
-                        List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("another",
+                        List.of(new ClassTypeSignature("another",
                                 new SimpleClassTypeSignature("Interface"))))),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("A"))));
     }
 
@@ -195,13 +199,13 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureGenericWithClassBoundAndInterfaceBounds() {
         assertThat(parser.parseClassSignature("<F:Lsome/Bound;:Lanother/Interface;:Lone/More;>LA;"))
                 .isEqualTo(new ClassSignature(List.of(new TypeParameter("F",
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("some",
+                        new ClassTypeSignature("some",
                                 new SimpleClassTypeSignature("Bound")),
-                        List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("another",
+                        List.of(new ClassTypeSignature("another",
                                         new SimpleClassTypeSignature("Interface")),
-                                new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("one",
+                                new ClassTypeSignature("one",
                                         new SimpleClassTypeSignature("More"))))),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("A"))));
     }
 
@@ -209,10 +213,9 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureGenericTypeParameters() {
         assertThat(parser.parseClassSignature("<Foo:Ljava/lang/Object;Bar:>LA;"))
                 .isEqualTo(new ClassSignature(List.of(
-                        new TypeParameter("Foo", new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
-                                new SimpleClassTypeSignature("Object"))),
+                        new TypeParameter("Foo", OBJECT),
                         new TypeParameter("Bar")),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("A"))));
     }
 
@@ -220,13 +223,123 @@ public class JavaTypeSignatureParserTest {
     void canParseClassSignatureGenericTypeParametersWithBounds() {
         assertThat(parser.parseClassSignature("<Foo::Ljava/util/List;Bar::Ljava/lang/Runnable;F:>LA;"))
                 .isEqualTo(new ClassSignature(List.of(
-                        new TypeParameter("Foo", null, List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.util",
-                                new SimpleClassTypeSignature("List")))),
-                        new TypeParameter("Bar", null, List.of(new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("java.lang",
+                        new TypeParameter("Foo", null, List.of(LIST)),
+                        new TypeParameter("Bar", null, List.of(new ClassTypeSignature("java.lang",
                                 new SimpleClassTypeSignature("Runnable")))),
                         new TypeParameter("F")),
-                        new JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature("",
+                        new ClassTypeSignature("",
                                 new SimpleClassTypeSignature("A"))));
+    }
+
+    @Test
+    void canParseBasicMethodSignature() {
+        assertThat(parser.parseMethodSignature("()V")).isEqualTo(new MethodSignature(
+                List.of(), VoidDescriptor.INSTANCE));
+    }
+
+    @Test
+    void canParseSimpleMethodSignature() {
+        assertThat(parser.parseMethodSignature("()Z")).isEqualTo(new MethodSignature(
+                List.of(), new MethodReturnType(JavaTypeSignature.BaseType.Z)));
+    }
+
+    @Test
+    void canParseMethodSignatureWithPrimitiveArgs() {
+        assertThat(parser.parseMethodSignature("(B)Z")).isEqualTo(new MethodSignature(
+                List.of(JavaTypeSignature.BaseType.B),
+                new MethodReturnType(JavaTypeSignature.BaseType.Z)));
+
+        assertThat(parser.parseMethodSignature("(BJ)I")).isEqualTo(new MethodSignature(
+                List.of(JavaTypeSignature.BaseType.B, JavaTypeSignature.BaseType.J),
+                new MethodReturnType(JavaTypeSignature.BaseType.I)));
+    }
+
+    @Test
+    void canParseMethodSignatureWithReferenceTypes() {
+        assertThat(parser.parseMethodSignature("(Ljava/lang/Object;)Ljava/util/List;"))
+                .isEqualTo(new MethodSignature(List.of(OBJECT),
+                        new MethodReturnType(LIST)));
+
+        assertThat(parser.parseMethodSignature("(Ljava/lang/Object;B)Ljava/util/List;"))
+                .isEqualTo(new MethodSignature(List.of(OBJECT, JavaTypeSignature.BaseType.B),
+                        new MethodReturnType(LIST)));
+    }
+
+    @Test
+    void canParseSimpleMethodSignatureThrows() {
+        assertThat(parser.parseMethodSignature("()V^Lthrowable/Ex;")).isEqualTo(new MethodSignature(
+                List.of(), List.of(), VoidDescriptor.INSTANCE,
+                List.of(new MethodSignature.ThrowsSignature.Class(
+                        new ClassTypeSignature("throwable", new SimpleClassTypeSignature("Ex"))
+                ))));
+    }
+
+    @Test
+    void canParseMethodSignatureThrowsMany() {
+        assertThat(parser.parseMethodSignature("()V^Lthrowable/Ex;^LMore;^LLast;")).isEqualTo(new MethodSignature(
+                List.of(), List.of(), VoidDescriptor.INSTANCE,
+                List.of(new MethodSignature.ThrowsSignature.Class(
+                        new ClassTypeSignature("throwable", new SimpleClassTypeSignature("Ex"))
+                ), new MethodSignature.ThrowsSignature.Class(
+                        new ClassTypeSignature("", new SimpleClassTypeSignature("More"))
+                ), new MethodSignature.ThrowsSignature.Class(
+                        new ClassTypeSignature("", new SimpleClassTypeSignature("Last"))
+                ))));
+    }
+
+    @Test
+    void canParseMethodSignatureThrowsGeneric() {
+        assertThat(parser.parseMethodSignature("()V^TT;")).isEqualTo(new MethodSignature(
+                List.of(), List.of(), VoidDescriptor.INSTANCE,
+                List.of(new MethodSignature.ThrowsSignature.TypeVariable(
+                        new TypeVariableSignature("T")
+                ))));
+    }
+
+    @Test
+    void canParseMethodSignatureThrowsGenerics() {
+        assertThat(parser.parseMethodSignature("()V^TT;^TE;")).isEqualTo(new MethodSignature(
+                List.of(), List.of(), VoidDescriptor.INSTANCE,
+                List.of(new MethodSignature.ThrowsSignature.TypeVariable(
+                        new TypeVariableSignature("T")
+                ), new MethodSignature.ThrowsSignature.TypeVariable(
+                        new TypeVariableSignature("E")
+                ))));
+    }
+
+    @Test
+    void canParseMethodSignatureThrowsGenericAndReferenceType() {
+        assertThat(parser.parseMethodSignature("()V^TT;^Lerror/Error;")).isEqualTo(new MethodSignature(
+                List.of(), List.of(), VoidDescriptor.INSTANCE,
+                List.of(new MethodSignature.ThrowsSignature.TypeVariable(
+                        new TypeVariableSignature("T")
+                ), new MethodSignature.ThrowsSignature.Class(
+                        new ClassTypeSignature("error", new SimpleClassTypeSignature("Error"))
+                ))));
+    }
+
+    @Test
+    void canParseGenericMethodSignature() {
+        assertThat(parser.parseMethodSignature("<A:Ljava/lang/Object;>()Z")).isEqualTo(new MethodSignature(
+                List.of(new TypeParameter("A", OBJECT)), List.of(),
+                new MethodReturnType(JavaTypeSignature.BaseType.Z), List.of()));
+    }
+
+    @Test
+    void canParseGenericMethodSignatureWithArgs() {
+        assertThat(parser.parseMethodSignature("<A:Ljava/lang/Object;>(BJ)Z")).isEqualTo(new MethodSignature(
+                List.of(new TypeParameter("A", OBJECT)),
+                List.of(JavaTypeSignature.BaseType.B, JavaTypeSignature.BaseType.J),
+                new MethodReturnType(JavaTypeSignature.BaseType.Z), List.of()));
+    }
+
+    @Test
+    void canParseGenericMethodSignatureWithManyParameters() {
+        assertThat(parser.parseMethodSignature("<A:Ljava/lang/Object;Another::LRunnable;>(B)Z")).isEqualTo(new MethodSignature(
+                List.of(new TypeParameter("A", OBJECT), new TypeParameter("Another", null,
+                        List.of(new ClassTypeSignature("", new SimpleClassTypeSignature("Runnable"))))),
+                List.of(JavaTypeSignature.BaseType.B),
+                new MethodReturnType(JavaTypeSignature.BaseType.Z), List.of()));
     }
 
 }

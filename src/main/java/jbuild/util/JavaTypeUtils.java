@@ -181,7 +181,7 @@ public final class JavaTypeUtils {
     }
 
     /**
-     * Parse a list of types from a method argument list type descriptor.
+     * Parse a list of types referred to from a method argument list type descriptor.
      * <p>
      * This method is intended to be used to find reference to types, hence it drops array components from type
      * descriptors, i.e. if a type is referred to as an array like {@code [Ljava/lang/Object;}, this method will
@@ -190,7 +190,7 @@ public final class JavaTypeUtils {
      * @param typeDef type definition
      * @return the plain types included in the type definition
      */
-    public static List<String> parseMethodArgumentsTypes(String typeDef) {
+    public static List<String> parseMethodTypeRefs(String typeDef) {
         if (typeDef.startsWith("(")) {
             typeDef = typeDef.substring(1);
         }

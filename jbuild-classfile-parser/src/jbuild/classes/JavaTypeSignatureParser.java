@@ -62,6 +62,7 @@ public final class JavaTypeSignatureParser {
      * @return the class signature
      */
     public ClassSignature parseClassSignature(String typeSignature) {
+        state.index = 0;
         var typeParameters = parseTypeParameters(typeSignature);
         ensureCharHere('L', typeSignature, "SuperclassSignature");
         var superClass = parseClassTypeSignature(typeSignature);
@@ -85,10 +86,11 @@ public final class JavaTypeSignatureParser {
         var typeParameters = parseTypeParameters(typeSignature);
         ensureCharHere('(', typeSignature, "MethodSignature type parameters");
         var methodArgs = new ArrayList<JavaTypeSignature>(4);
-        while (next(typeSignature, () ->
+        while (next(typeSignature, false, () ->
                 "expected to find end of MethodSignature but reached the end of the type") != ')') {
             methodArgs.add(parseTypeSignature(typeSignature, 0));
         }
+        state.index++;
         var methodResult = parseMethodResult(typeSignature);
         var throwsSignature = parseThrowsSignature(typeSignature);
         return new MethodSignature(typeParameters, methodArgs, methodResult, throwsSignature);
@@ -276,7 +278,10 @@ public final class JavaTypeSignatureParser {
 
     private MethodSignature.MethodResult parseMethodResult(String typeSignature) {
         var ch = next(typeSignature, false, () -> "expected MethodResult but reached the end of the type");
-        if (ch == 'V') return MethodSignature.MethodResult.VoidDescriptor.INSTANCE;
+        if (ch == 'V') {
+            state.index++;
+            return MethodSignature.MethodResult.VoidDescriptor.INSTANCE;
+        }
         return new MethodSignature.MethodResult.MethodReturnType(parseTypeSignature(typeSignature, 0));
     }
 
@@ -295,8 +300,10 @@ public final class JavaTypeSignatureParser {
             switch (ch) {
                 case 'L':
                     result.add(new MethodSignature.ThrowsSignature.Class(parseClassTypeSignature(typeSignature)));
+                    break;
                 case 'T':
                     result.add(new MethodSignature.ThrowsSignature.TypeVariable(parseTypeVariableSignature(typeSignature)));
+                    break;
                 default:
                     throw new JavaTypeParseException(state.index - 1, typeSignature, "expected ClassTypeSignature or " +
                             "TypeVariableSignature of ThrowsSignature but got '" + ch + "'");

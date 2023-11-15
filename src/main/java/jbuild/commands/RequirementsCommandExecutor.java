@@ -166,7 +166,7 @@ public class RequirementsCommandExecutor {
             // type may be a type descriptor
             List<String> allTypes;
             if (typeItem.contains("(")) {
-                allTypes = JavaTypeUtils.parseMethodArgumentsTypes(typeItem);
+                allTypes = JavaTypeUtils.parseMethodTypeRefs(typeItem);
             } else {
                 allTypes = List.of(typeItem);
             }

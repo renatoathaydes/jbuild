@@ -18,11 +18,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
 
 final class JbManifestGenerator {
+
+    public static final String JB_TASK_INFO = "Ljbuild/api/JbTaskInfo;";
+
+    private static final Pattern SAFE_IDENTIFIER = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]*");
 
     private final JBuildLog log;
 
@@ -32,13 +36,12 @@ final class JbManifestGenerator {
 
     FileCollection generateJbManifest(String classesDir) {
         var startTime = System.currentTimeMillis();
-        var types = findTypeDefinitions(classesDir);
-        var extensions = findExtensions(types);
+        var extensions = findExtensions(classesDir);
         log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
-            (System.currentTimeMillis() - startTime) + " ms");
+                (System.currentTimeMillis() - startTime) + " ms");
         if (extensions.isEmpty()) {
             throw new JBuildException("Cannot generate jb manifest. " +
-                "Failed to locate implementations of jbuild.api.JbTask", ErrorCause.USER_INPUT);
+                    "Failed to locate implementations of jbuild.api.JbTask", ErrorCause.USER_INPUT);
         }
         return createManifest(extensions);
     }
@@ -77,71 +80,182 @@ final class JbManifestGenerator {
     private void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
         var className = JavaTypeUtils.typeNameToClassName(extension.getTypeName());
         log.verbosePrintln(() -> "Creating jb manifest for " + className);
-        for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
-            if (annotation.typeDescriptor.equals("Ljbuild/api/JbTaskInfo;")) {
-                writeInfo(className, annotation.getMap(), yamlBuilder);
-                return; // only one annotation is allowed
+        try {
+            for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
+                if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
+                    var configObject = describeConfigObject(extension);
+                    writeInfo(className, configObject, annotation.getMap(), yamlBuilder);
+                    return; // only one annotation is allowed
+                }
             }
+        } catch (JBuildException e) {
+            throw new JBuildException("jb extension '" + className + "' could not be created: " +
+                    e.getMessage(), e.getErrorCause());
         }
         throw new JBuildException(
-            "jb extension '" + className + "' is not annotated with @jbuild.api.JbTaskInfo",
-            ErrorCause.USER_INPUT);
+                "jb extension '" + className + "' is not annotated with @jbuild.api.JbTaskInfo",
+                ErrorCause.USER_INPUT);
     }
 
-    private void writeInfo(String className, Map<String, ElementValuePair> annotation, StringBuilder yamlBuilder) {
-        yamlBuilder.append("  \"").append(annotation.get("name").value).append("\":\n");
+    private ConfigObjectDescriptor describeConfigObject(ClassFile extension) {
+        for (var constructor : extension.getConstructors()) {
+            var params = extension.getMethodParameters(constructor);
+            JavaTypeUtils.parseMethodTypeRefs(extension.getMethodTypeDescriptor(constructor));
+            if (!params.isEmpty()) {
+                if (params.stream().anyMatch(it -> it.name.isEmpty())) {
+                    throw new JBuildException("cannot see the name of a constructor parameter - " +
+                            "make sure to compile the class with the javac -parameters option " +
+                            "or use a Java record for the configuration object.",
+                            ErrorCause.USER_INPUT);
+                }
+
+            }
+        }
+        return null;
+    }
+
+    private void writeInfo(String className,
+                           ConfigObjectDescriptor configObject,
+                           Map<String, ElementValuePair> annotation,
+                           StringBuilder yamlBuilder) {
+        yamlBuilder.append("  \"").append(safeTaskName(annotation.get("name").value)).append("\":\n");
         yamlBuilder.append("    class-name: ").append(className).append('\n');
         var description = annotation.get("description");
         if (description != null) {
-            yamlBuilder.append("    description: ").append(description.value).append('\n');
+            yamlBuilder.append("    description: ").append(safeTaskDescription(description.value)).append('\n');
         }
         var phase = annotation.get("phase");
         if (phase != null) {
             var phaseAnnotation = ((AnnotationInfo) phase.value).getMap();
-            yamlBuilder.append("    phase:\n      \"").append(phaseAnnotation.get("name").value)
-                .append("\": ").append(phaseAnnotation.get("index").value).append('\n');
+            yamlBuilder.append("    phase:\n      \"")
+                    .append(safePhaseName(phaseAnnotation.get("name").value))
+                    .append("\": ").append(phaseAnnotation.get("index").value).append('\n');
         }
-        writeStrings(annotation, "inputs", "inputs", yamlBuilder);
-        writeStrings(annotation, "outputs", "outputs", yamlBuilder);
-        writeStrings(annotation, "dependsOn", "depends-on", yamlBuilder);
-        writeStrings(annotation, "dependents", "dependents", yamlBuilder);
+        writeStrings(annotation, "inputs", "inputs", yamlBuilder, false);
+        writeStrings(annotation, "outputs", "outputs", yamlBuilder, false);
+        writeStrings(annotation, "dependsOn", "depends-on", yamlBuilder, true);
+        writeStrings(annotation, "dependents", "dependents", yamlBuilder, true);
+        writeConstructors(configObject.constructors, yamlBuilder);
     }
 
     private static void writeStrings(Map<String, ElementValuePair> annotation,
                                      String section,
                                      String yamlName,
-                                     StringBuilder yamlBuilder) {
+                                     StringBuilder yamlBuilder,
+                                     boolean validateTaskName) {
         var sectionValue = annotation.get(section);
         if (sectionValue != null) {
             var values = (List<?>) sectionValue.value;
             yamlBuilder.append("    ").append(yamlName).append(":\n");
             for (var value : values) {
-                yamlBuilder.append("      - \"").append(value.toString().replaceAll("/", "//")).append("\"\n");
+                var allowWhitespace = !validateTaskName;
+                yamlBuilder.append("      - \"").append(safeYamlString(value, section, allowWhitespace)).append("\"\n");
             }
         }
     }
 
-    private List<ClassFile> findExtensions(Stream<ClassFile> types) {
-        return types.filter(type -> type.getInterfaceNames().contains("Ljbuild/api/JbTask;"))
-            .collect(toList());
+    private void writeConstructors(List<ConfigObjectConstructor> constructors, StringBuilder yamlBuilder) {
+        yamlBuilder.append("    config-constructors:\n");
+        for (var constructor : constructors) {
+            if (constructor.parameters.isEmpty()) {
+                yamlBuilder.append("        - {}\n");
+            } else {
+                var isFirst = true;
+                for (var entry : constructor.parameters.entrySet()) {
+                    yamlBuilder.append(isFirst ? "        - " : "          ");
+                    yamlBuilder.append("\"").append(entry.getKey()).append("\": \"")
+                            .append(entry.getValue().name()).append("\"\n");
+                    isFirst = false;
+                }
+            }
+        }
     }
 
-    private static Stream<ClassFile> findTypeDefinitions(String directory) {
+    private static String safeTaskName(Object value) {
+        return safeYamlString(value, "task name", false);
+    }
+
+    private static String safeTaskDescription(Object value) {
+        return safeYamlString(value, "task description", true);
+    }
+
+    private static String safePhaseName(Object value) {
+        var string = (String) value;
+        if (!SAFE_IDENTIFIER.matcher(string).matches()) {
+            throw new JBuildException(
+                    "value of 'phase name' is not a valid identifier",
+                    ErrorCause.USER_INPUT);
+        }
+        return string;
+    }
+
+    private static String safeYamlString(Object value, String property, boolean allowWhitespace) {
+        var string = (String) value;
+        string.chars().forEach((ch) -> {
+            if (ch == '"') throwInvalidCharacter('"', property);
+            if (ch == '\n') throwInvalidCharacter('\n', property);
+            if (!allowWhitespace && Character.isWhitespace(ch)) throwInvalidCharacter(' ', property);
+        });
+        return string;
+    }
+
+    private static void throwInvalidCharacter(char c, String property) {
+        throw new JBuildException(
+                "value of '" + property + "' contains invalid character: '" + c + "'",
+                ErrorCause.USER_INPUT);
+    }
+
+    private List<ClassFile> findExtensions(String directory) {
         var parser = new JBuildClassFileParser();
-        var classFiles = FileUtils.collectFiles(directory, FileUtils.CLASS_FILES_FILTER);
-        return classFiles.files.stream()
-            .map(classFile -> parseClassFile(parser, classFile));
+        return FileUtils.collectFiles(directory, FileUtils.CLASS_FILES_FILTER).files.stream()
+                .map(classFile -> parseClassFile(parser, classFile))
+                .filter(type -> type.getInterfaceNames().contains("Ljbuild/api/JbTask;")
+                        || warnIfAnnotatedWithTaskInfo(type))
+                .collect(toList());
+    }
+
+    private boolean warnIfAnnotatedWithTaskInfo(ClassFile type) {
+        for (var annotation : type.getRuntimeInvisibleAnnotations()) {
+            if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
+                log.println(() -> "WARNING: class " +
+                        JavaTypeUtils.typeNameToClassName(type.getTypeName()) +
+                        "is annotated with @JbTaskInfo but does not implement JbTask, " +
+                        "so it will not become a jb task!");
+            }
+        }
+
+        return false;
     }
 
     private static ClassFile parseClassFile(
-        JBuildClassFileParser parser,
-        String classFile) {
+            JBuildClassFileParser parser,
+            String classFile) {
         try (var stream = new FileInputStream(classFile)) {
             return parser.parse(stream);
         } catch (IOException e) {
             throw new JBuildException("Unable to read class file at " + classFile + ": " + e,
-                ErrorCause.ACTION_ERROR);
+                    ErrorCause.ACTION_ERROR);
         }
+    }
 
+    private enum ConfigType {
+        STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS,
+    }
+
+    private static final class ConfigObjectConstructor {
+        final Map<String, ConfigType> parameters;
+
+        public ConfigObjectConstructor(Map<String, ConfigType> parameters) {
+            this.parameters = parameters;
+        }
+    }
+
+    private static final class ConfigObjectDescriptor {
+
+        final List<ConfigObjectConstructor> constructors;
+
+        public ConfigObjectDescriptor(List<ConfigObjectConstructor> constructors) {
+            this.constructors = constructors;
+        }
     }
 }

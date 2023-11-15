@@ -5,7 +5,7 @@ import jbuild.util.Describable;
 import java.util.List;
 import java.util.function.Function;
 
-import static jbuild.util.JavaTypeUtils.parseMethodArgumentsTypes;
+import static jbuild.util.JavaTypeUtils.parseMethodTypeRefs;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
@@ -126,7 +126,7 @@ public abstract class Definition implements Describable {
                 if (paramsCloseIndex < 0) {
                     parameterTypes = List.of();
                 } else {
-                    parameterTypes = parseMethodArgumentsTypes(type.substring(0, paramsCloseIndex));
+                    parameterTypes = parseMethodTypeRefs(type.substring(0, paramsCloseIndex));
                 }
             }
             return parameterTypes;

@@ -38,6 +38,10 @@ public final class MethodSignature {
         this.throwsSignatures = throwsSignatures;
     }
 
+    public MethodSignature(List<JavaTypeSignature> arguments, MethodResult result) {
+        this(List.of(), arguments, result, List.of());
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
