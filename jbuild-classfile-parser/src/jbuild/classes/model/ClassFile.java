@@ -2,8 +2,10 @@ package jbuild.classes.model;
 
 import jbuild.classes.AnnotationParser;
 import jbuild.classes.ByteScanner;
+import jbuild.classes.JavaTypeSignatureParser;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.signature.MethodSignature;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -125,21 +127,34 @@ public final class ClassFile {
         return getAnnotationsAttribute("RuntimeInvisibleAnnotations");
     }
 
-    public String getMethodTypeDescriptor(MethodInfo methodInfo) {
-        return getUtf8(methodInfo.descriptorIndex);
+    public MethodSignature getMethodTypeDescriptor(MethodInfo methodInfo) {
+        return new JavaTypeSignatureParser().parseMethodSignature(
+                getUtf8(methodInfo.descriptorIndex));
     }
 
     /**
      * Get the Signature attribute of the method if available.
+     * <p>
+     * The compiler only emits Signature attributes for generic types.
+     * <p>
+     * <quote>
+     * A Java compiler must emit a signature for any class, interface, constructor, method, field,
+     * or record component whose declaration uses type variables or parameterized types.
+     * </quote>
+     * <p>
+     * Reference: <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.9.1">
+     * Java spec section 4.7.9.1
+     * </a>
      *
      * @param methodInfo the method (must be obtained from this class file)
      * @return the value of the Signature attribute or empty if unavailable.
      */
-    public Optional<String> getSignatureAttribute(MethodInfo methodInfo) {
+    public Optional<MethodSignature> getSignatureAttribute(MethodInfo methodInfo) {
         return methodInfo.attributes.stream()
                 .filter(attr -> "Signature".equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map(attr -> getUtf8(attr.signatureAttributeValueIndex()));
+                .map(attr -> new JavaTypeSignatureParser().parseMethodSignature(
+                        getUtf8(attr.signatureAttributeValueIndex())));
     }
 
     /**

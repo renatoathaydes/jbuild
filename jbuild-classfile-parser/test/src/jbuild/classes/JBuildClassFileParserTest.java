@@ -6,6 +6,12 @@ import jbuild.classes.model.MajorVersion;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
 import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.signature.JavaTypeSignature;
+import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
+import jbuild.classes.signature.MethodSignature;
+import jbuild.classes.signature.MethodSignature.MethodResult.VoidDescriptor;
+import jbuild.classes.signature.SimpleClassTypeSignature;
+import jbuild.classes.signature.SimpleClassTypeSignature.TypeArgument;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -253,6 +259,8 @@ public class JBuildClassFileParserTest {
 
     @Test
     void canFindClassConstructors() throws IOException {
+        var stringType = new ClassTypeSignature("java.lang", new SimpleClassTypeSignature("String"));
+
         ClassFile classFile = parseMultiConstructorsClass();
 
         assertThat(classFile.getTypeName())
@@ -261,19 +269,35 @@ public class JBuildClassFileParserTest {
         var constructors = classFile.getConstructors();
         assertThat(constructors).hasSize(2);
         assertThat(classFile.getMethodTypeDescriptor(constructors.get(0)))
-                .isEqualTo("(Ljava/lang/String;)V");
+                .isEqualTo(new MethodSignature(List.of(stringType),
+                        VoidDescriptor.INSTANCE)); // (Ljava/lang/String;)V
         // only generic methods have a Signature attribute
         assertThat(classFile.getSignatureAttribute(constructors.get(0)))
                 .isNotPresent();
         assertThat(classFile.getMethodParameters(constructors.get(0)))
                 .isEqualTo(List.of(new MethodParameter(MethodParameter.AccessFlag.NONE, "hello")));
 
+        // String foo, final boolean bar, List<String> strings
+        // (Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V
+        var constructorSignature = new MethodSignature(List.of(), List.of(
+                stringType,
+                JavaTypeSignature.BaseType.Z,
+                new ClassTypeSignature("java.util",
+                        new SimpleClassTypeSignature("List", List.of(
+                                new TypeArgument.Reference(stringType))))),
+                VoidDescriptor.INSTANCE,
+                List.of());
+
         assertThat(classFile.getMethodTypeDescriptor(constructors.get(1)))
-                .isEqualTo("(Ljava/lang/String;ZLjava/util/List;)V");
+                .isEqualTo(new MethodSignature(List.of(stringType,
+                        JavaTypeSignature.BaseType.Z,
+                        new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List"))),
+                        VoidDescriptor.INSTANCE)); // (Ljava/lang/String;ZLjava/util/List;)V
         assertThat(classFile.getSignatureAttribute(constructors.get(1)))
                 .isPresent()
                 .get()
-                .isEqualTo("(Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V");
+                .isEqualTo(constructorSignature);
+
         assertThat(classFile.getMethodParameters(constructors.get(1)))
                 .isEqualTo(List.of(
                         new MethodParameter(MethodParameter.AccessFlag.NONE, "foo"),

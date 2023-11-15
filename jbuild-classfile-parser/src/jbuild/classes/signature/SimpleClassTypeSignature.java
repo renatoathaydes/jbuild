@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
+ * A component of a {@link jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature}.
+ *
  * <pre>
  * SimpleClassTypeSignature:
  *   Identifier [TypeArguments]

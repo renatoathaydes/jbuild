@@ -91,6 +91,9 @@ public interface JavaTypeSignature {
      */
     interface ReferenceTypeSignature extends JavaTypeSignature {
 
+        /**
+         * A class type signature represents a (possibly parameterized) class or interface type.
+         */
         final class ClassTypeSignature implements ReferenceTypeSignature {
             public final String packageName;
             public final SimpleClassTypeSignature typeSignature;
