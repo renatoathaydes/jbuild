@@ -1,6 +1,6 @@
 package jbuild.classes.model.attributes;
 
-public class ElementValuePair {
+public final class ElementValuePair {
 
     public enum Type {
         BYTE('B'), CHAR('C'), DOUBLE('D'), FLOAT('F'), INT('I'), LONG('J'), SHORT('S'), BOOL('Z'),

@@ -172,9 +172,11 @@ public final class JbManifestGenerator {
         var phase = annotation.get("phase");
         if (phase != null) {
             var phaseAnnotation = ((AnnotationInfo) phase.value).getMap();
+            var phaseIndexValue = phaseAnnotation.get("index");
+            var phaseIndex = phaseIndexValue == null ? -1 : phaseIndexValue.value;
             yamlBuilder.append("    phase:\n      \"")
                     .append(safePhaseName(phaseAnnotation.get("name").value))
-                    .append("\": ").append(phaseAnnotation.get("index").value).append('\n');
+                    .append("\": ").append(phaseIndex).append('\n');
         }
         writeStrings(annotation, "inputs", "inputs", yamlBuilder, false);
         writeStrings(annotation, "outputs", "outputs", yamlBuilder, false);
