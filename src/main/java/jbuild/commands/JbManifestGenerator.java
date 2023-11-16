@@ -6,6 +6,13 @@ import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
+import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.signature.JavaTypeSignature;
+import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ArrayTypeSignature;
+import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
+import jbuild.classes.signature.MethodSignature;
+import jbuild.classes.signature.SimpleClassTypeSignature;
+import jbuild.classes.signature.SimpleClassTypeSignature.TypeArgument;
 import jbuild.log.JBuildLog;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
@@ -16,17 +23,27 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
 
-final class JbManifestGenerator {
+public final class JbManifestGenerator {
 
     public static final String JB_TASK_INFO = "Ljbuild/api/JbTaskInfo;";
 
     private static final Pattern SAFE_IDENTIFIER = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]*");
+
+    private static final ClassTypeSignature STRING =
+            new ClassTypeSignature("java.lang", new SimpleClassTypeSignature("String"));
+
+    private static final ClassTypeSignature LIST_STRING =
+            new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List", List.of(
+                    new TypeArgument.Reference(STRING))));
+
+    private static final ArrayTypeSignature ARRAY_STRING = new ArrayTypeSignature((short) 1, STRING);
 
     private final JBuildLog log;
 
@@ -98,20 +115,44 @@ final class JbManifestGenerator {
     }
 
     private ConfigObjectDescriptor describeConfigObject(ClassFile extension) {
-        for (var constructor : extension.getConstructors()) {
+        var className = JavaTypeUtils.typeNameToClassName(extension.getTypeName());
+        var constructors = extension.getConstructors().stream().map(constructor -> {
             var params = extension.getMethodParameters(constructor);
-            JavaTypeUtils.parseMethodTypeRefs(extension.getMethodTypeDescriptor(constructor));
-            if (!params.isEmpty()) {
-                if (params.stream().anyMatch(it -> it.name.isEmpty())) {
-                    throw new JBuildException("cannot see the name of a constructor parameter - " +
-                            "make sure to compile the class with the javac -parameters option " +
-                            "or use a Java record for the configuration object.",
-                            ErrorCause.USER_INPUT);
-                }
+            ensureParameterNamesAvailable(params, className);
 
-            }
+            // prefer to use the generic type if it's available as we need the type parameters
+            return extension.getSignatureAttribute(constructor)
+                    .map(signature -> createConstructor(className, params, signature))
+                    .orElseGet(() -> createConstructor(className, params,
+                            extension.getMethodTypeDescriptor(constructor)));
+        });
+        return new ConfigObjectDescriptor(constructors.collect(toList()));
+    }
+
+    private static void ensureParameterNamesAvailable(List<MethodParameter> params, String className) {
+        if (params.stream().anyMatch(it -> it.name.isEmpty())) {
+            throw new JBuildException("Constructor of class " + className + " has unnamed parameters - " +
+                    "make sure to compile the class with the javac -parameters option " +
+                    "or use a Java record for the configuration object.",
+                    ErrorCause.USER_INPUT);
         }
-        return null;
+    }
+
+    private static ConfigObjectConstructor createConstructor(
+            String className, List<MethodParameter> params, MethodSignature genericType) {
+        var paramTypes = new HashMap<String, ConfigType>();
+        if (!genericType.typeParameters.isEmpty()) {
+            throw new JBuildException("Constructor of class " + className +
+                    " is generic, which is not allowed in a jb extension.",
+                    ErrorCause.USER_INPUT);
+        }
+        var paramIndex = 0;
+        for (var arg : genericType.arguments) {
+            var param = params.get(paramIndex++);
+            var type = toConfigType(arg, className, param.name);
+            paramTypes.put(param.name, type);
+        }
+        return new ConfigObjectConstructor(Map.copyOf(paramTypes));
     }
 
     private void writeInfo(String className,
@@ -238,8 +279,27 @@ final class JbManifestGenerator {
         }
     }
 
+    private static ConfigType toConfigType(JavaTypeSignature arg, String className, String name) {
+        if (arg instanceof JavaTypeSignature.BaseType) {
+            var argType = (JavaTypeSignature.BaseType) arg;
+            if (argType == JavaTypeSignature.BaseType.Z) return ConfigType.BOOLEAN;
+            if (argType == JavaTypeSignature.BaseType.I) return ConfigType.INT;
+            if (argType == JavaTypeSignature.BaseType.F) return ConfigType.FLOAT;
+        } else if (arg instanceof ClassTypeSignature) {
+            var refType = (ClassTypeSignature) arg;
+            if (STRING.equals(refType)) return ConfigType.STRING;
+            if (LIST_STRING.equals(refType)) return ConfigType.LIST_OF_STRINGS;
+        } else if (arg instanceof ArrayTypeSignature) {
+            var arrayType = (ArrayTypeSignature) arg;
+            if (ARRAY_STRING.equals(arrayType)) return ConfigType.ARRAY_OF_STRINGS;
+        }
+        throw new JBuildException("At class " + className + ", constructor parameter '" + name +
+                "' has an unsupported type for jb extension (use String, String[], List<String> or a primitive type)",
+                ErrorCause.USER_INPUT);
+    }
+
     private enum ConfigType {
-        STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS,
+        STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS, ARRAY_OF_STRINGS,
     }
 
     private static final class ConfigObjectConstructor {
