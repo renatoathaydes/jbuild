@@ -98,20 +98,20 @@ public final class Jar {
         var parser = new JBuildClassFileParser();
         try (var zip = new ZipFile(file)) {
             return zip.stream().filter(s -> !s.isDirectory() && s.getName().endsWith(".class")).map(stream -> {
-                try {
-                    return parser.parse(zip.getInputStream(stream));
+                try (var zipStream = zip.getInputStream(stream)) {
+                    return parser.parse(zipStream);
                 } catch (IOException e) {
                     throw new JBuildException("Error reading jar: " + file + ": " + e,
-                                              JBuildException.ErrorCause.IO_READ);
+                            JBuildException.ErrorCause.IO_READ);
                 } catch (Exception e) {
                     throw new JBuildException("Error parsing " + stream.getName() +
-                                              " in jar: " + file + ": " + e,
-                                              JBuildException.ErrorCause.ACTION_ERROR);      
+                            " in jar: " + file + ": " + e,
+                            JBuildException.ErrorCause.ACTION_ERROR);
                 }
             }).collect(Collectors.toList());
         } catch (IOException e) {
             throw new JBuildException("Error reading jar: " + file + ": " + e,
-                                      JBuildException.ErrorCause.IO_READ);
+                    JBuildException.ErrorCause.IO_READ);
         }
     }
 
