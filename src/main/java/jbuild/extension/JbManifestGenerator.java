@@ -1,4 +1,4 @@
-package jbuild.commands;
+package jbuild.extension;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
@@ -23,13 +23,16 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
 
+/**
+ * jb extension manifest generator.
+ */
 public final class JbManifestGenerator {
 
     public static final String JB_TASK_INFO = "Ljbuild/api/JbTaskInfo;";
@@ -47,11 +50,11 @@ public final class JbManifestGenerator {
 
     private final JBuildLog log;
 
-    JbManifestGenerator(JBuildLog log) {
+    public JbManifestGenerator(JBuildLog log) {
         this.log = log;
     }
 
-    FileCollection generateJbManifest(String classesDir) {
+    public FileCollection generateJbManifest(String classesDir) {
         var startTime = System.currentTimeMillis();
         var extensions = findExtensions(classesDir);
         log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
@@ -94,7 +97,8 @@ public final class JbManifestGenerator {
         return new FileCollection(dir.toString(), List.of(manifest.toString()));
     }
 
-    private void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
+    // VisibleForTesting
+    void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
         var className = JavaTypeUtils.typeNameToClassName(extension.getTypeName());
         log.verbosePrintln(() -> "Creating jb manifest for " + className);
         try {
@@ -140,7 +144,7 @@ public final class JbManifestGenerator {
 
     private static ConfigObjectConstructor createConstructor(
             String className, List<MethodParameter> params, MethodSignature genericType) {
-        var paramTypes = new HashMap<String, ConfigType>();
+        var paramTypes = new LinkedHashMap<String, ConfigType>();
         if (!genericType.typeParameters.isEmpty()) {
             throw new JBuildException("Constructor of class " + className +
                     " is generic, which is not allowed in a jb extension.",
@@ -152,7 +156,7 @@ public final class JbManifestGenerator {
             var type = toConfigType(arg, className, param.name);
             paramTypes.put(param.name, type);
         }
-        return new ConfigObjectConstructor(Map.copyOf(paramTypes));
+        return new ConfigObjectConstructor(paramTypes);
     }
 
     private void writeInfo(String className,
@@ -199,11 +203,11 @@ public final class JbManifestGenerator {
         yamlBuilder.append("    config-constructors:\n");
         for (var constructor : constructors) {
             if (constructor.parameters.isEmpty()) {
-                yamlBuilder.append("        - {}\n");
+                yamlBuilder.append("      - {}\n");
             } else {
                 var isFirst = true;
                 for (var entry : constructor.parameters.entrySet()) {
-                    yamlBuilder.append(isFirst ? "        - " : "          ");
+                    yamlBuilder.append(isFirst ? "      - " : "        ");
                     yamlBuilder.append("\"").append(entry.getKey()).append("\": \"")
                             .append(entry.getValue().name()).append("\"\n");
                     isFirst = false;
@@ -305,7 +309,7 @@ public final class JbManifestGenerator {
     private static final class ConfigObjectConstructor {
         final Map<String, ConfigType> parameters;
 
-        public ConfigObjectConstructor(Map<String, ConfigType> parameters) {
+        public ConfigObjectConstructor(LinkedHashMap<String, ConfigType> parameters) {
             this.parameters = parameters;
         }
     }

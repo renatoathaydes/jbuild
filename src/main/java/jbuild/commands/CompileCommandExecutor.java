@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
+import jbuild.extension.JbManifestGenerator;
 import jbuild.java.tools.CreateJarOptions;
 import jbuild.java.tools.CreateJarOptions.FileSet;
 import jbuild.java.tools.ToolRunResult;
