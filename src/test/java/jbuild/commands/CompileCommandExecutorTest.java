@@ -3,12 +3,10 @@ package jbuild.commands;
 import jbuild.TestSystemProperties;
 import jbuild.java.JavapOutputParser;
 import jbuild.java.tools.Tools;
-import jbuild.log.JBuildLog;
 import jbuild.util.Either;
+import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,9 +25,9 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileClassFiles() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var bytesOut = logEntry.getValue();
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -76,9 +74,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileClassFilesOnWorkingDir() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -122,9 +119,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileToJarUsingClasspathOption() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -185,9 +181,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -239,9 +234,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileToJarAndSourcesAndJavadocJar() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -317,9 +311,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCopyResources() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -362,9 +355,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithOnlyModifiedFile() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -430,9 +422,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithOnlyModifiedResourceFile() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -497,9 +488,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithOnlyDeletedResourceFileJar() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -560,9 +550,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithOnlyDeletedResourceFileDir() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -624,9 +613,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithModifiedAndAddedFiles() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -699,9 +687,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithModifiedAndDeletedFile() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
@@ -778,9 +765,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void incrementalCompilationWithModifiedAndDeletedFileInPackageAndOutputDir() throws Exception {
-        var bytesOut = new ByteArrayOutputStream();
-        var out = new PrintStream(bytesOut);
-        var log = new JBuildLog(out, false);
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 
         var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
