@@ -1,6 +1,7 @@
 package jbuild.java.tools.runner;
 
 import jbuild.api.JBuildException;
+import jbuild.api.JBuildException.ErrorCause;
 import jbuild.cli.RpcMain;
 import jbuild.log.JBuildLog;
 
@@ -14,6 +15,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -73,10 +75,12 @@ public final class JavaRunner {
     }
 
     public Object run(RpcMethodCall methodCall) {
-        return run(methodCall.getClassName(), methodCall.getMethodName(), methodCall.getParameters());
+        return run(methodCall.getClassName(), List.of(), methodCall.getMethodName(), methodCall.getParameters());
     }
 
-    public Object run(String className, String method, Object... args) {
+    public Object run(String className,
+                      List<?> constructorData,
+                      String method, Object... args) {
         Class<?> type;
         if (className == null || className.isBlank()) { // use RcpMain
             type = RpcMain.class;
@@ -94,7 +98,7 @@ public final class JavaRunner {
         if (matchMethod.isPresent()) {
             Object object;
             try {
-                object = createReceiverType(type);
+                object = createReceiverType(type, constructorData);
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                      NoSuchMethodException e) {
                 throw new JBuildException(e.toString(), USER_INPUT);
@@ -114,17 +118,25 @@ public final class JavaRunner {
                 Arrays.toString(args) + " (" + typesOf(args) + ")", USER_INPUT);
     }
 
-    private Object createReceiverType(Class<?> type) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
-        Constructor<?> logConstructor = null;
-        try {
-            logConstructor = type.getConstructor(JBuildLog.class);
-        } catch (NoSuchMethodException e) {
-            log.verbosePrintln(() -> "Class " + type.getName() + " does not have a constructor that accepts JBuildLog." +
-                    " Calling default constructor.");
+    private Object createReceiverType(Class<?> type, List<?> constructorData)
+            throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+        Constructor<?> constructor = Arrays.stream(type.getConstructors())
+                .filter(c -> c.getParameterCount() == constructorData.size())
+                .findFirst()
+                .orElse(null);
+        if (constructor != null) {
+            return constructor.newInstance(constructorData.toArray());
         }
-        if (logConstructor != null) {
-            return logConstructor.newInstance(log);
+
+        // try JBuildLogger constructor
+        constructor = Arrays.stream(type.getConstructors())
+                .filter(c -> c.getParameterCount() == 1 && c.getParameterTypes()[0] == JBuildLog.class)
+                .findFirst()
+                .orElse(null);
+        if (constructor != null) {
+            return constructor.newInstance(log);
         }
+
         return type.getConstructor().newInstance();
     }
 
@@ -132,12 +144,12 @@ public final class JavaRunner {
         if (classpath.length == 0) {
             return Class.forName(className);
         }
-        try (var classLoader = new URLClassLoader(classpath)) {
+        try (var classLoader = new URLClassLoader(classpath, JavaRunner.class.getClassLoader())) {
             return classLoader.loadClass(className);
         } catch (IOException e) {
             throw new JBuildException(
                     "Error creating ClassLoader from classpath: " + Arrays.toString(classpath),
-                    JBuildException.ErrorCause.IO_READ);
+                    ErrorCause.IO_READ);
         }
     }
 

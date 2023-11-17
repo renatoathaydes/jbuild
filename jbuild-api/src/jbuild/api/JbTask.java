@@ -7,24 +7,29 @@ import java.io.IOException;
  * <p>
  * <h3>Implementation requirements</h3>
  * Implementations must be annotated with {@link JbTaskInfo}.
- * <p>
- * Implementations may take arguments in one or more of its constructors, and {@code jb}
- * will use the most appropriate one it can provide data for.
- * <p>
- * The following types may be provided by {@code jb}:
- * <ul>
- *     <li>{@link JBuildLogger}</li>
- *     <li>A configuration class or record (see below)</li>
- * </ul>
+ * If a task declares {@link JbTaskInfo#outputs()}, then it must produce those outputs.
+ * A task should not read any files except those declared in {@link JbTaskInfo#inputs()},
+ * or start any Threads which do not complete before the task's run method returns.
  * <p>
  * <h3>Task Configuration</h3>
- * A task may specify that it accepts configuration by declaring a public constructor which accepts
- * a configuration object.
- * A configuration object is an instance of a class which has one or more constructors that accept
- * named parameters with configuration data.
- * To create an instance of a configuration object, {@code jb} tries to find configuration for the
- * task in the {@code jb} configuration file under a property with the same name as the task.
+ * Implementations may take arguments in one or more of its constructors, and {@code jb}
+ * will try to match the configuration provided for the task with one of them.
+ * The provided configuration must match exactly one of the constructors, both by
+ * parameter name and type.
  * <p>
+ * To find configuration for the task in the {@code jb} configuration, a top-level property
+ * with the same name as the task is searched for.
+ * <p>
+ * The following types may be used in a task constructor:
+ * <ul>
+ *     <li>{@link JBuildLogger} (provided by {@code jb} if requested)</li>
+ *     <li>{@link String} (may be null)</li>
+ *     <li>{@code int}</li>
+ *     <li>{@code float}</li>
+ *     <li>{@code boolean}</li>
+ *     <li>{@code List<String>}</li>
+ *     <li>{@code String[]}</li>
+ * </ul>
  * For example, if the task is called {@code example-task},
  * then the configuration for the task may look like this in the {@code jb} configuration file:
  * <pre>
@@ -33,31 +38,29 @@ import java.io.IOException;
  *     quite: false
  * </code>
  * </pre>
- * The configuration class or record for the above task would then look like this:
+ * This would match a constructor as follows:
  * <pre>
  * <code>
- * {@code public record ExampleTaskConfig(
- *     boolean quiet) {}}
+ * {@code public record ExampleTask(boolean quiet)}
  * </code>
  * </pre>
  * Notice that when using records, the field name determines the property name in the {@code jb} configuration.
  * With regular classes, it's the constructor's parameter names that get used, hence the class must have
  * been compiled with the javac {@code -p} option (which is the default with JBuild).
  * <p>
- * The configuration object can receive {@code jb}'s own configuration properties as well
- * by annotating the relevant parameter with {@link JbConfigProperty}.
+ * A task data may receive {@code jb}'s own configuration properties as well
+ * by annotating the relevant parameters with {@link JbConfigProperty}.
  * <p>
  * For example, to get the project version, a configuration class like the following could
  * be used:
  * <pre>
  * <code>
  * {@code
- * public record ExampleTaskConfig(
- *     @JbConfigProperty version) {}}
+ * public record ExampleTaskConfig(@JbConfigProperty version) {}}
  * </code>
  * </pre>
- * If any property is optional, the configuration object can either use the type {@link java.util.Optional}
- * for it, or provide alternative constructors in which optional parameters do not appear.
+ * Only {@link String} parameters are allowed to be {@code null}. Values of all other acceptable
+ * types are guaranteed to be non-null if the configuration was accepted.
  */
 public interface JbTask {
 

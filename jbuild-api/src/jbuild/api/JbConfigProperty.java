@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marker annotation for constructor parameters of jb tasks' configuration classes
+ * Marker annotation for constructor parameters of jb tasks
  * which indicates that the field's value comes from {@code jb}'s own configuration,
  * not that of the task.
  * <p>

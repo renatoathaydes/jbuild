@@ -11,6 +11,7 @@ import jbuild.log.JBuildLog;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -81,19 +82,25 @@ public final class RpcMain {
     /**
      * Run an arbitrary class and method.
      *
-     * @param classpath  classpath to use
-     * @param className  name of the class
-     * @param methodName name of the method
-     * @param args       method arguments
+     * @param classpath       classpath to use
+     * @param constructorData arguments for the constructor
+     * @param className       name of the class
+     * @param methodName      name of the method
+     * @param args            method arguments
      * @return the result of the method call
      * @throws ExecutionException   when a problem occurs within an async call
      * @throws InterruptedException if the Thread is interrupted
      */
-    public Object run(String classpath, String className, String methodName, String... args)
+    public Object run(String classpath,
+                      List<?> constructorData,
+                      String className,
+                      String methodName,
+                      String... args)
             throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<>();
         try {
-            var obj = new JavaRunner(classpath, log).run(className, methodName, (Object[]) args);
+            var obj = new JavaRunner(classpath, log)
+                    .run(className, constructorData, methodName, (Object[]) args);
             completion.complete(obj);
         } catch (Throwable t) {
             completion.completeExceptionally(t);
