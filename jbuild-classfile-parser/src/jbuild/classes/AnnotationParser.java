@@ -26,6 +26,40 @@ public final class AnnotationParser extends AbstractAttributeParser {
     }
 
     /**
+     * <pre>
+     * {@code
+     * RuntimeVisibleParameterAnnotations_attribute {
+     *     u2 attribute_name_index;
+     *     u4 attribute_length;
+     *     u1 num_parameters;
+     *     {   u2         num_annotations;
+     *         annotation annotations[num_annotations];
+     *     } parameter_annotations[num_parameters];
+     * }
+     * }
+     * </pre>
+     *
+     * @param attributes attributes structure
+     * @return method parameter annotations
+     */
+    public List<List<AnnotationInfo>> parseMethodParameter(byte[] attributes) {
+        var scanner = new ByteScanner(attributes);
+        var parameterCount = scanner.nextByte();
+        var result = new ArrayList<List<AnnotationInfo>>(parameterCount);
+        for (var i = 0; i < parameterCount; i++) {
+            var length = scanner.nextShort();
+            var annotations = new ArrayList<AnnotationInfo>(length);
+            for (var j = 0; j < length; j++) {
+                annotations.add(parse(scanner));
+            }
+            result.add(annotations);
+        }
+        return result;
+    }
+
+    /**
+     * <pre>
+     * {@code
      * annotation {
      * u2 type_index;
      * u2 num_element_value_pairs;
@@ -33,6 +67,8 @@ public final class AnnotationParser extends AbstractAttributeParser {
      * element_value value;
      * } element_value_pairs[num_element_value_pairs];
      * }
+     * }
+     * </pre>
      */
     private AnnotationInfo parse(ByteScanner scanner) {
         var typeDescriptor = nextConstUf8(scanner);

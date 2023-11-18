@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * not that of the task.
  * <p>
  * The parameter name should match exactly the name of the {@code jb} configuration property,
- * or the name of the property may be explicitly provided by {@link JbConfigProperty#propertyName()}.
+ * or the name of the property may be explicitly provided by {@link JbConfigProperty#value()}.
  * <p>
  * See {@link JbTask} for more details.
  */
@@ -23,5 +23,5 @@ public @interface JbConfigProperty {
      * @return the name of the {@code jb} property to use for the value of the parameter.
      * If empty (the default), the parameter name itself is used.
      */
-    String propertyName() default "";
+    String value() default "";
 }

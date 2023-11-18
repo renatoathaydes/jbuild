@@ -53,6 +53,8 @@ public final class ClassFile {
     public final List<MethodInfo> methods;
     public final List<AttributeInfo> attributes;
 
+    private final AnnotationParser annotationParser = new AnnotationParser(this);
+
     // cached values
     private Set<String> typesReferredTo;
 
@@ -127,6 +129,14 @@ public final class ClassFile {
         return getAnnotationsAttribute("RuntimeInvisibleAnnotations");
     }
 
+    public List<List<AnnotationInfo>> getRuntimeVisibleParameterAnnotations(MethodInfo methodInfo) {
+        return getMethodParameterAnnotationsAttribute("RuntimeVisibleParameterAnnotations", methodInfo.attributes);
+    }
+
+    public List<List<AnnotationInfo>> getRuntimeInvisibleParameterAnnotations(MethodInfo methodInfo) {
+        return getMethodParameterAnnotationsAttribute("RuntimeInvisibleParameterAnnotations", methodInfo.attributes);
+    }
+
     public MethodSignature getMethodTypeDescriptor(MethodInfo methodInfo) {
         return new JavaTypeSignatureParser().parseMethodSignature(
                 getUtf8(methodInfo.descriptorIndex));
@@ -173,11 +183,19 @@ public final class ClassFile {
     }
 
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {
-        var annotationParser = new AnnotationParser(this);
         return attributes.stream()
                 .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
                 .map(attribute -> annotationParser.parseAnnotationInfo(attribute.attributes))
+                .orElse(List.of());
+    }
+
+    private List<List<AnnotationInfo>> getMethodParameterAnnotationsAttribute(
+            String name, List<AttributeInfo> attributes) {
+        return attributes.stream()
+                .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
+                .findFirst()
+                .map(attribute -> annotationParser.parseMethodParameter(attribute.attributes))
                 .orElse(List.of());
     }
 

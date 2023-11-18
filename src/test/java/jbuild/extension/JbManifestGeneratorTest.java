@@ -63,6 +63,46 @@ public class JbManifestGeneratorTest {
     }
 
     @Test
+    void canGenerateJbConfigPropertyAnnotatedConstructor() throws IOException {
+        var classFile = TestHelper.compileJavaClassFile("Main", "" +
+                "import jbuild.api.*;\n" +
+                "@JbTaskInfo(name = \"my-task\")\n" +
+                "public class Main {\n" +
+                " public Main(@JbConfigProperty String version) {\n" +
+                " }\n" +
+                "}", TestHelper.ClassPathOption.Option.INHERIT);
+        var generator = new JbManifestGenerator(TestHelper.createLog(false).getKey());
+        var builder = new StringBuilder();
+
+        generator.createEntryForExtension(classFile, builder);
+
+        assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
+                "    class-name: Main\n" +
+                "    config-constructors:\n" +
+                "      - \"version\": {type: \"STRING\", jb-name: \"version\"}\n");
+    }
+
+    @Test
+    void canGenerateJbConfigPropertyAnnotatedConstructorRenamed() throws IOException {
+        var classFile = TestHelper.compileJavaClassFile("Main", "" +
+                "import jbuild.api.*;\n" +
+                "@JbTaskInfo(name = \"my-task\")\n" +
+                "public class Main {\n" +
+                " public Main(@JbConfigProperty(\"version\") String jbVersion) {\n" +
+                " }\n" +
+                "}", TestHelper.ClassPathOption.Option.INHERIT);
+        var generator = new JbManifestGenerator(TestHelper.createLog(false).getKey());
+        var builder = new StringBuilder();
+
+        generator.createEntryForExtension(classFile, builder);
+
+        assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
+                "    class-name: Main\n" +
+                "    config-constructors:\n" +
+                "      - \"jbVersion\": {type: \"STRING\", jb-name: \"version\"}\n");
+    }
+
+    @Test
     void canGenerateComplexConstructor() throws IOException {
         var classFile = TestHelper.compileJavaClassFile("foo.bar.MyExtension", "" +
                 "package foo.bar;\n" +

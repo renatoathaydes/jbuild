@@ -152,9 +152,17 @@ public final class JbManifestGenerator {
             } else {
                 var isFirst = true;
                 for (var entry : constructor.parameters.entrySet()) {
-                    yamlBuilder.append(isFirst ? "      - " : "        ");
-                    yamlBuilder.append("\"").append(entry.getKey()).append("\": \"")
-                            .append(entry.getValue().name()).append("\"\n");
+                    var arg = entry.getValue();
+                    yamlBuilder.append(isFirst ? "      - " : "        ")
+                            .append("\"").append(entry.getKey()).append("\": ");
+                    var jbName = safeYamlString(arg.jbuildConfigName, "@JbConfigProperty", false);
+                    if (jbName.isEmpty()) {
+                        yamlBuilder.append('"').append(arg.type.name()).append("\"\n");
+                    } else {
+                        yamlBuilder.append("{type: \"").append(arg.type.name())
+                                .append("\", jb-name: \"").append(jbName).append("\"}\n");
+                    }
+
                     isFirst = false;
                 }
             }
