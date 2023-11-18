@@ -23,6 +23,9 @@ final class ConfigObject {
     private static final ClassTypeSignature STRING =
             new ClassTypeSignature("java.lang", new SimpleClassTypeSignature("String"));
 
+    private static final ClassTypeSignature JBUILD_LOGGER =
+            new ClassTypeSignature("jbuild.api", new SimpleClassTypeSignature("JBuildLogger"));
+
     private static final ArrayTypeSignature ARRAY_STRING = new ArrayTypeSignature((short) 1, STRING);
 
     private static final ClassTypeSignature LIST_STRING =
@@ -30,7 +33,7 @@ final class ConfigObject {
                     new TypeArgument.Reference(STRING))));
 
     enum ConfigType {
-        STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS, ARRAY_OF_STRINGS,
+        STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS, ARRAY_OF_STRINGS, JBUILD_LOGGER
     }
 
     static final class ConfigObjectConstructor {
@@ -75,12 +78,14 @@ final class ConfigObject {
             var refType = (ClassTypeSignature) arg;
             if (STRING.equals(refType)) return ConfigType.STRING;
             if (LIST_STRING.equals(refType)) return ConfigType.LIST_OF_STRINGS;
+            if (JBUILD_LOGGER.equals(refType)) return ConfigType.JBUILD_LOGGER;
         } else if (arg instanceof ArrayTypeSignature) {
             var arrayType = (ArrayTypeSignature) arg;
             if (ARRAY_STRING.equals(arrayType)) return ConfigType.ARRAY_OF_STRINGS;
         }
         throw new JBuildException("At class " + className + ", constructor parameter '" + name +
-                "' has an unsupported type for jb extension (use String, String[], List<String> or a primitive type)",
+                "' has an unsupported type for jb extension (use String, String[], List<String>, JBuildLogger " +
+                "or primitive types boolean, int or float)",
                 JBuildException.ErrorCause.USER_INPUT);
     }
 

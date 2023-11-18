@@ -96,7 +96,7 @@ public class JbManifestGeneratorTest {
                 "import java.util.List;\n" +
                 "@JbTaskInfo(name = \"my-task\")\n" +
                 "public class MyExtension {\n" +
-                " public MyExtension(boolean b, int c) {}" +
+                " public MyExtension(boolean b, int c, JBuildLogger log) {}" +
                 " public MyExtension(List<String> s, String... more) {}" +
                 " public MyExtension() {\n" +
                 " }\n" +
@@ -111,6 +111,7 @@ public class JbManifestGeneratorTest {
                 "    config-constructors:\n" +
                 "      - \"b\": \"BOOLEAN\"\n" +
                 "        \"c\": \"INT\"\n" +
+                "        \"log\": \"JBUILD_LOGGER\"\n" +
                 "      - \"s\": \"LIST_OF_STRINGS\"\n" +
                 "        \"more\": \"ARRAY_OF_STRINGS\"\n" +
                 "      - {}\n");
