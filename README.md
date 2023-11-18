@@ -163,7 +163,7 @@ The [jb](https://github.com/renatoathaydes/jb) build tool is used to build JBuil
 
 > To install `jb`, get the [jb tar ball](https://github.com/renatoathaydes/jb/releases) and include `bin/jb` in your `PATH`.
 
-To compile the jbuild jar:
+To compile the jbuild jar `build/jbuild.jar`:
 
 ```shell
 jb
@@ -179,4 +179,15 @@ To run integration tests.
 
 ```shell
 jb -p src/intTest test
+```
+
+It's possible to build JBuild using only JBuild itself as well, though without running the tests:
+
+```shell
+java -jar jbuild.jar compile \
+  jbuild-api/src \
+  jbuild-classfile-parser/src \
+  src/main/java \
+  -m jbuild.cli.Main \
+  -j build/jbuild.jar -- --release=11
 ```
