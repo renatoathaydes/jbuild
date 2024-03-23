@@ -33,6 +33,6 @@ public class GenerateJBuildVersion implements JbTask {
         writeString(Paths.get(OUTPUT),
                 readAllLines(Paths.get(INPUT))
                         .stream().map((line) -> line.replace("%VERSION%", "1.0"))
-                        .collect(Collectors.joining(System.getProperty("line.separator"))));
+                        .collect(Collectors.joining(System.lineSeparator())));
     }
 }
