@@ -151,9 +151,16 @@ public final class RpcMethodCall {
     private static String peekType(List<Element> values) {
         String currentType = "";
         for (Element value : values) {
-            var child = (Element) value.getFirstChild();
-            if (child == null) return "";
-            var type = child.getTagName();
+            var childNode = value.getFirstChild();
+            if (childNode == null) return "";
+            String type;
+            if (childNode.getNodeType() == Node.TEXT_NODE) {
+                type = "string";
+            } else if (childNode.getNodeType() == Node.ELEMENT_NODE) {
+                type = ((Element) childNode).getTagName();
+            } else {
+                throw new IllegalStateException("Unsupported Node type: " + childNode);
+            }
             if (currentType.isEmpty()) {
                 currentType = type;
             } else if (!currentType.equals(type)) {
