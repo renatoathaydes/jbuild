@@ -181,13 +181,11 @@ To run integration tests.
 jb -p src/intTest test
 ```
 
-It's possible to build JBuild using only JBuild itself as well, though without running the tests:
+### Bootstrapping
 
-```shell
-java -jar jbuild.jar compile \
-  jbuild-api/src \
-  jbuild-classfile-parser/src \
-  src/main/java \
-  -m jbuild.cli.Main \
-  -j build/jbuild.jar -- --release=11
-```
+To compile JBuild using the `java` and `jar` commands and nothing else, run the [bootstrap.sh](boostrap.sh) script.
+
+The script reads the following env vars:
+
+* `BUILD_DIR` - directory into which to compile the class files.
+* `JBUILD_JAR` - where to create the JBuild jar.
