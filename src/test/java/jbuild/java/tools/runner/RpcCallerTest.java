@@ -133,6 +133,24 @@ public class RpcCallerTest {
     }
 
     @Test
+    void canRunMethodWithUntypedEmptyStringArgument() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>add</methodName>\n" +
+                "    <params>\n" +
+                "      <param><value></value></param>" +
+                "      <param><value></value></param>" +
+                "    </params>\n" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo(", ");
+    }
+
+    @Test
     void canRunMethodWithVarargsArgument() throws Exception {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" + "<methodCall>\n"

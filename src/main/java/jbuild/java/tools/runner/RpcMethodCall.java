@@ -58,8 +58,25 @@ public final class RpcMethodCall {
         return extractValue(value);
     }
 
+    /**
+     * A value may be a text-node (e.g. {@code <value>foo</value>}) for a String, or a typed node
+     * (e.g. {@code <value><string>foo</string></value>}) where the top-element describes the type of the value.
+     *
+     * @param value the {@code <value>} element
+     * @return the Java value
+     */
     private static Object extractValue(Element value) {
         var node = value.getFirstChild();
+        if (node == null) {
+            if (value.getNodeType() == Node.TEXT_NODE) {
+                return value.getTextContent();
+            }
+            if (value.getNodeType() == Node.ELEMENT_NODE && value.getNodeValue() == null) {
+                return "";
+            }
+            throw new JBuildException("Invalid XML-RPC Value (not a string or element): " + value,
+                    JBuildException.ErrorCause.USER_INPUT);
+        }
         var nodeType = node.getNodeType();
         if (nodeType == Node.TEXT_NODE) {
             return node.getTextContent();
@@ -150,17 +167,8 @@ public final class RpcMethodCall {
      */
     private static String peekType(List<Element> values) {
         String currentType = "";
-        for (Element value : values) {
-            var childNode = value.getFirstChild();
-            if (childNode == null) return "";
-            String type;
-            if (childNode.getNodeType() == Node.TEXT_NODE) {
-                type = "string";
-            } else if (childNode.getNodeType() == Node.ELEMENT_NODE) {
-                type = ((Element) childNode).getTagName();
-            } else {
-                throw new IllegalStateException("Unsupported Node type: " + childNode);
-            }
+        for (var value : values) {
+            var type = peekType(value);
             if (currentType.isEmpty()) {
                 currentType = type;
             } else if (!currentType.equals(type)) {
@@ -170,12 +178,37 @@ public final class RpcMethodCall {
         return currentType;
     }
 
+    private static String peekType(Element value) {
+        var childNode = value.getFirstChild();
+        if (childNode == null) {
+            if (value.getNodeType() == Node.TEXT_NODE ||
+                    (value.getNodeType() == Node.ELEMENT_NODE && value.getNodeValue() == null)) {
+                return "string";
+            }
+        } else if (childNode.getNodeType() == Node.TEXT_NODE) {
+            return "string";
+        } else if (childNode.getNodeType() == Node.ELEMENT_NODE) {
+            return ((Element) childNode).getTagName();
+        }
+        throw new IllegalStateException("Unsupported Node type: " + childNode);
+    }
+
     @Override
     public String toString() {
         return "RpcMethodCall{" +
                 "className=" + getClassName() +
                 ", methodName='" + getMethodName() + '\'' +
-                ", parameters='" + Arrays.toString(getParameters()) + '\'' +
+                ", parameters='" + toString(getParameters()) + '\'' +
                 '}';
+    }
+
+    private static String toString(Object[] args) {
+        // convert top-level String[] to String
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] instanceof String[]) {
+                args[i] = Arrays.toString((String[]) args[i]);
+            }
+        }
+        return Arrays.toString(args);
     }
 }
