@@ -37,38 +37,4 @@ public @interface JbTaskInfo {
      */
     TaskPhase phase() default @TaskPhase(name = "build");
 
-    /**
-     * Get the task inputs.
-     * <p>
-     * Inputs may be file entities paths or simple patterns. Paths ending with a
-     * {@code /} are directories. Patterns may be of the simple form {@code *.txt}
-     * to match files by extension on a particular directory, or
-     * {@code **&#47;some-dir/*.txt} to also include files in subdirectories.
-     *
-     * @return input paths and patterns
-     */
-    String[] inputs() default {};
-
-    /**
-     * Get the task outputs.
-     * <p>
-     * Outputs may be file entities paths or simple patterns. Paths ending with a
-     * {@code /} are directories. Patterns may be of the simple form {@code *.txt}
-     * to match files by extension on a particular directory, or
-     * {@code **&#47;some-dir/*.txt} to also include files in subdirectories.
-     *
-     * @return output paths and patterns
-     */
-    String[] outputs() default {};
-
-    /**
-     * @return tasks this task depends on.
-     */
-    String[] dependsOn() default {};
-
-    /**
-     * @return tasks that should depend on this task.
-     */
-    String[] dependents() default {};
-
 }

@@ -2,7 +2,6 @@ package jbuild.extension;
 
 import jbuild.api.JBuildException;
 import jbuild.classes.model.ClassFile;
-import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.BaseType;
@@ -13,7 +12,6 @@ import jbuild.classes.signature.SimpleClassTypeSignature;
 import jbuild.classes.signature.SimpleClassTypeSignature.TypeArgument;
 import jbuild.util.JavaTypeUtils;
 
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,24 +36,10 @@ final class ConfigObject {
         STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS, ARRAY_OF_STRINGS, JBUILD_LOGGER
     }
 
-    static final class ConstructorArgument {
-        final ConfigType type;
-        /**
-         * The JBuild config name if the parameter is annotated with {@link jbuild.api.JbConfigProperty},
-         * or the empty String otherwise.
-         */
-        final String jbuildConfigName;
-
-        public ConstructorArgument(ConfigType type, String jbuildConfigName) {
-            this.type = type;
-            this.jbuildConfigName = jbuildConfigName;
-        }
-    }
-
     static final class ConfigObjectConstructor {
-        final Map<String, ConstructorArgument> parameters;
+        final Map<String, ConfigType> parameters;
 
-        public ConfigObjectConstructor(LinkedHashMap<String, ConstructorArgument> parameters) {
+        public ConfigObjectConstructor(LinkedHashMap<String, ConfigType> parameters) {
             this.parameters = parameters;
         }
     }
@@ -74,13 +58,12 @@ final class ConfigObject {
         var constructors = extension.getConstructors().stream().map(constructor -> {
             var params = extension.getMethodParameters(constructor);
             ensureParameterNamesAvailable(params, className);
-            var annotations = extension.getRuntimeInvisibleParameterAnnotations(constructor).iterator();
 
             // prefer to use the generic type if it's available as we need the type parameters
             return extension.getSignatureAttribute(constructor)
-                    .map(signature -> createConstructor(className, params, signature, annotations))
+                    .map(signature -> createConstructor(className, params, signature))
                     .orElseGet(() -> createConstructor(className, params,
-                            extension.getMethodTypeDescriptor(constructor), annotations));
+                            extension.getMethodTypeDescriptor(constructor)));
         });
         return new ConfigObjectDescriptor(constructors.collect(toList()));
     }
@@ -109,9 +92,8 @@ final class ConfigObject {
     private static ConfigObjectConstructor createConstructor(
             String className,
             List<MethodParameter> params,
-            MethodSignature genericType,
-            Iterator<List<AnnotationInfo>> annotationsPerParameter) {
-        var paramTypes = new LinkedHashMap<String, ConstructorArgument>();
+            MethodSignature genericType) {
+        var paramTypes = new LinkedHashMap<String, ConfigType>();
         if (!genericType.typeParameters.isEmpty()) {
             throw new JBuildException("Constructor of class " + className +
                     " is generic, which is not allowed in a jb extension.",
@@ -120,23 +102,9 @@ final class ConfigObject {
         var paramIndex = 0;
         for (var arg : genericType.arguments) {
             var param = params.get(paramIndex++);
-            var annotations = annotationsPerParameter.hasNext()
-                    ? annotationsPerParameter.next()
-                    : List.<AnnotationInfo>of();
-            var jbuildConfigName = extractJBuildConfigName(annotations, param.name);
-            var type = toConfigType(arg, className, param.name);
-            paramTypes.put(param.name, new ConstructorArgument(type, jbuildConfigName));
+            paramTypes.put(param.name, toConfigType(arg, className, param.name));
         }
         return new ConfigObjectConstructor(paramTypes);
-    }
-
-    private static String extractJBuildConfigName(List<AnnotationInfo> annotations, String name) {
-        return annotations.stream().filter(a -> a.typeDescriptor.equals("Ljbuild/api/JbConfigProperty;"))
-                .findFirst()
-                .map(a -> a.elementValuePairs.isEmpty()
-                        ? name
-                        : (String) a.elementValuePairs.get(0).value)
-                .orElse("");
     }
 
     private static void ensureParameterNamesAvailable(List<MethodParameter> params, String className) {
