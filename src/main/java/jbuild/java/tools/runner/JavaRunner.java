@@ -11,14 +11,16 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 
@@ -75,11 +77,11 @@ public final class JavaRunner {
     }
 
     public Object run(RpcMethodCall methodCall) {
-        return run(methodCall.getClassName(), List.of(), methodCall.getMethodName(), methodCall.getParameters());
+        return run(methodCall.getClassName(), new Object[0], methodCall.getMethodName(), methodCall.getParameters());
     }
 
     public Object run(String className,
-                      List<?> constructorData,
+                      Object[] constructorData,
                       String method, Object... args) {
         Class<?> type;
         if (className == null || className.isBlank()) { // use RcpMain
@@ -89,8 +91,11 @@ public final class JavaRunner {
         } catch (ClassNotFoundException e) {
             throw new JBuildException("Class " + className + " does not exist", USER_INPUT);
         }
-        var matchMethod = Stream.concat(Stream.of(type.getDeclaredMethods()), Stream.of(type.getMethods()))
-                .filter(m -> m.getName().equals(method))
+        var nameMethodMatches = Stream.of(type.getMethods())
+                .filter(m -> !Modifier.isStatic(m.getModifiers()) && m.getName().equals(method))
+                .collect(toList());
+
+        var matchMethod = nameMethodMatches.stream()
                 .map(m -> new MethodMatch(matchByCount(m, args.length), m))
                 .filter(m -> typesMatch(m, args))
                 .findFirst();
@@ -104,6 +109,8 @@ public final class JavaRunner {
                 throw new JBuildException(e.toString(), USER_INPUT);
             }
 
+            final var out = System.out;
+            System.setOut(log.getPrintStream());
             try {
                 return invoke(object, matchMethod.get(), args);
             } catch (IllegalAccessException e) {
@@ -111,21 +118,36 @@ public final class JavaRunner {
             } catch (InvocationTargetException e) {
                 var cause = e.getCause();
                 throw new RuntimeException(cause == null ? e : cause);
+            } finally {
+                System.setOut(out);
             }
         }
 
+        String reason;
+        if (nameMethodMatches.isEmpty()) {
+            reason = "No method called '" + method + "' found in class " + type.getName();
+        } else {
+            reason = "Expected parameters for method with name '" + method + "' in class " + type.getName() +
+                    ":\n" + nameMethodMatches.stream()
+                    .map(m -> Stream.of(m.getParameters())
+                            .map(Objects::toString)
+                            .collect(joining(", ")))
+                    .collect(joining("\n  * ", "  * ", "\n"));
+        }
+
         throw new JBuildException("Unable to find method that could be invoked with the provided arguments: " +
-                Arrays.toString(args) + " (" + typesOf(args) + ")", USER_INPUT);
+                Arrays.toString(args) + ".\nProvided parameter types:\n  * " +
+                typesOf(args) + "\n" + reason, USER_INPUT);
     }
 
-    private Object createReceiverType(Class<?> type, List<?> constructorData)
+    private Object createReceiverType(Class<?> type, Object... constructorData)
             throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         Constructor<?> constructor = Arrays.stream(type.getConstructors())
-                .filter(c -> c.getParameterCount() == constructorData.size())
+                .filter(c -> c.getParameterCount() == constructorData.length)
                 .findFirst()
                 .orElse(null);
         if (constructor != null) {
-            return constructor.newInstance(constructorData.toArray());
+            return constructor.newInstance(constructorData);
         }
 
         // try JBuildLogger constructor

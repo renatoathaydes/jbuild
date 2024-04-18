@@ -446,7 +446,8 @@ public final class CompileCommandExecutor {
     private String jarOrDefault(String workingDir, String jar) {
         if (jar.isBlank()) {
             if (DEFAULT_JAR_FROM_WORKING_DIR.matcher(workingDir).find()) {
-                return relativize(workingDir, new File(workingDir).getName() + ".jar");
+                return relativize(Paths.get(workingDir, "build").toString(),
+                        new File(workingDir).getName() + ".jar");
             }
             var dir = System.getProperty("user.dir");
             if (dir != null) {

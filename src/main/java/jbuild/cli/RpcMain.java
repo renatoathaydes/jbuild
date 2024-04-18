@@ -11,7 +11,6 @@ import jbuild.log.JBuildLog;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -92,7 +91,7 @@ public final class RpcMain {
      * @throws InterruptedException if the Thread is interrupted
      */
     public Object run(String classpath,
-                      List<?> constructorData,
+                      Object[] constructorData,
                       String className,
                       String methodName,
                       String... args)

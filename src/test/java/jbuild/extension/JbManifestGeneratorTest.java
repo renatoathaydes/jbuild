@@ -68,7 +68,7 @@ public class JbManifestGeneratorTest {
                 "import jbuild.api.*;\n" +
                 "@JbTaskInfo(name = \"my-task\")\n" +
                 "public class Main {\n" +
-                " public Main(@JbConfigProperty String version) {\n" +
+                " public Main(String version) {\n" +
                 " }\n" +
                 "}", TestHelper.ClassPathOption.Option.INHERIT);
         var generator = new JbManifestGenerator(TestHelper.createLog(false).getKey());

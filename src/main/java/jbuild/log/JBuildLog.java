@@ -2,6 +2,8 @@ package jbuild.log;
 
 import jbuild.api.JBuildLogger;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.function.Supplier;
 
@@ -81,6 +83,14 @@ public final class JBuildLog implements JBuildLogger {
         return enabled && verbose;
     }
 
+    private void print(byte[] buffer, int len) {
+        if (isEnabled()) {
+            out.print(prefix);
+            out.print(' ');
+            out.write(buffer, 0, len);
+        }
+    }
+
     private void doPrintln(CharSequence message) {
         if (prefix != null) {
             out.print(prefix);
@@ -96,4 +106,33 @@ public final class JBuildLog implements JBuildLogger {
         }
         out.print(message);
     }
+
+    public PrintStream getPrintStream() {
+        return new PrintStream(new LogOutputStream(this), true);
+    }
+
+    private static final class LogOutputStream extends OutputStream {
+        private final JBuildLog log;
+        private final byte[] buffer = new byte[1024];
+        private int index;
+
+        public LogOutputStream(JBuildLog log) {
+            this.log = log;
+        }
+
+        @Override
+        public void write(int b) {
+            if (index < buffer.length) {
+                buffer[index++] = (byte) b;
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            super.flush();
+            log.print(buffer, index);
+            index = 0;
+        }
+    }
+
 }
