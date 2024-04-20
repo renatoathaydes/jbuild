@@ -4,8 +4,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import jbuild.api.JBuildException;
-import jbuild.java.tools.runner.JavaRunner;
-import jbuild.java.tools.runner.RpcCaller;
+import jbuild.extension.runner.JavaRunner;
+import jbuild.extension.runner.RpcCaller;
 import jbuild.log.JBuildLog;
 
 import java.io.ByteArrayOutputStream;

@@ -1,4 +1,4 @@
-package jbuild.java.tools.runner;
+package jbuild.extension.runner;
 
 import java.util.Arrays;
 

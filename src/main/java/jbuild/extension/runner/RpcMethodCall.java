@@ -1,4 +1,4 @@
-package jbuild.java.tools.runner;
+package jbuild.extension.runner;
 
 import jbuild.api.JBuildException;
 import org.w3c.dom.Document;
