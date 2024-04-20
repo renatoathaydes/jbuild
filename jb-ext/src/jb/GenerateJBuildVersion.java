@@ -8,6 +8,7 @@ import jbuild.api.TaskPhase;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static java.nio.file.Files.readAllLines;
@@ -16,13 +17,25 @@ import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 
 @JbTaskInfo(name = "generateJBuildVersion",
         description = "Generates a Version file so JBuild can report its own version.",
-        inputs = GenerateJBuildVersion.INPUT,
-        outputs = GenerateJBuildVersion.OUTPUT,
-        phase = @TaskPhase(name = "setup"),
-        dependents = {"compile", "publicationCompile"})
+        phase = @TaskPhase(name = "setup"))
 public class GenerateJBuildVersion implements JbTask {
     static final String INPUT = "../src/main/template/jbuild/Version.java";
     static final String OUTPUT = "../src/main/java/jbuild/Version.java";
+
+    @Override
+    public List<String> inputs() {
+        return List.of(INPUT);
+    }
+
+    @Override
+    public List<String> outputs() {
+        return List.of(OUTPUT);
+    }
+
+    @Override
+    public List<String> dependents() {
+        return List.of("compile", "publicationCompile");
+    }
 
     @Override
     public void run(String... args) throws IOException {

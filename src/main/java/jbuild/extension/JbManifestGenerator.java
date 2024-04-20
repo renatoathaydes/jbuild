@@ -121,27 +121,7 @@ public final class JbManifestGenerator {
                     .append(safePhaseName(phaseAnnotation.get("name").value))
                     .append("\": ").append(phaseIndex).append('\n');
         }
-        writeStrings(annotation, "inputs", "inputs", yamlBuilder, false);
-        writeStrings(annotation, "outputs", "outputs", yamlBuilder, false);
-        writeStrings(annotation, "dependsOn", "depends-on", yamlBuilder, true);
-        writeStrings(annotation, "dependents", "dependents", yamlBuilder, true);
         writeConstructors(configObject.constructors, yamlBuilder);
-    }
-
-    private static void writeStrings(Map<String, ElementValuePair> annotation,
-                                     String section,
-                                     String yamlName,
-                                     StringBuilder yamlBuilder,
-                                     boolean validateTaskName) {
-        var sectionValue = annotation.get(section);
-        if (sectionValue != null) {
-            var values = (List<?>) sectionValue.value;
-            yamlBuilder.append("    ").append(yamlName).append(":\n");
-            for (var value : values) {
-                var allowWhitespace = !validateTaskName;
-                yamlBuilder.append("      - \"").append(safeYamlString(value, section, allowWhitespace)).append("\"\n");
-            }
-        }
     }
 
     private void writeConstructors(List<ConfigObjectConstructor> constructors, StringBuilder yamlBuilder) {
@@ -152,17 +132,11 @@ public final class JbManifestGenerator {
             } else {
                 var isFirst = true;
                 for (var entry : constructor.parameters.entrySet()) {
-                    var arg = entry.getValue();
+                    var name = entry.getKey();
+                    var configType = entry.getValue();
                     yamlBuilder.append(isFirst ? "      - " : "        ")
-                            .append("\"").append(entry.getKey()).append("\": ");
-                    var jbName = safeYamlString(arg.jbuildConfigName, "@JbConfigProperty", false);
-                    if (jbName.isEmpty()) {
-                        yamlBuilder.append('"').append(arg.type.name()).append("\"\n");
-                    } else {
-                        yamlBuilder.append("{type: \"").append(arg.type.name())
-                                .append("\", jb-name: \"").append(jbName).append("\"}\n");
-                    }
-
+                            .append("\"").append(name).append("\": ");
+                    yamlBuilder.append('"').append(configType.name()).append("\"\n");
                     isFirst = false;
                 }
             }
@@ -188,7 +162,7 @@ public final class JbManifestGenerator {
     }
 
     private static String safeYamlString(Object value, String property, boolean allowWhitespace) {
-        var string = (String) value;
+        var string = value.toString();
         string.chars().forEach((ch) -> {
             if (ch == '"') throwInvalidCharacter('"', property);
             if (ch == '\n') throwInvalidCharacter('\n', property);

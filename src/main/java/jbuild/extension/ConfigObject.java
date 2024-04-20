@@ -1,6 +1,8 @@
 package jbuild.extension;
 
 import jbuild.api.JBuildException;
+import jbuild.api.JBuildLogger;
+import jbuild.api.config.JbConfig;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.signature.JavaTypeSignature;
@@ -12,9 +14,12 @@ import jbuild.classes.signature.SimpleClassTypeSignature;
 import jbuild.classes.signature.SimpleClassTypeSignature.TypeArgument;
 import jbuild.util.JavaTypeUtils;
 
+import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -26,14 +31,39 @@ final class ConfigObject {
     private static final ClassTypeSignature JBUILD_LOGGER =
             new ClassTypeSignature("jbuild.api", new SimpleClassTypeSignature("JBuildLogger"));
 
+    private static final ClassTypeSignature JB_CONF =
+            new ClassTypeSignature("jbuild.api.config", new SimpleClassTypeSignature("JbConfig"));
+
     private static final ArrayTypeSignature ARRAY_STRING = new ArrayTypeSignature((short) 1, STRING);
 
     private static final ClassTypeSignature LIST_STRING =
             new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List", List.of(
                     new TypeArgument.Reference(STRING))));
 
+    private abstract class StringListTypeToken implements List<String> {
+    }
+
     enum ConfigType {
-        STRING, BOOLEAN, INT, FLOAT, LIST_OF_STRINGS, ARRAY_OF_STRINGS, JBUILD_LOGGER
+        JBUILD_LOGGER(JBuildLogger.class),
+        JB_CONFIG(JbConfig.class),
+        STRING(String.class),
+        BOOLEAN(boolean.class),
+        INT(int.class),
+        FLOAT(float.class),
+        LIST_OF_STRINGS(StringListTypeToken.class.getGenericInterfaces()[0]),
+        ARRAY_OF_STRINGS(String[].class),
+        ;
+        public final Type javaType;
+
+        ConfigType(Type javaType) {
+            this.javaType = javaType;
+        }
+
+        public static List<Type> getAllTypes() {
+            return Arrays.stream(ConfigType.values())
+                    .map(t -> t.javaType)
+                    .collect(Collectors.toList());
+        }
     }
 
     static final class ConfigObjectConstructor {
@@ -79,13 +109,18 @@ final class ConfigObject {
             if (STRING.equals(refType)) return ConfigType.STRING;
             if (LIST_STRING.equals(refType)) return ConfigType.LIST_OF_STRINGS;
             if (JBUILD_LOGGER.equals(refType)) return ConfigType.JBUILD_LOGGER;
+            if (JB_CONF.equals(refType)) return ConfigType.JB_CONFIG;
         } else if (arg instanceof ArrayTypeSignature) {
             var arrayType = (ArrayTypeSignature) arg;
             if (ARRAY_STRING.equals(arrayType)) return ConfigType.ARRAY_OF_STRINGS;
         }
+
+        var supportedTypes = ConfigType.getAllTypes().stream()
+                .map(Type::getTypeName)
+                .collect(Collectors.joining(", "));
+
         throw new JBuildException("At class " + className + ", constructor parameter '" + name +
-                "' has an unsupported type for jb extension (use String, String[], List<String>, JBuildLogger " +
-                "or primitive types boolean, int or float)",
+                "' has an unsupported type for jb extension (use one of: " + supportedTypes + ")",
                 JBuildException.ErrorCause.USER_INPUT);
     }
 
