@@ -5,6 +5,7 @@ import jbuild.java.JavapOutputParser;
 import jbuild.java.tools.Tools;
 import jbuild.util.Either;
 import jbuild.util.TestHelper;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -22,6 +23,11 @@ import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CompileCommandExecutorTest {
+
+    @BeforeAll
+    static void setup() {
+        TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
+    }
 
     @Test
     void canCompileClassFiles() throws Exception {
@@ -199,7 +205,7 @@ public class CompileCommandExecutorTest {
                 "  @Override",
                 "  public void run(String... args) {}",
                 "}"));
-        var jar = rootDir.resolve("mylib.jar");
+        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
 
         // compile jar as a jb extension
         var result = command.compile(
@@ -255,9 +261,9 @@ public class CompileCommandExecutorTest {
                 "   **/",
                 "  public void hello() {}",
                 "}"));
-        var jar = rootDir.resolve("mylib.jar");
-        var sourcesJar = rootDir.resolve("mylib-sources.jar");
-        var javadocJar = rootDir.resolve("mylib-javadoc.jar");
+        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
+        var sourcesJar = rootDir.resolve(Paths.get("build", "mylib-sources.jar"));
+        var javadocJar = rootDir.resolve(Paths.get("build", "mylib-javadoc.jar"));
 
         // compile jar, sources-jar and javadoc-jar
         var result = command.compile(

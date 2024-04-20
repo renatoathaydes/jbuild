@@ -1,5 +1,6 @@
 package jbuild.util;
 
+import jbuild.TestSystemProperties;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.java.tools.Tools;
@@ -16,7 +17,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
@@ -75,17 +75,21 @@ public final class TestHelper {
 
     private static String resolve(ClassPathOption option) {
         if (option == ClassPathOption.Option.NONE) return "";
-        if (option == ClassPathOption.Option.INHERIT) return findJBuildJar();
+        if (option == ClassPathOption.Option.INHERIT) return resolveJBuildClasspath();
         if (option instanceof ClassPathOption.Explicit) {
             return ((ClassPathOption.Explicit) option).classpath;
         }
         throw new IllegalArgumentException("cannot handle: " + option);
     }
 
-    private static String findJBuildJar() {
-        var cp = System.getProperty("java.class.path");
-        var jars = cp.split(File.pathSeparator);
-        return Stream.of(jars).filter(j -> j.endsWith("jbuild.jar")).findFirst()
-                .orElseThrow(() -> new IllegalStateException("cannot find jbuild jar in classpath: " + cp));
+    private static String resolveJBuildClasspath() {
+        var jbuildLocation = JBuildLog.class.getProtectionDomain().getCodeSource().getLocation().getFile();
+        if (jbuildLocation.endsWith("/")) {
+            // when running from IntelliJ, the classpath is the build directory with class files,
+            // so we need the jbuild-api jar as well
+            TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
+            return jbuildLocation + ':' + TestSystemProperties.jbApiJar;
+        }
+        return jbuildLocation;
     }
 }
