@@ -28,7 +28,7 @@ jobs:
           repo: 'renatoathaydes/jb'
           version: 'tags/0.5.0'
           file: 'jb-0.5.0-${{ matrix.oskind }}.tar.gz'
-            target: jb.tar.gz
+          target: jb.tar.gz
 
       - name: Install jb
         run: |
