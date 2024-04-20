@@ -179,14 +179,15 @@ public class RpcMainTest {
 
         var jarsAbsoluteDir = new File(jarsDir).getAbsolutePath();
 
-        // RpcMain#run(String classpath, String className, String methodName, String... args)
+        // RpcMain#run(String classpath, Object[] constructorData, String className, String methodName, String... args)
         var rpcMessage = "<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>" + RpcMain.class.getName() + ".run</methodName>\n" +
                 "    <params>\n" +
-                "<param><value><string>" + jarsAbsoluteDir + "/hello.jar</string></value></param>" +
-                "<param><value><string>hello.Hi</string></value></param>" +
-                "<param><value><string>getMessage</string></value></param>" +
+                "<param><value>" + jarsAbsoluteDir + "/hello.jar</value></param>" +
+                "<param><value><array><data></data></array></value></param>" +
+                "<param><value>hello.Hi</value></param>" +
+                "<param><value>getMessage</value></param>" +
                 "    </params>\n" +
                 "</methodCall>";
 
@@ -202,12 +203,13 @@ public class RpcMainTest {
         assertThat(response.headers().firstValue("Content-Type")).isPresent().get()
                 .isEqualTo("text/xml; charset=utf-8");
 
-        // RpcMain#run(String classpath, String className, String methodName, String... args)
+        // RpcMain#run(String classpath, Object[] constructorData, String className, String methodName, String... args)
         rpcMessage = "<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>" + RpcMain.class.getName() + ".run</methodName>\n" +
                 "    <params>\n" +
                 "<param><value><string>" + jarsAbsoluteDir + "/hello.jar</string></value></param>" +
+                "<param><value><array><data></data></array></value></param>" +
                 "<param><value><string>hello.Hi</string></value></param>" +
                 "<param><value><string>sayHi</string></value></param>" +
                 "<param><value><array><data><value><string>Joe</string></value></data></array></value></param>" +
