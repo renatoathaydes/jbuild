@@ -3,27 +3,27 @@ package jbuild.extension.runner;
 import java.util.Arrays;
 
 public class TestCallable {
-    String hello() {
+    public String hello() {
         return "hello";
     }
 
-    int add(int a, int b) {
+    public int add(int a, int b) {
         return a + b;
     }
 
-    String add(int a, String s) {
+    public String add(int a, String s) {
         return s + ": " + a;
     }
 
-    String add(String a, String s) {
+    public String add(String a, String s) {
         return s + ", " + a;
     }
 
-    String varargs(double d, String... s) {
+    public String varargs(double d, String... s) {
         return Arrays.toString(s) + ": " + d;
     }
 
-    void run(String[] args) {
+    public void run(String[] args) {
     }
 
     @Override

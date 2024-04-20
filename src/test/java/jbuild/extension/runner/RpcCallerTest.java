@@ -10,7 +10,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunSingleMethodCallWithTypeReceiver() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(null);
+        var caller = new RpcCaller(null);
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>" + TestCallable.class.getName() + ".hello</methodName>\n" +
@@ -26,7 +26,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunSingleMethodCallWithoutTypeReceiver() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>toString</methodName>\n" +
@@ -42,7 +42,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithIntArguments() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>add</methodName>\n" +
@@ -60,7 +60,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithArrayArgument() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>run</methodName>\n" +
@@ -80,7 +80,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithEmptyArrayArgument() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>run</methodName>\n" +
@@ -98,7 +98,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithIntAndStringArguments() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>add</methodName>\n" +
@@ -116,7 +116,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithUntypedStringArguments() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>add</methodName>\n" +
@@ -134,7 +134,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithUntypedEmptyStringArgument() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>\n" +
                 "    <methodName>add</methodName>\n" +
@@ -152,7 +152,7 @@ public class RpcCallerTest {
 
     @Test
     void canRunMethodWithVarargsArgument() throws Exception {
-        var caller = new jbuild.extension.runner.RpcCaller(TestCallable.class.getName());
+        var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" + "<methodCall>\n"
                 + "    <methodName>varargs</methodName>\n" + "    <params>\n"
                 + "      <param><value><double>1.23</double></value></param>" +
