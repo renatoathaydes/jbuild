@@ -1,9 +1,17 @@
-package jbuild.api;
+package jbuild.api.change;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ * The changes that have occurred since the previous successful invocation of a task.
+ * <p>
+ * This can be used to implement incremental tasks which only do the work necessary to
+ * update the required outputs.
+ *
+ * @see jbuild.api.JbTask#run(ChangeSet, String...)
+ */
 public final class ChangeSet {
     private final FileChange[] inputChanges;
     private final FileChange[] outputChanges;

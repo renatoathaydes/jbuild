@@ -1,4 +1,4 @@
-package jbuild.api;
+package jbuild.api.change;
 
 /**
  * A file or directory change.

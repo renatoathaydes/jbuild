@@ -1,4 +1,4 @@
-package jbuild.api;
+package jbuild.api.change;
 
 /**
  * The kind of change represented by a {@link FileChange}.

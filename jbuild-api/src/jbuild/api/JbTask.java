@@ -1,5 +1,7 @@
 package jbuild.api;
 
+import jbuild.api.change.ChangeSet;
+
 import java.io.IOException;
 import java.util.List;
 
