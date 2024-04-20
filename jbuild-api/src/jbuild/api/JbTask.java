@@ -14,6 +14,18 @@ import java.util.List;
  * A task should not read any files except those declared in {@link JbTask#inputs()},
  * or start any Threads which do not complete before the task's run method returns.
  * <p>
+ * <h3>Instantiation and run rules</h3>
+ * A task is instantiated if it's invoked directly or indirectly (via task transitive dependencies),
+ * or when jb must report task metadata (inputs/outputs), for example, when the user invokes jb with the
+ * {@code -s -l debug} flags.
+ * A task will not be instantiated more than once per build. A task may or may not be executed after being instantiated.
+ * When the task is executed, it is only executed once, and only one of the {@code run} methods is invoked
+ * (on incremental builds, the {@link JbTask#run(ChangeSet, String...)} method is called, otherwise
+ * {@link JbTask#run(String...)} is invoked).
+ * <p>
+ * Notice that tasks do not need to support incremental builds. Only implement {@link JbTask#run(ChangeSet, String...)}
+ * if you can support incremental execution (the default implementation delegates to {@link JbTask#run(String...)}).
+ * <p>
  * <h3>Task Configuration</h3>
  * If a task implementation provides a default constructor, then {@code jb} will call that as
  * long as no configuration is provided for the task.
