@@ -2,6 +2,8 @@ package jbuild.extension.runner;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
+import jbuild.api.JBuildLogger;
+import jbuild.api.config.JbConfig;
 import jbuild.cli.RpcMain;
 import jbuild.log.JBuildLog;
 
@@ -12,6 +14,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -147,19 +150,24 @@ public final class JavaRunner {
                 .findFirst()
                 .orElse(null);
         if (constructor != null) {
-            return constructor.newInstance(constructorData);
-        }
-
-        // try JBuildLogger constructor
-        constructor = Arrays.stream(type.getConstructors())
-                .filter(c -> c.getParameterCount() == 1 && c.getParameterTypes()[0] == JBuildLog.class)
-                .findFirst()
-                .orElse(null);
-        if (constructor != null) {
-            return constructor.newInstance(log);
+            return constructor.newInstance(populateConstructorData(constructor.getParameters(), constructorData));
         }
 
         return type.getConstructor().newInstance();
+    }
+
+    private Object[] populateConstructorData(Parameter[] parameters, Object... constructorData) {
+        for (int i = 0; i < parameters.length; i++) {
+            var arg = constructorData[i];
+            var paramType = parameters[i].getType();
+            if (arg == null && paramType.equals(JBuildLogger.class)) {
+                constructorData[i] = log;
+            } else if (paramType.equals(JbConfig.class)) {
+                // TODO support JbConfig
+                throw new UnsupportedOperationException("Cannot support JbConfig yet");
+            }
+        }
+        return constructorData;
     }
 
     private Class<?> loadClass(String className) throws ClassNotFoundException {
@@ -198,7 +206,7 @@ public final class JavaRunner {
                 }
             } else if (acceptedType.isArray()) {
                 if (!arrayTypesMatch(acceptedType, args[i])) return false;
-            } else if (!acceptedType.isInstance(args[i])) {
+            } else if (args[i] != null && !acceptedType.isInstance(args[i])) {
                 return false;
             }
         }
@@ -224,7 +232,7 @@ public final class JavaRunner {
         var componentType = arrayType.getComponentType();
         for (var i = 0; i < Array.getLength(arg); i++) {
             var element = Array.get(arg, i);
-            if (!componentType.isInstance(element)) return false;
+            if (element != null && !componentType.isInstance(element)) return false;
         }
         return true;
     }

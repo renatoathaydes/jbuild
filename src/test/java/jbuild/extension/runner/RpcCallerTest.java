@@ -151,6 +151,24 @@ public class RpcCallerTest {
     }
 
     @Test
+    void canRunMethodWithNullArgument() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>add</methodName>\n" +
+                "    <params>\n" +
+                "      <param><value>hello</value></param>" +
+                "      <param><value><null /></value></param>" +
+                "    </params>\n" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo("null, hello");
+    }
+
+    @Test
     void canRunMethodWithVarargsArgument() throws Exception {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" + "<methodCall>\n"

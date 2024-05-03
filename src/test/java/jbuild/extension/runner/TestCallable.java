@@ -1,8 +1,20 @@
 package jbuild.extension.runner;
 
+import jbuild.api.JBuildLogger;
+
 import java.util.Arrays;
 
 public class TestCallable {
+    private final JBuildLogger log;
+
+    public TestCallable() {
+        this(null);
+    }
+
+    public TestCallable(JBuildLogger log) {
+        this.log = log;
+    }
+
     public String hello() {
         return "hello";
     }
@@ -28,6 +40,6 @@ public class TestCallable {
 
     @Override
     public String toString() {
-        return "TestCallable";
+        return "TestCallable(log=" + log + ")";
     }
 }

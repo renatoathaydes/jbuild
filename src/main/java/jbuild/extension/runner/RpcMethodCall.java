@@ -98,6 +98,8 @@ public final class RpcMethodCall {
                 return Double.parseDouble(child.getTextContent());
             case "array":
                 return arrayValue(child);
+            case "null":
+                return null;
             default:
                 throw new UnsupportedOperationException("value of type '" +
                         child.getTagName() + "' is not supported");
@@ -136,6 +138,7 @@ public final class RpcMethodCall {
                 return result;
             }
             case "":
+            case "null":
             case "array": {
                 var result = new Object[values.size()];
                 for (int i = 0; i < result.length; i++) {
