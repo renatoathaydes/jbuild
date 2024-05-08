@@ -73,6 +73,9 @@ public final class RpcCaller {
             if (log.isVerbose()) {
                 log.verbosePrintln("RPC Method call completed in " + (System.currentTimeMillis() - startTime) + "ms - " +
                         (error == null ? result : error));
+                if (error != null) {
+                    error.printStackTrace(log.out);
+                }
             }
         }
 
