@@ -89,6 +89,8 @@ public final class JavaRunner {
         Class<?> type;
         if (className == null || className.isBlank()) { // use RcpMain
             type = RpcMain.class;
+            constructorData = new Object[1];
+            constructorData[0] = log;
         } else try {
             type = loadClass(className);
         } catch (ClassNotFoundException e) {
@@ -242,7 +244,7 @@ public final class JavaRunner {
                 .collect(joining(", "));
     }
 
-    private static Object invoke(Object object, MethodMatch match, Object... args)
+    private Object invoke(Object object, MethodMatch match, Object... args)
             throws IllegalAccessException, InvocationTargetException {
         Object[] fixedArgs;
         switch (match.paramMatch) {
@@ -298,17 +300,21 @@ public final class JavaRunner {
         return result;
     }
 
-    private static Object[] fixArrayArgs(Class<?>[] parameterTypes, Object[] args) {
+    private Object[] fixArrayArgs(Class<?>[] parameterTypes, Object[] args) {
         assert parameterTypes.length == args.length;
         for (var i = 0; i < args.length; i++) {
             var paramType = parameterTypes[i];
+            var arg = args[i];
             if (paramType.isArray()) {
-                var arg = args[i];
                 if (arg != null) {
                     assert arg.getClass().isArray();
                     if (!paramType.isInstance(arg)) {
                         args[i] = convertArrayType(paramType.getComponentType(), arg);
                     }
+                }
+            } else if (arg == null) {
+                if (paramType.equals(JBuildLogger.class)) {
+                    args[i] = log;
                 }
             }
         }
