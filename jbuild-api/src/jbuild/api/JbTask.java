@@ -83,6 +83,17 @@ import java.util.List;
 public interface JbTask {
 
     /**
+     * Internal method, returns the summary of this task based on the other methods of this class.
+     * <p>
+     * Do not implement this method.
+     *
+     * @return the summary of this task.
+     */
+    default List<Object> getSummary() {
+        return List.of(inputs(), outputs(), dependsOn(), dependents());
+    }
+
+    /**
      * Get the task inputs.
      * <p>
      * Inputs may be file entities paths or simple patterns. Paths ending with a
