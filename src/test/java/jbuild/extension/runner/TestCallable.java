@@ -3,6 +3,7 @@ package jbuild.extension.runner;
 import jbuild.api.JBuildLogger;
 
 import java.util.Arrays;
+import java.util.List;
 
 public class TestCallable {
     private final JBuildLogger log;
@@ -33,6 +34,10 @@ public class TestCallable {
 
     public String varargs(double d, String... s) {
         return Arrays.toString(s) + ": " + d;
+    }
+
+    public List<Object> getListOfObjects() {
+        return List.of("hello", List.of("world", "!"));
     }
 
     public void run(String[] args) {

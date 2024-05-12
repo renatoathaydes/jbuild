@@ -1,5 +1,6 @@
 package jbuild.extension.runner;
 
+import jbuild.java.TestHelper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,7 +38,7 @@ public class RpcCallerTest {
         var doc = response.toDocument();
 
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
-                .isEqualTo("TestCallable");
+                .isEqualTo("TestCallable(log=null)");
     }
 
     @Test
@@ -206,4 +207,32 @@ public class RpcCallerTest {
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
                 .isEqualTo("[]: 3.14");
     }
+
+    @Test
+    void canRunMethodReturningLists() throws Exception {
+        var caller = new RpcCaller(null);
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>\n" +
+                "    <methodName>" + TestCallable.class.getName() + ".getListOfObjects</methodName>\n" +
+                "    <params>\n" +
+                "    </params>\n" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value",
+                "array", "data", new TestHelper.IndexedPath("value", 0), "string"))
+                .isEqualTo("hello");
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value",
+                "array", "data", new TestHelper.IndexedPath("value", 1),
+                "array", "data", new TestHelper.IndexedPath("value", 0), "string"))
+                .isEqualTo("world");
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value",
+                "array", "data", new TestHelper.IndexedPath("value", 1),
+                "array", "data", new TestHelper.IndexedPath("value", 1), "string"))
+                .isEqualTo("!");
+    }
+
 }

@@ -54,13 +54,21 @@ public final class XmlUtils {
     }
 
     public static Optional<Element> childNamed(String name, Node node) {
+        return childNamed(name, node, 0);
+    }
+
+    public static Optional<Element> childNamed(String name, Node node, int index) {
         var children = node.getChildNodes();
+        var currentIndex = 0;
         for (var i = 0; i < children.getLength(); i++) {
             var child = children.item(i);
             if (child instanceof Element) {
                 var elem = (Element) child;
                 if (name.equals(elem.getTagName())) {
-                    return Optional.of(elem);
+                    if (index == currentIndex) {
+                        return Optional.of(elem);
+                    }
+                    currentIndex++;
                 }
             }
         }

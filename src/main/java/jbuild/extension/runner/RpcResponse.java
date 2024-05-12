@@ -11,6 +11,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 
@@ -95,6 +96,9 @@ public final class RpcResponse {
             value.appendChild(document.createElement("double")).setTextContent(result.toString());
         } else if (result.getClass().isArray()) {
             addArrayValues(document, value.appendChild(document.createElement("array")), result);
+        } else if (result instanceof Collection<?>) {
+            var array = ((Collection<?>) result).toArray();
+            addArrayValues(document, value.appendChild(document.createElement("array")), array);
         } else {
             throw new UnsupportedOperationException("Result of type " +
                     result.getClass().getName() + " is not supported");
