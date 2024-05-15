@@ -206,10 +206,10 @@ public final class RpcMethodCall {
     }
 
     private static String toString(Object[] args) {
-        // convert top-level String[] to String
+        // convert top-level Object[] to String
         for (int i = 0; i < args.length; i++) {
-            if (args[i] instanceof String[]) {
-                args[i] = Arrays.toString((String[]) args[i]);
+            if (args[i] != null && args[i].getClass().isArray()) {
+                args[i] = toString((Object[]) args[i]);
             }
         }
         return Arrays.toString(args);
