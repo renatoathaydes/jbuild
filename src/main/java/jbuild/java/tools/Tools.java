@@ -183,7 +183,11 @@ public abstract class Tools {
         public ToolRunResult createJavadoc(String classpath,
                                            Set<String> sourceFiles,
                                            String outputDir) {
-            var args = new ArrayList<>(List.of("-cp", classpath, "-d", outputDir));
+            var args = new ArrayList<>(List.of(
+                    "-cp", classpath,
+                    "-d", outputDir,
+                    // the javadoc lint is a pain, just turn it off
+                    "-Xdoclint:none"));
             args.addAll(sourceFiles);
             return run(args);
         }

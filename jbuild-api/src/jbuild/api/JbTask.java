@@ -8,13 +8,13 @@ import java.util.List;
 /**
  * A jb build task.
  * <p>
- * <h3>Implementation requirements</h3>
+ * <h2>Implementation requirements</h2>
  * Implementations must be annotated with {@link JbTaskInfo}.
  * If a task declares that it returns any {@link JbTask#outputs()}, then it must produce those outputs.
  * A task should not read any files except those declared in {@link JbTask#inputs()},
  * or start any Threads which do not complete before the task's run method returns.
  * <p>
- * <h3>Instantiation and run rules</h3>
+ * <h2>Instantiation and run rules</h2>
  * A task is instantiated if it's invoked directly or indirectly (via task transitive dependencies),
  * or when jb must report task metadata (inputs/outputs), for example, when the user invokes jb with the
  * {@code -s -l debug} flags.
@@ -26,7 +26,7 @@ import java.util.List;
  * Notice that tasks do not need to support incremental builds. Only implement {@link JbTask#run(ChangeSet, String...)}
  * if you can support incremental execution (the default implementation delegates to {@link JbTask#run(String...)}).
  * <p>
- * <h3>Task Configuration</h3>
+ * <h2>Task Configuration</h2>
  * If a task implementation provides a default constructor, then {@code jb} will call that as
  * long as no configuration is provided for the task.
  * <p>
@@ -62,12 +62,12 @@ import java.util.List;
  * <code>
  * {@code public ExampleTask(boolean quiet)}
  * </code>
- * <h4>How jb chooses a constructor to call</h4>
+ * <h2>How jb chooses a constructor to call</h2>
  * Which constructor is chosen depends on the data provided by the task configuration.
  * The more arguments a constructor takes, the higher its priority.
  * If the provided parameters are not enough to call any constructors, jb will attempt to use the
  * constructor with the fewest parameters, passing {@code null} to the missing arguments.
- * <h4>Receiving jb's own configuration</h4>
+ * <h3>Receiving jb's own configuration</h3>
  * A task data may receive {@code jb}'s own configuration by using a constructor parameter with
  * the {@link jbuild.api.config.JbConfig} type.
  * <p>
