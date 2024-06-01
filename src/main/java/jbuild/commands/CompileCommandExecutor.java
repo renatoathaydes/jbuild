@@ -8,6 +8,7 @@ import jbuild.java.tools.ToolRunResult;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
+import jbuild.util.Env;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
 import jbuild.util.JarFileFilter;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -45,6 +48,7 @@ import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.AsyncUtils.await;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.AsyncUtils.runAsyncTiming;
 import static jbuild.util.CollectionUtils.appendAsStream;
@@ -173,10 +177,11 @@ public final class CompileCommandExecutor {
                 return new CompileCommandResult();
             }
         } else {
-            compileResult = runAsyncTiming(() -> Tools.Javac.create(log).compile(sourceFiles, outputDir,
-                            computedClasspath, compilerArgs),
-                    createLogTimer("Compilation successful on directory '" + outputDir + "'"))
-                    .toCompletableFuture().get();
+            compileResult = await(runAsyncTiming(() -> Tools.Javac.create(log).compile(sourceFiles, outputDir,
+                                    computedClasspath, compilerArgs),
+                            createLogTimer("Compilation successful on directory '" + outputDir + "'")),
+                    Duration.ofMinutes(30),
+                    "compile");
             if (compileResult.exitCode() != 0) {
                 return new CompileCommandResult(compileResult);
             }
@@ -192,19 +197,50 @@ public final class CompileCommandExecutor {
         if (jarFile == null) {
             return new CompileCommandResult(compileResult);
         }
-        var jarResults = awaitSuccessValues(List.of(
-                jar(mainClass, outputDir, jarFile, incrementalChanges),
-                createSourcesJar
-                        ? sourcesJar(inputDirectories, jarFile)
-                        : completedStage(null),
-                createJavadocsJar
-                        ? createJavadoc(computedClasspath, sourceFiles)
-                        .thenCompose(result -> javadocJar(result, jarFile))
-                        : completedStage(null)))
-                .toCompletableFuture().get().iterator();
+
+        var jarResults = invokeJarTasks(inputDirectories, mainClass, createSourcesJar, createJavadocsJar,
+                incrementalChanges, outputDir, jarFile, computedClasspath, sourceFiles);
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
+    }
+
+    private Iterator<ToolRunResult> invokeJarTasks(Set<String> inputDirectories,
+                                                   String mainClass,
+                                                   boolean createSourcesJar,
+                                                   boolean createJavadocsJar,
+                                                   IncrementalChanges incrementalChanges,
+                                                   String outputDir,
+                                                   String jarFile,
+                                                   String computedClasspath,
+                                                   Set<String> sourceFiles)
+            throws InterruptedException, ExecutionException {
+        List<Supplier<CompletionStage<ToolRunResult>>> actions = List.of(
+                () -> jar(mainClass, outputDir, jarFile, incrementalChanges),
+                () -> createSourcesJar
+                        ? sourcesJar(inputDirectories, jarFile)
+                        : completedStage(null),
+                () -> createJavadocsJar
+                        ? createJavadoc(computedClasspath, sourceFiles)
+                        .thenCompose(result -> javadocJar(result, jarFile))
+                        : completedStage(null));
+
+        var timeout = Duration.ofMinutes(5);
+
+        // on Windows, we can't run the tasks in parallel as files used by one jar task cannot be used by another
+        if (Env.IS_WINDOWS) {
+            return List.of(
+                    await(actions.get(0).get(), timeout, "jar"),
+                    await(actions.get(1).get(), timeout, "sources-jar"),
+                    await(actions.get(2).get(), timeout, "javadocs-jar")
+            ).iterator();
+        }
+
+        return await(
+                awaitSuccessValues(actions.stream().map(Supplier::get).collect(toList())),
+                timeout,
+                "jar (sources-jar, javadocs-jar)"
+        ).iterator();
     }
 
     private CompletionStage<Either<ToolRunResult, String>> createJavadoc(String classpath, Set<String> sourceFiles) {

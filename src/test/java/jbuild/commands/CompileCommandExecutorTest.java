@@ -32,7 +32,6 @@ public class CompileCommandExecutorTest {
     @Test
     void canCompileClassFiles() throws Exception {
         var logEntry = TestHelper.createLog(false);
-        var bytesOut = logEntry.getValue();
         var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
 

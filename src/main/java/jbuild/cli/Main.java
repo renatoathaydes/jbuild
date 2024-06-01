@@ -38,6 +38,7 @@ import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
+import static jbuild.util.AsyncUtils.await;
 import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;
@@ -415,11 +416,12 @@ public final class Main {
         }
     }
 
-    private void requirements(Options options) throws ExecutionException, InterruptedException {
+    private void requirements(Options options) {
         var command = RequirementsCommandExecutor.createDefault(log);
         var reqOptions = RequirementsOptions.parse(options.commandArgs, !options.quiet);
-        command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass)
-                .toCompletableFuture().get();
+        await(command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass),
+                Duration.ofMinutes(2),
+                "requirements");
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

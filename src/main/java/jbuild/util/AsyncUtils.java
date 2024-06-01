@@ -1,5 +1,7 @@
 package jbuild.util;
 
+import jbuild.api.JBuildException;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -9,10 +11,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -22,6 +26,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 
 public final class AsyncUtils {
 
@@ -223,5 +228,13 @@ public final class AsyncUtils {
         }, delay.toMillis(), TimeUnit.MILLISECONDS);
 
         return future;
+    }
+
+    public static <T> T await(CompletionStage<T> stage, Duration timeout, String actionName) {
+        try {
+            return stage.toCompletableFuture().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new JBuildException("'" + actionName + "' failed due to: " + e, ACTION_ERROR);
+        }
     }
 }
