@@ -8,7 +8,6 @@ import jbuild.java.tools.ToolRunResult;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
-import jbuild.util.Env;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
 import jbuild.util.JarFileFilter;
@@ -35,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -213,33 +211,30 @@ public final class CompileCommandExecutor {
                                                    String outputDir,
                                                    String jarFile,
                                                    String computedClasspath,
-                                                   Set<String> sourceFiles)
-            throws InterruptedException, ExecutionException {
-        List<Supplier<CompletionStage<ToolRunResult>>> actions = List.of(
-                () -> jar(mainClass, outputDir, jarFile, incrementalChanges),
-                () -> createSourcesJar
+                                                   Set<String> sourceFiles) {
+        // make sure the tmp directory exists as the Jar command assumes it does!
+        try {
+            Files.createTempFile("CompileCommandExecutor", "");
+        } catch (IOException ignore) {
+            // ignore
+        }
+
+        List<CompletionStage<ToolRunResult>> actions = List.of(
+                jar(mainClass, outputDir, jarFile, incrementalChanges),
+                createSourcesJar
                         ? sourcesJar(inputDirectories, jarFile)
                         : completedStage(null),
-                () -> createJavadocsJar
+                createJavadocsJar
                         ? createJavadoc(computedClasspath, sourceFiles)
                         .thenCompose(result -> javadocJar(result, jarFile))
                         : completedStage(null));
 
         var timeout = Duration.ofMinutes(5);
 
-        // on Windows, we can't run the tasks in parallel as files used by one jar task cannot be used by another
-        if (Env.IS_WINDOWS) {
-            return List.of(
-                    await(actions.get(0).get(), timeout, "jar"),
-                    await(actions.get(1).get(), timeout, "sources-jar"),
-                    await(actions.get(2).get(), timeout, "javadocs-jar")
-            ).iterator();
-        }
-
         return await(
-                awaitSuccessValues(actions.stream().map(Supplier::get).collect(toList())),
+                awaitSuccessValues(actions),
                 timeout,
-                "jar (sources-jar, javadocs-jar)"
+                "jar, sources-jar, javadocs-jar)"
         ).iterator();
     }
 
@@ -337,7 +332,7 @@ public final class CompileCommandExecutor {
                 // class files must be passed with the exact output path, unlike resources
                 result.add(file);
             } else {
-                // resource files need to be relativized
+                // resource files need to be made relative
                 var found = false;
                 for (var dir : directories) {
                     if (file.startsWith(dir)) {
