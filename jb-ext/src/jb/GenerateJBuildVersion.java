@@ -19,8 +19,8 @@ import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
         description = "Generates a Version file so JBuild can report its own version.",
         phase = @TaskPhase(name = "codegen", index = 200))
 public class GenerateJBuildVersion implements JbTask {
-    static final String INPUT = "../src/main/template/jbuild/Version.java";
-    static final String OUTPUT = "../src/main/java/jbuild/Version.java";
+    static final String INPUT = "src/main/template/jbuild/Version.java";
+    static final String OUTPUT = "src/main/java/jbuild/Version.java";
 
     @Override
     public List<String> inputs() {
