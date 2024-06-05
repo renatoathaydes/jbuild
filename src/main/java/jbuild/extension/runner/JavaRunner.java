@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 public final class JavaRunner {
 
@@ -325,7 +326,15 @@ public final class JavaRunner {
         var length = Array.getLength(arg);
         var array = Array.newInstance(componentType, length);
         for (var i = 0; i < length; i++) {
-            Array.set(array, i, arg);
+            try {
+                Array.set(array, i, arg);
+            } catch (IllegalArgumentException e) {
+                throw new JBuildException("Cannot set element " + i + " of array with type " +
+                        componentType.getName() + "[] to '" + arg + "' of type " +
+                        typeNameToClassName(arg == null ? "Null" : arg.getClass().getName()) +
+                        ": " + e,
+                        ACTION_ERROR);
+            }
         }
         return array;
     }
