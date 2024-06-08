@@ -7,13 +7,19 @@ import java.util.List;
 
 public class TestCallable {
     private final JBuildLogger log;
+    private final String[] values;
 
     public TestCallable() {
         this(null);
     }
 
     public TestCallable(JBuildLogger log) {
+        this(log, null);
+    }
+
+    public TestCallable(JBuildLogger log, String[] values) {
         this.log = log;
+        this.values = values;
     }
 
     public String hello() {
@@ -46,6 +52,7 @@ public class TestCallable {
 
     @Override
     public String toString() {
-        return "TestCallable(log=" + log + ")";
+        var values = ", values=" + Arrays.toString(this.values);
+        return "TestCallable(log=" + log + values + ")";
     }
 }

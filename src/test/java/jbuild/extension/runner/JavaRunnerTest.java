@@ -97,6 +97,20 @@ public class JavaRunnerTest {
     }
 
     @Test
+    void canCreateClassWithArrayConstructorArg() {
+        var log = new JBuildLog(System.out, false);
+        var runner = new JavaRunner("", log);
+        var strings = new String[]{"foo", "bar"};
+
+        var result = runner.run(TestCallable.class.getName(), new Object[]{
+                log,
+                strings,
+        }, "toString");
+
+        assertThat(result).isEqualTo(new TestCallable(log, strings).toString());
+    }
+
+    @Test
     void cannotRunNonExistentMethod() {
         var runner = new JavaRunner("", new JBuildLog(System.out, false));
 

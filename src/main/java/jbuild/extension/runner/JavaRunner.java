@@ -35,9 +35,12 @@ public final class JavaRunner {
         exact, varargsExact, varargsMissing, varargsExtra, no,
     }
 
+
     private static final class MethodMatch {
         final ParamMatch paramMatch;
         final Method method;
+
+        static final MethodMatch NO = new MethodMatch(ParamMatch.no, null);
 
         public MethodMatch(ParamMatch paramMatch, Method method) {
             this.paramMatch = paramMatch;
@@ -103,7 +106,7 @@ public final class JavaRunner {
                 .collect(toList());
 
         var matchMethod = nameMethodMatches.stream()
-                .map(m -> new MethodMatch(matchByCount(m, args.length), m))
+                .map(m -> createMethodMatch(matchByCount(m, args.length), m))
                 .filter(m -> typesMatch(m, args))
                 .findFirst();
 
@@ -147,10 +150,17 @@ public final class JavaRunner {
                 typesOf(args) + "\n" + reason, USER_INPUT);
     }
 
+    private MethodMatch createMethodMatch(ParamMatch paramMatch, Method method) {
+        if (paramMatch == ParamMatch.no) {
+            return MethodMatch.NO;
+        }
+        return new MethodMatch(paramMatch, method);
+    }
+
     private Object createReceiverType(Class<?> type, Object... constructorData)
             throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         Constructor<?> constructor = Arrays.stream(type.getConstructors())
-                .filter(c -> c.getParameterCount() == constructorData.length)
+                .filter(c -> typesMatch(c, constructorData))
                 .findFirst()
                 .orElse(null);
         if (constructor != null) {
@@ -164,11 +174,18 @@ public final class JavaRunner {
         for (int i = 0; i < parameters.length; i++) {
             var arg = constructorData[i];
             var paramType = parameters[i].getType();
-            if (arg == null && paramType.equals(JBuildLogger.class)) {
-                constructorData[i] = log;
+            if (paramType.equals(JBuildLogger.class)) {
+                if (arg == null) {
+                    constructorData[i] = log;
+                } else if (!(arg instanceof JBuildLogger)) {
+                    throw new JBuildException("Constructor parameter of type JBuildLogger was provided a " +
+                            "non-null value", ACTION_ERROR);
+                }
             } else if (paramType.equals(JbConfig.class)) {
                 // TODO support JbConfig
                 throw new UnsupportedOperationException("Cannot support JbConfig yet");
+            } else if (paramType.isArray()) {
+                constructorData[i] = fixArrayArgs(new Class[]{paramType}, new Object[]{arg})[0];
             }
         }
         return constructorData;
@@ -203,6 +220,24 @@ public final class JavaRunner {
         if (match.paramMatch == ParamMatch.no) return false;
         var acceptedTypes = match.method.getParameterTypes();
         for (var i = 0; i < match.checkedParamsCount(); i++) {
+            var acceptedType = acceptedTypes[i];
+            if (acceptedType.isPrimitive()) {
+                if (!typesMatchPrimitive(acceptedType, args[i])) {
+                    return false;
+                }
+            } else if (acceptedType.isArray()) {
+                if (!arrayTypesMatch(acceptedType, args[i])) return false;
+            } else if (args[i] != null && !acceptedType.isInstance(args[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean typesMatch(Constructor<?> constructor, Object[] args) {
+        var acceptedTypes = constructor.getParameterTypes();
+        if (acceptedTypes.length != args.length) return false;
+        for (var i = 0; i < args.length; i++) {
             var acceptedType = acceptedTypes[i];
             if (acceptedType.isPrimitive()) {
                 if (!typesMatchPrimitive(acceptedType, args[i])) {
