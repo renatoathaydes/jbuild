@@ -43,9 +43,10 @@ public class GenerateJBuildVersion implements JbTask {
         if (dir == null || (!dir.isDirectory() && !dir.mkdirs())) {
             throw new JBuildException("Cannot create output directory for " + OUTPUT, IO_WRITE);
         }
+        // FIXME the version should actually come from JbConfig
         writeString(Paths.get(OUTPUT),
                 readAllLines(Paths.get(INPUT))
-                        .stream().map((line) -> line.replace("%VERSION%", "1.0"))
+                        .stream().map((line) -> line.replace("%VERSION%", "0.0"))
                         .collect(Collectors.joining(System.lineSeparator())));
     }
 }

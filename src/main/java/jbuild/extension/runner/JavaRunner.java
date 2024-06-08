@@ -19,6 +19,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -107,10 +108,14 @@ public final class JavaRunner {
 
         var matchMethod = nameMethodMatches.stream()
                 .map(m -> createMethodMatch(matchByCount(m, args.length), m))
+                .sorted(Comparator.comparing(m -> m.paramMatch))
                 .filter(m -> typesMatch(m, args))
                 .findFirst();
 
         if (matchMethod.isPresent()) {
+            log.verbosePrintln(() -> "Selected method to call with args " +
+                    Arrays.deepToString(args) + ": " + matchMethod.get().method);
+
             Object object;
             try {
                 object = createReceiverType(type, constructorData);
@@ -388,7 +393,7 @@ public final class JavaRunner {
                 Array.set(array, i, arg);
             } catch (IllegalArgumentException e) {
                 throw new JBuildException("Cannot set element " + i + " of array with type " +
-                        componentType.getName() + "[] to '" + arg + "' of type " +
+                        componentType.getName() + "[] to '" + Arrays.deepToString((Object[]) arg) + "' of type " +
                         typeNameToClassName(arg == null ? "Null" : arg.getClass().getName()) +
                         ": " + e,
                         ACTION_ERROR);

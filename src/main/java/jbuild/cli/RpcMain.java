@@ -94,12 +94,12 @@ public final class RpcMain {
                       Object[] constructorData,
                       String className,
                       String methodName,
-                      String... args)
+                      Object... args)
             throws ExecutionException, InterruptedException {
         var completion = new CompletableFuture<>();
         try {
             var obj = new JavaRunner(classpath, log)
-                    .run(className, constructorData, methodName, (Object[]) args);
+                    .run(className, constructorData, methodName, args);
             completion.complete(obj);
         } catch (Throwable t) {
             completion.completeExceptionally(t);
