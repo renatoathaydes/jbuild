@@ -4,6 +4,8 @@ import jbuild.api.JBuildException;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -19,12 +21,21 @@ public class JavaRunnerTest {
     }
 
     @Test
-    void canRunMethodWithArgs() {
+    void canRunMethodWithIntArgs() {
         var runner = new JavaRunner("", new JBuildLog(System.out, false));
 
         var result = runner.run(TestCallable.class.getName(), new Object[0], "add", 1, 2);
 
         assertThat(result).isEqualTo(3);
+    }
+
+    @Test
+    void canRunMethodWithStringArrayArg() {
+        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+
+        var result = runner.run(TestCallable.class.getName(), new Object[0], "run", List.of("foo", "bar"));
+
+        assertThat(result).isEqualTo("[foo, bar]");
     }
 
     @Test
@@ -77,6 +88,10 @@ public class JavaRunnerTest {
         var runner = new JavaRunner("", log);
 
         var result = runner.run(TestCallable.class.getName(), new Object[]{null}, "toString");
+
+        assertThat(result).isEqualTo(new TestCallable(log).toString());
+
+        result = runner.run(TestCallable.class.getName(), new Object[]{log}, "toString");
 
         assertThat(result).isEqualTo(new TestCallable(log).toString());
     }

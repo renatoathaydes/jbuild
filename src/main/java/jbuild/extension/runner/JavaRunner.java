@@ -19,6 +19,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -34,7 +35,7 @@ public final class JavaRunner {
         exact, varargsExact, varargsMissing, varargsExtra, no,
     }
 
-    private static class MethodMatch {
+    private static final class MethodMatch {
         final ParamMatch paramMatch;
         final Method method;
 
@@ -230,7 +231,12 @@ public final class JavaRunner {
     }
 
     private static boolean arrayTypesMatch(Class<?> arrayType, Object arg) {
-        if (arg == null || !arg.getClass().isArray()) return false;
+        if (arg == null) return false;
+        if (arg instanceof List<?>) {
+            return arrayTypesMatchList(arrayType, (List<?>) arg);
+        }
+        if (!arg.getClass().isArray()) return false;
+
         if (arrayType.isInstance(arg)) return true;
         var componentType = arrayType.getComponentType();
         for (var i = 0; i < Array.getLength(arg); i++) {
@@ -238,6 +244,12 @@ public final class JavaRunner {
             if (element != null && !componentType.isInstance(element)) return false;
         }
         return true;
+    }
+
+    private static boolean arrayTypesMatchList(Class<?> arrayType, List<?> arg) {
+        if (arg.isEmpty()) return true;
+        var componentType = arrayType.getComponentType();
+        return componentType.isInstance(arg.get(0));
     }
 
     private String typesOf(Object[] args) {
@@ -308,9 +320,12 @@ public final class JavaRunner {
             var arg = args[i];
             if (paramType.isArray()) {
                 if (arg != null) {
-                    assert arg.getClass().isArray();
-                    if (!paramType.isInstance(arg)) {
-                        args[i] = convertArrayType(paramType.getComponentType(), arg);
+                    if (arg.getClass().isArray()) {
+                        if (!paramType.isInstance(arg)) {
+                            args[i] = convertArrayType(paramType.getComponentType(), arg);
+                        }
+                    } else if (arg instanceof List<?>) {
+                        args[i] = convertListType(paramType.getComponentType(), (List<?>) arg);
                     }
                 }
             } else if (arg == null) {
@@ -320,6 +335,14 @@ public final class JavaRunner {
             }
         }
         return args;
+    }
+
+    private static Object convertListType(Class<?> componentType, List<?> arg) {
+        var array = Array.newInstance(componentType, arg.size());
+        for (int i = 0; i < arg.size(); i++) {
+            Array.set(array, i, arg.get(i));
+        }
+        return array;
     }
 
     private static Object convertArrayType(Class<?> componentType, Object arg) {

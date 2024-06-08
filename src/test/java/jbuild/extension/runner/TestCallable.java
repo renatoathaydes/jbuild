@@ -40,7 +40,8 @@ public class TestCallable {
         return List.of("hello", List.of("world", "!"));
     }
 
-    public void run(String[] args) {
+    public String run(String[] args) {
+        return Arrays.toString(args);
     }
 
     @Override
