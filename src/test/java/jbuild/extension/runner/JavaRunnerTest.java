@@ -1,9 +1,13 @@
 package jbuild.extension.runner;
 
 import jbuild.api.JBuildException;
+import jbuild.api.change.ChangeKind;
+import jbuild.api.change.ChangeSet;
+import jbuild.api.change.FileChange;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +84,22 @@ public class JavaRunnerTest {
         result = runner.run(TestCallable.class.getName(), new Object[0], "add", 10, "foo");
 
         assertThat(result).isEqualTo("foo: 10");
+    }
+
+    @Test
+    void canRunMethodTakingChangeSet() {
+        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+
+        var changeSets = new ChangeSet[]{
+                new ChangeSet(new FileChange[]{
+                        new FileChange("foo", ChangeKind.MODIFIED)
+                }, new FileChange[]{})
+        };
+
+        var result = runner.run(TestCallable.class.getName(), new Object[0], "run",
+                "a", new Object[]{"b"}, "c", "d", changeSets);
+
+        assertThat(result).isEqualTo("a:[b]:c:d:" + Arrays.toString(changeSets));
     }
 
     @Test

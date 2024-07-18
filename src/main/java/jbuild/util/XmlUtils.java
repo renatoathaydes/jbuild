@@ -109,6 +109,12 @@ public final class XmlUtils {
                 .orElseGet(defaultValue);
     }
 
+    public static Optional<Element> structMember(String name, List<Element> members) {
+        return members.stream()
+                .filter(e -> textOf(childNamed("name", e)).equals(name))
+                .findFirst();
+    }
+
     public static void writeXml(Node doc,
                                 OutputStream output,
                                 boolean indent) throws TransformerException {

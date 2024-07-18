@@ -1,15 +1,23 @@
 package jbuild.extension.runner;
 
 import jbuild.api.JBuildException;
+import jbuild.api.change.ChangeKind;
+import jbuild.api.change.ChangeSet;
+import jbuild.api.change.FileChange;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
+import static jbuild.util.XmlUtils.structMember;
 import static jbuild.util.XmlUtils.textOf;
 
 public final class RpcMethodCall {
@@ -98,6 +106,8 @@ public final class RpcMethodCall {
                 return Double.parseDouble(child.getTextContent());
             case "array":
                 return arrayValue(child);
+            case "struct":
+                return structValue(child);
             case "null":
                 return null;
             default:
@@ -137,6 +147,14 @@ public final class RpcMethodCall {
                 }
                 return result;
             }
+            case "struct": {
+                var structType = peekStructType(values);
+                var result = Array.newInstance(structType, values.size());
+                for (int i = 0; i < values.size(); i++) {
+                    Array.set(result, i, structType.cast(extractValue(values.get(i))));
+                }
+                return result;
+            }
             case "":
             case "null":
             case "array": {
@@ -158,6 +176,82 @@ public final class RpcMethodCall {
         var values = childrenNamed("value", data);
         if (values.isEmpty()) return new Object[0];
         return typedArray(values, peekType(values));
+    }
+
+    private static Object structValue(Element element) {
+        var members = childrenNamed("member", element);
+
+        if (members.isEmpty()) {
+            throw new IllegalArgumentException("invalid struct, expected at least one member: " + element);
+        }
+
+        var fields = members.stream()
+                .map(e -> textOf(childNamed("name", e)))
+                .collect(Collectors.toSet());
+
+        if (fields.equals(Set.of("inputChanges", "outputChanges"))) {
+            return changeSetFrom(members);
+        } else if (fields.equals(Set.of("path", "kind"))) {
+            return fileChangeFrom(members);
+        } else {
+            throw new IllegalArgumentException("no struct Java type is known with fields: " + fields + ": " + element);
+        }
+    }
+
+    private static ChangeSet changeSetFrom(List<Element> members) {
+        var inputChanges = structMember("inputChanges", members)
+                .map(e -> fileChangesFrom("inputChanges", childNamed("value", e)
+                        .orElseThrow(() -> new IllegalArgumentException("struct inputChanges member has no value"))))
+                .orElseThrow();
+        var outputChanges = structMember("outputChanges", members)
+                .map(e -> fileChangesFrom("outputChanges", childNamed("value", e)
+                        .orElseThrow(() -> new IllegalArgumentException("struct outputChanges member has no value"))))
+                .orElseThrow();
+        return new ChangeSet(inputChanges, outputChanges);
+    }
+
+    private static FileChange[] fileChangesFrom(String name, Element element) {
+        var array = childNamed("array", element)
+                .orElseThrow(() -> new IllegalArgumentException("in '" + name + "': expected array, not " + element));
+        var data = childNamed("data", array)
+                .orElseThrow(() -> new IllegalArgumentException("in '" + name + "/array': expected data, not " + element));
+        var values = childrenNamed("value", data);
+        var structs = values.stream()
+                .map(e -> childNamed("struct", e).orElseThrow(() ->
+                        new IllegalArgumentException("expected only structs in array of FileChange")));
+        try {
+            return structs.map(RpcMethodCall::structValue)
+                    .map(s -> (FileChange) s)
+                    .toArray(FileChange[]::new);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("error in FileChange struct: " + e);
+        }
+    }
+
+    private static FileChange fileChangeFrom(List<Element> members) {
+        var path = structMember("path", members)
+                .map(e -> textOf(childNamed("value", e)))
+                .orElseThrow();
+        var kind = structMember("kind", members)
+                .map(e -> textOf(childNamed("value", e)))
+                .orElseThrow();
+        return new FileChange(path, ChangeKind.valueOf(kind.toUpperCase(Locale.ROOT)));
+    }
+
+    private static Class<?> peekStructType(List<Element> values) {
+        Class<?> currentType = Object.class;
+        for (var value : values) {
+            var struct = childNamed("struct", value);
+            if (struct.isEmpty()) break;
+            var members = childrenNamed("member", struct.get());
+            if (structMember("inputChanges", members).isPresent()) {
+                return ChangeSet.class;
+            }
+            if (structMember("path", members).isPresent()) {
+                return FileChange.class;
+            }
+        }
+        return currentType;
     }
 
     /**

@@ -1,6 +1,7 @@
 package jbuild.extension.runner;
 
 import jbuild.api.JBuildLogger;
+import jbuild.api.change.ChangeSet;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,6 +49,10 @@ public class TestCallable {
 
     public String run(String[] args) {
         return Arrays.toString(args);
+    }
+
+    public String run(String s, Object[] arr, String s2, String s3, ChangeSet[] changes) {
+        return s + ':' + Arrays.deepToString(arr) + ':' + s2 + ':' + s3 + ':' + Arrays.deepToString(changes);
     }
 
     @Override

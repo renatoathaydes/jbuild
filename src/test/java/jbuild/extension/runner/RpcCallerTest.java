@@ -1,8 +1,12 @@
 package jbuild.extension.runner;
 
+import jbuild.api.change.ChangeKind;
+import jbuild.api.change.ChangeSet;
+import jbuild.api.change.FileChange;
 import jbuild.java.TestHelper;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static jbuild.java.TestHelper.assertXml;
@@ -38,7 +42,7 @@ public class RpcCallerTest {
         var doc = response.toDocument();
 
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
-                .isEqualTo("TestCallable(log=null)");
+                .isEqualTo(new TestCallable().toString());
     }
 
     @Test
@@ -76,7 +80,8 @@ public class RpcCallerTest {
 
         var doc = response.toDocument();
 
-        assertXml(doc, List.of("methodResponse", "params")).isEqualTo("");
+        assertXml(doc, List.of("methodResponse", "params"))
+                .isEqualTo(Arrays.toString(new String[]{"hello", "world"}));
     }
 
     @Test
@@ -94,7 +99,7 @@ public class RpcCallerTest {
 
         var doc = response.toDocument();
 
-        assertXml(doc, List.of("methodResponse", "params")).isEqualTo("");
+        assertXml(doc, List.of("methodResponse", "params")).isEqualTo("[]");
     }
 
     @Test
@@ -233,6 +238,53 @@ public class RpcCallerTest {
                 "array", "data", new TestHelper.IndexedPath("value", 1),
                 "array", "data", new TestHelper.IndexedPath("value", 1), "string"))
                 .isEqualTo("!");
+    }
+
+    @Test
+    void canRunMethodTakingStructArg() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>" +
+                "  <methodName>run</methodName>" +
+                "  <params>" +
+                "    <param><value>build/example-extension.jar</value></param>" +
+                "    <param><value><array>" +
+                "      <data><value><null /></value></data>" +
+                "      </array></value>" +
+                "    </param>" +
+                "    <param><value>CopierTask</value></param>" +
+                "    <param><value>run</value></param>" +
+                "    <param><value><array><data><value><struct><member>" +
+                "      <name>inputChanges</name><value><array><data><value>" +
+                "        <struct>" +
+                "          <member><name>path</name><value>input-resources</value></member>" +
+                "          <member><name>kind</name><value>modified</value></member>" +
+                "        </struct></value><value>" +
+                "        <struct>" +
+                "           <member><name>path</name><value>input-resources/new.txt</value></member>" +
+                "           <member><name>kind</name><value>added</value></member>" +
+                "        </struct></value></data></array>" +
+                "      </value></member><member><name>outputChanges</name><value><array><data></data></array></value>" +
+                "      </member></struct></value></data></array></value></param>" +
+                "  </params>" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo("build/example-extension.jar:" +
+                        Arrays.toString(new Object[]{null}) + ':' +
+                        "CopierTask:" +
+                        "run:" +
+                        Arrays.toString(new Object[]{
+                                new ChangeSet(
+                                        new FileChange[]{
+                                                new FileChange("input-resources", ChangeKind.MODIFIED),
+                                                new FileChange("input-resources/new.txt", ChangeKind.ADDED),
+                                        },
+                                        new FileChange[0]
+                                )
+                        }));
     }
 
 }

@@ -3,6 +3,7 @@ package jbuild.extension.runner;
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
 import jbuild.api.JBuildLogger;
+import jbuild.api.change.ChangeSet;
 import jbuild.api.config.JbConfig;
 import jbuild.cli.RpcMain;
 import jbuild.log.JBuildLog;
@@ -151,7 +152,7 @@ public final class JavaRunner {
         }
 
         throw new JBuildException("Unable to find method that could be invoked with the provided arguments: " +
-                Arrays.toString(args) + ".\nProvided parameter types:\n  * " +
+                Arrays.deepToString(args) + ".\nProvided parameter types:\n  * " +
                 typesOf(args) + "\n" + reason, USER_INPUT);
     }
 
@@ -232,6 +233,8 @@ public final class JavaRunner {
                 }
             } else if (acceptedType.isArray()) {
                 if (!arrayTypesMatch(acceptedType, args[i])) return false;
+            } else if (acceptedType.equals(ChangeSet.class)) {
+                return args[i] instanceof ChangeSet;
             } else if (args[i] != null && !acceptedType.isInstance(args[i])) {
                 return false;
             }
@@ -380,7 +383,12 @@ public final class JavaRunner {
     private static Object convertListType(Class<?> componentType, List<?> arg) {
         var array = Array.newInstance(componentType, arg.size());
         for (int i = 0; i < arg.size(); i++) {
-            Array.set(array, i, arg.get(i));
+            try {
+                Array.set(array, i, arg.get(i));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("array of type " + componentType.getName() +
+                        " cannot accept item: " + arg.get(i));
+            }
         }
         return array;
     }
