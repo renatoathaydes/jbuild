@@ -103,6 +103,7 @@ public final class JavaRunner {
         } catch (ClassNotFoundException e) {
             throw new JBuildException("Class " + className + " does not exist", USER_INPUT);
         }
+
         var nameMethodMatches = Stream.of(type.getMethods())
                 .filter(m -> !Modifier.isStatic(m.getModifiers()) && m.getName().equals(method))
                 .collect(toList());
@@ -133,6 +134,9 @@ public final class JavaRunner {
                 throw new JBuildException(e.toString(), ACTION_ERROR);
             } catch (InvocationTargetException e) {
                 var cause = e.getCause();
+                if (cause instanceof RuntimeException) {
+                    throw (RuntimeException) cause;
+                }
                 throw new RuntimeException(cause == null ? e : cause);
             } finally {
                 System.setOut(out);
@@ -234,7 +238,8 @@ public final class JavaRunner {
             } else if (acceptedType.isArray()) {
                 if (!arrayTypesMatch(acceptedType, args[i])) return false;
             } else if (acceptedType.equals(ChangeSet.class)) {
-                return args[i] instanceof ChangeSet;
+                var arg = args[i];
+                return arg == null || arg instanceof ChangeSet;
             } else if (args[i] != null && !acceptedType.isInstance(args[i])) {
                 return false;
             }
@@ -309,11 +314,12 @@ public final class JavaRunner {
                 break;
             case varargsExact:
                 var lastArg = args[args.length - 1];
-                if (lastArg.getClass().isArray()) {
+                if (lastArg != null && lastArg.getClass().isArray()) {
                     fixedArgs = fixArrayArgs(match.method.getParameterTypes(), args);
                 } else {
+                    var type = match.method.getParameterTypes()[args.length - 1];
                     // make the last arg an array, so it matches the varargs parameter
-                    fixedArgs = withLastArgAsArray(args, lastArg);
+                    fixedArgs = withLastArgAsArray(args, lastArg, type.getComponentType());
                 }
                 break;
             case varargsMissing:
@@ -342,8 +348,10 @@ public final class JavaRunner {
 
     }
 
-    private static Object[] withLastArgAsArray(Object[] args, Object lastArg) {
-        args[args.length - 1] = new Object[]{lastArg};
+    private static Object[] withLastArgAsArray(Object[] args, Object lastArg, Class<?> type) {
+        var array = Array.newInstance(type, 1);
+        Array.set(array, 0, lastArg);
+        args[args.length - 1] = array;
         return args;
     }
 

@@ -15,9 +15,10 @@ public class TestCallable {
     }
 
     public TestCallable(JBuildLogger log) {
-        this(log, null);
+        this(log, new String[0]);
     }
 
+    // Selected method to call with args [null, []]: public void CopierTask.run(java.lang.String[])
     public TestCallable(JBuildLogger log, String[] values) {
         this.log = log;
         this.values = values;

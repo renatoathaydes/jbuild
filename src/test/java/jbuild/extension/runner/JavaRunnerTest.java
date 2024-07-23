@@ -1,17 +1,20 @@
 package jbuild.extension.runner;
 
 import jbuild.api.JBuildException;
+import jbuild.api.JbTask;
 import jbuild.api.change.ChangeKind;
 import jbuild.api.change.ChangeSet;
 import jbuild.api.change.FileChange;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 
 public class JavaRunnerTest {
 
@@ -59,6 +62,13 @@ public class JavaRunnerTest {
                 new String[]{"foo", "bar", "zort"});
 
         assertThat(result3).isEqualTo("[foo, bar, zort]: 3.14");
+
+        // special case: empty array should match any array type as there's no way to tell from the
+        // array contents which type the array should have.
+        var result4 = runner.run(TestCallable.class.getName(), new Object[0], "varargs", 1.0D,
+                new Object[]{});
+
+        assertThat(result4).isEqualTo("[]: 1.0");
     }
 
     @Test
@@ -103,15 +113,37 @@ public class JavaRunnerTest {
     }
 
     @Test
+    void doesNotConfuseVarargsMethodWithAnother() {
+        var runner = new JavaRunner("", new JBuildLog(System.out, true));
+
+        var result = callTestTask(runner, (Object) null);
+        assertThat(result).hasMessage("Called method with args: [null]");
+
+        var result2 = callTestTask(runner, null, new String[]{"hi"});
+        assertThat(result2).hasMessage("Called method with ChangeSet and args: [hi]");
+    }
+
+    @Test
     void canCreateClassWithConstructorArg() {
         var log = new JBuildLog(System.out, false);
         var runner = new JavaRunner("", log);
 
         var result = runner.run(TestCallable.class.getName(), new Object[]{null}, "toString");
 
+        // null argument for JBuildLog is replaced with an actual instance
         assertThat(result).isEqualTo(new TestCallable(log).toString());
 
         result = runner.run(TestCallable.class.getName(), new Object[]{log}, "toString");
+
+        assertThat(result).isEqualTo(new TestCallable(log).toString());
+    }
+
+    @Test
+    void canCreateClassWithNullConstructorArgThenEmptyVarargs() {
+        var log = new JBuildLog(System.out, false);
+        var runner = new JavaRunner("", log);
+
+        var result = runner.run(TestCallable.class.getName(), new Object[]{null, new Object[]{}}, "toString");
 
         assertThat(result).isEqualTo(new TestCallable(log).toString());
     }
@@ -161,4 +193,26 @@ public class JavaRunnerTest {
                 .startsWith("Unable to find method that could be invoked with the provided arguments: [foo, 1].");
     }
 
+    private static RuntimeException callTestTask(JavaRunner runner, Object... args) {
+        try {
+            runner.run(TestTask.class.getName(), new Object[0], "run", args);
+        } catch (RuntimeException e) {
+            return e;
+        }
+        fail("TestTask did not throw expected RuntimeException");
+        return null;
+    }
+
+    public static final class TestTask implements JbTask {
+
+        @Override
+        public void run(ChangeSet changeSet, String... args) throws IOException {
+            throw new RuntimeException("Called method with ChangeSet and args: " + Arrays.deepToString(args));
+        }
+
+        @Override
+        public void run(String... args) throws IOException {
+            throw new RuntimeException("Called method with args: " + Arrays.deepToString(args));
+        }
+    }
 }
