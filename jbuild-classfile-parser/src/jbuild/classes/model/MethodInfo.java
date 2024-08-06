@@ -23,4 +23,14 @@ public final class MethodInfo {
         this.descriptorIndex = descriptorIndex;
         this.attributes = attributes;
     }
+
+    @Override
+    public String toString() {
+        return "MethodInfo{" +
+                "accessFlags=" + accessFlags +
+                ", nameIndex=" + nameIndex +
+                ", descriptorIndex=" + descriptorIndex +
+                ", attributes=" + attributes +
+                '}';
+    }
 }

@@ -1,5 +1,6 @@
 package jbuild.classes.model;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -40,6 +41,9 @@ public final class AttributeInfo {
      */
     public short signatureAttributeValueIndex() {
         assert attributes.length == 2;
-        return (short) ((attributes[0] << 1) | (attributes[1]));
+        var buf = ByteBuffer.allocate(2);
+        buf.put(attributes);
+        buf.flip();
+        return buf.getShort();
     }
 }
