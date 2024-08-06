@@ -174,10 +174,25 @@ public final class JavaRunner {
                 .findFirst()
                 .orElse(null);
         if (constructor != null) {
-            return constructor.newInstance(populateConstructorData(constructor.getParameters(), constructorData));
+            var data = populateConstructorData(constructor.getParameters(), constructorData);
+            log.verbosePrintln(() -> "Found constructor to invoke with data " +
+                    Arrays.deepToString(data) + ": " + constructor);
+            return constructor.newInstance(data);
         }
 
-        return type.getConstructor().newInstance();
+        Constructor<?> defaultConstructor = Arrays.stream(type.getConstructors())
+                .filter(c -> c.getParameterCount() == 0)
+                .findFirst()
+                .orElse(null);
+
+        if (defaultConstructor != null) {
+            log.println(() -> "Could not find constructor for configuration data, will use default constructor instead!");
+            return defaultConstructor.newInstance();
+        }
+
+        throw new JBuildException("No constructor found in " + type.getName() +
+                " that matches configuration data: " + Arrays.deepToString(constructorData) +
+                " (types: " + typesOf(constructorData) + ")", USER_INPUT);
     }
 
     private Object[] populateConstructorData(Parameter[] parameters, Object... constructorData) {

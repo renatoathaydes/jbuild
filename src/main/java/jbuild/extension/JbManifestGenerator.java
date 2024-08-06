@@ -10,7 +10,6 @@ import jbuild.extension.ConfigObject.ConfigObjectConstructor;
 import jbuild.log.JBuildLog;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
-import jbuild.util.JavaTypeUtils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,6 +21,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
+import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
  * jb extension manifest generator.
@@ -83,11 +83,12 @@ public final class JbManifestGenerator {
 
     // VisibleForTesting
     void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
-        var className = JavaTypeUtils.typeNameToClassName(extension.getTypeName());
+        var className = typeNameToClassName(extension.getTypeName());
         log.verbosePrintln(() -> "Creating jb manifest for " + className);
         try {
             for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
                 if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
+                    log.verbosePrintln(() -> "Parsing @JbTaskInfo from " + extension.getConstructors());
                     var configObject = ConfigObject.describeConfigObject(extension);
                     writeInfo(className, configObject, annotation.getMap(), yamlBuilder);
                     return; // only one annotation is allowed
@@ -96,6 +97,9 @@ public final class JbManifestGenerator {
         } catch (JBuildException e) {
             throw new JBuildException("jb extension '" + className + "' could not be created: " +
                     e.getMessage(), e.getErrorCause());
+        } catch (Exception e) {
+            throw new RuntimeException("jb extension '" + className + "' could not be created, " +
+                    "failed to extract metadata from class file", e);
         }
         throw new JBuildException(
                 "jb extension '" + className + "' is not annotated with @jbuild.api.JbTaskInfo",
@@ -190,7 +194,7 @@ public final class JbManifestGenerator {
         for (var annotation : type.getRuntimeInvisibleAnnotations()) {
             if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
                 log.println(() -> "WARNING: class " +
-                        JavaTypeUtils.typeNameToClassName(type.getTypeName()) +
+                        typeNameToClassName(type.getTypeName()) +
                         "is annotated with @JbTaskInfo but does not implement JbTask, " +
                         "so it will not become a jb task!");
             }

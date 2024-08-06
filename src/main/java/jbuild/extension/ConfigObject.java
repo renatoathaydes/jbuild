@@ -40,7 +40,7 @@ final class ConfigObject {
             new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List", List.of(
                     new TypeArgument.Reference(STRING))));
 
-    private abstract class StringListTypeToken implements List<String> {
+    private static abstract class StringListTypeToken implements List<String> {
     }
 
     enum ConfigType {

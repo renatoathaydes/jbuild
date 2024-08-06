@@ -18,7 +18,6 @@ public class TestCallable {
         this(log, new String[0]);
     }
 
-    // Selected method to call with args [null, []]: public void CopierTask.run(java.lang.String[])
     public TestCallable(JBuildLogger log, String[] values) {
         this.log = log;
         this.values = values;
