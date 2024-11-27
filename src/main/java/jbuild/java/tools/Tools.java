@@ -336,7 +336,7 @@ public abstract class Tools {
             result.add(outDir);
 
             if (!classpath.isBlank()) {
-                result.add("-cp");
+                result.add("-classpath");
                 result.add(classpath);
             }
             result.addAll(compilerArgs);
