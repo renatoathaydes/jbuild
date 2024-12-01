@@ -38,7 +38,7 @@ public class RpcMainTest {
         new Thread(() -> {
             startWait.countDown();
             try {
-                RpcMain.run(port, token, false, stopper);
+                RpcMain.runHttpServer(port, token, false, stopper);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

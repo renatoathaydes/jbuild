@@ -20,7 +20,7 @@ public class JavaRunnerTest {
 
     @Test
     void canRunSimpleMethod() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         var result = runner.run(TestCallable.class.getName(), new Object[0], "hello");
 
@@ -29,7 +29,7 @@ public class JavaRunnerTest {
 
     @Test
     void canRunMethodWithIntArgs() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         var result = runner.run(TestCallable.class.getName(), new Object[0], "add", 1, 2);
 
@@ -38,7 +38,7 @@ public class JavaRunnerTest {
 
     @Test
     void canRunMethodWithStringArrayArg() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         var result = runner.run(TestCallable.class.getName(), new Object[0], "run", List.of("foo", "bar"));
 
@@ -47,7 +47,7 @@ public class JavaRunnerTest {
 
     @Test
     void canRunMethodWithVarArgs() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         var result = runner.run(TestCallable.class.getName(), new Object[0], "varargs", 1.0D);
 
@@ -73,7 +73,7 @@ public class JavaRunnerTest {
 
     @Test
     void canRunMethodWithNullAndStringArgs() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         var result = runner.run(TestCallable.class.getName(), new Object[0], "add", "foo", "bar");
 
@@ -98,7 +98,7 @@ public class JavaRunnerTest {
 
     @Test
     void canRunMethodTakingChangeSet() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         var changeSets = new ChangeSet[]{
                 new ChangeSet(new FileChange[]{
@@ -114,7 +114,7 @@ public class JavaRunnerTest {
 
     @Test
     void doesNotConfuseVarargsMethodWithAnother() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, true));
+        var runner = new JavaRunner(new JBuildLog(System.out, true));
 
         var result = callTestTask(runner, (Object) null);
         assertThat(result).hasMessage("Called method with args: [null]");
@@ -126,7 +126,7 @@ public class JavaRunnerTest {
     @Test
     void canCreateClassWithConstructorArg() {
         var log = new JBuildLog(System.out, false);
-        var runner = new JavaRunner("", log);
+        var runner = new JavaRunner(log);
 
         var result = runner.run(TestCallable.class.getName(), new Object[]{null}, "toString");
 
@@ -141,7 +141,7 @@ public class JavaRunnerTest {
     @Test
     void canCreateClassWithNullConstructorArgThenEmptyVarargs() {
         var log = new JBuildLog(System.out, false);
-        var runner = new JavaRunner("", log);
+        var runner = new JavaRunner(log);
 
         var result = runner.run(TestCallable.class.getName(), new Object[]{null, new Object[]{}}, "toString");
 
@@ -151,7 +151,7 @@ public class JavaRunnerTest {
     @Test
     void canCreateClassWithArrayConstructorArg() {
         var log = new JBuildLog(System.out, false);
-        var runner = new JavaRunner("", log);
+        var runner = new JavaRunner(log);
         var strings = new String[]{"foo", "bar"};
 
         var result = runner.run(TestCallable.class.getName(), new Object[]{
@@ -164,7 +164,7 @@ public class JavaRunnerTest {
 
     @Test
     void cannotRunNonExistentMethod() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         assertThatThrownBy(() -> runner.run(TestCallable.class.getName(), new Object[0], "notExists"))
                 .isInstanceOfAny(JBuildException.class)
@@ -174,7 +174,7 @@ public class JavaRunnerTest {
 
     @Test
     void cannotRunMethodIfArgTypeDoesNotMatch() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         assertThatThrownBy(() -> runner.run(TestCallable.class.getName(), new Object[0], "run", "foo"))
                 .isInstanceOfAny(JBuildException.class)
@@ -184,7 +184,7 @@ public class JavaRunnerTest {
 
     @Test
     void cannotRunMethodIfArgTypeDoesNotMatchVarargs() {
-        var runner = new JavaRunner("", new JBuildLog(System.out, false));
+        var runner = new JavaRunner(new JBuildLog(System.out, false));
 
         assertThatThrownBy(() -> runner.run(TestCallable.class.getName(), new Object[0], "run",
                 new Object[]{"foo", 1}))

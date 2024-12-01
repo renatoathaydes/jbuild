@@ -1,13 +1,13 @@
 package jbuild.extension.runner;
 
 import jbuild.api.JBuildException;
-import jbuild.api.JBuildException.ErrorCause;
 import jbuild.api.JBuildLogger;
 import jbuild.api.change.ChangeSet;
 import jbuild.api.config.JbConfig;
 import jbuild.cli.RpcMain;
 import jbuild.log.JBuildLog;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -22,7 +22,9 @@ import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -31,7 +33,7 @@ import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
-public final class JavaRunner {
+public final class JavaRunner implements Closeable {
 
     private enum ParamMatch {
         exact, varargsExact, varargsMissing, varargsExtra, no,
@@ -65,25 +67,33 @@ public final class JavaRunner {
         }
     }
 
-    private final URL[] classpath;
     private final JBuildLog log;
+    private final Map<String, ClassLoader> classLoaderByClasspath;
 
-    public JavaRunner(String classpath, JBuildLog log) {
+    private JavaRunner(JBuildLog log, Map<String, ClassLoader> classLoaderByClasspath) {
         this.log = log;
-        if (classpath.isBlank()) {
-            this.classpath = new URL[0];
-        } else {
-            var parts = classpath.split(File.pathSeparator);
-            this.classpath = new URL[parts.length];
-            for (var i = 0; i < parts.length; i++) {
-                var file = new File(parts[i]);
+        this.classLoaderByClasspath = classLoaderByClasspath;
+    }
+
+    public JavaRunner(JBuildLog log) {
+        this(log, new ConcurrentHashMap<>(4));
+    }
+
+    public JavaRunner withLog(JBuildLog log) {
+        return new JavaRunner(log, classLoaderByClasspath);
+    }
+
+    @Override
+    public void close() {
+        classLoaderByClasspath.values().forEach(cl -> {
+            if (cl instanceof Closeable) {
                 try {
-                    this.classpath[i] = file.toURI().toURL();
-                } catch (MalformedURLException e) {
-                    throw new JBuildException("Invalid classpath URL: " + parts[i], USER_INPUT);
+                    ((Closeable) cl).close();
+                } catch (IOException e) {
+                    // best-effort closing resource
                 }
             }
-        }
+        });
     }
 
     public Object run(RpcMethodCall methodCall) {
@@ -93,13 +103,21 @@ public final class JavaRunner {
     public Object run(String className,
                       Object[] constructorData,
                       String method, Object... args) {
+        return run("", className, constructorData, method, args);
+    }
+
+    public Object run(String classpath,
+                      String className,
+                      Object[] constructorData,
+                      String method, Object... args) {
         Class<?> type;
         if (className == null || className.isBlank()) { // use RcpMain
             type = RpcMain.class;
-            constructorData = new Object[1];
+            constructorData = new Object[2];
             constructorData[0] = log;
+            constructorData[1] = this;
         } else try {
-            type = loadClass(className);
+            type = loadClass(className, classpath);
         } catch (ClassNotFoundException e) {
             throw new JBuildException("Class " + className + " does not exist", USER_INPUT);
         }
@@ -126,8 +144,6 @@ public final class JavaRunner {
                 throw new JBuildException(e.toString(), USER_INPUT);
             }
 
-            final var out = System.out;
-            System.setOut(log.getPrintStream());
             try {
                 return invoke(object, matchMethod.get(), args);
             } catch (IllegalAccessException e) {
@@ -138,8 +154,6 @@ public final class JavaRunner {
                     throw (RuntimeException) cause;
                 }
                 throw new RuntimeException(cause == null ? e : cause);
-            } finally {
-                System.setOut(out);
             }
         }
 
@@ -216,17 +230,30 @@ public final class JavaRunner {
         return constructorData;
     }
 
-    private Class<?> loadClass(String className) throws ClassNotFoundException {
-        if (classpath.length == 0) {
-            return Class.forName(className);
+    private Class<?> loadClass(String className,
+                               String classpath) throws ClassNotFoundException {
+        var classLoader = classLoaderByClasspath.computeIfAbsent(classpath, (cp) -> {
+            if (cp.isEmpty()) {
+                return JavaRunner.class.getClassLoader();
+            }
+            log.verbosePrintln(() -> "Creating new ClassLoader for classpath: " + cp);
+            return createClassLoader(cp);
+        });
+        return classLoader.loadClass(className);
+    }
+
+    private static ClassLoader createClassLoader(String classpath) {
+        var parts = classpath.split(File.pathSeparator);
+        var urls = new URL[parts.length];
+        for (var i = 0; i < parts.length; i++) {
+            var file = new File(parts[i]);
+            try {
+                urls[i] = file.toURI().toURL();
+            } catch (MalformedURLException e) {
+                throw new JBuildException("Invalid classpath URL: " + parts[i], USER_INPUT);
+            }
         }
-        try (var classLoader = new URLClassLoader(classpath, JavaRunner.class.getClassLoader())) {
-            return classLoader.loadClass(className);
-        } catch (IOException e) {
-            throw new JBuildException(
-                    "Error creating ClassLoader from classpath: " + Arrays.toString(classpath),
-                    ErrorCause.IO_READ);
-        }
+        return new URLClassLoader(urls, JavaRunner.class.getClassLoader());
     }
 
     private static ParamMatch matchByCount(Method method, int argsCount) {

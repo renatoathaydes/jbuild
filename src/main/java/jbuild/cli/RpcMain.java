@@ -25,9 +25,15 @@ import static jbuild.util.TextUtils.isEither;
 public final class RpcMain {
 
     private final JBuildLog log;
+    private final JavaRunner javaRunner;
 
     public RpcMain(JBuildLog log) {
+        this(log, new JavaRunner(log));
+    }
+
+    public RpcMain(JBuildLog log, JavaRunner javaRunner) {
         this.log = log;
+        this.javaRunner = javaRunner;
     }
 
     public static void main(String[] args) throws IOException {
@@ -42,10 +48,10 @@ public final class RpcMain {
         // started this server.
         var token = UUID.randomUUID().toString();
 
-        RpcMain.run(0, token, verbose, new CountDownLatch(1));
+        RpcMain.runHttpServer(0, token, verbose, new CountDownLatch(1));
     }
 
-    public static void run(int port, String token, boolean verbose, CountDownLatch stopper) throws IOException {
+    public static void runHttpServer(int port, String token, boolean verbose, CountDownLatch stopper) throws IOException {
         var threadId = new AtomicInteger();
         var executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), runnable -> {
             var thread = new Thread(runnable, "jbuild-rpc-" + threadId.incrementAndGet());
@@ -60,21 +66,30 @@ public final class RpcMain {
         System.out.println(server.getAddress().getPort());
         System.out.println(token);
 
-        var serverContext = new JBuildHttpHandler(server, token, verbose);
+        var javaRunner = new JavaRunner(new JBuildLog(System.out, verbose));
+        var serverContext = new JBuildHttpHandler(stopper, token, verbose, javaRunner);
         server.createContext("/jbuild", serverContext);
 
         server.start();
 
+        var wasInterrupted = false;
+
         try {
             stopper.await();
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            wasInterrupted = true;
         } finally {
             try {
                 server.stop(1);
             } finally {
                 executor.shutdown();
             }
+        }
+
+        javaRunner.close();
+
+        if (wasInterrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -96,8 +111,7 @@ public final class RpcMain {
                       String methodName,
                       Object... args)
             throws ExecutionException, InterruptedException {
-        return new JavaRunner(classpath, log)
-                .run(className, constructorData, methodName, args);
+        return javaRunner.run(classpath, className, constructorData, methodName, args);
     }
 
     /**
@@ -130,14 +144,16 @@ public final class RpcMain {
 
     private static final class JBuildHttpHandler implements HttpHandler {
 
-        private final HttpServer server;
+        private final CountDownLatch stopper;
         private final String token;
         private final boolean verbose;
+        private final JavaRunner javaRunner;
 
-        public JBuildHttpHandler(HttpServer server, String token, boolean verbose) {
-            this.server = server;
+        public JBuildHttpHandler(CountDownLatch stopper, String token, boolean verbose, JavaRunner javaRunner) {
+            this.stopper = stopper;
             this.token = token;
             this.verbose = verbose;
+            this.javaRunner = javaRunner;
         }
 
         @Override
@@ -148,7 +164,7 @@ public final class RpcMain {
             logger.verbosePrintln(() -> "JBuild RPC received " + (trackId.isBlank()
                     ? "no Track-Id. Cannot associate logger messages with requests."
                     : "Track-Id: " + trackId));
-            var rpcCaller = new RpcCaller(null, logger);
+            var rpcCaller = new RpcCaller(null, logger, javaRunner.withLog(logger));
 
             var out = new ByteArrayOutputStream(1024);
             var code = 200;
@@ -165,7 +181,7 @@ public final class RpcMain {
                 }
             } else if ("DELETE".equals(exchange.getRequestMethod())) {
                 out.write("<?xml version=\"1.0\"?><ok></ok>".getBytes(UTF_8));
-                server.stop(1);
+                stopper.countDown();
             } else {
                 code = 405;
                 out.write("<?xml version=\"1.0\"?><error>Method not allowed</error>".getBytes(UTF_8));

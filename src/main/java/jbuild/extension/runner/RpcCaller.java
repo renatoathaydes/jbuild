@@ -25,10 +25,17 @@ public final class RpcCaller {
         this(defaultReceiverClassName, new JBuildLog(System.out, false));
     }
 
-    public RpcCaller(String defaultReceiverClassName, JBuildLog log) {
+    public RpcCaller(String defaultReceiverClassName,
+                     JBuildLog log) {
+        this(defaultReceiverClassName, log, new JavaRunner(log));
+    }
+
+    public RpcCaller(String defaultReceiverClassName,
+                     JBuildLog log,
+                     JavaRunner javaRunner) {
         this.defaultReceiverClassName = defaultReceiverClassName;
         this.log = log;
-        this.runner = new JavaRunner("", log);
+        this.runner = javaRunner;
     }
 
     public void call(InputStream input, OutputStream output) throws Exception {
