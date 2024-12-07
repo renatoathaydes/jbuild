@@ -5,6 +5,8 @@ public final class DependencySpec {
     public final DependencyScope scope;
     public final String path;
 
+    public static final DependencySpec DEFAULT = new DependencySpec(true, DependencyScope.ALL, "");
+
     public DependencySpec(boolean transitive, DependencyScope scope, String path) {
         this.transitive = transitive;
         this.scope = scope;

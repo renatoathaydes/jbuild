@@ -1,5 +1,6 @@
 package jbuild.util;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -37,6 +38,11 @@ public final class NoOp {
         return (Consumer<A>) IgnoreConsumer.INSTANCE;
     }
 
+    @SuppressWarnings("unchecked")
+    public static <A, B> BiConsumer<A, B> ignoreBoth() {
+        return (BiConsumer<A, B>) IgnoreBiConsumer.INSTANCE;
+    }
+
     private enum NullFun implements Function<Object, Object> {
         INSTANCE;
 
@@ -60,6 +66,14 @@ public final class NoOp {
 
         @Override
         public void accept(Object o) {
+        }
+    }
+
+    private enum IgnoreBiConsumer implements BiConsumer<Object, Object> {
+        INSTANCE;
+
+        @Override
+        public void accept(Object a, Object b) {
         }
     }
 }

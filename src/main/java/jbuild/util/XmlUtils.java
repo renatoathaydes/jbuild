@@ -90,6 +90,19 @@ public final class XmlUtils {
         return result;
     }
 
+    public static List<Element> elementChildren(Node node) {
+        var result = new ArrayList<Element>();
+        var children = node.getChildNodes();
+        for (var i = 0; i < children.getLength(); i++) {
+            var child = children.item(i);
+            if (child instanceof Element) {
+                var elem = (Element) child;
+                result.add(elem);
+            }
+        }
+        return result;
+    }
+
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static String textOf(Optional<? extends Node> node) {
         return textOf(node, "");
@@ -113,6 +126,10 @@ public final class XmlUtils {
         return members.stream()
                 .filter(e -> textOf(childNamed("name", e)).equals(name))
                 .findFirst();
+    }
+
+    public static Optional<Element> structMemberValue(String name, List<Element> members) {
+        return structMember(name, members).flatMap(m -> childNamed("value", m));
     }
 
     public static void writeXml(Node doc,

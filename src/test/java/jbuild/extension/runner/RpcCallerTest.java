@@ -3,11 +3,13 @@ package jbuild.extension.runner;
 import jbuild.api.change.ChangeKind;
 import jbuild.api.change.ChangeSet;
 import jbuild.api.change.FileChange;
+import jbuild.api.config.JbConfig;
 import jbuild.java.TestHelper;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static jbuild.java.TestHelper.assertXml;
 
@@ -241,7 +243,7 @@ public class RpcCallerTest {
     }
 
     @Test
-    void canRunMethodTakingStructArg() throws Exception {
+    void canRunMethodTakingStructArg_ChangeSet() throws Exception {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>" +
@@ -285,6 +287,39 @@ public class RpcCallerTest {
                                         new FileChange[0]
                                 )
                         }));
+    }
+
+    @Test
+    void canRunMethodTakingStructArg_JbConfig() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>" +
+                "  <methodName>config</methodName>" +
+                "  <params>" +
+                "    <param><value>" +
+                "        <struct>" +
+                "          <member><name>group</name><value>com.athaydes</value></member>" +
+                "          <member><name>module</name><value>testing</value></member>" +
+                "          <member><name>name</name><value>testing-name</value></member>" +
+                "          <member><name>version</name><value>2.1</value></member>" +
+                "          <member><name>description</name><value>Awesome</value></member>" +
+                "          <member><name>url</name><value>http</value></member>" +
+                "        </struct>" +
+                "    </value></param>" +
+                "  </params>" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo(new JbConfig("com.athaydes", "testing", "testing-name", "2.1", "Awesome",
+                        "http", "", "", List.of("src"), "", "",
+                        List.of("resources"), List.of(), Map.of(), Map.of(), List.of(), List.of(),
+                        "build/compile-libs", "build/runtime-libs", "build/test-reports",
+                        List.of(), List.of(), List.of(),
+                        Map.of(), Map.of(), Map.of(),
+                        null,
+                        List.of(), List.of(), Map.of()).toString());
     }
 
 }
