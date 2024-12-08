@@ -9,19 +9,17 @@ import jbuild.util.NoOp;
 import org.w3c.dom.Element;
 
 import java.util.AbstractMap;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static jbuild.extension.runner.RpcMethodCall.arrayValue;
 import static jbuild.extension.runner.RpcMethodCall.extractValue;
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
 import static jbuild.util.XmlUtils.descendantOf;
 import static jbuild.util.XmlUtils.structMember;
 import static jbuild.util.XmlUtils.structMemberValue;
-import static jbuild.util.XmlUtils.textOf;
 
 final class JbConfigXmlDeserializer {
 
@@ -66,8 +64,7 @@ final class JbConfigXmlDeserializer {
         if (member.isEmpty()) {
             return defaultValue;
         }
-        return textOf(member);
-
+        return extractValue(member.get(), String.class);
     }
 
     private static List<String> strList(String name, List<Element> members, List<String> defaultValue) {
@@ -75,7 +72,7 @@ final class JbConfigXmlDeserializer {
         if (member.isEmpty()) {
             return defaultValue;
         }
-        var values = arrayValue(childNamed("array", member.get()).orElse(null));
+        var values = childNamed("array", member.get()).map(RpcMethodCall::arrayValue).orElse(new String[0]);
         if (!(values instanceof String[])) {
             throw new IllegalArgumentException("member '" + name +
                     "' should have array value, but gut: " + member);
@@ -88,37 +85,39 @@ final class JbConfigXmlDeserializer {
         if (member.isEmpty()) {
             return Map.of();
         }
-        var data = descendantOf(member.get(), "value", "array", "data")
+        var depsStruct = descendantOf(member.get(), "value", "struct")
                 .orElseThrow(() -> new IllegalArgumentException("in '" + name +
-                        "': expected value/array/data, not " + member));
-        var values = childrenNamed("value", data);
-        var structs = values.stream()
-                .map(e -> childNamed("struct", e).orElseThrow(() ->
-                        new IllegalArgumentException("expected only structs in array of '" + name + "', not " + e)));
+                        "': expected value/struct, not " + member));
+        var depMembers = childrenNamed("member", depsStruct);
 
-        return structs.map(struct -> {
-            var structMembers = childrenNamed("member", struct);
-            var key = textOf(structMember("key", structMembers));
-            var value = structMember("value", structMembers);
-            if (key.isEmpty() || value.isEmpty()) {
-                throw new IllegalArgumentException("dependency entry in '" + name + "' missing key or value: " + structMembers);
+        return depMembers.stream().map(depMember -> {
+            var depKey = childNamed("name", depMember);
+            var depValue = descendantOf(depMember, "value", "struct");
+            if (depKey.isEmpty()) {
+                throw new IllegalArgumentException("in '" + name +
+                        "': dependency struct missing name: " + depMember);
             }
-            var depStruct = childNamed("struct", value.get());
-            return depStruct.map(s -> new AbstractMap.SimpleEntry<>(key, dependency(key, s)))
-                    .orElseGet(() -> new AbstractMap.SimpleEntry<>(key, DependencySpec.DEFAULT));
-        }).collect(HashMap::new, (map, e) -> map.put(e.getKey(), e.getValue()), NoOp.ignoreBoth());
+            try {
+                var dep = extractValue(depKey.get(), String.class);
+                return new AbstractMap.SimpleEntry<>(dep, depValue
+                        .map(d -> dependency(dep, d))
+                        .orElse(DependencySpec.DEFAULT));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("in '" + name +
+                        "': dependency '" + depKey.get(), e);
+            }
+        }).collect(LinkedHashMap::new, (map, e) -> map.put(e.getKey(), e.getValue()), NoOp.ignoreBoth());
     }
 
     private static DependencySpec dependency(String name, Element struct) {
         try {
             var members = childrenNamed("member", struct);
-            var scopeString = textOf(structMember("scope", members).flatMap(s -> childNamed("value", s)));
-            var path = textOf(structMember("path", members).flatMap(s -> childNamed("value", s)));
-            var transitive = structMember("transitive", members)
-                    .flatMap(t -> childNamed("value", t))
+            var scopeString = str("scope", members, "all");
+            var path = str("path", members, "");
+            var transitive = structMemberValue("transitive", members)
                     .map(t -> extractValue(t, boolean.class))
                     .orElse(true);
-            return new DependencySpec(transitive, DependencyScope.valueOf(scopeString), path);
+            return new DependencySpec(transitive, DependencyScope.fromString(scopeString), path);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid spec for dependency '" + name + "'", e);
         }
@@ -134,9 +133,9 @@ final class JbConfigXmlDeserializer {
             throw new IllegalArgumentException("Invalid scm, expected struct, not " + member.get());
         }
         var scmMembers = childrenNamed("member", scmStruct.get());
-        var connection = textOf(structMemberValue("connection", scmMembers));
-        var devConnection = textOf(structMemberValue("developer-connection", scmMembers));
-        var url = textOf(structMemberValue("url", scmMembers));
+        var connection = str("connection", scmMembers, "");
+        var devConnection = str("developer-connection", scmMembers, "");
+        var url = str("url", scmMembers, "");
         return new SourceControlManagement(connection, devConnection, url);
     }
 
@@ -153,12 +152,16 @@ final class JbConfigXmlDeserializer {
                 .map(e -> childNamed("struct", e).orElseThrow(() ->
                         new IllegalArgumentException("expected only structs in array of 'developers', not " + e)));
         return structs.map(struct -> {
-            var structMembers = childrenNamed("member", struct);
-            var name = textOf(structMemberValue("name", structMembers));
-            var email = textOf(structMemberValue("email", structMembers));
-            var org = textOf(structMemberValue("organization", structMembers));
-            var orgUrl = textOf(structMemberValue("organization-url", structMembers));
-            return new Developer(name, email, org, orgUrl);
+            try {
+                var structMembers = childrenNamed("member", struct);
+                var name = str("name", structMembers, "");
+                var email = str("email", structMembers, "");
+                var org = str("organization", structMembers, "");
+                var orgUrl = str("organization-url", structMembers, "");
+                return new Developer(name, email, org, orgUrl);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("in 'dependencies'.", e);
+            }
         }).collect(Collectors.toList());
     }
 

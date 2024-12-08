@@ -3,11 +3,16 @@ package jbuild.extension.runner;
 import jbuild.api.change.ChangeKind;
 import jbuild.api.change.ChangeSet;
 import jbuild.api.change.FileChange;
+import jbuild.api.config.DependencyScope;
+import jbuild.api.config.DependencySpec;
+import jbuild.api.config.Developer;
 import jbuild.api.config.JbConfig;
+import jbuild.api.config.SourceControlManagement;
 import jbuild.java.TestHelper;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -290,7 +295,35 @@ public class RpcCallerTest {
     }
 
     @Test
-    void canRunMethodTakingStructArg_JbConfig() throws Exception {
+    void canRunMethodTakingStructArg_JbConfig_minimal() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>" +
+                "  <methodName>config</methodName>" +
+                "  <params>" +
+                "    <param><value>" +
+                "        <struct>" +
+                "          <member><name>module</name><value>testing</value></member>" +
+                "        </struct>" +
+                "    </value></param>" +
+                "  </params>" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo(new JbConfig("", "testing", "", "0.0", "",
+                        "", "", "", List.of("src"), "", "",
+                        List.of("resources"), List.of(), Map.of(), Map.of(), List.of(), List.of(),
+                        "build/compile-libs", "build/runtime-libs", "build/test-reports",
+                        List.of(), List.of(), List.of(),
+                        Map.of(), Map.of(), Map.of(),
+                        null,
+                        List.of(), List.of(), Map.of()).toString());
+    }
+
+    @Test
+    void canRunMethodTakingStructArg_JbConfig_all() throws Exception {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
                 "<methodCall>" +
@@ -304,6 +337,79 @@ public class RpcCallerTest {
                 "          <member><name>version</name><value>2.1</value></member>" +
                 "          <member><name>description</name><value>Awesome</value></member>" +
                 "          <member><name>url</name><value>http</value></member>" +
+                "          <member><name>main-class</name><value>my.Main</value></member>" +
+                "          <member><name>extension-project</name><value>ext-project</value></member>" +
+                "          <member><name>source-dirs</name><value><array><data>" +
+                "            <value>src/main/java</value>" +
+                "            <value>src/gen/java</value>" +
+                "          </data></array></value></member>" +
+                "          <member><name>output-dir</name><value>out-dir</value></member>" +
+                "          <member><name>output-jar</name><value>out.jar</value></member>" +
+                "          <member><name>resource-dirs</name><value><array><data>" +
+                "            <value>src/resources</value>" +
+                "          </data></array></value></member>" +
+                "          <member><name>repositories</name><value><array><data>" +
+                "            <value>http://my.repo</value>" +
+                "          </data></array></value></member>" +
+                "          <member><name>dependencies</name><value>" +
+                "            <struct>" +
+                "              <member><name>org.dep:dep:1.0</name>" +
+                "              <value><struct>" +
+                "                   <member><name>transitive</name><value><boolean>1</boolean></value></member>" +
+                "                   <member><name>scope</name><value>compile-only</value></member>" +
+                "                   <member><name>path</name><value>p</value></member>" +
+                "                </struct></value></member></struct></value></member>" +
+                "          <member><name>processor-dependencies</name><value>" +
+                "            <struct>" +
+                "              <member><name>a.b:c:2</name>" +
+                "              <value><struct>" +
+                "                   <member><name>transitive</name><value><boolean>0</boolean></value></member>" +
+                "                   <member><name>scope</name><value>runtime-only</value></member>" +
+                "                   <member><name>path</name><value></value></member>" +
+                "                </struct></value></member>" +
+                "              <member><name>a.b:d:3</name>" +
+                "              <value><struct>" +
+                "                   <member><name>transitive</name><value><boolean>1</boolean></value></member>" +
+                "                   <member><name>scope</name><value>all</value></member>" +
+                "                   <member><name>path</name><value></value></member>" +
+                "                </struct></value></member>" +
+                "            </struct></value></member>" +
+                "          <member><name>dependency-exclusion-patterns</name><value>" +
+                "               <array><data><value>exclude/*</value></data></array></value></member>" +
+                "          <member><name>processor-dependency-exclusion-patterns</name><value>" +
+                "               <array><data><value>proc-exclude/*</value></data></array></value></member>" +
+                "          <member><name>compile-libs-dir</name><value>build/compile-libs</value></member>" +
+                "          <member><name>runtime-libs-dir</name><value>build/runtime-libs</value></member>" +
+                "          <member><name>test-reports-dir</name><value>build/test-reports</value></member>" +
+                "          <member><name>javac-args</name><value><array><data>" +
+                "               <value>--release</value>" +
+                "               <value>11</value>" +
+                "             </data></array></value></member>" +
+                "          <member><name>run-java-args</name><value><array><data>" +
+                "               <value>--foo</value>" +
+                "             </data></array></value></member>" +
+                "          <member><name>test-java-args</name><value><array><data>" +
+                "               <value>--test</value>" +
+                "             </data></array></value></member>" +
+                "          <member><name>scm</name><value>" +
+                "             <struct>" +
+                "               <member><name>connection</name><value>con</value></member>" +
+                "               <member><name>developer-connection</name><value>dev</value></member>" +
+                "               <member><name>url</name><value>scm-url</value></member>" +
+                "             </struct>" +
+                "           </value></member>" +
+                "          <member><name>developers</name><value><array><data>" +
+                "             <value><struct>" +
+                "               <member><name>name</name><value>joe</value></member>" +
+                "               <member><name>email</name><value>joe@com</value></member>" +
+                "               <member><name>organization</name><value>ACME</value></member>" +
+                "               <member><name>organization-url</name><value>acme.com</value></member>" +
+                "             </struct></value>" +
+                "             </data></array></value></member>" +
+                "          <member><name>licenses</name><value><array><data>" +
+                "            <value>APACHE-2.0</value>" +
+                "            <value>MIT</value>" +
+                "            </data></array></value></member>" +
                 "        </struct>" +
                 "    </value></param>" +
                 "  </params>" +
@@ -313,13 +419,23 @@ public class RpcCallerTest {
 
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
                 .isEqualTo(new JbConfig("com.athaydes", "testing", "testing-name", "2.1", "Awesome",
-                        "http", "", "", List.of("src"), "", "",
-                        List.of("resources"), List.of(), Map.of(), Map.of(), List.of(), List.of(),
+                        "http", "my.Main", "ext-project", List.of("src/main/java", "src/gen/java"),
+                        "out-dir", "out.jar",
+                        List.of("src/resources"), List.of("http://my.repo"),
+                        Map.of("org.dep:dep:1.0", new DependencySpec(true, DependencyScope.COMPILE_ONLY, "p")),
+                        // use LinkedHashMap to ensure toString prints the same thing
+                        new LinkedHashMap<>() {{
+                            put("a.b:c:2", new DependencySpec(false, DependencyScope.RUNTIME_ONLY, ""));
+                            put("a.b:d:3", new DependencySpec(true, DependencyScope.ALL, ""));
+                        }},
+                        List.of("exclude/*"), List.of("proc-exclude/*"),
                         "build/compile-libs", "build/runtime-libs", "build/test-reports",
-                        List.of(), List.of(), List.of(),
+                        List.of("--release", "11"), List.of("--foo"), List.of("--test"),
                         Map.of(), Map.of(), Map.of(),
-                        null,
-                        List.of(), List.of(), Map.of()).toString());
+                        new SourceControlManagement("con", "dev", "scm-url"),
+                        List.of(new Developer("joe", "joe@com", "ACME", "acme.com")),
+                        List.of("APACHE-2.0", "MIT"),
+                        Map.of()).toString());
     }
 
 }

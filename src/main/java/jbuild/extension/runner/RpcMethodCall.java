@@ -71,8 +71,13 @@ public final class RpcMethodCall {
         return extractValue(value);
     }
 
+    @SuppressWarnings("unchecked")
     static <T> T extractValue(Element value, Class<T> type) {
         var val = extractValue(value);
+        if (type.isPrimitive()) {
+            // this boxes primitive values if necessary
+            return (T) val;
+        }
         return type.cast(val);
     }
 
