@@ -10,7 +10,7 @@ jobs:
             - os: ubuntu-latest
               oskind: linux
             - os: macos-latest
-              oskind: macos
+              oskind: macos-arm64
             - os: windows-latest
               oskind: windows
     runs-on: ${{ matrix.os }}
