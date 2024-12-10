@@ -32,7 +32,7 @@ public class CompileCommandExecutorTest {
     @Test
     void canComputeDefaultJarLocation() {
         var usrDir = System.getProperty("user.dir");
-        var expectedUserDirJar = Paths.get(usrDir).getFileName() + ".jar";
+        var expectedUserDirJar = Paths.get("build", Paths.get(usrDir).getFileName() + ".jar").toString();
 
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
@@ -222,7 +222,7 @@ public class CompileCommandExecutorTest {
                 "  @Override",
                 "  public void run(String... args) {}",
                 "}"));
-        var jar = rootDir.resolve("mylib.jar");
+        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
 
         // compile jar as a jb extension
         var result = command.compile(
@@ -278,9 +278,9 @@ public class CompileCommandExecutorTest {
                 "   **/",
                 "  public void hello() {}",
                 "}"));
-        var jar = rootDir.resolve("mylib.jar");
-        var sourcesJar = rootDir.resolve("mylib-sources.jar");
-        var javadocJar = rootDir.resolve("mylib-javadoc.jar");
+        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
+        var sourcesJar = rootDir.resolve(Paths.get("build", "mylib-sources.jar"));
+        var javadocJar = rootDir.resolve(Paths.get("build", "mylib-javadoc.jar"));
 
         // compile jar, sources-jar and javadoc-jar
         var result = command.compile(

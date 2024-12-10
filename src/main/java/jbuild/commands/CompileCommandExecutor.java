@@ -481,12 +481,12 @@ public final class CompileCommandExecutor {
         if (jar.isBlank()) {
             // check if the custom workingDir is a non-empty word of some sort
             if (NOT_EMPTY_WORD.matcher(workingDir).find()) {
-                targetJar = new File(workingDir).getName() + ".jar";
+                targetJar = "build" + File.separatorChar + new File(workingDir).getName() + ".jar";
                 log.verbosePrintln(() -> "Using default jar name based on working dir: " + targetJar);
             } else {
                 var dir = System.getProperty("user.dir");
                 if (dir != null) {
-                    targetJar = new File(dir).getName() + ".jar";
+                    targetJar = "build" + File.separatorChar + new File(dir).getName() + ".jar";
                     log.verbosePrintln(() -> "Using default jar name based on user.dir: " + targetJar);
                 } else {
                     log.verbosePrintln("Using default jar name: lib.jar");
