@@ -60,7 +60,7 @@ public final class CompileCommandExecutor {
     private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) -> name.endsWith(".java");
     private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) -> !name.endsWith(".java");
     private static final FilenameFilter ALL_FILES_FILTER = (dir, name) -> true;
-    private static final Pattern DEFAULT_JAR_FROM_WORKING_DIR = Pattern.compile("[a-zA-Z0-9]");
+    private static final Pattern NOT_EMPTY_WORD = Pattern.compile("[a-zA-Z0-9]");
 
     private final JBuildLog log;
 
@@ -130,12 +130,14 @@ public final class CompileCommandExecutor {
             }
         }
 
+        // if the output is a Jar, send the class files to a temp folder.
         var outputDir = outputDirOrJar.map(
                 outDir -> relativize(workingDir, outDir),
                 jar -> getTempDirectory());
 
         log.verbosePrintln(() -> "Compilation output will be sent to " + outputDir);
 
+        // jarFile will be null if the output is not a Jar.
         var jarFile = outputDirOrJar.map(NoOp.fun(), jar -> jarOrDefault(workingDir, jar));
 
         var deletionsDone = false;
@@ -474,23 +476,27 @@ public final class CompileCommandExecutor {
         return classpath;
     }
 
-    private String jarOrDefault(String workingDir, String jar) {
+    String jarOrDefault(String workingDir, String jar) {
+        String targetJar;
         if (jar.isBlank()) {
-            if (DEFAULT_JAR_FROM_WORKING_DIR.matcher(workingDir).find()) {
-                return relativize(Paths.get(workingDir, "build").toString(),
-                        new File(workingDir).getName() + ".jar");
-            }
-            var dir = System.getProperty("user.dir");
-            if (dir != null) {
-                var path = new File(dir).getName() + ".jar";
-                log.verbosePrintln(() -> "Using default jar name based on working dir: " + path);
-                return relativize(workingDir, path);
+            // check if the custom workingDir is a non-empty word of some sort
+            if (NOT_EMPTY_WORD.matcher(workingDir).find()) {
+                targetJar = new File(workingDir).getName() + ".jar";
+                log.verbosePrintln(() -> "Using default jar name based on working dir: " + targetJar);
             } else {
-                log.verbosePrintln("Using default jar name: lib.jar");
-                return "lib.jar";
+                var dir = System.getProperty("user.dir");
+                if (dir != null) {
+                    targetJar = new File(dir).getName() + ".jar";
+                    log.verbosePrintln(() -> "Using default jar name based on user.dir: " + targetJar);
+                } else {
+                    log.verbosePrintln("Using default jar name: lib.jar");
+                    targetJar = "lib.jar";
+                }
             }
+        } else {
+            targetJar = jar;
         }
-        return jar;
+        return relativize(workingDir, targetJar);
     }
 
     private String getTempDirectory() {

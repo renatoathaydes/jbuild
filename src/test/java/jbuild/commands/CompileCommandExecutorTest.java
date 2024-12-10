@@ -30,6 +30,24 @@ public class CompileCommandExecutorTest {
     }
 
     @Test
+    void canComputeDefaultJarLocation() {
+        var usrDir = System.getProperty("user.dir");
+        var expectedUserDirJar = Paths.get(usrDir).getFileName() + ".jar";
+
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
+
+        var command = new CompileCommandExecutor(log);
+
+        assertThat(command.jarOrDefault("", "")).isEqualTo(expectedUserDirJar);
+        assertThat(command.jarOrDefault("", " ")).isEqualTo(expectedUserDirJar);
+        assertThat(command.jarOrDefault("", "foo.jar")).isEqualTo("foo.jar");
+        assertThat(command.jarOrDefault(".", "foo.jar")).isEqualTo("foo.jar");
+        assertThat(command.jarOrDefault("..", "foo.jar")).isEqualTo(Paths.get("..", "foo.jar").toString());
+        assertThat(command.jarOrDefault("wrk", "foo.jar")).isEqualTo(Paths.get("wrk", "foo.jar").toString());
+    }
+
+    @Test
     void canCompileClassFiles() throws Exception {
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
@@ -204,7 +222,7 @@ public class CompileCommandExecutorTest {
                 "  @Override",
                 "  public void run(String... args) {}",
                 "}"));
-        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
+        var jar = rootDir.resolve("mylib.jar");
 
         // compile jar as a jb extension
         var result = command.compile(
@@ -260,9 +278,9 @@ public class CompileCommandExecutorTest {
                 "   **/",
                 "  public void hello() {}",
                 "}"));
-        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
-        var sourcesJar = rootDir.resolve(Paths.get("build", "mylib-sources.jar"));
-        var javadocJar = rootDir.resolve(Paths.get("build", "mylib-javadoc.jar"));
+        var jar = rootDir.resolve("mylib.jar");
+        var sourcesJar = rootDir.resolve("mylib-sources.jar");
+        var javadocJar = rootDir.resolve("mylib-javadoc.jar");
 
         // compile jar, sources-jar and javadoc-jar
         var result = command.compile(
