@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static jbuild.extension.runner.RpcMethodCall.extractValue;
+import static jbuild.extension.runner.RpcMethodCall.untypedMap;
 import static jbuild.util.XmlUtils.childNamed;
 import static jbuild.util.XmlUtils.childrenNamed;
 import static jbuild.util.XmlUtils.descendantOf;
@@ -55,8 +56,7 @@ final class JbConfigXmlDeserializer {
                 sourceControlManagementFrom(members),
                 developersFrom(members),
                 strList("licenses", members, List.of()),
-                // TODO support untyped properties
-                Map.of());
+                properties(members));
     }
 
     private static String str(String name, List<Element> members, String defaultValue) {
@@ -168,5 +168,17 @@ final class JbConfigXmlDeserializer {
         }).collect(Collectors.toList());
     }
 
-}
+    private static Map<String, Object> properties(List<Element> members) {
+        var member = structMember("properties", members);
+        if (member.isEmpty()) {
+            return Map.of();
+        }
 
+        var propertiesStruct = descendantOf(member.get(), "value", "struct")
+                .orElseThrow(() ->
+                        new IllegalArgumentException("expected struct value under 'properties', not " + member));
+
+        return untypedMap(childrenNamed("member", propertiesStruct));
+    }
+
+}

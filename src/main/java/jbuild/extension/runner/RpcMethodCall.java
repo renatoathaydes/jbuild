@@ -12,6 +12,7 @@ import org.w3c.dom.Node;
 import java.lang.reflect.Array;
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -219,8 +220,22 @@ public final class RpcMethodCall {
         if (FileChange.class.equals(type)) {
             return fileChangeFrom(members);
         }
+        if (Object.class.equals(type)) {
+            return untypedMap(members);
+        }
 
         throw new IllegalArgumentException("no struct Java type is known with members: " + members);
+    }
+
+    static Map<String, Object> untypedMap(List<Element> members) {
+        var result = new LinkedHashMap<String, Object>();
+        members.forEach(member -> {
+            var name = childNamed("name", member).map(v -> extractValue(v, String.class))
+                    .orElseThrow(() -> new IllegalArgumentException("struct member is missing a name"));
+            childNamed("value", member).map(RpcMethodCall::extractValue)
+                    .ifPresent(value -> result.put(name, value));
+        });
+        return result;
     }
 
     private static ChangeSet changeSetFrom(List<Element> members) {

@@ -323,6 +323,59 @@ public class RpcCallerTest {
     }
 
     @Test
+    void canRunMethodTakingStructArg_JbConfig_emptyArrayAndCustomProperties() throws Exception {
+        var caller = new RpcCaller(TestCallable.class.getName());
+        var response = caller.call("<?xml version=\"1.0\"?>\n" +
+                "<methodCall>" +
+                "  <methodName>config</methodName>" +
+                "  <params>" +
+                "    <param><value>" +
+                "        <struct>" +
+                "          <member><name>module</name><value>testing</value></member>" +
+                "          <member><name>resource-dirs</name><value><array><data></data></array></value></member>" +
+                "          <member><name>properties</name><value>\n" +
+                "            <struct>\n" +
+                "              <member>\n" +
+                "                  <name>versions</name>\n" +
+                "                  <value>\n" +
+                "                      <struct>\n" +
+                "                          <member>\n" +
+                "                              <name>java</name>\n" +
+                "                              <value>\n" +
+                "                                  <int>11</int>\n" +
+                "                              </value>\n" +
+                "                          </member>\n" +
+                "                          <member>\n" +
+                "                              <name>junit</name>\n" +
+                "                              <value>5.9.1</value>\n" +
+                "                          </member>\n" +
+                "                      </struct>\n" +
+                "                  </value>\n" +
+                "              </member>\n" +
+                "          </struct></value></member>" +
+                "        </struct>" +
+                "    </value></param>" +
+                "  </params>" +
+                "</methodCall>");
+
+        var doc = response.toDocument();
+
+        assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
+                .isEqualTo(new JbConfig("", "testing", "", "0.0", "",
+                        "", "", "", List.of("src"), "", "",
+                        List.of(), List.of(), Map.of(), Map.of(), List.of(), List.of(),
+                        "build/compile-libs", "build/runtime-libs", "build/test-reports",
+                        List.of(), List.of(), List.of(),
+                        Map.of(), Map.of(), Map.of(),
+                        null,
+                        List.of(), List.of(),
+                        Map.of("versions", new LinkedHashMap<>() {{
+                            put("java", 11);
+                            put("junit", "5.9.1");
+                        }})).toString());
+    }
+
+    @Test
     void canRunMethodTakingStructArg_JbConfig_all() throws Exception {
         var caller = new RpcCaller(TestCallable.class.getName());
         var response = caller.call("<?xml version=\"1.0\"?>\n" +
