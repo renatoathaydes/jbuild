@@ -73,6 +73,9 @@ final class JbConfigXmlDeserializer {
             return defaultValue;
         }
         var values = childNamed("array", member.get()).map(RpcMethodCall::arrayValue).orElse(new String[0]);
+        if (values instanceof Object[] && ((Object[]) values).length == 0) {
+            return List.of();
+        }
         if (!(values instanceof String[])) {
             throw new IllegalArgumentException("member '" + name +
                     "' should have array value, but gut: " + member);
