@@ -4,6 +4,7 @@ import jbuild.api.JBuildException;
 import jbuild.api.JbTask;
 import jbuild.api.JbTaskInfo;
 import jbuild.api.TaskPhase;
+import jbuild.api.config.JbConfig;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +22,12 @@ import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 public class GenerateJBuildVersion implements JbTask {
     static final String INPUT = "src/main/template/jbuild/Version.java";
     static final String OUTPUT = "src/main/java/jbuild/Version.java";
+
+    private final JbConfig config;
+
+    public GenerateJBuildVersion(JbConfig config) {
+        this.config = config;
+    }
 
     @Override
     public List<String> inputs() {
@@ -43,10 +50,9 @@ public class GenerateJBuildVersion implements JbTask {
         if (dir == null || (!dir.isDirectory() && !dir.mkdirs())) {
             throw new JBuildException("Cannot create output directory for " + OUTPUT, IO_WRITE);
         }
-        // FIXME the version should actually come from JbConfig
         writeString(Paths.get(OUTPUT),
                 readAllLines(Paths.get(INPUT))
-                        .stream().map((line) -> line.replace("%VERSION%", "0.0"))
+                        .stream().map((line) -> line.replace("%VERSION%", config.version))
                         .collect(Collectors.joining(System.lineSeparator())));
     }
 }
