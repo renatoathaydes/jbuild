@@ -131,11 +131,9 @@ final class JbConfigXmlDeserializer {
         if (member.isEmpty()) {
             return null;
         }
-        var scmStruct = descendantOf(member.get(), "value", "struct");
-        if (scmStruct.isEmpty()) {
-            throw new IllegalArgumentException("Invalid scm, expected struct, not " + member.get());
-        }
-        var scmMembers = childrenNamed("member", scmStruct.get());
+        var scmStruct = descendantOf(member.get(), "value", "struct")
+                .orElseThrow(() -> new IllegalArgumentException("Invalid scm, expected struct, not " + member.get()));
+        var scmMembers = childrenNamed("member", scmStruct);
         var connection = str("connection", scmMembers, "");
         var devConnection = str("developer-connection", scmMembers, "");
         var url = str("url", scmMembers, "");

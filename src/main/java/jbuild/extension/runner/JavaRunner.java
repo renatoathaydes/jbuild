@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.UNKNOWN;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
@@ -221,8 +222,9 @@ public final class JavaRunner implements Closeable {
                             "non-null value", ACTION_ERROR);
                 }
             } else if (paramType.equals(JbConfig.class)) {
-                // TODO support JbConfig
-                throw new UnsupportedOperationException("Cannot support JbConfig yet");
+                if (!(arg instanceof JbConfig)) {
+                    throw new JBuildException("JbConfig parameter cannot accept argument: " + arg, UNKNOWN);
+                }
             } else if (paramType.isArray()) {
                 constructorData[i] = fixArrayArgs(new Class[]{paramType}, new Object[]{arg})[0];
             }
