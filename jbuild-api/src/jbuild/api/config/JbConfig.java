@@ -18,6 +18,7 @@ public final class JbConfig {
     public final String description;
     public final String url;
     public final String mainClass;
+    public final String manifest;
     public final String extensionProject;
     public final List<String> sourceDirs;
     public final String outputDir;
@@ -49,6 +50,7 @@ public final class JbConfig {
                     String description,
                     String url,
                     String mainClass,
+                    String manifest,
                     String extensionProject,
                     List<String> sourceDirs,
                     String outputDir,
@@ -79,6 +81,7 @@ public final class JbConfig {
         this.description = description;
         this.url = url;
         this.mainClass = mainClass;
+        this.manifest = manifest;
         this.extensionProject = extensionProject;
         this.sourceDirs = sourceDirs;
         this.outputDir = outputDir;
@@ -114,6 +117,7 @@ public final class JbConfig {
                 ", description='" + description + '\'' +
                 ", url='" + url + '\'' +
                 ", mainClass='" + mainClass + '\'' +
+                ", manifest='" + manifest + '\'' +
                 ", extensionProject='" + extensionProject + '\'' +
                 ", sourceDirs=" + sourceDirs +
                 ", outputDir='" + outputDir + '\'' +
