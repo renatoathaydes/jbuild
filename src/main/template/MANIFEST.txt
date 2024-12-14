@@ -1,0 +1,3 @@
+Implementation-Title: com.athaydes.jbuild:jbuild
+Implementation-Version: %VERSION%
+

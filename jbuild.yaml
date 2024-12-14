@@ -8,6 +8,7 @@ version: "{{versions.jbuild}}"
 description: Java CLI and Library for building and analysing Java projects.
 
 main-class: jbuild.cli.Main
+manifest: build/META-INF/MANIFEST.txt
 javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ jbuild-api/src, jbuild-classfile-parser/src, src/main/java ]

@@ -33,6 +33,7 @@ final class JbConfigXmlDeserializer {
                 str("description", members, ""),
                 str("url", members, ""),
                 str("main-class", members, ""),
+                str("manifest", members, ""),
                 str("extension-project", members, ""),
                 strList("source-dirs", members, List.of("src")),
                 str("output-dir", members, ""),

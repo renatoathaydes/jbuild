@@ -313,7 +313,7 @@ public class RpcCallerTest {
 
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
                 .isEqualTo(new JbConfig("", "testing", "", "0.0", "",
-                        "", "", "", List.of("src"), "", "",
+                        "", "", "", "", List.of("src"), "", "",
                         List.of("resources"), List.of(), Map.of(), Map.of(), List.of(), List.of(),
                         "build/compile-libs", "build/runtime-libs", "build/test-reports",
                         List.of(), List.of(), List.of(),
@@ -362,7 +362,7 @@ public class RpcCallerTest {
 
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
                 .isEqualTo(new JbConfig("", "testing", "", "0.0", "",
-                        "", "", "", List.of("src"), "", "",
+                        "", "", "", "", List.of("src"), "", "",
                         List.of(), List.of(), Map.of(), Map.of(), List.of(), List.of(),
                         "build/compile-libs", "build/runtime-libs", "build/test-reports",
                         List.of(), List.of(), List.of(),
@@ -391,6 +391,7 @@ public class RpcCallerTest {
                 "          <member><name>description</name><value>Awesome</value></member>" +
                 "          <member><name>url</name><value>http</value></member>" +
                 "          <member><name>main-class</name><value>my.Main</value></member>" +
+                "          <member><name>manifest</name><value>my-manifest.txt</value></member>" +
                 "          <member><name>extension-project</name><value>ext-project</value></member>" +
                 "          <member><name>source-dirs</name><value><array><data>" +
                 "            <value>src/main/java</value>" +
@@ -472,7 +473,7 @@ public class RpcCallerTest {
 
         assertXml(doc, List.of("methodResponse", "params", "param", "value", "string"))
                 .isEqualTo(new JbConfig("com.athaydes", "testing", "testing-name", "2.1", "Awesome",
-                        "http", "my.Main", "ext-project", List.of("src/main/java", "src/gen/java"),
+                        "http", "my.Main", "my-manifest.txt", "ext-project", List.of("src/main/java", "src/gen/java"),
                         "out-dir", "out.jar",
                         List.of("src/resources"), List.of("http://my.repo"),
                         Map.of("org.dep:dep:1.0", new DependencySpec(true, DependencyScope.COMPILE_ONLY, "p")),
