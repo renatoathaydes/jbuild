@@ -74,12 +74,13 @@ public final class CompileCommandExecutor {
                                         String mainClass,
                                         boolean generateJbManifest,
                                         String classpath,
+                                        Either<Boolean, String> manifest,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(".", inputDirectories, resourcesDirectories,
                 outputDirOrJar, mainClass, generateJbManifest, false, false,
-                classpath, compilerArgs, incrementalChanges);
+                classpath, manifest, compilerArgs, incrementalChanges);
     }
 
     public CompileCommandResult compile(String workingDir,
@@ -91,6 +92,7 @@ public final class CompileCommandExecutor {
                                         boolean createSourcesJar,
                                         boolean createJavadocsJar,
                                         String classpath,
+                                        Either<Boolean, String> manifest,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
@@ -199,7 +201,7 @@ public final class CompileCommandExecutor {
         }
 
         var jarResults = invokeJarTasks(inputDirectories, mainClass, createSourcesJar, createJavadocsJar,
-                incrementalChanges, outputDir, jarFile, computedClasspath, sourceFiles);
+                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles);
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
@@ -212,6 +214,7 @@ public final class CompileCommandExecutor {
                                                    IncrementalChanges incrementalChanges,
                                                    String outputDir,
                                                    String jarFile,
+                                                   Either<Boolean, String> manifest,
                                                    String computedClasspath,
                                                    Set<String> sourceFiles) {
         // make sure the tmp directory exists as the Jar command assumes it does!
@@ -222,7 +225,7 @@ public final class CompileCommandExecutor {
         }
 
         List<CompletionStage<ToolRunResult>> actions = List.of(
-                jar(mainClass, outputDir, jarFile, incrementalChanges),
+                jar(mainClass, outputDir, jarFile, manifest, incrementalChanges),
                 createSourcesJar
                         ? sourcesJar(inputDirectories, jarFile)
                         : completedStage(null),
@@ -262,13 +265,16 @@ public final class CompileCommandExecutor {
     private CompletionStage<ToolRunResult> jar(String mainClass,
                                                String outputDir,
                                                String jarFile,
+                                               Either<Boolean, String> manifest,
                                                IncrementalChanges incrementalChanges) {
         var jarContent = new FileSet(Set.of(), outputDir);
 
         if (incrementalChanges == null) {
-            log.verbosePrintln(() -> "Creating jar file at " + jarFile);
-            return runAsyncTiming(() -> Tools.Jar.create().createJar(new CreateJarOptions(
-                            jarFile, mainClass, false, "", jarContent, Map.of())),
+            var jarOptions = new CreateJarOptions(
+                    jarFile, mainClass, manifest, "", jarContent, Map.of());
+            log.verbosePrintln(() -> "Creating jar file at " + jarFile + ". Full command: jar " +
+                    String.join(" ", jarOptions.toArgs(true)));
+            return runAsyncTiming(() -> Tools.Jar.create().createJar(jarOptions),
                     createLogTimer("Created jar"));
         }
 

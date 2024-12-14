@@ -1,5 +1,7 @@
 package jbuild.java.tools;
 
+import jbuild.util.Either;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,20 +12,30 @@ public final class CreateJarOptions {
 
     public final String name;
     public final String mainClass;
-    public final boolean noManifest;
+    public final Either<Boolean, String> manifest;
     public final String moduleVersion;
     public final FileSet fileSet;
     public final Map<String, FileSet> filesPerRelease;
 
+    /**
+     * Jar tool options for creating a jar.
+     *
+     * @param name            jar name
+     * @param mainClass       Java main class
+     * @param manifest        a boolean (whether to include a manifest) or a text Manifest file name.
+     * @param moduleVersion   the module version
+     * @param fileSet         files to include
+     * @param filesPerRelease files per release version
+     */
     public CreateJarOptions(String name,
                             String mainClass,
-                            boolean noManifest,
+                            Either<Boolean, String> manifest,
                             String moduleVersion,
                             FileSet fileSet,
                             Map<String, FileSet> filesPerRelease) {
         this.name = name;
         this.mainClass = mainClass;
-        this.noManifest = noManifest;
+        this.manifest = manifest;
         this.moduleVersion = moduleVersion;
         this.fileSet = fileSet;
         this.filesPerRelease = filesPerRelease;
@@ -43,9 +55,12 @@ public final class CreateJarOptions {
             result.add("--main-class");
             result.add(mainClass);
         }
-        if (noManifest) {
-            result.add("--no-manifest");
-        }
+        manifest.use(turnOn -> {
+            if (!turnOn) result.add("--no-manifest");
+        }, manifestFile -> {
+            result.add("--manifest");
+            result.add(manifestFile);
+        });
         if (!moduleVersion.isBlank()) {
             result.add("--module-version");
             result.add(moduleVersion);

@@ -696,6 +696,9 @@ final class CompileOptions {
             "        -x        generate jb extension manifest (for use with the jb tool)." + LINE_END +
             "        --main-class" + LINE_END +
             "        -m <name> application's main class." + LINE_END +
+            "        --manifest" + LINE_END +
+            "        -mf <name> manifest file to pass to the jar command." + LINE_END +
+            "            If the name \"-\" is used, no manifest is generated." + LINE_END +
             "      Incremental compilation options:" + LINE_END +
             "        --deleted <file>  deleted file since last compilation." + LINE_END +
             "        --added <file>    added/modified file since last compilation." + LINE_END +
@@ -717,6 +720,7 @@ final class CompileOptions {
     final boolean createSourcesJar;
     final boolean createJavadocsJar;
     final String classpath;
+    final Either<Boolean, String> manifest;
     final IncrementalChanges incrementalChanges;
 
     public CompileOptions(Set<String> inputDirectories,
@@ -727,6 +731,7 @@ final class CompileOptions {
                           boolean createSourcesJar,
                           boolean createJavadocsJar,
                           String classpath,
+                          Either<Boolean, String> manifest,
                           IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
         this.resourcesDirectories = resourcesDirectories;
@@ -736,6 +741,7 @@ final class CompileOptions {
         this.createSourcesJar = createSourcesJar;
         this.createJavadocsJar = createJavadocsJar;
         this.classpath = classpath;
+        this.manifest = manifest;
         this.incrementalChanges = incrementalChanges;
     }
 
@@ -745,6 +751,7 @@ final class CompileOptions {
         Set<String> deletedFiles = new LinkedHashSet<>(2);
         Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null;
+        Either<Boolean, String> manifest = null;
         var classpath = new StringBuilder();
 
         boolean waitingForClasspath = false,
@@ -752,6 +759,7 @@ final class CompileOptions {
                 waitingForResources = false,
                 waitingForJar = false,
                 waitingForMainClass = false,
+                waitingForManifest = false,
                 waitingForDeleted = false,
                 waitingForAdded = false,
                 generateJbManifest = false,
@@ -785,6 +793,9 @@ final class CompileOptions {
             } else if (waitingForMainClass) {
                 waitingForMainClass = false;
                 mainClass = arg;
+            } else if (waitingForManifest) {
+                waitingForManifest = false;
+                manifest = "-".equals(arg) ? Either.left(false) : Either.right(arg);
             } else if (waitingForDeleted) {
                 waitingForDeleted = false;
                 deletedFiles.add(arg);
@@ -820,6 +831,12 @@ final class CompileOptions {
                                 (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForMainClass = true;
+                } else if (isEither(arg, "-mf", "--manifest")) {
+                    if (manifest != null) {
+                        throw new JBuildException("cannot provide manifest more than once." +
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
+                    }
+                    waitingForManifest = true;
                 } else if ("--added".equals(arg)) {
                     waitingForAdded = true;
                 } else if ("--deleted".equals(arg)) {
@@ -844,6 +861,9 @@ final class CompileOptions {
         }
         if (waitingForMainClass) {
             throw new JBuildException("expecting value for '--main-class' option", USER_INPUT);
+        }
+        if (waitingForManifest) {
+            throw new JBuildException("expecting value for '--manifest' option", USER_INPUT);
         }
         if (waitingForDeleted) {
             throw new JBuildException("expecting value for '--deleted' option", USER_INPUT);
@@ -876,6 +896,7 @@ final class CompileOptions {
                 createSourcesJar,
                 createJavadocsJar,
                 classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString(),
+                manifest == null ? Either.left(true) : manifest,
                 incrementalChanges);
     }
 }

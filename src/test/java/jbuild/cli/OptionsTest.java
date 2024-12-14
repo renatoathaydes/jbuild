@@ -21,125 +21,134 @@ public class OptionsTest {
     @Test
     void canParseMainOptions() {
         verifyOptions(Options.parse(new String[]{}),
-            "", List.of(), List.of(), false, false, false);
+                "", List.of(), List.of(), false, false, false);
         verifyOptions(Options.parse(new String[]{"foo"}),
-            "foo", List.of(), List.of(), false, false, false);
+                "foo", List.of(), List.of(), false, false, false);
         verifyOptions(Options.parse(new String[]{"-h"}),
-            "", List.of(), List.of(), false, true, false);
+                "", List.of(), List.of(), false, true, false);
         verifyOptions(Options.parse(new String[]{"--help"}),
-            "", List.of(), List.of(), false, true, false);
+                "", List.of(), List.of(), false, true, false);
         verifyOptions(Options.parse(new String[]{"-v"}),
-            "", List.of(), List.of(), false, false, true);
+                "", List.of(), List.of(), false, false, true);
         verifyOptions(Options.parse(new String[]{"--version"}),
-            "", List.of(), List.of(), false, false, true);
+                "", List.of(), List.of(), false, false, true);
         verifyOptions(Options.parse(new String[]{"--version", "-v"}),
-            "", List.of(), List.of(), false, false, true);
+                "", List.of(), List.of(), false, false, true);
         verifyOptions(Options.parse(new String[]{"-V"}),
-            "", List.of(), List.of(), true, false, false);
+                "", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"-V", "-V"}),
-            "", List.of(), List.of(), true, false, false);
+                "", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"-V", "foo"}),
-            "foo", List.of(), List.of(), true, false, false);
+                "foo", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"--verbose", "foo"}),
-            "foo", List.of(), List.of(), true, false, false);
+                "foo", List.of(), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"--verbose", "foo", "--directory", "target"}),
-            "foo", List.of("--directory", "target"), List.of(), true, false, false);
+                "foo", List.of("--directory", "target"), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"--verbose", "foo", "--directory", "target", "bar"}),
-            "foo", List.of("--directory", "target", "bar"), List.of(), true, false, false);
+                "foo", List.of("--directory", "target", "bar"), List.of(), true, false, false);
         verifyOptions(Options.parse(new String[]{"abc", "def", "ghi", "jkl", "--", "mno", "-p"}),
-            "abc", List.of("def", "ghi", "jkl"), List.of("mno", "-p"), false, false, false);
+                "abc", List.of("def", "ghi", "jkl"), List.of("mno", "-p"), false, false, false);
     }
 
     @Test
     void mustNotRecognizeUnknownOption() {
         assertThatThrownBy(() -> Options.parse(new String[]{"-f"}))
-            .isInstanceOf(JBuildException.class)
-            .hasMessage("invalid root option: -f." + LINE_END +
-                "Run jbuild --help for usage.");
+                .isInstanceOf(JBuildException.class)
+                .hasMessage("invalid root option: -f." + LINE_END +
+                        "Run jbuild --help for usage.");
 
         assertThatThrownBy(() -> Options.parse(new String[]{"-v", "--nothing"}))
-            .isInstanceOf(JBuildException.class)
-            .hasMessage("invalid root option: --nothing." + LINE_END +
-                "Run jbuild --help for usage.");
+                .isInstanceOf(JBuildException.class)
+                .hasMessage("invalid root option: --nothing." + LINE_END +
+                        "Run jbuild --help for usage.");
     }
 
     @Test
     void parseCompileOptions() {
+        Either<Boolean, String> defaultManifest = Either.left(true);
         var p = File.pathSeparatorChar;
         verifyCompileOptions(CompileOptions.parse(
-                Options.parse(new String[]{"compile"}).commandArgs, false),
-            "java-libs", Set.of(), Set.of(), Either.right(""), "");
+                        Options.parse(new String[]{"compile"}).commandArgs, false),
+                "java-libs", Set.of(), Set.of(), Either.right(""), "", defaultManifest);
 
         verifyCompileOptions(CompileOptions.parse(
-                Options.parse(new String[]{"compile", "--main-class", "a.b.C", "-d", "out"}).commandArgs, false),
-            "java-libs", Set.of(), Set.of(), Either.left("out"), "a.b.C");
+                        Options.parse(new String[]{"compile", "--main-class", "a.b.C", "-d", "out"}).commandArgs, false),
+                "java-libs", Set.of(), Set.of(), Either.left("out"), "a.b.C", defaultManifest);
 
         verifyCompileOptions(CompileOptions.parse(
-                Options.parse(new String[]{"compile", "-m", "a.b.C", "--jar", "lib.jar", "--classpath", "foo"}).commandArgs, false),
-            "foo", Set.of(), Set.of(), Either.right("lib.jar"), "a.b.C");
+                        Options.parse(new String[]{"compile", "-m", "a.b.C", "--jar", "lib.jar", "--classpath", "foo"}).commandArgs, false),
+                "foo", Set.of(), Set.of(), Either.right("lib.jar"), "a.b.C", defaultManifest);
 
         verifyCompileOptions(CompileOptions.parse(
-                Options.parse(new String[]{"compile", "dir", "-cp", "a:b;c", "-cp", "d"}).commandArgs, false),
-            "a" + p + "b" + p + "c" + p + "d", Set.of("dir"), Set.of(), Either.right(""), "");
+                        Options.parse(new String[]{"compile", "dir", "-cp", "a:b;c", "-cp", "d"}).commandArgs, false),
+                "a" + p + "b" + p + "c" + p + "d", Set.of("dir"), Set.of(), Either.right(""), "", defaultManifest);
 
         verifyCompileOptions(CompileOptions.parse(
-                Options.parse(new String[]{"compile", "--resources", "res", "dir", "-cp", "d", "-r", "files"}).commandArgs, false),
-            "d", Set.of("dir"), Set.of("res", "files"), Either.right(""), "");
+                        Options.parse(new String[]{"compile", "--resources", "res", "dir", "-cp", "d", "-r", "files"}).commandArgs, false),
+                "d", Set.of("dir"), Set.of("res", "files"), Either.right(""), "", defaultManifest);
+
+        verifyCompileOptions(CompileOptions.parse(
+                        Options.parse(new String[]{"compile", "--manifest", "-"}).commandArgs, false),
+                "java-libs", Set.of(), Set.of(), Either.right(""), "", Either.left(false));
+
+        verifyCompileOptions(CompileOptions.parse(
+                        Options.parse(new String[]{"compile", "-mf", "MANIFEST.txt"}).commandArgs, false),
+                "java-libs", Set.of(), Set.of(), Either.right(""), "", Either.right("MANIFEST.txt"));
     }
 
     @Test
     void parseInstallOptions() {
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, false);
+                        Options.parse(new String[]{"install"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, false);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-n"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, false, false);
+                        Options.parse(new String[]{"install", "-n"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, false, false);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-m"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, null, false, true, true);
+                        Options.parse(new String[]{"install", "-m"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, null, false, true, true);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-d", "foo", "--non-transitive"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, false, false);
+                        Options.parse(new String[]{"install", "-d", "foo", "--non-transitive"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, false, false);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-r", "the-repo"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, "the-repo", false, true, false);
+                        Options.parse(new String[]{"install", "-r", "the-repo"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, "the-repo", false, true, false);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-d", "foo", "--maven-local"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, true, true);
+                        Options.parse(new String[]{"install", "-d", "foo", "--maven-local"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, true, true);
 
         verifyInstallOptions(InstallOptions.parse(
-                Options.parse(new String[]{"install", "-O", "-s", "compile", "--scope", "test", "--repository", "repo", "-m"}).commandArgs, false),
-            Set.of(), Set.of(), EnumSet.of(Scope.COMPILE, Scope.TEST), null, "repo", true, true, true);
+                        Options.parse(new String[]{"install", "-O", "-s", "compile", "--scope", "test", "--repository", "repo", "-m"}).commandArgs, false),
+                Set.of(), Set.of(), EnumSet.of(Scope.COMPILE, Scope.TEST), null, "repo", true, true, true);
 
     }
 
     @Test
     void installOptionsOutDirAndRepoDirAreMutuallyExclusive() {
         assertThatThrownBy(() -> InstallOptions.parse(
-            Options.parse(new String[]{"install", "--directory", "d", "--repository", "r"}).commandArgs, true))
-            .isInstanceOf(JBuildException.class)
-            .hasMessage("cannot specify both 'directory' and 'repository' options together." + LINE_END +
-                "Run jbuild --help for usage.");
+                Options.parse(new String[]{"install", "--directory", "d", "--repository", "r"}).commandArgs, true))
+                .isInstanceOf(JBuildException.class)
+                .hasMessage("cannot specify both 'directory' and 'repository' options together." + LINE_END +
+                        "Run jbuild --help for usage.");
     }
 
     @Test
     void installOptionsNonTransitiveAndRepoDirAreMutuallyExclusive() {
         assertThatThrownBy(() -> InstallOptions.parse(
-            Options.parse(new String[]{"install", "-n", "--repository", "r"}).commandArgs, true))
-            .isInstanceOf(JBuildException.class)
-            .hasMessage("cannot specify both 'non-transitive' and 'repository' options together." + LINE_END +
-                "Run jbuild --help for usage.");
+                Options.parse(new String[]{"install", "-n", "--repository", "r"}).commandArgs, true))
+                .isInstanceOf(JBuildException.class)
+                .hasMessage("cannot specify both 'non-transitive' and 'repository' options together." + LINE_END +
+                        "Run jbuild --help for usage.");
 
         assertThatThrownBy(() -> InstallOptions.parse(
-            Options.parse(new String[]{"install", "-n", "-m"}).commandArgs, false))
-            .isInstanceOf(JBuildException.class)
-            .hasMessage("cannot specify both 'non-transitive' and 'maven-local' options together.");
+                Options.parse(new String[]{"install", "-n", "-m"}).commandArgs, false))
+                .isInstanceOf(JBuildException.class)
+                .hasMessage("cannot specify both 'non-transitive' and 'maven-local' options together.");
     }
 
     private void verifyOptions(Options options,
@@ -162,12 +171,14 @@ public class OptionsTest {
                                       Set<String> inputDirs,
                                       Set<String> resourcesDirs,
                                       Either<String, String> outputDirOrJar,
-                                      String mainClass) {
+                                      String mainClass,
+                                      Either<Boolean, String> manifest) {
         assertEquals(classpath, options.classpath);
         assertEquals(inputDirs, options.inputDirectories);
         assertEquals(resourcesDirs, options.resourcesDirectories);
         assertEquals(outputDirOrJar, options.outputDirOrJar);
         assertEquals(mainClass, options.mainClass);
+        assertEquals(manifest, options.manifest);
     }
 
     private void verifyInstallOptions(InstallOptions options,

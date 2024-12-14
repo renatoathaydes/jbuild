@@ -210,7 +210,7 @@ public final class Main {
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
-                compileOptions.classpath, options.applicationArgs,
+                compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res -> verifyToolSuccessful("javac", res));
