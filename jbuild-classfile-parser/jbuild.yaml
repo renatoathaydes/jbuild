@@ -3,7 +3,7 @@ imports:
   - ../build_properties.yaml
 
 group: com.athaydes.jbuild
-version: 0.8.0
+version: "{{versions.jbuild}}"
 javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ src ]
