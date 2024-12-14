@@ -58,8 +58,10 @@ public final class CreateJarOptions {
         manifest.use(turnOn -> {
             if (!turnOn) result.add("--no-manifest");
         }, manifestFile -> {
-            result.add("--manifest");
-            result.add(manifestFile);
+            if (!manifestFile.isBlank()) {
+                result.add("--manifest");
+                result.add(manifestFile);
+            }
         });
         if (!moduleVersion.isBlank()) {
             result.add("--module-version");

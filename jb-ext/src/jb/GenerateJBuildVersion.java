@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 import static java.nio.file.Files.readAllLines;
 import static java.nio.file.Files.writeString;
+import static java.util.Objects.requireNonNull;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 
 @JbTaskInfo(name = "generateJBuildVersion",
@@ -53,7 +54,8 @@ public class GenerateJBuildVersion implements JbTask {
     @Override
     public void run(String... args) throws IOException {
         generateFile(JAVA_INPUT, JAVA_OUTPUT);
-        generateFile(MANIFEST_INPUT, config.manifest);
+        generateFile(MANIFEST_INPUT, requireNonBlank(config.manifest,
+                "manifest jb config must be provided"));
     }
 
     private void generateFile(String in, String out) throws IOException {
@@ -69,4 +71,11 @@ public class GenerateJBuildVersion implements JbTask {
         logger.verbosePrintln(() -> "Generated " + out + " from " + in);
     }
 
+    private static String requireNonBlank(String text, String errorMessage) {
+        requireNonNull(text, errorMessage);
+        if (text.isBlank()) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+        return text;
+    }
 }
