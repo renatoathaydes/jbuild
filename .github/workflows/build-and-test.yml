@@ -36,7 +36,11 @@ jobs:
               tar xzf jb.tar.gz -C jb
         shell: bash
 
-      - name: Build and execute unit tests
+      - name: Build and test jbuild-classfile-parser
+        run: jb/bin/jb -d -p jbuild-classfile-parser/test test
+        shell: bash
+
+      - name: Build and test JBuild main artifact
         run: jb/bin/jb -d -p src/test test
         shell: bash
 
