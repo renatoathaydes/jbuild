@@ -220,8 +220,8 @@ public final class CompileCommandExecutor {
         // make sure the tmp directory exists as the Jar command assumes it does!
         try {
             Files.createTempFile("CompileCommandExecutor", "");
-        } catch (IOException ignore) {
-            // ignore
+        } catch (IOException e) {
+            log.println("WARNING: unable to create temp file, jar command may fail!");
         }
 
         List<CompletionStage<ToolRunResult>> actions = List.of(
