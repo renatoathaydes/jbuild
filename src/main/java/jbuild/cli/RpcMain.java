@@ -27,6 +27,11 @@ public final class RpcMain {
     private final JBuildLog log;
     private final JavaRunner javaRunner;
 
+    public RpcMain() {
+        this(new JBuildLog(System.out, false),
+                new JavaRunner(new JBuildLog(System.out, false)));
+    }
+
     public RpcMain(JBuildLog log) {
         this(log, new JavaRunner(log));
     }
