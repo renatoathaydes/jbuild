@@ -83,13 +83,7 @@ public final class TestHelper {
     }
 
     private static String resolveJBuildClasspath() {
-        var jbuildLocation = JBuildLog.class.getProtectionDomain().getCodeSource().getLocation().getFile();
-        if (jbuildLocation.endsWith("/")) {
-            // when running from IntelliJ, the classpath is the build directory with class files,
-            // so we need the jbuild-api jar as well
-            TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
-            return jbuildLocation + ':' + TestSystemProperties.jbApiJar;
-        }
-        return jbuildLocation;
+        TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
+        return TestSystemProperties.jbApiJar.getAbsolutePath();
     }
 }
