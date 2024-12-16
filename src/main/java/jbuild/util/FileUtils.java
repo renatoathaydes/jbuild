@@ -12,6 +12,7 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Set;
@@ -48,9 +49,7 @@ public final class FileUtils {
     }
 
     public static String relativize(String dir, String path) {
-        if (dir.equals(".") || dir.isBlank() || path.startsWith(File.separator)) return path;
-        var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
-        return String.join(File.separator, root, path);
+        return Paths.get(dir).resolve(path).toString();
     }
 
     public static CompletableFuture<byte[]> readAllBytes(Path file) {
