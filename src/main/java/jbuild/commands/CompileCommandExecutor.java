@@ -44,6 +44,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.IO_READ;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.await;
@@ -470,16 +471,22 @@ public final class CompileCommandExecutor {
         if (classpath.endsWith("*")) {
             return classpath;
         }
-        var cp = new File(classpath);
-        if (cp.isDirectory()) {
+        File canonical;
+        try {
+            canonical = new File(classpath).getCanonicalFile();
+        } catch (IOException e) {
+            throw new JBuildException("Cannot compute classpath, unable to canonicalize " + classpath +
+                    " due to " + e, IO_READ);
+        }
+        if (canonical.isDirectory()) {
             // expand classpath to include any jars available in the directory
-            var jars = FileUtils.allFilesInDir(cp, JarFileFilter.getInstance());
+            var jars = FileUtils.allFilesInDir(canonical, JarFileFilter.getInstance());
             if (jars.length > 0) {
                 return Stream.concat(Stream.of(classpath), Stream.of(jars).map(File::getPath))
                         .collect(joining(File.pathSeparator));
             }
         }
-        return classpath;
+        return canonical.getPath();
     }
 
     String jarOrDefault(String workingDir, String jar) {
