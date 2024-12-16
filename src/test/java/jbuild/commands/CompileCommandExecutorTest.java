@@ -42,7 +42,7 @@ public class CompileCommandExecutorTest {
         assertThat(command.jarOrDefault("", "")).isEqualTo(expectedUserDirJar);
         assertThat(command.jarOrDefault("", " ")).isEqualTo(expectedUserDirJar);
         assertThat(command.jarOrDefault("", "foo.jar")).isEqualTo("foo.jar");
-        assertThat(command.jarOrDefault(".", "foo.jar")).isEqualTo(Paths.get(".", "foo.jar").toString());
+        assertThat(command.jarOrDefault(".", "foo.jar")).isEqualTo(("foo.jar"));
         assertThat(command.jarOrDefault("..", "foo.jar")).isEqualTo(Paths.get("..", "foo.jar").toString());
         assertThat(command.jarOrDefault("wrk", "foo.jar")).isEqualTo(Paths.get("wrk", "foo.jar").toString());
     }

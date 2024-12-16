@@ -49,6 +49,7 @@ public final class FileUtils {
     }
 
     public static String relativize(String dir, String path) {
+        if (dir.isEmpty() || dir.equals(".") || dir.equals("." + File.separatorChar)) return path;
         return Paths.get(dir).resolve(path).toString();
     }
 
