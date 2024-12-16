@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -40,9 +41,7 @@ public final class JarPatcher {
                 }
             }
         }
-        if (!newFile.renameTo(jarFile)) {
-            throw new IOException("unable to replace jar file with new contents: " + jarFile);
-        }
+        Files.move(newFile.toPath(), jarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
     private static void removeEmptyDirectories(List<ZipEntry> entries) {

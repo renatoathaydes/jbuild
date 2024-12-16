@@ -425,7 +425,7 @@ public final class CompileCommandExecutor {
         try {
             JarPatcher.deleteFromJar(new File(jarFile), deletedFiles);
         } catch (IOException e) {
-            throw new JBuildException("Could not path existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
+            throw new JBuildException("Could not patch existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
         }
         if (log.isVerbose()) {
             log.verbosePrintln("Deleted files from jar in " + (System.currentTimeMillis() - startTime) + "ms");
