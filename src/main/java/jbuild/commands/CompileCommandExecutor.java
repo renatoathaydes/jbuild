@@ -145,13 +145,14 @@ public final class CompileCommandExecutor {
 
         var deletionsDone = false;
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
+            var isJar = jarFile != null;
             var deletions = computeDeletedFiles(
-                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles);
+                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar);
             if (!deletions.isEmpty()) {
-                if (jarFile == null) {
-                    deleteFilesFromDir(deletions, outputDir);
-                } else {
+                if (isJar) {
                     deleteFilesFromJar(deletions, jarFile);
+                } else {
+                    deleteFilesFromDir(deletions, outputDir);
                 }
                 deletionsDone = true;
             }
@@ -327,16 +328,22 @@ public final class CompileCommandExecutor {
 
     private Set<String> computeDeletedFiles(Set<String> inputDirectories,
                                             Set<String> resourcesDirectories,
-                                            Set<String> deletedFiles) {
+                                            Set<String> deletedFiles,
+                                            boolean forJar) {
         var directories = new HashSet<String>(inputDirectories.size() + resourcesDirectories.size());
+        var separator = forJar ? '/' : File.separatorChar;
+        // if we're making paths for a Jar, we need to change the paths, but only on Windows
+        // because on Windows the path separator is `\` but on jars (and other systems) it's `/`.
+        var fixWindowsPaths = forJar && File.separatorChar == '\\';
         for (String resourcesDirectory : inputDirectories) {
-            directories.add(ensureEndsWith(resourcesDirectory, File.separatorChar));
+            directories.add(ensureEndsWith(resourcesDirectory, separator).replaceAll("\\\\", "/"));
         }
         for (String resourcesDirectory : resourcesDirectories) {
-            directories.add(ensureEndsWith(resourcesDirectory, File.separatorChar));
+            directories.add(ensureEndsWith(resourcesDirectory, separator).replaceAll("\\\\", "/"));
         }
         var result = new HashSet<String>(deletedFiles.size());
-        for (String file : deletedFiles) {
+        for (String deletedFile : deletedFiles) {
+            final var file = fixWindowsPaths ? deletedFile.replaceAll("\\\\", "/") : deletedFile;
             if (file.endsWith(".class")) {
                 // class files must be passed with the exact output path, unlike resources
                 result.add(file);
