@@ -3,7 +3,11 @@ imports:
   - ../build_properties.yaml
 
 group: com.athaydes.jbuild
+module: jbuild-classfile-parser
+name: JBuild Classfile Parser
 version: "{{versions.jbuild}}"
+description: JBuild parser for Java class files.
+
 javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ src ]
