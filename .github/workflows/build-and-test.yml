@@ -45,7 +45,7 @@ jobs:
         shell: bash
 
       - name: Build and execute integration tests
-        run: jb/bin/jb -d -p src/intTest test
+        run: jb/bin/jb -l debug -d -p src/intTest test
         shell: bash
 
       - name: Test Report
