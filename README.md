@@ -2,7 +2,7 @@
 
 [![Actions Status](https://github.com/renatoathaydes/jbuild/workflows/Build%20And%20Test%20on%20All%20OSs/badge.svg)](https://github.com/renatoathaydes/jbuild/actions)
 
-[![Maven Central](https://img.shields.io/maven-central/v/com.athaydes.jbuild/jbuild.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22com.athaydes.jbuild%22%20AND%20a:%22jbuild%22)
+[![Maven Central](https://img.shields.io/maven-central/v/com.athaydes.jbuild/jbuild.svg?label=Maven%20Central)](https://search.maven.org/search?q=a:jbuild%20g:com.athaydes.jbuild)
 
 JBuild is a toolkit for building Java and other JVM language based projects, focussing on dependency management and
 application's classpath verification.
@@ -95,9 +95,57 @@ Currently implemented detections:
 
 ## CLI
 
+To install JBuild as a CLI, [download the jar from Maven Central](https://central.sonatype.com/artifact/com.athaydes.jbuild/jbuild/versions)
+manually or using one of the commands below.
+
+### Download using JBuild itself
+
+```shell
+jbuild fetch com.athaydes.jbuild:jbuild
 ```
------- JBuild CLI ------
-Version: 0.0
+
+### Download using mvn
+
+```shell
+# Download to the Maven Local Repository at ~/.m2/repository/
+mvn dependency:get -Dartifact=com.athaydes.jbuild:jbuild:LATEST
+# Copy the jar to the current directory
+mvn dependency:copy  -Dartifact=com.athaydes.jbuild:jbuild:LATEST -DoutputDirectory=.
+```
+
+### Using the CLI
+
+After downloading the jar, add an alias to run it with `java` to your `.bashrc|.zshrc` file as follows:
+
+```
+alias jbuild="java -jar $PATH_TO_JBUILD_JAR"
+```
+
+After that, you can run `jbuild` as any command in the shell. For example, to compile all Java source files
+in the `src/` directory, run:
+
+```shell
+jbuild compile
+```
+
+To see help for a sub-command, like `compile`, run:
+
+```shell
+jbuild help compile
+```
+
+To see the general help page:
+
+```shell
+jbuild help # or -h
+```
+
+Which should print the following:
+
+```
+------ JBuild Basic CLI ------
+       Version: 0.10.0
+==============================
 
 Utility to build Java (JVM) applications.
 
@@ -154,6 +202,16 @@ Examples:
 
 Also refer to the CLI code, [jbuild.cli.Main](src/main/java/jbuild/cli/Main.java),
 and [the tests](src/test/java/jbuild/) to learn more.
+
+## JBuild sub-modules
+
+This project has two sub-modules:
+
+* [jbuild-api](jbuild-api/README.md) - extension API used by the `jb` tool to integrate with JBuild.
+* [jbuild-classfile-parser](jbuild-classfile-parser/README.md) - JVM class file parser, used by JBuild to introspect JVM bytecode.
+
+> Notice that JBuild is distributed as a single jar without any dependencies.
+> Both sub-modules are included in the _main_ jar, but can be used independently if required.
 
 ## Building
 

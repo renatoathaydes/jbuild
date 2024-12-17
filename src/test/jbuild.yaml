@@ -20,11 +20,11 @@ test-java-args:
   - "-Dtests.real-jars.jb-api.jar=../../jbuild-api/build/jbuild-api.jar"
 
 dependencies:
-  - "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}"
-  - "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}"
-  - "org.assertj:assertj-core:{{versions.assertj}}"
-  - jbuild:
+  "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}":
+  "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}":
+  "org.assertj:assertj-core:{{versions.assertj}}":
+  jbuild:
       path: ../../
-  - otherTestClasses:
+  otherTestClasses:
       path: ../otherTestClasses
       scope: runtime-only

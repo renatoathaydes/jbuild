@@ -9,8 +9,8 @@ resource-dirs: [ resources ]
 javac-args: [ "--release=11" ]
 
 dependencies:
-  - jbuild-classfile-parser:
+  jbuild-classfile-parser:
       path: ../
-  - "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}"
-  - "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}"
-  - "org.assertj:assertj-core:{{versions.assertj}}"
+  "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}":
+  "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}":
+  "org.assertj:assertj-core:{{versions.assertj}}":

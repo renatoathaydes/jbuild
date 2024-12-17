@@ -35,7 +35,6 @@ import static jbuild.commands.FetchCommandExecutor.reportErrors;
 import static jbuild.maven.MavenUtils.importsOf;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapEntries;
-import static jbuild.util.Either.awaitLeft;
 import static jbuild.util.TextUtils.durationText;
 
 public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
@@ -120,21 +119,15 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> withParentIfNeeded(
             CompletionStage<MavenPom> pomCompletion) {
-        return pomCompletion.thenCompose(pom -> {
+        return pomCompletion.thenComposeAsync(pom -> {
             var parentArtifact = pom.getParentArtifact();
 
             if (parentArtifact.isEmpty()) {
                 return withImportsIfNeeded(pom);
             }
 
-            return withImportsIfNeeded(pom).thenComposeAsync(imps -> awaitLeft(imps, withImps -> {
-                var parentPom = parentArtifact.get().pom();
-
-                log.verbosePrintln(() -> "Fetching parent POM of " + withImps.getArtifact().getCoordinates() +
-                        " - " + parentPom.getCoordinates());
-
-                return fetch(parentPom).thenApply(res -> res.mapLeft(withImps::withParent));
-            }));
+            return fetch(parentArtifact.get().pom()).thenCompose(res -> res.mapLeft(pom::withParent)
+                    .map(this::withImportsIfNeeded, err -> completedFuture(Either.right(err))));
         });
     }
 

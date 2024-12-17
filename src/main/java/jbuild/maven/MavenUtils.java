@@ -109,10 +109,13 @@ public final class MavenUtils {
 
     public static String resolveProperty(String value, Map<String, String> properties) {
         String result = value;
-        var visitedProperties = new LinkedHashSet<String>(4);
+        Set<String> visitedProperties = null;
         while (isUnresolvedProperty(result)) {
             var key = result.substring(2, result.length() - 1);
             if (properties.containsKey(key)) {
+                if (visitedProperties == null) {
+                    visitedProperties = new LinkedHashSet<>(4);
+                }
                 var isNew = visitedProperties.add(key);
                 if (!isNew) {
                     throw new IllegalStateException("infinite loop detected resolving property: " +

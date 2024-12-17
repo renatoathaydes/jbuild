@@ -239,7 +239,7 @@ public final class Jar {
         }
 
         private static List<? extends Collection<String>> partitionClasses(Set<String> classNames) {
-            final int partionSize = 250;
+            final int partionSize = 256;
             List<Collection<String>> partitions;
             if (classNames.size() > partionSize + 100) {
                 var classesIterator = classNames.iterator();

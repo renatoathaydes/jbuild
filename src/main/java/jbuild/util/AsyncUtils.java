@@ -1,5 +1,7 @@
 package jbuild.util;
 
+import jbuild.api.JBuildException;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -9,11 +11,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -22,6 +25,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 
 public final class AsyncUtils {
 
@@ -40,11 +44,12 @@ public final class AsyncUtils {
 
         var results = new ConcurrentHashMap<K, Either<V, Throwable>>(map.size());
         var future = new CompletableFuture<Map<K, Either<V, Throwable>>>();
+        final var count = map.size();
 
         map.forEach((key, value) -> {
             value.whenComplete((ok, err) -> {
                 results.put(key, err != null ? Either.right(err) : Either.left(ok));
-                if (results.size() == map.size()) {
+                if (results.size() == count) {
                     future.complete(results);
                 }
             });
@@ -62,14 +67,14 @@ public final class AsyncUtils {
         var results = new ArrayList<Either<T, Throwable>>(list.size());
         var completedCount = new AtomicInteger(0);
         var future = new CompletableFuture<Collection<Either<T, Throwable>>>();
+        final var count = list.size();
 
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < count; i++) {
             final var index = i;
             results.add(null);
             list.get(index).whenComplete((ok, err) -> {
                 results.set(index, err == null ? Either.left(ok) : Either.right(err));
-                var count = completedCount.incrementAndGet();
-                if (count == list.size()) {
+                if (completedCount.incrementAndGet() == count) {
                     future.complete(results);
                 }
             });
@@ -84,24 +89,25 @@ public final class AsyncUtils {
             return completedStage(List.of());
         }
 
-        var failed = new AtomicBoolean(false);
         var completedCount = new AtomicInteger(0);
         var results = new ArrayList<T>(list.size());
         var future = new CompletableFuture<Collection<T>>();
+        final var count = list.size();
 
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < count; i++) {
             final var index = i;
             results.add(null);
             list.get(index).whenComplete((ok, err) -> {
                 if (err != null) {
-                    if (failed.compareAndSet(false, true)) {
-                        future.completeExceptionally(err);
+                    synchronized (future) {
+                        if (!future.isDone()) future.completeExceptionally(err);
                     }
-                } else if (!failed.get()) {
+                } else {
                     results.set(index, ok);
-                    var count = completedCount.incrementAndGet();
-                    if (count == list.size()) {
-                        future.complete(results);
+                }
+                if (completedCount.incrementAndGet() == count) {
+                    synchronized (future) {
+                        if (!future.isDone()) future.complete(results);
                     }
                 }
             });
@@ -120,13 +126,19 @@ public final class AsyncUtils {
 
         for (Map.Entry<K, CompletionStage<T>> entry : map.entrySet()) {
             entry.getValue().whenComplete((ok, err) -> {
-                if (future.isDone()) return;
-                if (err != null) future.completeExceptionally(err);
-                var entrySetter = (Map.Entry<K, T>) entry;
-                entrySetter.setValue(ok);
+                if (err != null) {
+                    synchronized (future) {
+                        if (!future.isDone()) future.completeExceptionally(err);
+                    }
+                } else {
+                    var entrySetter = (Map.Entry<K, T>) entry;
+                    entrySetter.setValue(ok);
+                }
                 var remaining = remainingEntries.decrementAndGet();
                 if (remaining == 0) {
-                    future.complete(mapper.apply(results));
+                    synchronized (future) {
+                        if (!future.isDone()) future.complete(mapper.apply(results));
+                    }
                 }
             });
         }
@@ -223,5 +235,13 @@ public final class AsyncUtils {
         }, delay.toMillis(), TimeUnit.MILLISECONDS);
 
         return future;
+    }
+
+    public static <T> T await(CompletionStage<T> stage, Duration timeout, String actionName) {
+        try {
+            return stage.toCompletableFuture().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new JBuildException("'" + actionName + "' failed due to: " + e, ACTION_ERROR);
+        }
     }
 }

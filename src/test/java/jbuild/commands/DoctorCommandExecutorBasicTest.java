@@ -274,6 +274,7 @@ public class DoctorCommandExecutorBasicTest {
                 "",
                 false,
                 classpath,
+                Either.left(true),
                 List.of(),
                 null);
 

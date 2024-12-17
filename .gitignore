@@ -5,3 +5,6 @@ build/
 /.task/
 /out/
 .jb-cache/
+
+# Generated file
+src/main/java/jbuild/Version.java

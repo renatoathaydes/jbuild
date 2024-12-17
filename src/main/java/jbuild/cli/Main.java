@@ -1,5 +1,6 @@
 package jbuild.cli;
 
+import jbuild.Version;
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
 import jbuild.artifact.Artifact;
@@ -38,17 +39,16 @@ import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
+import static jbuild.util.AsyncUtils.await;
 import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;
 
 public final class Main {
 
-    static final String JBUILD_VERSION = "0.0";
-
     static final String JBUILD_HEADER =
             "------ JBuild Basic CLI ------" + LINE_END +
-                    "       Version: " + JBUILD_VERSION + LINE_END +
+                    "       Version: " + Version.VALUE + LINE_END +
                     "==============================" + LINE_END;
 
     static final String USAGE =
@@ -122,7 +122,7 @@ public final class Main {
 
         if (options.version || options.command.equals("version")) {
             if (options.quiet) {
-                log.println(JBUILD_VERSION);
+                log.println(Version.VALUE);
             } else {
                 System.out.print(JBUILD_HEADER);
             }
@@ -210,7 +210,7 @@ public final class Main {
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
-                compileOptions.classpath, options.applicationArgs,
+                compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res -> verifyToolSuccessful("javac", res));
@@ -415,11 +415,12 @@ public final class Main {
         }
     }
 
-    private void requirements(Options options) throws ExecutionException, InterruptedException {
+    private void requirements(Options options) {
         var command = RequirementsCommandExecutor.createDefault(log);
         var reqOptions = RequirementsOptions.parse(options.commandArgs, !options.quiet);
-        command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass)
-                .toCompletableFuture().get();
+        await(command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass),
+                Duration.ofMinutes(2),
+                "requirements");
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

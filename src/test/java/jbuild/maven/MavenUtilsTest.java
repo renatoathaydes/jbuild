@@ -96,7 +96,11 @@ public class MavenUtilsTest {
                         dep("com.google.code.findbugs", "jsr305", "3.0.2", COMPILE),
                         dep("com.athaydes.jbuild", "jbuild", "3.2.1", COMPILE),
                         dep("com.athaydes", "jbuild-example", "1.2.3", COMPILE)))
-                .has(artifactCoordinates(new Artifact("com.athaydes.test", "jbuild-child", "1.0")));
+                .has(artifactCoordinates(new Artifact("com.athaydes.test", "jbuild-child", "1.0")))
+                .has(dependencyManagement(
+                        dep("org.junit", "junit-bom", "5.10.0", Scope.IMPORT, "pom"),
+                        dep("com.google.code.findbugs", "jsr305", "3.0.2")
+                ));
     }
 
     @Test

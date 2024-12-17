@@ -6,5 +6,5 @@ output-jar: ../../build/tests/other-tests.jar
 javac-args: [ "--release={{versions.java}}" ]
 
 dependencies:
-    - my-test-classes:
-          path: ../myTestClasses
+  my-test-classes:
+    path: ../myTestClasses

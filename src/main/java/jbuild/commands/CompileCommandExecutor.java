@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,8 +44,10 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.IO_READ;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.util.AsyncUtils.await;
 import static jbuild.util.AsyncUtils.awaitSuccessValues;
 import static jbuild.util.AsyncUtils.runAsyncTiming;
 import static jbuild.util.CollectionUtils.appendAsStream;
@@ -58,7 +61,7 @@ public final class CompileCommandExecutor {
     private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) -> name.endsWith(".java");
     private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) -> !name.endsWith(".java");
     private static final FilenameFilter ALL_FILES_FILTER = (dir, name) -> true;
-    private static final Pattern DEFAULT_JAR_FROM_WORKING_DIR = Pattern.compile("[a-zA-Z0-9]");
+    private static final Pattern NOT_EMPTY_WORD = Pattern.compile("[a-zA-Z0-9]");
 
     private final JBuildLog log;
 
@@ -72,12 +75,13 @@ public final class CompileCommandExecutor {
                                         String mainClass,
                                         boolean generateJbManifest,
                                         String classpath,
+                                        Either<Boolean, String> manifest,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(".", inputDirectories, resourcesDirectories,
                 outputDirOrJar, mainClass, generateJbManifest, false, false,
-                classpath, compilerArgs, incrementalChanges);
+                classpath, manifest, compilerArgs, incrementalChanges);
     }
 
     public CompileCommandResult compile(String workingDir,
@@ -89,6 +93,7 @@ public final class CompileCommandExecutor {
                                         boolean createSourcesJar,
                                         boolean createJavadocsJar,
                                         String classpath,
+                                        Either<Boolean, String> manifest,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
@@ -128,23 +133,26 @@ public final class CompileCommandExecutor {
             }
         }
 
+        // if the output is a Jar, send the class files to a temp folder.
         var outputDir = outputDirOrJar.map(
                 outDir -> relativize(workingDir, outDir),
                 jar -> getTempDirectory());
 
         log.verbosePrintln(() -> "Compilation output will be sent to " + outputDir);
 
+        // jarFile will be null if the output is not a Jar.
         var jarFile = outputDirOrJar.map(NoOp.fun(), jar -> jarOrDefault(workingDir, jar));
 
         var deletionsDone = false;
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
+            var isJar = jarFile != null;
             var deletions = computeDeletedFiles(
-                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles);
+                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar);
             if (!deletions.isEmpty()) {
-                if (jarFile == null) {
-                    deleteFilesFromDir(deletions, outputDir);
-                } else {
+                if (isJar) {
                     deleteFilesFromJar(deletions, jarFile);
+                } else {
+                    deleteFilesFromDir(deletions, outputDir);
                 }
                 deletionsDone = true;
             }
@@ -173,10 +181,11 @@ public final class CompileCommandExecutor {
                 return new CompileCommandResult();
             }
         } else {
-            compileResult = runAsyncTiming(() -> Tools.Javac.create(log).compile(sourceFiles, outputDir,
-                            computedClasspath, compilerArgs),
-                    createLogTimer("Compilation successful on directory '" + outputDir + "'"))
-                    .toCompletableFuture().get();
+            compileResult = await(runAsyncTiming(() -> Tools.Javac.create(log).compile(sourceFiles, outputDir,
+                                    computedClasspath, compilerArgs),
+                            createLogTimer("Compilation successful on directory '" + outputDir + "'")),
+                    Duration.ofMinutes(30),
+                    "compile");
             if (compileResult.exitCode() != 0) {
                 return new CompileCommandResult(compileResult);
             }
@@ -192,19 +201,48 @@ public final class CompileCommandExecutor {
         if (jarFile == null) {
             return new CompileCommandResult(compileResult);
         }
-        var jarResults = awaitSuccessValues(List.of(
-                jar(mainClass, outputDir, jarFile, incrementalChanges),
+
+        var jarResults = invokeJarTasks(inputDirectories, mainClass, createSourcesJar, createJavadocsJar,
+                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles);
+
+        return new CompileCommandResult(compileResult,
+                jarResults.next(), jarResults.next(), jarResults.next());
+    }
+
+    private Iterator<ToolRunResult> invokeJarTasks(Set<String> inputDirectories,
+                                                   String mainClass,
+                                                   boolean createSourcesJar,
+                                                   boolean createJavadocsJar,
+                                                   IncrementalChanges incrementalChanges,
+                                                   String outputDir,
+                                                   String jarFile,
+                                                   Either<Boolean, String> manifest,
+                                                   String computedClasspath,
+                                                   Set<String> sourceFiles) {
+        // make sure the tmp directory exists as the Jar command assumes it does!
+        try {
+            Files.createTempFile("CompileCommandExecutor", "");
+        } catch (IOException e) {
+            log.println("WARNING: unable to create temp file, jar command may fail!");
+        }
+
+        List<CompletionStage<ToolRunResult>> actions = List.of(
+                jar(mainClass, outputDir, jarFile, manifest, incrementalChanges),
                 createSourcesJar
                         ? sourcesJar(inputDirectories, jarFile)
                         : completedStage(null),
                 createJavadocsJar
                         ? createJavadoc(computedClasspath, sourceFiles)
                         .thenCompose(result -> javadocJar(result, jarFile))
-                        : completedStage(null)))
-                .toCompletableFuture().get().iterator();
+                        : completedStage(null));
 
-        return new CompileCommandResult(compileResult,
-                jarResults.next(), jarResults.next(), jarResults.next());
+        var timeout = Duration.ofMinutes(5);
+
+        return await(
+                awaitSuccessValues(actions),
+                timeout,
+                "jar, sources-jar, javadocs-jar)"
+        ).iterator();
     }
 
     private CompletionStage<Either<ToolRunResult, String>> createJavadoc(String classpath, Set<String> sourceFiles) {
@@ -229,13 +267,16 @@ public final class CompileCommandExecutor {
     private CompletionStage<ToolRunResult> jar(String mainClass,
                                                String outputDir,
                                                String jarFile,
+                                               Either<Boolean, String> manifest,
                                                IncrementalChanges incrementalChanges) {
         var jarContent = new FileSet(Set.of(), outputDir);
 
         if (incrementalChanges == null) {
-            log.verbosePrintln(() -> "Creating jar file at " + jarFile);
-            return runAsyncTiming(() -> Tools.Jar.create().createJar(new CreateJarOptions(
-                            jarFile, mainClass, false, "", jarContent, Map.of())),
+            var jarOptions = new CreateJarOptions(
+                    jarFile, mainClass, manifest, "", jarContent, Map.of());
+            log.verbosePrintln(() -> "Creating jar file at " + jarFile + ". Full command: jar " +
+                    String.join(" ", jarOptions.toArgs(true)));
+            return runAsyncTiming(() -> Tools.Jar.create().createJar(jarOptions),
                     createLogTimer("Created jar"));
         }
 
@@ -287,21 +328,27 @@ public final class CompileCommandExecutor {
 
     private Set<String> computeDeletedFiles(Set<String> inputDirectories,
                                             Set<String> resourcesDirectories,
-                                            Set<String> deletedFiles) {
+                                            Set<String> deletedFiles,
+                                            boolean forJar) {
         var directories = new HashSet<String>(inputDirectories.size() + resourcesDirectories.size());
+        var separator = forJar ? '/' : File.separatorChar;
+        // if we're making paths for a Jar, we need to change the paths, but only on Windows
+        // because on Windows the path separator is `\` but on jars (and other systems) it's `/`.
+        var fixWindowsPaths = forJar && File.separatorChar == '\\';
         for (String resourcesDirectory : inputDirectories) {
-            directories.add(ensureEndsWith(resourcesDirectory, File.separatorChar));
+            directories.add(ensureEndsWith(resourcesDirectory, separator).replaceAll("\\\\", "/"));
         }
         for (String resourcesDirectory : resourcesDirectories) {
-            directories.add(ensureEndsWith(resourcesDirectory, File.separatorChar));
+            directories.add(ensureEndsWith(resourcesDirectory, separator).replaceAll("\\\\", "/"));
         }
         var result = new HashSet<String>(deletedFiles.size());
-        for (String file : deletedFiles) {
+        for (String deletedFile : deletedFiles) {
+            final var file = fixWindowsPaths ? deletedFile.replaceAll("\\\\", "/") : deletedFile;
             if (file.endsWith(".class")) {
                 // class files must be passed with the exact output path, unlike resources
                 result.add(file);
             } else {
-                // resource files need to be relativized
+                // resource files need to be made relative
                 var found = false;
                 for (var dir : directories) {
                     if (file.startsWith(dir)) {
@@ -385,7 +432,7 @@ public final class CompileCommandExecutor {
         try {
             JarPatcher.deleteFromJar(new File(jarFile), deletedFiles);
         } catch (IOException e) {
-            throw new JBuildException("Could not path existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
+            throw new JBuildException("Could not patch existing jar file '" + jarFile + "' due to: " + e, IO_WRITE);
         }
         if (log.isVerbose()) {
             log.verbosePrintln("Deleted files from jar in " + (System.currentTimeMillis() - startTime) + "ms");
@@ -431,35 +478,45 @@ public final class CompileCommandExecutor {
         if (classpath.endsWith("*")) {
             return classpath;
         }
-        var cp = new File(classpath);
-        if (cp.isDirectory()) {
+        File canonical;
+        try {
+            canonical = new File(classpath).getCanonicalFile();
+        } catch (IOException e) {
+            throw new JBuildException("Cannot compute classpath, unable to canonicalize " + classpath +
+                    " due to " + e, IO_READ);
+        }
+        if (canonical.isDirectory()) {
             // expand classpath to include any jars available in the directory
-            var jars = FileUtils.allFilesInDir(cp, JarFileFilter.getInstance());
+            var jars = FileUtils.allFilesInDir(canonical, JarFileFilter.getInstance());
             if (jars.length > 0) {
                 return Stream.concat(Stream.of(classpath), Stream.of(jars).map(File::getPath))
                         .collect(joining(File.pathSeparator));
             }
         }
-        return classpath;
+        return canonical.getPath();
     }
 
-    private String jarOrDefault(String workingDir, String jar) {
+    String jarOrDefault(String workingDir, String jar) {
+        String targetJar;
         if (jar.isBlank()) {
-            if (DEFAULT_JAR_FROM_WORKING_DIR.matcher(workingDir).find()) {
-                return relativize(Paths.get(workingDir, "build").toString(),
-                        new File(workingDir).getName() + ".jar");
-            }
-            var dir = System.getProperty("user.dir");
-            if (dir != null) {
-                var path = new File(dir).getName() + ".jar";
-                log.verbosePrintln(() -> "Using default jar name based on working dir: " + path);
-                return relativize(workingDir, path);
+            // check if the custom workingDir is a non-empty word of some sort
+            if (NOT_EMPTY_WORD.matcher(workingDir).find()) {
+                targetJar = "build" + File.separatorChar + new File(workingDir).getName() + ".jar";
+                log.verbosePrintln(() -> "Using default jar name based on working dir: " + targetJar);
             } else {
-                log.verbosePrintln("Using default jar name: lib.jar");
-                return "lib.jar";
+                var dir = System.getProperty("user.dir");
+                if (dir != null) {
+                    targetJar = "build" + File.separatorChar + new File(dir).getName() + ".jar";
+                    log.verbosePrintln(() -> "Using default jar name based on user.dir: " + targetJar);
+                } else {
+                    log.verbosePrintln("Using default jar name: lib.jar");
+                    targetJar = "lib.jar";
+                }
             }
+        } else {
+            targetJar = jar;
         }
-        return jar;
+        return relativize(workingDir, targetJar);
     }
 
     private String getTempDirectory() {

@@ -1,5 +1,8 @@
 package jbuild.util;
 
+/**
+ * Environment variables and system properties provider.
+ */
 public final class Env {
     public static final int MAX_DEPENDENCY_TREE_DEPTH;
 

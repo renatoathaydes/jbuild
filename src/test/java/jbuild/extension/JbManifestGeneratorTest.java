@@ -1,11 +1,13 @@
 package jbuild.extension;
 
+import jbuild.api.JBuildException;
 import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class JbManifestGeneratorTest {
 
@@ -15,9 +17,7 @@ public class JbManifestGeneratorTest {
                 "import jbuild.api.*;\n" +
                 "@JbTaskInfo(name = \"my-task\", \n" +
                 "  description = \"a important task.\"," +
-                "  phase = @TaskPhase(name = \"setup\"),\n" +
-                "  dependents = \"depend-on-me\",\n" +
-                "  dependsOn = {\"i-depend-on\", \"another-dep\"}\n" +
+                "  phase = @TaskPhase(name = \"setup\")\n" +
                 ")\n" +
                 "public class Main {\n" +
                 " public Main() {\n" +
@@ -33,11 +33,6 @@ public class JbManifestGeneratorTest {
                 "    description: a important task.\n" +
                 "    phase:\n" +
                 "      \"setup\": -1\n" +
-                "    depends-on:\n" +
-                "      - \"i-depend-on\"\n" +
-                "      - \"another-dep\"\n" +
-                "    dependents:\n" +
-                "      - \"depend-on-me\"\n" +
                 "    config-constructors:\n" +
                 "      - {}\n");
     }
@@ -63,12 +58,13 @@ public class JbManifestGeneratorTest {
     }
 
     @Test
-    void canGenerateJbConfigPropertyAnnotatedConstructor() throws IOException {
+    void canGenerateConstructorWithJbConfig() throws IOException {
         var classFile = TestHelper.compileJavaClassFile("Main", "" +
                 "import jbuild.api.*;\n" +
+                "import jbuild.api.config.JbConfig;\n" +
                 "@JbTaskInfo(name = \"my-task\")\n" +
                 "public class Main {\n" +
-                " public Main(String version) {\n" +
+                " public Main(JbConfig jbConfig) {\n" +
                 " }\n" +
                 "}", TestHelper.ClassPathOption.Option.INHERIT);
         var generator = new JbManifestGenerator(TestHelper.createLog(false).getKey());
@@ -79,27 +75,7 @@ public class JbManifestGeneratorTest {
         assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
                 "    class-name: Main\n" +
                 "    config-constructors:\n" +
-                "      - \"version\": {type: \"STRING\", jb-name: \"version\"}\n");
-    }
-
-    @Test
-    void canGenerateJbConfigPropertyAnnotatedConstructorRenamed() throws IOException {
-        var classFile = TestHelper.compileJavaClassFile("Main", "" +
-                "import jbuild.api.*;\n" +
-                "@JbTaskInfo(name = \"my-task\")\n" +
-                "public class Main {\n" +
-                " public Main(@JbConfigProperty(\"version\") String jbVersion) {\n" +
-                " }\n" +
-                "}", TestHelper.ClassPathOption.Option.INHERIT);
-        var generator = new JbManifestGenerator(TestHelper.createLog(false).getKey());
-        var builder = new StringBuilder();
-
-        generator.createEntryForExtension(classFile, builder);
-
-        assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
-                "    class-name: Main\n" +
-                "    config-constructors:\n" +
-                "      - \"jbVersion\": {type: \"STRING\", jb-name: \"version\"}\n");
+                "      - \"jbConfig\": \"JB_CONFIG\"\n");
     }
 
     @Test
@@ -155,6 +131,27 @@ public class JbManifestGeneratorTest {
                 "      - \"s\": \"LIST_OF_STRINGS\"\n" +
                 "        \"more\": \"ARRAY_OF_STRINGS\"\n" +
                 "      - {}\n");
+    }
+
+    @Test
+    void cannotUseUnsupportedTypeInConstructor() throws IOException {
+        var classFile = TestHelper.compileJavaClassFile("foo.bar.MyExtension", "" +
+                "package foo.bar;\n" +
+                "import jbuild.api.*;\n" +
+                "import java.util.Set;\n" +
+                "@JbTaskInfo(name = \"my-task\")\n" +
+                "public class MyExtension {\n" +
+                " public MyExtension(Set<String> s) {}" +
+                "}", TestHelper.ClassPathOption.Option.INHERIT);
+        var generator = new JbManifestGenerator(TestHelper.createLog(false).getKey());
+        var builder = new StringBuilder();
+
+        assertThatThrownBy(() -> generator.createEntryForExtension(classFile, builder))
+                .isInstanceOfAny(JBuildException.class)
+                .hasMessage("jb extension 'foo.bar.MyExtension' could not be created: " +
+                        "At class foo.bar.MyExtension, constructor parameter 's' has an unsupported type for " +
+                        "jb extension (use one of: jbuild.api.JBuildLogger, jbuild.api.config.JbConfig, " +
+                        "java.lang.String, boolean, int, float, java.util.List<java.lang.String>, java.lang.String[])");
     }
 
 }

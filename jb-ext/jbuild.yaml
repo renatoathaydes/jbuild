@@ -10,6 +10,6 @@ description: jb extension to run code at compile time.
 javac-args: [ "--release={{versions.java}}" ]
 
 dependencies:
-  com.athaydes.jbuild:jbuild-api:0.8.0:
+  com.athaydes.jbuild:jbuild-api:0:
     path: ../jbuild-api
     scope: compile-only

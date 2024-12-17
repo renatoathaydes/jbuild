@@ -7,6 +7,9 @@
     <artifactId>jbuild-test-parent</artifactId>
     <version>1.0</version>
     <packaging>pom</packaging>
+    <properties>
+        <junit5.version>5.10.0</junit5.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>com.athaydes</groupId>
