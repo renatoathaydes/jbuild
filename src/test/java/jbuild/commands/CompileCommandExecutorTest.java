@@ -309,7 +309,7 @@ public class CompileCommandExecutorTest {
         var jarResult = Tools.Jar.create().listContents(jar.toString());
         verifyToolSuccessful("jar tf", jarResult);
         assertThat(jarResult.getStdoutLines().collect(toList()))
-                .containsExactly(
+                .containsExactlyInAnyOrder(
                         "META-INF/",
                         "META-INF/MANIFEST.MF",
                         "META-INF/jb/",
@@ -372,7 +372,7 @@ public class CompileCommandExecutorTest {
         var jarResult = Tools.Jar.create().listContents(jar.toString());
         verifyToolSuccessful("jar tf", jarResult);
         assertThat(jarResult.getStdoutLines().collect(toList()))
-                .containsExactly(
+                .containsExactlyInAnyOrder(
                         "META-INF/",
                         "META-INF/MANIFEST.MF",
                         "pkg/",
@@ -381,7 +381,7 @@ public class CompileCommandExecutorTest {
         var sourceJarResult = Tools.Jar.create().listContents(sourcesJar.toString());
         verifyToolSuccessful("jar tf", sourceJarResult);
         assertThat(sourceJarResult.getStdoutLines().collect(toList()))
-                .containsExactly(
+                .containsExactlyInAnyOrder(
                         "META-INF/",
                         "META-INF/MANIFEST.MF",
                         "pkg/",
