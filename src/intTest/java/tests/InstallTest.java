@@ -2,6 +2,8 @@ package tests;
 
 import jbuild.artifact.Artifact;
 import org.apache.commons.io.FileUtils;
+import org.assertj.core.api.CollectionAssert;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
@@ -23,6 +25,12 @@ import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
  * installing a few artifacts into a Maven repository works.
  */
 public class InstallTest extends JBuildTestRunner {
+
+    // Verify this class exists due to random errors on Windows (Github CI)
+    @BeforeEach
+    void before() {
+        System.out.println(CollectionAssert.class);
+    }
 
     @Test
     void canInstallJarsIntoLocalMavenRepo() {
