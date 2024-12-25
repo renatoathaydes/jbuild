@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -48,7 +49,7 @@ public final class AsyncUtils {
 
         map.forEach((key, value) -> {
             value.whenComplete((ok, err) -> {
-                results.put(key, err != null ? Either.right(err) : Either.left(ok));
+                results.put(key, err != null ? Either.right(unwrapConcurrentException(err)) : Either.left(ok));
                 if (results.size() == count) {
                     future.complete(results);
                 }
@@ -73,7 +74,7 @@ public final class AsyncUtils {
             final var index = i;
             results.add(null);
             list.get(index).whenComplete((ok, err) -> {
-                results.set(index, err == null ? Either.left(ok) : Either.right(err));
+                results.set(index, err == null ? Either.left(ok) : Either.right(unwrapConcurrentException(err)));
                 if (completedCount.incrementAndGet() == count) {
                     future.complete(results);
                 }
@@ -100,7 +101,7 @@ public final class AsyncUtils {
             list.get(index).whenComplete((ok, err) -> {
                 if (err != null) {
                     synchronized (future) {
-                        if (!future.isDone()) future.completeExceptionally(err);
+                        if (!future.isDone()) future.completeExceptionally(unwrapConcurrentException(err));
                     }
                 } else {
                     results.set(index, ok);
@@ -128,7 +129,7 @@ public final class AsyncUtils {
             entry.getValue().whenComplete((ok, err) -> {
                 if (err != null) {
                     synchronized (future) {
-                        if (!future.isDone()) future.completeExceptionally(err);
+                        if (!future.isDone()) future.completeExceptionally(unwrapConcurrentException(err));
                     }
                 } else {
                     var entrySetter = (Map.Entry<K, T>) entry;
@@ -161,14 +162,14 @@ public final class AsyncUtils {
         try {
             completionStage = future.get();
         } catch (Throwable t) {
-            return handle.apply(null, t);
+            return handle.apply(null, unwrapConcurrentException(t));
         }
         return handlingAsync(completionStage, (T ok, Throwable err) -> {
             if (err != null) {
                 return retries > 0
                         ? afterDelay(delayOnRetry, () -> withRetries(
                         future, retries - 1, delayOnRetry, handle))
-                        : handle.apply(ok, err);
+                        : handle.apply(ok, unwrapConcurrentException(err));
             }
             return handle.apply(ok, null);
         });
@@ -188,23 +189,7 @@ public final class AsyncUtils {
             try {
                 future.complete(supplier.get());
             } catch (Throwable t) {
-                future.completeExceptionally(t);
-            }
-        });
-
-        return future;
-    }
-
-    @SuppressWarnings("FutureReturnValueIgnored")
-    public static CompletionStage<Void> runAsync(Runnable runnable) {
-        var future = new CompletableFuture<Void>();
-
-        scheduler.submit(() -> {
-            try {
-                runnable.run();
-                future.complete(null);
-            } catch (Throwable t) {
-                future.completeExceptionally(t);
+                future.completeExceptionally(unwrapConcurrentException(t));
             }
         });
 
@@ -227,10 +212,10 @@ public final class AsyncUtils {
             try {
                 futureGetter.get().whenComplete((ok, err) -> {
                     if (err == null) future.complete(ok);
-                    else future.completeExceptionally(err);
+                    else future.completeExceptionally(unwrapConcurrentException(err));
                 });
             } catch (Throwable t) {
-                future.completeExceptionally(t);
+                future.completeExceptionally(unwrapConcurrentException(t));
             }
         }, delay.toMillis(), TimeUnit.MILLISECONDS);
 
@@ -241,7 +226,17 @@ public final class AsyncUtils {
         try {
             return stage.toCompletableFuture().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new JBuildException("'" + actionName + "' failed due to: " + e, ACTION_ERROR);
+            throw new JBuildException("'" + actionName + "' failed due to: " + unwrapConcurrentException(e), ACTION_ERROR);
         }
+    }
+
+    private static Throwable unwrapConcurrentException(Throwable throwable) {
+        if (throwable instanceof CompletionException || throwable instanceof ExecutionException) {
+            var cause = throwable.getCause();
+            if (cause != null) {
+                return unwrapConcurrentException(cause);
+            }
+        }
+        return throwable;
     }
 }

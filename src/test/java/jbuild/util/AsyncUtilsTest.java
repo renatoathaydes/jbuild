@@ -106,6 +106,68 @@ public class AsyncUtilsTest {
     }
 
     @Test
+    void canAwaitOnListEmpty() throws Exception {
+        assertThat(AsyncUtils.awaitValues(List.of())
+                .toCompletableFuture().get(1, TimeUnit.SECONDS)).isEmpty();
+    }
+
+    @Test
+    void canAwaitOnListOfCompletionStagesSuccess() throws Exception {
+        var list = List.of(
+                supplyAsync(() -> {
+                    delay(4L);
+                    return 10;
+                }), supplyAsync(() -> {
+                    delay(2L);
+                    return 20;
+                }));
+
+        var result = AsyncUtils.awaitValues(list);
+
+        assertThat(result.toCompletableFuture().get(2, TimeUnit.SECONDS))
+                .containsExactly(Either.left(10), Either.left(20));
+    }
+
+    @Test
+    void canAwaitOnListOfCompletionStagesFailureAndSuccess() throws Exception {
+        List<CompletionStage<Integer>> map = List.of(
+                supplyAsync(() -> {
+                    delay(50);
+                    return 10;
+                }),
+                supplyAsync(() -> {
+                    throw new EqualByMessageException("fail");
+                }));
+
+        var result = AsyncUtils.awaitValues(map);
+
+        assertThat(result.toCompletableFuture().get(2, TimeUnit.SECONDS))
+                .containsExactly(Either.left(10), Either.right(new EqualByMessageException("fail")));
+    }
+
+    @Test
+    void canAwaitOnListOfCompletionStagesFailures() throws Exception {
+        List<CompletionStage<Integer>> map = List.of(
+                supplyAsync(() -> {
+                    throw new EqualByMessageException("fail1");
+                }),
+                supplyAsync(() -> {
+                    delay(20);
+                    throw new EqualByMessageException("fail2");
+                }), supplyAsync(() -> {
+                    delay(10);
+                    throw new EqualByMessageException("fail3");
+                }));
+
+        var result = AsyncUtils.awaitValues(map);
+
+        assertThat(result.toCompletableFuture().get(2, TimeUnit.SECONDS))
+                .containsExactly(Either.right(new EqualByMessageException("fail1")),
+                        Either.right(new EqualByMessageException("fail2")),
+                        Either.right(new EqualByMessageException("fail3")));
+    }
+
+    @Test
     void canRunChainOfAsyncActionsEvenWhenOneFails() {
         var shouldThrow = new AtomicBoolean(true);
 
@@ -240,7 +302,6 @@ public class AsyncUtilsTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
     }
 
     private static <T> void assertMapResults(Map<String, Object> expected, Map<String, Either<T, Throwable>> actual) {
@@ -250,7 +311,7 @@ public class AsyncUtilsTest {
             var expectError = expectedValue instanceof Throwable;
             return either.map(
                     ok -> expectError ? fail("Got non-error where error expected: " + ok) : ok,
-                    err -> expectError ? err.getCause() : fail("Got error where ok expected: " + err));
+                    err -> expectError ? err : fail("Got error where ok expected: " + err));
         });
 
         assertThat(assertionMap).isEqualTo(expected);
