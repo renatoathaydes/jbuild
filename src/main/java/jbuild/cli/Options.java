@@ -246,6 +246,8 @@ final class DepsOptions {
             "      Options:" + LINE_END +
             "        --extra" + LINE_END +
             "        -e        show extra information from the POMs (e.g. dependency-management)." + LINE_END +
+            "        --pom" + LINE_END +
+            "        -p        show dependencies of a local POM." + LINE_END +
             "        --licenses" + LINE_END +
             "        -l        show licenses of all artifacts (requires --transitive option)." + LINE_END +
             "        --optional" + LINE_END +
@@ -264,6 +266,7 @@ final class DepsOptions {
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
     final Set<Pattern> exclusions;
+    final String pom;
     final boolean transitive;
     final boolean optional;
     final boolean licenses;
@@ -272,6 +275,7 @@ final class DepsOptions {
     DepsOptions(Set<String> artifacts,
                 EnumSet<Scope> scopes,
                 Set<Pattern> exclusions,
+                String pom,
                 boolean transitive,
                 boolean optional,
                 boolean licenses,
@@ -279,6 +283,7 @@ final class DepsOptions {
         this.artifacts = artifacts;
         this.scopes = scopes;
         this.exclusions = exclusions;
+        this.pom = pom;
         this.transitive = transitive;
         this.optional = optional;
         this.licenses = licenses;
@@ -289,8 +294,9 @@ final class DepsOptions {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
         var exclusions = new LinkedHashSet<Pattern>();
+        String pom = "";
         boolean transitive = false, optional = false, expectExclusion = false,
-                licenses = false, expectScope = false, showExtra = false;
+                licenses = false, expectScope = false, showExtra = false, expectPom = false;
 
         for (String arg : args) {
             if (expectScope) {
@@ -304,6 +310,9 @@ final class DepsOptions {
             } else if (expectExclusion) {
                 expectExclusion = false;
                 exclusions.add(compilePattern(arg));
+            } else if (expectPom) {
+                expectPom = false;
+                pom = arg;
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
@@ -315,6 +324,12 @@ final class DepsOptions {
                     licenses = true;
                 } else if (isEither(arg, "-e", "--extra")) {
                     showExtra = true;
+                } else if (isEither(arg, "-p", "--pom")) {
+                    if (!pom.isBlank()) {
+                        throw new JBuildException("Providing more than one POM is not allowed." +
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
+                    }
+                    expectPom = true;
                 } else if (isEither(arg, "-x", "--exclusion")) {
                     expectExclusion = true;
                 } else {
@@ -338,7 +353,7 @@ final class DepsOptions {
             scopes = EnumSet.allOf(Scope.class);
 
         return new DepsOptions(unmodifiableSet(artifacts), scopes, exclusions,
-                transitive, optional, licenses, showExtra);
+                pom, transitive, optional, licenses, showExtra);
     }
 
 }

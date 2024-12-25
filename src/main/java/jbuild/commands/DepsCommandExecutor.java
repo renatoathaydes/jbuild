@@ -14,6 +14,7 @@ import jbuild.util.Env;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -64,26 +65,39 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional) {
-        return fetchDependencyTree(artifacts, scopes, transitive, optional, Set.of());
+        return fetchDependencyTree(artifacts, null, scopes, transitive, optional, Set.of());
     }
 
     public Map<Artifact, CompletionStage<Optional<DependencyTree>>> fetchDependencyTree(
             Set<? extends Artifact> artifacts,
+            MavenPom mavenPom,
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional,
             Set<Pattern> exclusions) {
         var expandedScopes = expandScopes(scopes);
 
-        log.verbosePrintln(() -> "Fetching dependencies of " + artifacts + " with scopes " + expandedScopes +
+        log.verbosePrintln(() -> "Fetching dependencies of " + artifacts +
+                (mavenPom == null ? "" : " and " + mavenPom.getArtifact().getCoordinates()) +
+                " with scopes " + expandedScopes +
                 (exclusions.isEmpty() ? "" : " with exclusions " + exclusions));
 
-        return mapEntries(mavenPomRetriever.fetchPoms(artifacts),
-                (artifact, completionStage) -> completionStage.thenComposeAsync(pom -> {
-                    if (pom.isEmpty()) return completedFuture(Optional.empty());
-                    return fetchChildren(Set.of(), artifact, pom.get(), expandedScopes, transitive, optional, exclusions)
-                            .thenApply(Optional::of);
-                }));
+        return mapEntries(withLocalPom(mavenPomRetriever.fetchPoms(artifacts), mavenPom),
+                (artifact, completionStage) ->
+                        completionStage.thenCompose(pom ->
+                                pom.map(value -> fetchChildren(Set.of(), artifact, value,
+                                                expandedScopes, transitive, optional, exclusions)
+                                                .thenApply(Optional::of))
+                                        .orElseGet(() -> completedFuture(Optional.empty()))));
+    }
+
+    private static Map<Artifact, CompletionStage<Optional<MavenPom>>> withLocalPom(
+            Map<Artifact, CompletionStage<Optional<MavenPom>>> map,
+            MavenPom pom) {
+        if (pom == null) return map;
+        var result = new LinkedHashMap<>(map);
+        result.put(pom.getArtifact(), completedFuture(Optional.of(pom)));
+        return result;
     }
 
     private CompletionStage<DependencyTree> fetchChildren(
@@ -95,6 +109,11 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             boolean includeOptionals,
             Set<Pattern> exclusions) {
         var dependencies = applyExclusionPatterns(pom.getDependencies(scopes, includeOptionals), exclusions);
+
+        log.verbosePrintln(() -> "Dependencies of " + artifact.getCoordinates() + " after exclusions: " + dependencies.stream()
+                .map(dep -> dep.artifact.getCoordinates())
+                .collect(joining(", ")));
+
         var maxTreeDepthExceeded = transitive && chain.size() + 1 > Env.MAX_DEPENDENCY_TREE_DEPTH;
 
         if (maxTreeDepthExceeded || dependencies.isEmpty()) {

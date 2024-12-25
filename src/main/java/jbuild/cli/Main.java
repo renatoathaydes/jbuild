@@ -16,6 +16,7 @@ import jbuild.commands.RequirementsCommandExecutor;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
+import jbuild.maven.MavenPom;
 import jbuild.maven.MavenUtils;
 import jbuild.util.Describable;
 import jbuild.util.Executable;
@@ -23,15 +24,22 @@ import jbuild.util.FileUtils;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
@@ -40,6 +48,7 @@ import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static jbuild.util.AsyncUtils.await;
+import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.durationText;
@@ -240,9 +249,13 @@ public final class Main {
         var depsOptions = DepsOptions.parse(options.commandArgs, !options.quiet);
         var artifacts = parseArtifacts(depsOptions.artifacts);
 
-        if (artifacts.isEmpty()) {
+        if (artifacts.isEmpty() && depsOptions.pom.isBlank()) {
             log.println("No artifacts were provided. Nothing to do.");
             return;
+        }
+        MavenPom pom = null;
+        if (!depsOptions.pom.isBlank()) {
+            pom = MavenUtils.parsePom(Files.newInputStream(Paths.get(depsOptions.pom)));
         }
 
         if (depsOptions.licenses && !depsOptions.transitive) {
@@ -250,29 +263,28 @@ public final class Main {
             log.println(() -> "WARNING: to display dependencies licenses, you also need to use the -t/--transitive flag.");
         }
 
-        var latch = new CountDownLatch(artifacts.size());
-        var anyError = new AtomicReference<ErrorCause>();
         var treeLogger = new DependencyTreeLogger(log, depsOptions);
         var depsCommandExecutor = createDepsCommandExecutor(options);
 
-        depsCommandExecutor.fetchDependencyTree(
-                        artifacts, depsOptions.scopes, depsOptions.transitive, depsOptions.optional,
+        List<CompletionStage<Void>> allStages = depsCommandExecutor.fetchDependencyTree(
+                        artifacts, pom, depsOptions.scopes, depsOptions.transitive, depsOptions.optional,
                         depsOptions.exclusions)
-                .forEach((artifact, successCompletion) -> successCompletion.whenComplete((ok, err) -> {
-                    if (err == null && ok.isPresent()) {
-                        treeLogger.log(ok.get()).whenComplete((ok2, err2) -> latch.countDown());
-                    } else try {
-                        reportErrors(anyError, artifact, err);
-                    } finally {
-                        latch.countDown();
-                    }
-                }));
+                .values().stream().map(treeCompletion ->
+                        treeCompletion.thenApplyAsync(ok ->
+                                ok.map(treeLogger::logTree).orElse(null)
+                        )).collect(Collectors.toList());
 
-        latch.await();
+        var allResults = await(awaitValues(allStages), Duration.ofSeconds(10),
+                "Resolve dependencies and log dependency tree");
 
-        var errorCause = anyError.get();
-        if (errorCause != null) {
-            throw new JBuildException("Could not fetch all Maven dependencies successfully", errorCause);
+        List<Throwable> allErrors = allResults.stream()
+                .map(result -> result.map(v -> null, identity()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (!allErrors.isEmpty()) {
+            throw new JBuildException("Could not fetch all Maven dependencies successfully. Errors: " + allErrors,
+                    ErrorCause.ACTION_ERROR);
         }
     }
 
@@ -459,22 +471,12 @@ public final class Main {
     private void reportErrors(AtomicReference<ErrorCause> anyError,
                               Artifact artifact,
                               Throwable err) {
-        //noinspection SynchronizationOnLocalVariableOrMethodParameter
-        synchronized (anyError) {
-            if (anyError.get() == null) anyError.set(ErrorCause.UNKNOWN);
-        }
-
-        // exceptional completions are not reported by the executor, so we need to report here
-        if (err != null) {
-            log.print(() -> "An error occurred while processing " + artifact.getCoordinates() + ": ");
-            if (err instanceof JBuildException) {
-                log.println(err.getMessage());
-                anyError.set(((JBuildException) err).getErrorCause());
-            } else {
-                log.println(err.toString());
-            }
-        } else { // ok is empty: non-exceptional error
-            log.println(() -> "Failed to handle " + artifact.getCoordinates());
+        log.print(() -> "An error occurred while processing " + artifact.getCoordinates() + ": ");
+        if (err instanceof JBuildException) {
+            log.println(err.getMessage());
+            anyError.compareAndSet(ErrorCause.UNKNOWN, ((JBuildException) err).getErrorCause());
+        } else {
+            log.println(err.toString());
         }
     }
 
@@ -526,9 +528,11 @@ public final class Main {
                 .map(Artifact::parseCoordinates)
                 .collect(toSet());
 
-        log.verbosePrintln(() -> "Parsed artifacts coordinates:" + LINE_END + artifacts.stream()
-                .map(a -> "  * " + a + LINE_END)
-                .collect(joining()));
+        if (!artifacts.isEmpty()) {
+            log.verbosePrintln(() -> "Parsed artifacts coordinates:" + LINE_END + artifacts.stream()
+                    .map(a -> "  * " + a + LINE_END)
+                    .collect(joining()));
+        }
 
         return artifacts;
     }

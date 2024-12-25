@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.CompletionStage;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
@@ -27,7 +26,6 @@ import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.maven.Scope.expandScopes;
-import static jbuild.util.AsyncUtils.runAsync;
 import static jbuild.util.CollectionUtils.sorted;
 
 final class DependencyTreeLogger {
@@ -42,13 +40,7 @@ final class DependencyTreeLogger {
         this.options = options;
     }
 
-    public CompletionStage<Void> log(DependencyTree tree) {
-        return runAsync(() -> logTree(tree)).whenComplete((ok, err) -> {
-            if (err != null) log.print(err);
-        });
-    }
-
-    private void logTree(DependencyTree tree) {
+    public synchronized Void logTree(DependencyTree tree) {
         log.print("Dependencies of " + tree.root.artifact.getCoordinates());
 
         if (options.transitive && options.optional) {
@@ -75,6 +67,7 @@ final class DependencyTreeLogger {
         if (options.showExtra) {
             logExtra(tree);
         }
+        return null;
     }
 
     private void logDependencyTreeAndLicenses(DependencyTree tree, Set<Dependency> deps) {

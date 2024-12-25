@@ -61,7 +61,7 @@ public final class InstallCommandExecutor {
         var depsCommand = new DepsCommandExecutor<>(log, new MavenPomRetriever<>(log, fetchCommand, writer));
 
         return awaitValues(
-                depsCommand.fetchDependencyTree(artifacts, scopes, transitive, optional, exclusions)
+                depsCommand.fetchDependencyTree(artifacts, null, scopes, transitive, optional, exclusions)
                         .values().stream()
                         .map((completion) -> completion.thenCompose(tree ->
                                 tree.map(a -> install(a, checksum)).orElseGet(() ->
