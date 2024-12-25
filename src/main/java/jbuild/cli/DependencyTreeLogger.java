@@ -74,6 +74,7 @@ final class DependencyTreeLogger {
                 .collect(groupingBy(dep -> dep.scope));
 
         var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
+        var chain = new DependencyChain(log);
 
         for (Scope scope : expandScopes(options.scopes)) {
             var scopeDeps = groupedDeps.get(scope);
@@ -81,10 +82,8 @@ final class DependencyTreeLogger {
                 log.println("  - scope " + scope);
                 int dependencyCount;
                 if (options.transitive) {
-                    var chain = new DependencyChain(log);
                     logTree(chain, tree.dependencies, scopeDeps, allLicenses, INDENT, scope);
                     dependencyCount = chain.size();
-                    chain.logConflicts();
                 } else {
                     logChildren(scopeDeps);
                     dependencyCount = scopeDeps.size();
@@ -93,6 +92,8 @@ final class DependencyTreeLogger {
                         " dependenc" + (dependencyCount == 1 ? "y" : "ies") + " listed");
             }
         }
+
+        chain.logConflicts();
 
         if (allLicenses != null && !allLicenses.isEmpty()) {
             logLicenses(allLicenses);
