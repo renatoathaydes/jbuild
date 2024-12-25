@@ -1,12 +1,9 @@
 package jbuild.util;
 
 import java.util.Optional;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import static java.util.concurrent.CompletableFuture.completedStage;
 
 public final class Either<L, R> {
 
@@ -14,11 +11,6 @@ public final class Either<L, R> {
     private final R right;
 
     private Either(L left, R right) {
-        // one and only one arg may be null
-        if ((left == null) == (right == null)) {
-            throw new IllegalStateException(left == null ? "No option provided" : "Both options provided");
-        }
-
         this.left = left;
         this.right = right;
     }
@@ -86,13 +78,8 @@ public final class Either<L, R> {
         return left != null ? left.hashCode() : right.hashCode();
     }
 
-    @SuppressWarnings("unchecked")
-    public static <L, R, U> CompletionStage<Either<U, R>> awaitLeft(
-            Either<L, R> either,
-            Function<L, CompletionStage<Either<U, R>>> mapper) {
-        if (either.left != null) {
-            return mapper.apply(either.left);
-        }
-        return completedStage((Either<U, R>) either);
+    @Override
+    public String toString() {
+        return map(left -> "Either{left=" + left + "}", right -> "Either{right=" + right + "}");
     }
 }
