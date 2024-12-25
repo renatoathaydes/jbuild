@@ -76,6 +76,7 @@ public class RequirementsCommandExecutor {
         if (file.isDirectory()) {
             return supplyAsync(() -> Either.left(FileUtils.collectFiles(file.getPath(), FileUtils.CLASS_FILES_FILTER)), executor);
         }
+        // check if the path is a class file
         if (file.getName().endsWith(".class")) {
             var classFile = new FileCollection(file.getParent(), List.of(file.getPath()));
             return supplyAsync(() -> Either.left(classFile), executor);

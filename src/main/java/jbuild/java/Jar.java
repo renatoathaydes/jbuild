@@ -7,6 +7,7 @@ import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.CachedSupplier;
+import jbuild.util.FileUtils;
 import jbuild.util.JavaTypeUtils;
 
 import java.io.File;
@@ -29,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -97,7 +99,8 @@ public final class Jar {
     public List<ClassFile> parseAllTypes() {
         var parser = new JBuildClassFileParser();
         try (var zip = new ZipFile(file)) {
-            return zip.stream().filter(s -> !s.isDirectory() && s.getName().endsWith(".class")).map(stream -> {
+            return zip.stream().filter(s -> !s.isDirectory() &&
+                    isIncludeClassFile(s)).map(stream -> {
                 try (var zipStream = zip.getInputStream(stream)) {
                     return parser.parse(zipStream);
                 } catch (IOException e) {
@@ -113,6 +116,15 @@ public final class Jar {
             throw new JBuildException("Error reading jar: " + file + ": " + e,
                     JBuildException.ErrorCause.IO_READ);
         }
+    }
+
+    private static boolean isIncludeClassFile(ZipEntry zipEntry) {
+        var name = zipEntry.getName();
+        var nameStart = name.lastIndexOf('/');
+        if (nameStart >= 0 && nameStart < name.length() - 1) {
+            name = name.substring(nameStart + 1);
+        }
+        return FileUtils.CLASS_FILES_FILTER.accept(null, name);
     }
 
     /**
