@@ -1,6 +1,6 @@
 properties:
     versions:
-        jbuild: 0.10.0
+        jbuild: 0.10.1
         java: 11
         junit: 5.9.1
         assertj: 3.23.1
