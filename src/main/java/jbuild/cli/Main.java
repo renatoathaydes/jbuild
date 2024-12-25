@@ -29,7 +29,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
@@ -37,10 +36,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
@@ -265,26 +263,34 @@ public final class Main {
 
         var treeLogger = new DependencyTreeLogger(log, depsOptions);
         var depsCommandExecutor = createDepsCommandExecutor(options);
+        var anyError = new AtomicReference<ErrorCause>();
 
         List<CompletionStage<Void>> allStages = depsCommandExecutor.fetchDependencyTree(
                         artifacts, pom, depsOptions.scopes, depsOptions.transitive, depsOptions.optional,
                         depsOptions.exclusions)
-                .values().stream().map(treeCompletion ->
-                        treeCompletion.thenApplyAsync(ok ->
-                                ok.map(treeLogger::logTree).orElse(null)
-                        )).collect(Collectors.toList());
+                .entrySet().stream().map(entry -> {
+                    var artifact = entry.getKey();
+                    var treeCompletion = entry.getValue();
+                    return treeCompletion.thenApplyAsync(maybeTree -> {
+                        // Optional.empty means there was an error resolving this dep!
+                        if (maybeTree.isEmpty()) {
+                            return false;
+                        }
+                        treeLogger.logTree(maybeTree.get());
+                        return true;
+                    }).handle((ok, err) -> {
+                        if (err != null) reportErrors(anyError, artifact, err);
+                        else if (!ok) reportErrors(anyError, artifact, null);
+                        return (Void) null;
+                    });
+                }).collect(toList());
 
-        var allResults = await(awaitValues(allStages), Duration.ofSeconds(10),
+        await(awaitValues(allStages), Duration.ofSeconds(10),
                 "Resolve dependencies and log dependency tree");
 
-        List<Throwable> allErrors = allResults.stream()
-                .map(result -> result.map(v -> null, identity()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
-        if (!allErrors.isEmpty()) {
-            throw new JBuildException("Could not fetch all Maven dependencies successfully. Errors: " + allErrors,
-                    ErrorCause.ACTION_ERROR);
+        var errorCause = anyError.get();
+        if (errorCause != null) {
+            throw new JBuildException("Could not fetch all dependencies successfully", errorCause);
         }
     }
 
@@ -471,12 +477,13 @@ public final class Main {
     private void reportErrors(AtomicReference<ErrorCause> anyError,
                               Artifact artifact,
                               Throwable err) {
-        log.print(() -> "An error occurred while processing " + artifact.getCoordinates() + ": ");
+        log.print(() -> "An error occurred while processing " + artifact.getCoordinates());
         if (err instanceof JBuildException) {
-            log.println(err.getMessage());
-            anyError.compareAndSet(ErrorCause.UNKNOWN, ((JBuildException) err).getErrorCause());
+            log.println(": " + err.getMessage());
+            anyError.set(((JBuildException) err).getErrorCause());
         } else {
-            log.println(err.toString());
+            log.println(err == null ? "" : (": " + err));
+            anyError.set(ErrorCause.UNKNOWN);
         }
     }
 

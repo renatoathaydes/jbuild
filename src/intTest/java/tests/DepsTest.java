@@ -87,8 +87,8 @@ public class DepsTest extends JBuildTestRunner {
         assertThat(result.getStdout()).startsWith("Unable to retrieve " +
                 artifact + " due to:" + LE +
                 "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
-                "Failed to handle bad:artifact:0" + LE +
-                "ERROR: Could not fetch all Maven dependencies successfully" + LE +
+                "An error occurred while processing bad:artifact:0" + LE +
+                "ERROR: Could not fetch all dependencies successfully" + LE +
                 "JBuild failed in ");
     }
 

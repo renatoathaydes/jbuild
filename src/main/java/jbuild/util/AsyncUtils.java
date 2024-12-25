@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -237,6 +238,6 @@ public final class AsyncUtils {
                 return unwrapConcurrentException(cause);
             }
         }
-        return throwable;
+        return Objects.requireNonNull(throwable);
     }
 }

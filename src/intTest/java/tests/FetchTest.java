@@ -93,7 +93,7 @@ public class FetchTest extends JBuildTestRunner {
         assertThat(result.getStdout()).startsWith("Unable to retrieve " +
                 artifact + " due to:" + LE +
                 "  * " + artifact + " was not found in file-repository[" + integrationTestsRepo + "]" + LE +
-                "Failed to handle foo.bar:foo:1.0" + LE +
+                "An error occurred while processing foo.bar:foo:1.0" + LE +
                 "ERROR: Could not fetch all artifacts successfully" + LE +
                 "JBuild failed in ");
     }

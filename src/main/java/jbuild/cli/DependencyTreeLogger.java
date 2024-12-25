@@ -40,7 +40,7 @@ final class DependencyTreeLogger {
         this.options = options;
     }
 
-    public synchronized Void logTree(DependencyTree tree) {
+    public synchronized void logTree(DependencyTree tree) {
         log.print("Dependencies of " + tree.root.artifact.getCoordinates());
 
         if (options.transitive && options.optional) {
@@ -67,7 +67,6 @@ final class DependencyTreeLogger {
         if (options.showExtra) {
             logExtra(tree);
         }
-        return null;
     }
 
     private void logDependencyTreeAndLicenses(DependencyTree tree, Set<Dependency> deps) {
