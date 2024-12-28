@@ -220,7 +220,8 @@ public final class Main {
                 compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
-        result.getCompileResult().ifPresent(res -> verifyToolSuccessful("javac", res));
+        result.getCompileResult().ifPresent(res ->
+                verifyToolSuccessful(compileOptions.groovyJar.isBlank() ? "javac" : "groovyc", res));
         result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));
         result.getJavadocJarResult().ifPresent(jarResult -> verifyToolSuccessful("javadocJar", jarResult));
         result.getSourcesJarResult().ifPresent(jarResult -> verifyToolSuccessful("sourcesJar", jarResult));

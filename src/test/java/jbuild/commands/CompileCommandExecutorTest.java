@@ -5,7 +5,6 @@ import jbuild.java.JavapOutputParser;
 import jbuild.java.tools.Tools;
 import jbuild.util.Either;
 import jbuild.util.TestHelper;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -24,11 +23,6 @@ import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CompileCommandExecutorTest {
-
-    @BeforeAll
-    static void setup() {
-        TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
-    }
 
     @Test
     void canComputeDefaultJarLocation() {
@@ -147,6 +141,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileGroovyClassFilesOnWorkingDir() throws Exception {
+        TestSystemProperties.validate("groovyJar", groovyJar);
+
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
@@ -317,6 +313,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws Exception {
+        TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
+
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);
@@ -1015,6 +1013,81 @@ public class CompileCommandExecutorTest {
         assertThat(outMain).isDirectoryContaining(path ->
                 Objects.equals("Main.class", path.getFileName().toString()));
         assertThat(outMain.resolve("Main.class")).isRegularFile();
+    }
+
+    @Test
+    void reportsJavaCompilationError() throws Exception {
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var src = dir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var myClass = pkg.resolve("MyClass.java");
+        Files.write(myClass, List.of("package pkg;\n" +
+                "public class MyClass {\n" +
+                "  public MyOtherType doesNotExist;" +
+                "}"));
+
+        // use workingDir argument, and all other paths relative to it
+        var result = command.compile(
+                dir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.left("build"),
+                "",
+                "",
+                false,
+                false,
+                false,
+                "",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        assertThat(result.getCompileResult().get().exitCode()).isEqualTo(1);
+        assertThat(result.getCompileResult().get().getStderr()).contains("MyClass.java:3: error: cannot find symbol");
+    }
+
+    @Test
+    void reportsGroovyCompilationError() throws Exception {
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var src = dir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var myClass = pkg.resolve("MyClass.groovy");
+        Files.write(myClass, List.of("package pkg;\n" +
+                "public class MyClass {\n" +
+                "  public MyOtherType doesNotExist;" +
+                "}"));
+
+        // use workingDir argument, and all other paths relative to it
+        var result = command.compile(
+                dir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.left("build"),
+                "",
+                groovyJar.getAbsolutePath(),
+                false,
+                false,
+                false,
+                "",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        assertThat(result.getCompileResult().get().exitCode()).isEqualTo(1);
+        assertThat(result.getCompileResult().get().getStderr())
+                .contains("MyClass.groovy: 3: unable to resolve class MyOtherType");
     }
 
     private static String unzipEntry(Path jar, String entry) throws Exception {

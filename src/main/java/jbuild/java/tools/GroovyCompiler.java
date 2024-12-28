@@ -43,12 +43,10 @@ public final class GroovyCompiler implements JbuildCompiler {
             allArgs[index++] = sourceFile;
         }
 
-        run(allArgs);
-
-        return new MemoryToolRunResult(0, allArgs, "", "");
+        return run(allArgs);
     }
 
-    private void run(String[] args) {
+    private ToolRunResult run(String[] args) {
         URLClassLoader groovyClassLoader;
         try {
             groovyClassLoader = new URLClassLoader(new URL[]{Paths.get(groovyJar).toUri().toURL()});
@@ -75,7 +73,7 @@ public final class GroovyCompiler implements JbuildCompiler {
             try {
                 method.invoke(null, (Object) args);
             } catch (InvocationTargetException e) {
-                throw new JBuildException("Groovy compiler failed due to: " + e.getCause(), ACTION_ERROR);
+                return new MemoryToolRunResult(1, args, "", e.getCause().toString());
             } catch (Exception e) {
                 throw new JBuildException("java process failed due to: " + e, ACTION_ERROR);
             }
@@ -83,5 +81,7 @@ public final class GroovyCompiler implements JbuildCompiler {
             // ignore, this only happens if the ClassLoader couldn't be closed
             log.verbosePrintln(() -> "WARN: Could not close Groovy compiler ClassLoader due to: " + e);
         }
+
+        return new MemoryToolRunResult(0, args, "", "");
     }
 }
