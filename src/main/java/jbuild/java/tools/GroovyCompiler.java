@@ -5,6 +5,7 @@ import jbuild.commands.JbuildCompiler;
 import jbuild.log.JBuildLog;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -73,6 +74,8 @@ public final class GroovyCompiler implements JbuildCompiler {
 
             try {
                 method.invoke(null, (Object) args);
+            } catch (InvocationTargetException e) {
+                throw new JBuildException("Groovy compiler failed due to: " + e.getCause(), ACTION_ERROR);
             } catch (Exception e) {
                 throw new JBuildException("java process failed due to: " + e, ACTION_ERROR);
             }
