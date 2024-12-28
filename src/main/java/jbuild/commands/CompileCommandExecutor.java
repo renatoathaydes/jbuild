@@ -121,7 +121,7 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null) {
             incrementalChanges = incrementalChanges.relativize(workingDir);
         }
-        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, groovyJar != null);
+        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, !groovyJar.isBlank());
         if (incrementalChanges == null && sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
                     ? "src/main/java/, src/ and '.'"
@@ -130,7 +130,7 @@ public final class CompileCommandExecutor {
                     "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
-        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, groovyJar != null);
+        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, !groovyJar.isBlank());
 
         if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
@@ -191,7 +191,7 @@ public final class CompileCommandExecutor {
                 return new CompileCommandResult();
             }
         } else {
-            JbuildCompiler compiler = groovyJar == null
+            JbuildCompiler compiler = groovyJar.isBlank()
                     ? Tools.Javac.create(log)
                     : new GroovyCompiler(log, groovyJar);
             compileResult = await(runAsyncTiming(() -> compiler

@@ -925,7 +925,7 @@ final class CompileOptions {
                 resourcesDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
-                groovyJar,
+                groovyJar == null ? "" : groovyJar,
                 generateJbManifest,
                 createSourcesJar,
                 createJavadocsJar,
