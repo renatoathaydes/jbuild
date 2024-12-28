@@ -215,12 +215,13 @@ public final class Main {
         var result = commandExecutor.compile(
                 options.workingDir,
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
-                compileOptions.outputDirOrJar, compileOptions.mainClass,
+                compileOptions.outputDirOrJar, compileOptions.mainClass, compileOptions.groovyJar,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
                 compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
-        result.getCompileResult().ifPresent(res -> verifyToolSuccessful("javac", res));
+        result.getCompileResult().ifPresent(res ->
+                verifyToolSuccessful(compileOptions.groovyJar.isBlank() ? "javac" : "groovyc", res));
         result.getJarResult().ifPresent(jarResult -> verifyToolSuccessful("jar", jarResult));
         result.getJavadocJarResult().ifPresent(jarResult -> verifyToolSuccessful("javadocJar", jarResult));
         result.getSourcesJarResult().ifPresent(jarResult -> verifyToolSuccessful("sourcesJar", jarResult));

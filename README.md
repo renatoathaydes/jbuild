@@ -32,6 +32,8 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [ ] automatically prune classpath, removing unused jars.
 - [x] compile and package Java applications.
 - [ ] generate POM (done by `jb`).
+- [x] optionally compile using `groovyc` (i.e. can handle mixed Groovy/Java code base).
+- [ ] optionally compile using `kotlinc` (i.e. can handle mixed Kotlin/Java code base).
 
 ## Non-features
 

@@ -11,6 +11,7 @@ public final class TestSystemProperties {
     public static final File testJarsDir = new File(System.getProperty("tests.test-jars.dir", "unset"));
     public static final File osgiaasCliApiJar = new File(System.getProperty("tests.real-jars.osgiaas-cli-api.jar", "unset"));
     public static final File jlineJar = new File(System.getProperty("tests.real-jars.jline.jar", "unset"));
+    public static final File groovyJar = new File(System.getProperty("tests.real-jars.groovy.jar", "unset"));
     public static final File jbApiJar = new File(System.getProperty("tests.real-jars.jb-api.jar", "unset"));
 
     public static final int javaVersion;

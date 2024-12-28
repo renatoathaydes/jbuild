@@ -702,6 +702,8 @@ final class CompileOptions {
             "        --resources" + LINE_END +
             "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
             "        --jar" + LINE_END +
+            "        --groovy" + LINE_END +
+            "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
             "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
             "        --sources-jar" + LINE_END +
             "        -sj       whether to create a sources jar (name: <jar-name>-sources.jar)." + LINE_END +
@@ -731,6 +733,7 @@ final class CompileOptions {
     final Set<String> resourcesDirectories;
     final Either<String, String> outputDirOrJar;
     final String mainClass;
+    final String groovyJar;
     final boolean generateJbManifest;
     final boolean createSourcesJar;
     final boolean createJavadocsJar;
@@ -742,6 +745,7 @@ final class CompileOptions {
                           Set<String> resourcesDirectories,
                           Either<String, String> outputDirOrJar,
                           String mainClass,
+                          String groovyJar,
                           boolean generateJbManifest,
                           boolean createSourcesJar,
                           boolean createJavadocsJar,
@@ -752,6 +756,7 @@ final class CompileOptions {
         this.resourcesDirectories = resourcesDirectories;
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
+        this.groovyJar = groovyJar;
         this.generateJbManifest = generateJbManifest;
         this.createSourcesJar = createSourcesJar;
         this.createJavadocsJar = createJavadocsJar;
@@ -765,7 +770,7 @@ final class CompileOptions {
         Set<String> resourcesDirectories = new LinkedHashSet<>(2);
         Set<String> deletedFiles = new LinkedHashSet<>(2);
         Set<String> addedFiles = new LinkedHashSet<>(2);
-        String outputDir = null, jar = null, mainClass = null;
+        String outputDir = null, jar = null, mainClass = null, groovyJar = null;
         Either<Boolean, String> manifest = null;
         var classpath = new StringBuilder();
 
@@ -774,6 +779,7 @@ final class CompileOptions {
                 waitingForResources = false,
                 waitingForJar = false,
                 waitingForMainClass = false,
+                waitingForGroovyJar = false,
                 waitingForManifest = false,
                 waitingForDeleted = false,
                 waitingForAdded = false,
@@ -817,6 +823,9 @@ final class CompileOptions {
             } else if (waitingForAdded) {
                 waitingForAdded = false;
                 addedFiles.add(arg);
+            } else if (waitingForGroovyJar) {
+                waitingForGroovyJar = false;
+                groovyJar = arg;
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath")) {
                     waitingForClasspath = true;
@@ -828,6 +837,12 @@ final class CompileOptions {
                     createJavadocsJar = true;
                 } else if (isEither(arg, "-r", "--resources")) {
                     waitingForResources = true;
+                } else if (isEither(arg, "-g", "--groovy")) {
+                    if (groovyJar != null) {
+                        throw new JBuildException("cannot provide groovy option more than once." +
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
+                    }
+                    waitingForGroovyJar = true;
                 } else if (isEither(arg, "-d", "--directory")) {
                     if (outputDir != null) {
                         throw new JBuildException("cannot provide repository directory more than once." +
@@ -877,6 +892,9 @@ final class CompileOptions {
         if (waitingForMainClass) {
             throw new JBuildException("expecting value for '--main-class' option", USER_INPUT);
         }
+        if (waitingForGroovyJar) {
+            throw new JBuildException("expecting value for '--groovy' option", USER_INPUT);
+        }
         if (waitingForManifest) {
             throw new JBuildException("expecting value for '--manifest' option", USER_INPUT);
         }
@@ -907,6 +925,7 @@ final class CompileOptions {
                 resourcesDirectories,
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
+                groovyJar == null ? "" : groovyJar,
                 generateJbManifest,
                 createSourcesJar,
                 createJavadocsJar,

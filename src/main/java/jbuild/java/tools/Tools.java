@@ -1,6 +1,7 @@
 package jbuild.java.tools;
 
 import jbuild.api.JBuildException;
+import jbuild.commands.JbuildCompiler;
 import jbuild.log.JBuildLog;
 
 import java.io.PrintStream;
@@ -269,7 +270,7 @@ public abstract class Tools {
 
     }
 
-    public static final class Javac extends Tools {
+    public static final class Javac extends Tools implements JbuildCompiler {
 
         private static final ToolProvider toolProvider = lookupTool("javac");
 
@@ -284,15 +285,7 @@ public abstract class Tools {
             this.log = log;
         }
 
-        /**
-         * Run the javac tool in order to compile all given files.
-         *
-         * @param sourceFiles  files to compile
-         * @param outDir       where to store compiled class files
-         * @param classpath    the classpath (may be empty)
-         * @param compilerArgs javac compiler arguments
-         * @return result
-         */
+        @Override
         public ToolRunResult compile(Set<String> sourceFiles,
                                      String outDir,
                                      String classpath,
