@@ -215,7 +215,7 @@ public final class Main {
         var result = commandExecutor.compile(
                 options.workingDir,
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
-                compileOptions.outputDirOrJar, compileOptions.mainClass,
+                compileOptions.outputDirOrJar, compileOptions.mainClass, compileOptions.groovyJar,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
                 compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges

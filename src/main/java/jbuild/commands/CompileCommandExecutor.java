@@ -4,6 +4,7 @@ import jbuild.api.JBuildException;
 import jbuild.extension.JbManifestGenerator;
 import jbuild.java.tools.CreateJarOptions;
 import jbuild.java.tools.CreateJarOptions.FileSet;
+import jbuild.java.tools.GroovyCompiler;
 import jbuild.java.tools.ToolRunResult;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
@@ -34,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -58,8 +60,14 @@ import static jbuild.util.TextUtils.ensureEndsWith;
 
 public final class CompileCommandExecutor {
 
-    private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) -> name.endsWith(".java");
-    private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) -> !name.endsWith(".java");
+    private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) ->
+            name.endsWith(".java");
+    private static final FilenameFilter JAVA_GROOVY_FILES_FILTER = (dir, name) ->
+            name.endsWith(".java") || name.endsWith(".groovy");
+    private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) ->
+            !name.endsWith(".java");
+    private static final FilenameFilter NON_JAVA_GROOVY_FILES_FILTER = (dir, name) ->
+            !name.endsWith(".java") && !name.endsWith(".groovy");
     private static final FilenameFilter ALL_FILES_FILTER = (dir, name) -> true;
     private static final Pattern NOT_EMPTY_WORD = Pattern.compile("[a-zA-Z0-9]");
 
@@ -73,6 +81,7 @@ public final class CompileCommandExecutor {
                                         Set<String> resourcesDirectories,
                                         Either<String, String> outputDirOrJar,
                                         String mainClass,
+                                        String groovyJar,
                                         boolean generateJbManifest,
                                         String classpath,
                                         Either<Boolean, String> manifest,
@@ -80,7 +89,7 @@ public final class CompileCommandExecutor {
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(".", inputDirectories, resourcesDirectories,
-                outputDirOrJar, mainClass, generateJbManifest, false, false,
+                outputDirOrJar, mainClass, groovyJar, generateJbManifest, false, false,
                 classpath, manifest, compilerArgs, incrementalChanges);
     }
 
@@ -89,6 +98,7 @@ public final class CompileCommandExecutor {
                                         Set<String> resourcesDirectories,
                                         Either<String, String> outputDirOrJar,
                                         String mainClass,
+                                        String groovyJar,
                                         boolean generateJbManifest,
                                         boolean createSourcesJar,
                                         boolean createJavadocsJar,
@@ -111,7 +121,7 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null) {
             incrementalChanges = incrementalChanges.relativize(workingDir);
         }
-        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges);
+        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, groovyJar != null);
         if (incrementalChanges == null && sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
                     ? "src/main/java/, src/ and '.'"
@@ -120,7 +130,7 @@ public final class CompileCommandExecutor {
                     "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
-        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges);
+        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, groovyJar != null);
 
         if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
@@ -181,8 +191,11 @@ public final class CompileCommandExecutor {
                 return new CompileCommandResult();
             }
         } else {
-            compileResult = await(runAsyncTiming(() -> Tools.Javac.create(log).compile(sourceFiles, outputDir,
-                                    computedClasspath, compilerArgs),
+            JbuildCompiler compiler = groovyJar == null
+                    ? Tools.Javac.create(log)
+                    : new GroovyCompiler(log, groovyJar);
+            compileResult = await(runAsyncTiming(() -> compiler
+                                    .compile(sourceFiles, outputDir, computedClasspath, compilerArgs),
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
                     Duration.ofMinutes(30),
                     "compile");
@@ -310,10 +323,14 @@ public final class CompileCommandExecutor {
     }
 
     private Set<String> computeSourceFiles(Set<String> inputDirectories,
-                                           IncrementalChanges incrementalChanges) {
+                                           IncrementalChanges incrementalChanges,
+                                           boolean includeGroovy) {
+        Predicate<String> includeFile = includeGroovy
+                ? name -> JAVA_GROOVY_FILES_FILTER.accept(null, name)
+                : name -> JAVA_FILES_FILTER.accept(null, name);
         if (incrementalChanges != null) {
             var sourceFiles = incrementalChanges.addedFiles.stream()
-                    .filter(p -> p.endsWith(".java"))
+                    .filter(includeFile)
                     .collect(toSet());
             if (!sourceFiles.isEmpty()) {
                 log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedFiles.size()
@@ -321,7 +338,7 @@ public final class CompileCommandExecutor {
             }
             return sourceFiles;
         }
-        return collectFiles(inputDirectories, JAVA_FILES_FILTER).stream()
+        return collectFiles(inputDirectories, includeGroovy ? JAVA_GROOVY_FILES_FILTER : JAVA_FILES_FILTER).stream()
                 .flatMap(col -> col.files.stream())
                 .collect(toSet());
     }
@@ -371,7 +388,8 @@ public final class CompileCommandExecutor {
 
     private List<FileCollection> computeResourceFiles(Set<String> inputDirectories,
                                                       Set<String> resourcesDirectories,
-                                                      IncrementalChanges incrementalChanges) {
+                                                      IncrementalChanges incrementalChanges,
+                                                      boolean includeGroovy) {
         if (incrementalChanges != null) {
             var resourcesByDir = new HashMap<String, List<String>>(
                     inputDirectories.size() + resourcesDirectories.size());
@@ -410,7 +428,7 @@ public final class CompileCommandExecutor {
             return List.of();
         }
         return appendAsStream(
-                collectFiles(inputDirectories, NON_JAVA_FILES_FILTER),
+                collectFiles(inputDirectories, includeGroovy ? NON_JAVA_GROOVY_FILES_FILTER : NON_JAVA_FILES_FILTER),
                 collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
     }
 
