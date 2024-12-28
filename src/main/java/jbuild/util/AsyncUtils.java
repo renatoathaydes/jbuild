@@ -227,7 +227,11 @@ public final class AsyncUtils {
         try {
             return stage.toCompletableFuture().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new JBuildException("'" + actionName + "' failed due to: " + unwrapConcurrentException(e), ACTION_ERROR);
+            var cause = unwrapConcurrentException(e);
+            if (cause instanceof JBuildException) {
+                throw (JBuildException) cause;
+            }
+            throw new JBuildException("'" + actionName + "' failed due to: " + cause, ACTION_ERROR);
         }
     }
 
