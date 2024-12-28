@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.zip.ZipFile;
 
 import static java.util.stream.Collectors.toList;
+import static jbuild.TestSystemProperties.groovyJar;
 import static jbuild.java.JavapOutputParserTest.javap;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -142,6 +143,51 @@ public class CompileCommandExecutorTest {
         var buildFiles = buildDir.resolve("pkg").toFile().listFiles();
 
         assertThat(buildFiles).containsExactlyInAnyOrder(myClassFile.toFile(), otherClassFile.toFile());
+    }
+
+    @Test
+    void canCompileGroovyClassFilesOnWorkingDir() throws Exception {
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var src = dir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var myClass = pkg.resolve("MyClass.groovy");
+        Files.write(myClass, List.of("package pkg;\n" +
+                "class MyClass { String message() { 'hello' } }\n"));
+
+        var buildDir = dir.resolve("build");
+
+        // use workingDir argument, and all other paths relative to it
+        var result = command.compile(
+                dir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.left("build"),
+                "",
+                groovyJar.getAbsolutePath(),
+                false,
+                false,
+                false,
+                "",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isNotPresent();
+        assertThat(result.getSourcesJarResult()).isNotPresent();
+        assertThat(result.getJavadocJarResult()).isNotPresent();
+
+        var myClassFile = buildDir.resolve(Paths.get("pkg", "MyClass.class"));
+
+        var buildFiles = buildDir.resolve("pkg").toFile().listFiles();
+
+        assertThat(buildFiles).containsExactly(myClassFile.toFile());
     }
 
     @Test
