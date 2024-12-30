@@ -13,5 +13,6 @@ manifest: build/META-INF/MANIFEST.txt
 javac-args: [ "--release={{versions.java}}" ]
 
 source-dirs: [ jbuild-api/src, jbuild-classfile-parser/src, src/main/java ]
+resource-dirs: [ src/main/resources ]
 
 extension-project: jb-ext

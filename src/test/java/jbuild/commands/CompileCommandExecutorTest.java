@@ -153,7 +153,8 @@ public class CompileCommandExecutorTest {
         assert pkg.toFile().mkdirs();
         var myClass = pkg.resolve("MyClass.groovy");
         Files.write(myClass, List.of("package pkg;\n" +
-                "class MyClass { String message() { 'hello' } }\n"));
+                "@groovy.transform.Immutable\n" +
+                "class MyClass { String message }\n"));
 
         var buildDir = dir.resolve("build");
 
@@ -168,7 +169,7 @@ public class CompileCommandExecutorTest {
                 false,
                 false,
                 false,
-                "",
+                groovyJar.getAbsolutePath(),
                 Either.left(true),
                 List.of(),
                 null);
