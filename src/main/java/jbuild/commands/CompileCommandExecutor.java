@@ -193,7 +193,7 @@ public final class CompileCommandExecutor {
         } else {
             JbuildCompiler compiler = groovyJar.isBlank()
                     ? Tools.Javac.create(log)
-                    : new GroovyCompiler(log, groovyJar);
+                    : new GroovyCompiler(log, relativize(workingDir, groovyJar));
             compileResult = await(runAsyncTiming(() -> compiler
                                     .compile(sourceFiles, outputDir, computedClasspath, compilerArgs),
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
