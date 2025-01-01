@@ -118,12 +118,12 @@ public final class GroovyCompiler implements JbuildCompiler {
         return new MemoryToolRunResult(0, args, "", "");
     }
 
-    @SuppressWarnings({"unchecked", "resource"})
+    @SuppressWarnings({"unchecked"})
     private static <CL extends ClassLoader & Closeable> CL createGroovyClassLoader(URL[] classpath)
             throws Exception {
         ClassLoader mainClassLoader = new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
         var groovyClassLoaderClass = mainClassLoader.loadClass(GROOVY_CLASS_LOADER);
         var constructor = groovyClassLoaderClass.getDeclaredConstructor(URL[].class, ClassLoader.class);
-        return (CL) constructor.newInstance(classpath, ClassLoader.getPlatformClassLoader());
+        return (CL) constructor.newInstance(classpath, mainClassLoader);
     }
 }
