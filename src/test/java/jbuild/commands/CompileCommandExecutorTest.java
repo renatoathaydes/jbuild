@@ -1065,8 +1065,8 @@ public class CompileCommandExecutorTest {
         assert pkg.toFile().mkdirs();
         var myClass = pkg.resolve("MyClass.groovy");
         Files.write(myClass, List.of("package pkg;\n" +
-                "public class MyClass {\n" +
-                "  public MyOtherType doesNotExist;" +
+                "class MyClass {\n" +
+                "  MyOtherType doesNotExist;\n" +
                 "}"));
 
         // use workingDir argument, and all other paths relative to it

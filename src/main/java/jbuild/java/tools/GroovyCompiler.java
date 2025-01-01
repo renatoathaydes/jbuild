@@ -4,26 +4,25 @@ import jbuild.api.JBuildException;
 import jbuild.commands.JbuildCompiler;
 import jbuild.log.JBuildLog;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-import static java.util.Objects.requireNonNull;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 
 public final class GroovyCompiler implements JbuildCompiler {
 
-    public static final String GROOVY_STARTER_CLASS = "org.codehaus.groovy.tools.GroovyStarter";
     public static final String GROOVYC_CLASS = "org.codehaus.groovy.tools.FileSystemCompiler";
+    public static final String GROOVY_CLASS_LOADER = "org.codehaus.groovy.tools.RootLoader";
 
     private final JBuildLog log;
     private final String groovyJar;
@@ -35,28 +34,12 @@ public final class GroovyCompiler implements JbuildCompiler {
 
     @Override
     public ToolRunResult compile(Set<String> sourceFiles, String outDir, String classpath, List<String> compilerArgs) {
-        Path confFileDir;
-        try {
-            confFileDir = Files.createTempDirectory("groovyStarter");
-        } catch (IOException e) {
-            throw new JBuildException("Could not create temp dir for Groovy compilation due to " + e, IO_WRITE);
-        }
-        var groovyConfFile = confFileDir.resolve("groovy.conf");
-        try (var stream = requireNonNull(getClass().getResourceAsStream("/groovyStarter.conf"))) {
-            Files.copy(stream, groovyConfFile);
-        } catch (IOException e) {
-            throw new JBuildException("Could not copy config for Groovy compilation due to " + e, IO_WRITE);
-        }
-        String[] allArgs = new String[8 + compilerArgs.size() + sourceFiles.size()];
-        allArgs[0] = "--main";
-        allArgs[1] = GROOVYC_CLASS;
-        allArgs[2] = "--conf";
-        allArgs[3] = groovyConfFile.toString();
-        allArgs[4] = "--classpath";
-        allArgs[5] = classpath;
-        allArgs[6] = "-d";
-        allArgs[7] = outDir;
-        int index = 8;
+        String[] allArgs = new String[4 + compilerArgs.size() + sourceFiles.size()];
+        allArgs[0] = "-d";
+        allArgs[1] = outDir;
+        allArgs[2] = "-cp";
+        allArgs[3] = classpath;
+        int index = 4;
         for (String arg : compilerArgs) {
             allArgs[index++] = arg;
         }
@@ -67,25 +50,54 @@ public final class GroovyCompiler implements JbuildCompiler {
         return run(allArgs);
     }
 
-    private ToolRunResult run(String[] args) {
-        URLClassLoader groovyClassLoader;
+    private <CL extends ClassLoader & Closeable> ToolRunResult run(String[] args) {
+        CL groovyClassLoader;
+        URL[] classpath;
         try {
-            groovyClassLoader = new URLClassLoader(new URL[]{Paths.get(groovyJar).toUri().toURL()});
+            classpath = new URL[]{Paths.get(groovyJar).toUri().toURL()};
         } catch (MalformedURLException e) {
             throw new JBuildException("Could not create Groovy compiler ClassLoader from " + groovyJar +
                     " due to: " + e, ACTION_ERROR);
         }
-        Class<?> groovyStarterClass;
+
+        try {
+            groovyClassLoader = createGroovyClassLoader(classpath);
+        } catch (Exception e) {
+            throw new JBuildException("Could not create Groovy compiler ClassLoader due to: " + e, ACTION_ERROR);
+        }
+
+        var compilationFuture = new CompletableFuture<ToolRunResult>();
+
+        new Thread(() -> {
+            Thread.currentThread().setContextClassLoader(groovyClassLoader);
+            try (groovyClassLoader) {
+                compilationFuture.complete(compile(groovyClassLoader, args));
+            } catch (Throwable t) {
+                compilationFuture.completeExceptionally(t);
+            }
+        }).start();
+
+        try {
+            return compilationFuture.get();
+        } catch (ExecutionException e) {
+            throw new JBuildException("Could not compile due to: " + e.getCause(), ACTION_ERROR);
+        } catch (Exception e) {
+            throw new JBuildException("Could not compile due to: " + e, ACTION_ERROR);
+        }
+    }
+
+    private <CL extends ClassLoader & Closeable> MemoryToolRunResult compile(CL groovyClassLoader, String[] args) {
+        Class<?> groovycClass;
         Method method;
         try (groovyClassLoader) {
             try {
-                groovyStarterClass = groovyClassLoader.loadClass(GROOVY_STARTER_CLASS);
+                groovycClass = groovyClassLoader.loadClass(GROOVYC_CLASS);
             } catch (ClassNotFoundException e) {
-                throw new JBuildException("Could not load Groovy compiler (" + GROOVY_STARTER_CLASS + ") due to: " + e,
+                throw new JBuildException("Could not load Groovy compiler (" + GROOVYC_CLASS + ") due to: " + e,
                         ACTION_ERROR);
             }
             try {
-                method = groovyStarterClass.getMethod("rootLoader", String[].class);
+                method = groovycClass.getMethod("commandLineCompile", String[].class);
             } catch (NoSuchMethodException e) {
                 throw new JBuildException("Could not find method " + GROOVYC_CLASS + "#commandLineCompile " +
                         "for compiling Groovy code", ACTION_ERROR);
@@ -104,5 +116,14 @@ public final class GroovyCompiler implements JbuildCompiler {
         }
 
         return new MemoryToolRunResult(0, args, "", "");
+    }
+
+    @SuppressWarnings({"unchecked", "resource"})
+    private static <CL extends ClassLoader & Closeable> CL createGroovyClassLoader(URL[] classpath)
+            throws Exception {
+        ClassLoader mainClassLoader = new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
+        var groovyClassLoaderClass = mainClassLoader.loadClass(GROOVY_CLASS_LOADER);
+        var constructor = groovyClassLoaderClass.getDeclaredConstructor(URL[].class, ClassLoader.class);
+        return (CL) constructor.newInstance(classpath, ClassLoader.getPlatformClassLoader());
     }
 }
