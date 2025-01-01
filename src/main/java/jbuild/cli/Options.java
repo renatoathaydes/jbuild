@@ -18,18 +18,22 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.cli.Options.compilePattern;
+import static jbuild.util.CollectionUtils.lastOrDefault;
 import static jbuild.util.FileUtils.relativize;
 import static jbuild.util.TextUtils.LINE_END;
 import static jbuild.util.TextUtils.isEither;
@@ -259,13 +263,14 @@ final class DepsOptions {
             "        -t        include transitive dependencies." + LINE_END +
             "        --exclusion" + LINE_END +
             "        -x <regex> dependency exclusion regex pattern, matches against coordinates" + LINE_END +
-            "                   (can be passed more than once)." + LINE_END +
+            "                   (can be passed more than once). Each exclusion applies to the previously" + LINE_END +
+            "                   listed artifact, or globally if not preceded by any artifact." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " com.google.guava:guava:31.0.1-jre junit:junit:4.13.2";
 
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
-    final Set<Pattern> exclusions;
+    final Map<String, Set<Pattern>> exclusions;
     final String pom;
     final boolean transitive;
     final boolean optional;
@@ -274,7 +279,7 @@ final class DepsOptions {
 
     DepsOptions(Set<String> artifacts,
                 EnumSet<Scope> scopes,
-                Set<Pattern> exclusions,
+                Map<String, Set<Pattern>> exclusions,
                 String pom,
                 boolean transitive,
                 boolean optional,
@@ -293,7 +298,7 @@ final class DepsOptions {
     static DepsOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>();
         var scopes = EnumSet.noneOf(Scope.class);
-        var exclusions = new LinkedHashSet<Pattern>();
+        var exclusions = new LinkedHashMap<String, Set<Pattern>>();
         String pom = "";
         boolean transitive = false, optional = false, expectExclusion = false,
                 licenses = false, expectScope = false, showExtra = false, expectPom = false;
@@ -309,7 +314,8 @@ final class DepsOptions {
                 }
             } else if (expectExclusion) {
                 expectExclusion = false;
-                exclusions.add(compilePattern(arg));
+                exclusions.computeIfAbsent(lastOrDefault(artifacts, ""), ignore -> new HashSet<>(2))
+                        .add(compilePattern(arg));
             } else if (expectPom) {
                 expectPom = false;
                 pom = arg;
@@ -386,7 +392,8 @@ final class InstallOptions {
             "                  The runtime scope is used by default." + LINE_END +
             "        --exclusion" + LINE_END +
             "        -x <regex> dependency exclusion regex pattern, matches against coordinates" + LINE_END +
-            "                   (can be passed more than once)." + LINE_END +
+            "                   (can be passed more than once). Each exclusion applies to the previously" + LINE_END +
+            "                   listed artifact, or globally if not preceded by any artifact." + LINE_END +
             "        -c" + LINE_END +
             "        --checksum download and verify the checksum of all artifacts." + LINE_END +
             "      Note:" + LINE_END +
@@ -395,18 +402,22 @@ final class InstallOptions {
             "        (or MAVEN_HOME) and any other location given." + LINE_END +
             "        The --non-transitive option cannot be used together with the --maven-local option." + LINE_END +
             "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
-            "      Example:" + LINE_END +
-            "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0";
+            "      Examples:" + LINE_END +
+            "        # install Apache commons-lang3 and its transitive compile-scope dependencies" + LINE_END +
+            "        jbuild " + NAME + " -s compile org.apache.commons:commons-lang3:3.12.0" + LINE_END +
+            "        # install Guava and Xalan, but exclude all dependencies like" + LINE_END +
+            "        # 'org.apache.*' anywhere, and all like '.*findbugs.*' from the Guava dependency tree" + LINE_END +
+            "        jbuild " + NAME + " -x 'org.apache.*' com.google.guava:guava:31.0.1-jre -x '.*findbugs.*'";
 
     final Set<String> artifacts;
-    final Set<Pattern> exclusions;
+    final Map<String, Set<Pattern>> exclusions;
     final EnumSet<Scope> scopes;
     final String outDir;
     final String repoDir;
     final boolean optional, transitive, mavenLocal, checksum;
 
     InstallOptions(Set<String> artifacts,
-                   Set<Pattern> exclusions,
+                   Map<String, Set<Pattern>> exclusions,
                    EnumSet<Scope> scopes,
                    String outDir,
                    String repoDir,
@@ -427,7 +438,7 @@ final class InstallOptions {
 
     static InstallOptions parse(List<String> args, boolean verbose) {
         var artifacts = new LinkedHashSet<String>(4);
-        var exclusions = new LinkedHashSet<Pattern>(4);
+        var exclusions = new LinkedHashMap<String, Set<Pattern>>(2);
         var scopes = EnumSet.noneOf(Scope.class);
         var optional = false;
         String outDir = null, repoDir = null;
@@ -466,7 +477,8 @@ final class InstallOptions {
                 }
             } else if (expectExclusion) {
                 expectExclusion = false;
-                exclusions.add(compilePattern(arg));
+                exclusions.computeIfAbsent(lastOrDefault(artifacts, ""), ignore -> new HashSet<>(2))
+                        .add(compilePattern(arg));
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-s", "--scope")) {
                     expectScope = true;
@@ -516,7 +528,7 @@ final class InstallOptions {
                     (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
 
-        return new InstallOptions(unmodifiableSet(artifacts), unmodifiableSet(exclusions),
+        return new InstallOptions(unmodifiableSet(artifacts), unmodifiableMap(exclusions),
                 scopes, outDir, repoDir, optional, transitive, mavenLocal, checksum);
     }
 

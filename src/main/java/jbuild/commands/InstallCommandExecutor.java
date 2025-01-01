@@ -56,7 +56,7 @@ public final class InstallCommandExecutor {
             EnumSet<Scope> scopes,
             boolean optional,
             boolean transitive,
-            Set<Pattern> exclusions,
+            Map<String, Set<Pattern>> exclusions,
             boolean checksum) {
         var depsCommand = new DepsCommandExecutor<>(log, new MavenPomRetriever<>(log, fetchCommand, writer));
 

@@ -18,6 +18,9 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+
 public final class CollectionUtils {
 
     public static <T> Iterable<T> append(T first, Iterable<T> rest) {
@@ -100,14 +103,15 @@ public final class CollectionUtils {
     }
 
     public static <T> List<T> appendList(Iterable<T> front, Iterable<T> back) {
-        var list = new ArrayList<T>();
-        for (var item : front) {
-            list.add(item);
-        }
-        for (var item : back) {
-            list.add(item);
-        }
-        return list;
+        return iterableToStream(append(front, back)).collect(toList());
+    }
+
+    public static <T> Set<T> appendSet(Iterable<T> front, Iterable<T> back) {
+        return iterableToStream(append(front, back)).collect(toSet());
+    }
+
+    public static <T> Stream<T> iterableToStream(Iterable<T> iterable) {
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 
     public static <T> Set<T> append(Set<T> set, T last) {
@@ -143,15 +147,15 @@ public final class CollectionUtils {
         for (var entry : map1.entrySet()) {
             var e2 = map2.get(entry.getKey());
             result.put(entry.getKey(), e2 == null
-                ? entry.getValue()
-                : valueCombiner.apply(entry.getValue(), e2));
+                    ? entry.getValue()
+                    : valueCombiner.apply(entry.getValue(), e2));
         }
         for (var entry : map2.entrySet()) {
             if (result.containsKey(entry.getKey())) continue;
             var e1 = map1.get(entry.getKey());
             result.put(entry.getKey(), e1 == null
-                ? entry.getValue()
-                : valueCombiner.apply(e1, entry.getValue()));
+                    ? entry.getValue()
+                    : valueCombiner.apply(e1, entry.getValue()));
         }
         return result;
     }
@@ -194,7 +198,7 @@ public final class CollectionUtils {
     }
 
     public static <T, E> Either<T, NonEmptyCollection<E>> foldEither(
-        Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable) {
+            Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable) {
         {
             var left = find(eitherIterable, e -> e.map(Function.identity(), NoOp.fun()));
             if (left.isPresent()) {
@@ -212,8 +216,8 @@ public final class CollectionUtils {
     }
 
     public static <T, E> Either<T, NonEmptyCollection<E>> foldEither(
-        Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable,
-        BiFunction<T, T, T> combiner) {
+            Iterable<Either<T, NonEmptyCollection<E>>> eitherIterable,
+            BiFunction<T, T, T> combiner) {
         T leftResults = null;
         for (var either : eitherIterable) {
             var value = either.map(Function.identity(), NoOp.fun());
@@ -246,8 +250,12 @@ public final class CollectionUtils {
         return mutable;
     }
 
-    public static <T> Stream<T> streamOfOptional(Optional<T> opt) {
-        return opt.isEmpty() ? Stream.of() : Stream.of(opt.get());
+    public static <T> T lastOrDefault(Iterable<T> iterable, T defaultValue) {
+        var last = defaultValue;
+        for (var item : iterable) {
+            last = item;
+        }
+        return last;
     }
 
     public static <K, V> Map<K, V> take(Map<K, V> map, int count) {

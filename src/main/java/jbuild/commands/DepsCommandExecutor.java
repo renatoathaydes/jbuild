@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,6 +31,7 @@ import static jbuild.maven.MavenUtils.asPatterns;
 import static jbuild.maven.Scope.expandScopes;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.append;
+import static jbuild.util.CollectionUtils.appendSet;
 import static jbuild.util.CollectionUtils.mapEntries;
 import static jbuild.util.CollectionUtils.union;
 
@@ -65,7 +67,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional) {
-        return fetchDependencyTree(artifacts, null, scopes, transitive, optional, Set.of());
+        return fetchDependencyTree(artifacts, null, scopes, transitive, optional, Map.of());
     }
 
     public Map<Artifact, CompletionStage<Optional<DependencyTree>>> fetchDependencyTree(
@@ -74,7 +76,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean optional,
-            Set<Pattern> exclusions) {
+            Map<String, Set<Pattern>> exclusions) {
         var expandedScopes = expandScopes(scopes);
 
         log.verbosePrintln(() -> "Fetching dependencies of " + artifacts +
@@ -107,10 +109,12 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean includeOptionals,
-            Set<Pattern> exclusions) {
-        var dependencies = applyExclusionPatterns(pom.getDependencies(scopes, includeOptionals), exclusions);
+            Map<String, Set<Pattern>> exclusions) {
+        var applicableExclusions = exclusionsFor(artifact.getCoordinates(), exclusions);
+        var dependencies = applyExclusionPatterns(pom.getDependencies(scopes, includeOptionals), applicableExclusions);
 
-        log.verbosePrintln(() -> "Dependencies of " + artifact.getCoordinates() + " after exclusions: " + dependencies.stream()
+        log.verbosePrintln(() -> "Dependencies of " + artifact.getCoordinates() + " after exclusions (" +
+                applicableExclusions + "): " + dependencies.stream()
                 .map(dep -> dep.artifact.getCoordinates())
                 .collect(joining(", ")));
 
@@ -148,17 +152,24 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         return awaitValues(children).thenApply(c -> createTree(artifact.pom(), pom, c));
     }
 
+    private Set<Pattern> exclusionsFor(String artifactCoordinates, Map<String, Set<Pattern>> exclusions) {
+        var forAll = exclusions.get("");
+        var forThis = exclusions.get(artifactCoordinates);
+        return appendSet(forAll == null ? List.of() : forAll, forThis == null ? List.of() : forThis);
+    }
+
     private CompletionStage<Optional<DependencyTree>> fetch(
             Set<Dependency> chain,
             Dependency dependency,
             boolean includeOptionals,
-            Set<Pattern> exclusions) {
+            Map<String, Set<Pattern>> exclusions) {
         return mavenPomRetriever.fetchPom(dependency.artifact.pom()).thenComposeAsync(child -> {
             if (child.isEmpty()) return completedFuture(Optional.empty());
             var pom = child.get();
+            var depExclusions = Map.of(dependency.artifact.getCoordinates(), asPatterns(dependency.exclusions));
             return fetchChildren(chain, dependency.artifact, pom,
                     dependency.scope.transitiveScopes(), true, includeOptionals,
-                    union(asPatterns(dependency.exclusions), exclusions)
+                    union(depExclusions, exclusions)
             ).thenApply(Optional::of);
         });
     }

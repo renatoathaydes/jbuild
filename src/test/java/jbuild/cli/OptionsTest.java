@@ -8,12 +8,15 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toSet;
+import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.TextUtils.LINE_END;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.MapAssert.assertThatMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class OptionsTest {
@@ -100,31 +103,35 @@ public class OptionsTest {
     void parseInstallOptions() {
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, false);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, false);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-n"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, false, false);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, false, false);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-m"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, null, false, true, true);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), null, null, false, true, true);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-d", "foo", "--non-transitive"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, false, false);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, false, false);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-r", "the-repo"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), null, "the-repo", false, true, false);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), null, "the-repo", false, true, false);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-d", "foo", "--maven-local"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, true, true);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), "foo", null, false, true, true);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-O", "-s", "compile", "--scope", "test", "--repository", "repo", "-m"}).commandArgs, false),
-                Set.of(), Set.of(), EnumSet.of(Scope.COMPILE, Scope.TEST), null, "repo", true, true, true);
+                Set.of(), Map.of(), EnumSet.of(Scope.COMPILE, Scope.TEST), null, "repo", true, true, true);
+
+        verifyInstallOptions(InstallOptions.parse(
+                        Options.parse(new String[]{"install", "-x", "apache.*"}).commandArgs, false),
+                Set.of(), Map.of("", Set.of("apache.*")), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, false);
 
     }
 
@@ -183,7 +190,7 @@ public class OptionsTest {
 
     private void verifyInstallOptions(InstallOptions options,
                                       Set<String> artifacts,
-                                      Set<String> exclusions,
+                                      Map<String, Set<String>> exclusions,
                                       EnumSet<Scope> scopes,
                                       String outDir,
                                       String repoDir,
@@ -192,7 +199,9 @@ public class OptionsTest {
                                       boolean mavenLocal
     ) {
         assertEquals(artifacts, options.artifacts, "artifacts");
-        assertEquals(exclusions.stream().map(Pattern::compile).collect(Collectors.toSet()), options.exclusions);
+        assertThatMap(exclusions).containsAllEntriesOf(mapValues(options.exclusions, s -> s.stream()
+                .map(Pattern::pattern)
+                .collect(toSet())));
         assertEquals(mavenLocal, options.mavenLocal, "mavenLocal should be " + mavenLocal);
         assertEquals(optional, options.optional, "optional should be " + optional);
         assertEquals(outDir, options.outDir, "outDir");
