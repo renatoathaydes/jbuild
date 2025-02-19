@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -48,10 +49,10 @@ public final class MavenUtils {
         return artifact.groupId.replace('.', sep) + sep + artifact.artifactId + sep;
     }
 
-    private static boolean matches(Dependency dependency, Set<Pattern> exclusions) {
+    private static boolean matches(Dependency dependency, Collection<DependencyExclusions.PatternUsage> exclusions) {
         var coordinates = dependency.artifact.getCoordinates();
         for (var pattern : exclusions) {
-            if (pattern.matcher(coordinates).matches()) {
+            if (pattern.matches(coordinates)) {
                 return true;
             }
         }
@@ -60,13 +61,14 @@ public final class MavenUtils {
 
     public static Set<Dependency> applyExclusions(Set<Dependency> dependencies,
                                                   Set<ArtifactKey> exclusions) {
-        return applyExclusionPatterns(dependencies, asPatterns(exclusions));
+        return applyExclusionPatterns(dependencies, asPatterns(exclusions).globalExclusions);
     }
 
     // dependencyManagement currently does not support exclusions.
     // See https://github.com/apache/maven/pull/295
-    public static Set<Dependency> applyExclusionPatterns(Set<Dependency> dependencies,
-                                                         Set<Pattern> exclusions) {
+    public static Set<Dependency> applyExclusionPatterns(
+            Set<Dependency> dependencies,
+            Collection<DependencyExclusions.PatternUsage> exclusions) {
         if (exclusions.isEmpty()) return dependencies;
 
         // try to avoid allocating a new Set as usually it won't be necessary
@@ -162,10 +164,11 @@ public final class MavenUtils {
                 !isUnresolvedPropertyOrEmpty(license.url);
     }
 
-    public static Set<Pattern> asPatterns(Set<ArtifactKey> exclusions) {
-        return exclusions.stream()
+    public static DependencyExclusions.ExclusionsWithUsage asPatterns(Set<ArtifactKey> exclusions) {
+        var patterns = exclusions.stream()
                 .map(MavenUtils::patternOf)
                 .collect(toSet());
+        return new DependencyExclusions(patterns, Map.of()).withUsage();
     }
 
     private static Pattern patternOf(ArtifactKey key) {

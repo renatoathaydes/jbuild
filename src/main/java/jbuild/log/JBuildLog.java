@@ -13,6 +13,7 @@ public final class JBuildLog implements JBuildLogger {
     private final boolean verbose;
     private final String prefix;
     private volatile boolean enabled = true;
+    private volatile boolean lastCharWasNewLine = true;
 
     public JBuildLog(PrintStream out,
                      boolean verbose) {
@@ -65,6 +66,7 @@ public final class JBuildLog implements JBuildLogger {
             for (var traceElement : throwable.getStackTrace()) {
                 doPrintln(prefix + " \tat " + traceElement);
             }
+            lastCharWasNewLine = true;
         }
     }
 
@@ -88,23 +90,26 @@ public final class JBuildLog implements JBuildLogger {
             out.print(prefix);
             out.print(' ');
             out.write(buffer, 0, len);
+            lastCharWasNewLine = ((char) buffer[len - 1]) == '\n';
         }
     }
 
     private void doPrintln(CharSequence message) {
-        if (prefix != null) {
+        if (prefix != null && lastCharWasNewLine) {
             out.print(prefix);
             out.print(' ');
         }
         out.println(message);
+        lastCharWasNewLine = true;
     }
 
     private void doPrint(CharSequence message) {
-        if (prefix != null) {
+        if (prefix != null && lastCharWasNewLine) {
             out.print(prefix);
             out.print(' ');
         }
         out.print(message);
+        lastCharWasNewLine = message.charAt(message.length() - 1) == '\n';
     }
 
     public PrintStream getPrintStream() {

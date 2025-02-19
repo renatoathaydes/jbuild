@@ -4,6 +4,7 @@ import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.file.ArtifactFileWriter;
 import jbuild.log.JBuildLog;
+import jbuild.maven.DependencyExclusions;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.ResolvedDependency;
 import jbuild.maven.Scope;
@@ -19,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
@@ -56,7 +56,7 @@ public final class InstallCommandExecutor {
             EnumSet<Scope> scopes,
             boolean optional,
             boolean transitive,
-            Map<String, Set<Pattern>> exclusions,
+            DependencyExclusions exclusions,
             boolean checksum) {
         var depsCommand = new DepsCommandExecutor<>(log, new MavenPomRetriever<>(log, fetchCommand, writer));
 

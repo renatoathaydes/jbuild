@@ -19,7 +19,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 public final class CollectionUtils {
 
@@ -104,10 +103,6 @@ public final class CollectionUtils {
 
     public static <T> List<T> appendList(Iterable<T> front, Iterable<T> back) {
         return iterableToStream(append(front, back)).collect(toList());
-    }
-
-    public static <T> Set<T> appendSet(Iterable<T> front, Iterable<T> back) {
-        return iterableToStream(append(front, back)).collect(toSet());
     }
 
     public static <T> Stream<T> iterableToStream(Iterable<T> iterable) {
@@ -237,7 +232,6 @@ public final class CollectionUtils {
         var iter = eitherIterable.iterator();
         var result = iter.next();
         while (iter.hasNext()) {
-            //noinspection OptionalGetWithoutIsPresent
             var res = result.combineRight(iter.next(), NonEmptyCollection::of);
             if (res.isPresent()) result = res.get();
         }

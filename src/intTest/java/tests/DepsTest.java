@@ -27,7 +27,7 @@ public class DepsTest extends JBuildTestRunner {
     }
 
     @Test
-    void canListGuavaDependenciesWithExclusions() {
+    void canListGuavaDependenciesWithGlobalExclusions() {
         var result = runWithIntTestRepo("deps", "-x", ".*checker.*", Artifacts.GUAVA);
 
         verifySuccessful("jbuild deps", result);
@@ -39,6 +39,27 @@ public class DepsTest extends JBuildTestRunner {
                 "    * com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava [compile]" + LE +
                 "    * com.google.j2objc:j2objc-annotations:1.3 [compile]" + LE +
                 "  5 compile dependencies listed" + LE +
+                "JBuild success in ");
+    }
+
+    @Test
+    void canListApacheCommonsCompressTransitiveDependenciesWithLocalExclusion() {
+        var result = runWithIntTestRepo("deps", "-s", "compile", "-t",
+                "org.apiguardian:apiguardian-api:1.1.0",
+                Artifacts.JUNIT5_ENGINE, "-x", ".*apiguardian.*");
+
+        verifySuccessful("jbuild deps", result);
+        assertThat(result.getStdout()).startsWith("Dependencies of org.apiguardian:apiguardian-api:1.1.0 (incl. transitive):" + LE +
+                "  * no dependencies" + LE +
+                "Dependencies of " + Artifacts.JUNIT5_ENGINE + " (incl. transitive):" + LE +
+                "  - scope compile" + LE +
+                "    * org.junit.jupiter:junit-jupiter-api:5.7.0 [compile]" + LE +
+                "        * org.junit.platform:junit-platform-commons:1.7.0 [compile]" + LE +
+                "        * org.opentest4j:opentest4j:1.2.0 [compile]" + LE +
+                "    * org.junit.platform:junit-platform-engine:1.7.0 [compile]" + LE +
+                "        * org.junit.platform:junit-platform-commons:1.7.0 [compile] (-)" + LE +
+                "        * org.opentest4j:opentest4j:1.2.0 [compile] (-)" + LE +
+                "  4 compile dependencies listed" + LE +
                 "JBuild success in ");
     }
 

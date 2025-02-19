@@ -8,6 +8,7 @@ import jbuild.commands.IncrementalChanges;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
+import jbuild.maven.DependencyExclusions;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
 import jbuild.util.TextUtils;
@@ -28,10 +29,10 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static java.util.Collections.unmodifiableList;
-import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
+import static jbuild.cli.DepsOptions.createExclusionsFromOptions;
 import static jbuild.cli.Options.compilePattern;
 import static jbuild.util.CollectionUtils.lastOrDefault;
 import static jbuild.util.FileUtils.relativize;
@@ -270,7 +271,7 @@ final class DepsOptions {
 
     final Set<String> artifacts;
     final EnumSet<Scope> scopes;
-    final Map<String, Set<Pattern>> exclusions;
+    final DependencyExclusions exclusions;
     final String pom;
     final boolean transitive;
     final boolean optional;
@@ -279,7 +280,7 @@ final class DepsOptions {
 
     DepsOptions(Set<String> artifacts,
                 EnumSet<Scope> scopes,
-                Map<String, Set<Pattern>> exclusions,
+                DependencyExclusions exclusions,
                 String pom,
                 boolean transitive,
                 boolean optional,
@@ -358,8 +359,13 @@ final class DepsOptions {
         if (scopes.isEmpty())
             scopes = EnumSet.allOf(Scope.class);
 
-        return new DepsOptions(unmodifiableSet(artifacts), scopes, exclusions,
+        return new DepsOptions(unmodifiableSet(artifacts), scopes, createExclusionsFromOptions(exclusions),
                 pom, transitive, optional, licenses, showExtra);
+    }
+
+    static DependencyExclusions createExclusionsFromOptions(Map<String, Set<Pattern>> exclusions) {
+        var globalExclusions = exclusions.remove("");
+        return new DependencyExclusions(globalExclusions == null ? Set.of() : globalExclusions, exclusions);
     }
 
 }
@@ -410,14 +416,14 @@ final class InstallOptions {
             "        jbuild " + NAME + " -x 'org.apache.*' com.google.guava:guava:31.0.1-jre -x '.*findbugs.*'";
 
     final Set<String> artifacts;
-    final Map<String, Set<Pattern>> exclusions;
+    final DependencyExclusions exclusions;
     final EnumSet<Scope> scopes;
     final String outDir;
     final String repoDir;
     final boolean optional, transitive, mavenLocal, checksum;
 
     InstallOptions(Set<String> artifacts,
-                   Map<String, Set<Pattern>> exclusions,
+                   DependencyExclusions exclusions,
                    EnumSet<Scope> scopes,
                    String outDir,
                    String repoDir,
@@ -528,7 +534,7 @@ final class InstallOptions {
                     (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
 
-        return new InstallOptions(unmodifiableSet(artifacts), unmodifiableMap(exclusions),
+        return new InstallOptions(unmodifiableSet(artifacts), createExclusionsFromOptions(exclusions),
                 scopes, outDir, repoDir, optional, transitive, mavenLocal, checksum);
     }
 
