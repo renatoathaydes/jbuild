@@ -20,6 +20,7 @@ public final class RpcCaller {
     private final String defaultReceiverClassName;
     private final JBuildLog log;
     private final JavaRunner runner;
+    private final String workingDir;
 
     public RpcCaller(String defaultReceiverClassName) {
         this(defaultReceiverClassName, new JBuildLog(System.out, false));
@@ -27,15 +28,17 @@ public final class RpcCaller {
 
     public RpcCaller(String defaultReceiverClassName,
                      JBuildLog log) {
-        this(defaultReceiverClassName, log, new JavaRunner(log));
+        this(defaultReceiverClassName, log, new JavaRunner(log), null);
     }
 
     public RpcCaller(String defaultReceiverClassName,
                      JBuildLog log,
-                     JavaRunner javaRunner) {
+                     JavaRunner javaRunner,
+                     String workingDir) {
         this.defaultReceiverClassName = defaultReceiverClassName;
         this.log = log;
         this.runner = javaRunner;
+        this.workingDir = workingDir;
     }
 
     public void call(InputStream input, OutputStream output) throws Exception {
@@ -68,6 +71,7 @@ public final class RpcCaller {
         Exception error = null;
 
         try {
+            WorkingDirLock.INSTANCE.enter(workingDir);
             result = runner.run(methodCall);
         } catch (RuntimeException e) {
             error = e;
@@ -77,6 +81,11 @@ public final class RpcCaller {
             error = e;
             return RpcResponse.error(e);
         } finally {
+            if (WorkingDirLock.INSTANCE.leave(workingDir)) {
+                log.verbosePrintln(() -> "Leaving directory: " + workingDir);
+            } else {
+                log.println(() -> "Failed to leave directory (this is unexpected and likely to cause errors): " + workingDir);
+            }
             if (log.isVerbose()) {
                 log.verbosePrintln("RPC Method call completed in " + (System.currentTimeMillis() - startTime) + "ms - " +
                         (error == null ? result : error));

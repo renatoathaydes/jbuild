@@ -165,11 +165,12 @@ public final class RpcMain {
         public void handle(HttpExchange exchange) throws IOException {
             var requestHeaders = exchange.getRequestHeaders();
             var trackId = requestHeaders.getFirst("Track-Id");
+            var workingDir = requestHeaders.getFirst("Working-Dir");
             var logger = createLogger(verbose, trackId);
             logger.verbosePrintln(() -> "JBuild RPC received " + (trackId.isBlank()
                     ? "no Track-Id. Cannot associate logger messages with requests."
                     : "Track-Id: " + trackId));
-            var rpcCaller = new RpcCaller(null, logger, javaRunner.withLog(logger));
+            var rpcCaller = new RpcCaller(null, logger, javaRunner.withLog(logger), workingDir);
 
             var out = new ByteArrayOutputStream(1024);
             var code = 200;
