@@ -157,7 +157,7 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
             var isJar = jarFile != null;
             var deletions = computeDeletedFiles(
-                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar);
+                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar, outputDir);
             if (!deletions.isEmpty()) {
                 if (isJar) {
                     deleteFilesFromJar(deletions, jarFile);
@@ -207,7 +207,7 @@ public final class CompileCommandExecutor {
         if (generateJbManifest) {
             log.verbosePrintln("Generating jb manifest file");
             var generator = new JbManifestGenerator(log);
-            var jbManifest = generator.generateJbManifest(outputDir);
+            var jbManifest = generator.generateJbManifest(outputDir, jarFile, incrementalChanges);
             copyResources(List.of(jbManifest), outputDir);
         }
 
@@ -346,7 +346,8 @@ public final class CompileCommandExecutor {
     private Set<String> computeDeletedFiles(Set<String> inputDirectories,
                                             Set<String> resourcesDirectories,
                                             Set<String> deletedFiles,
-                                            boolean forJar) {
+                                            boolean forJar,
+                                            String outputDir) {
         var directories = new HashSet<String>(inputDirectories.size() + resourcesDirectories.size());
         var separator = forJar ? '/' : File.separatorChar;
         // if we're making paths for a Jar, we need to change the paths, but only on Windows
@@ -360,10 +361,16 @@ public final class CompileCommandExecutor {
         }
         var result = new HashSet<String>(deletedFiles.size());
         for (String deletedFile : deletedFiles) {
+            // FIXME why is this absolute path?
+            log.println("Deleting '" + deletedFile + "'");
             final var file = fixWindowsPaths ? deletedFile.replaceAll("\\\\", "/") : deletedFile;
             if (file.endsWith(".class")) {
-                // class files must be passed with the exact output path, unlike resources
-                result.add(file);
+                // class files must be passed with the exact output path (if not forJar), unlike resources
+                if (forJar) {
+                    result.add(file);
+                } else {
+                    result.add(relativize(outputDir, file));
+                }
             } else {
                 // resource files need to be made relative
                 var found = false;
@@ -380,7 +387,7 @@ public final class CompileCommandExecutor {
             }
         }
         if (!result.isEmpty()) {
-            log.verbosePrintln(() -> "Deleting " + result.size() + " resource file" +
+            log.verbosePrintln(() -> "Deleting " + result.size() + " file" +
                     (result.size() == 1 ? "" : "s") + " from output");
         }
         return result;

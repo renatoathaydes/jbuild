@@ -2,25 +2,35 @@ package jbuild.extension;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
+import jbuild.classes.ByteScanner;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
+import jbuild.commands.IncrementalChanges;
 import jbuild.extension.ConfigObject.ConfigObjectConstructor;
 import jbuild.log.JBuildLog;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
+import jbuild.util.Pair;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
-import static java.util.stream.Collectors.toList;
+import static jbuild.classes.model.AbstractAttributeParser.constUtf8;
+import static jbuild.util.FileUtils.CLASS_FILES_FILTER;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
@@ -31,6 +41,7 @@ public final class JbManifestGenerator {
     public static final String JB_TASK_INFO = "Ljbuild/api/JbTaskInfo;";
 
     private static final Pattern SAFE_IDENTIFIER = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]*");
+    public static final String JB_EXTENSION_FILE = "META-INF/jb/jb-extension.yaml";
 
     private final JBuildLog log;
 
@@ -38,15 +49,53 @@ public final class JbManifestGenerator {
         this.log = log;
     }
 
-    public FileCollection generateJbManifest(String classesDir) {
+    public FileCollection generateJbManifest(String classesDir,
+                                             String jarFile,
+                                             IncrementalChanges changes) {
         var startTime = System.currentTimeMillis();
-        var extensions = findExtensions(classesDir);
+
+        // FIXME an extension may show up in both the jar and in the classes directory.
+        var extensions = Stream.concat(
+                        findExtensionsClassesDir(classesDir),
+                        findExtensionsInJarFile(jarFile))
+                .collect(Collectors.toCollection(ArrayList::new));
+
         log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
                 (System.currentTimeMillis() - startTime) + " ms");
+
+        if (changes != null) {
+            var classFilesWithSourceNames = extensions.stream()
+                    .map(e -> new Pair<>(e, getSourceFileAttribute(e)))
+                    .filter(e -> e.second != null)
+                    .collect(Collectors.toList());
+
+            // find the intersection of source names and deleted files
+            var deletedExtensions = classFilesWithSourceNames.stream()
+                    .filter(e -> changes.deletedFiles.contains(e.second))
+                    .collect(Collectors.toList());
+
+            log.verbosePrintln(() -> "jb extension source files: [" +
+                    classFilesWithSourceNames.stream()
+                            .map(e -> e.second)
+                            .collect(Collectors.joining(",")) +
+                    "], deleted: [" +
+                    deletedExtensions.stream()
+                            .map(e -> e.second)
+                            .collect(Collectors.joining(",")) + ']');
+
+            if (!deletedExtensions.isEmpty()) {
+                log.verbosePrintln(() -> "Removing " + deletedExtensions.size() +
+                        " deleted jb extensions from the manifest");
+                deletedExtensions.forEach(e ->
+                        extensions.remove(e.first));
+            }
+        }
+
         if (extensions.isEmpty()) {
             throw new JBuildException("Cannot generate jb manifest. " +
                     "Failed to locate implementations of jbuild.api.JbTask", ErrorCause.USER_INPUT);
         }
+
         return createManifest(extensions);
     }
 
@@ -69,7 +118,7 @@ public final class JbManifestGenerator {
         } catch (IOException e) {
             throw new JBuildException("Unable to create temp directory: " + e, ErrorCause.IO_WRITE);
         }
-        var manifest = dir.resolve("META-INF/jb/jb-extension.yaml");
+        var manifest = dir.resolve(JB_EXTENSION_FILE);
         try {
             if (!manifest.getParent().toFile().mkdirs()) {
                 throw new JBuildException("Failed to create temp directory for jb manifest file", ErrorCause.IO_WRITE);
@@ -181,13 +230,27 @@ public final class JbManifestGenerator {
                 ErrorCause.USER_INPUT);
     }
 
-    private List<ClassFile> findExtensions(String directory) {
+    private Stream<ClassFile> findExtensionsClassesDir(String directory) {
         var parser = new JBuildClassFileParser();
-        return FileUtils.collectFiles(directory, FileUtils.CLASS_FILES_FILTER).files.stream()
+        return FileUtils.collectFiles(directory, CLASS_FILES_FILTER).files.stream()
                 .map(classFile -> parseClassFile(parser, classFile))
                 .filter(type -> type.getInterfaceNames().contains("Ljbuild/api/JbTask;")
-                        || warnIfAnnotatedWithTaskInfo(type))
-                .collect(toList());
+                        || warnIfAnnotatedWithTaskInfo(type));
+    }
+
+    private Stream<ClassFile> findExtensionsInJarFile(String jarFile) {
+        if (jarFile == null || !new File(jarFile).exists()) {
+            return Stream.empty();
+        }
+        log.verbosePrintln(() -> "Trying to find jb extensions in existing jar file: " + jarFile);
+        var parser = new JBuildClassFileParser();
+        try (var zip = new ZipFile(jarFile)) {
+            return zip.stream()
+                    .filter(entry -> CLASS_FILES_FILTER.accept(null, entry.getName()))
+                    .map(classFile -> parseClassFile(parser, jarFile, zip, classFile));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private boolean warnIfAnnotatedWithTaskInfo(ClassFile type) {
@@ -210,8 +273,31 @@ public final class JbManifestGenerator {
             return parser.parse(stream);
         } catch (IOException e) {
             throw new JBuildException("Unable to read class file at " + classFile + ": " + e,
-                    ErrorCause.ACTION_ERROR);
+                    ErrorCause.IO_READ);
         }
     }
 
+    private static ClassFile parseClassFile(JBuildClassFileParser parser, String jarFile, ZipFile zip, ZipEntry classFile) {
+        try {
+            return parser.parse(zip.getInputStream(classFile));
+        } catch (IOException e) {
+            throw new JBuildException("Unable to read class file at " + jarFile + "/" +
+                    classFile.getName() + ": " + e,
+                    ErrorCause.IO_READ);
+        }
+    }
+
+    private static String getSourceFileAttribute(ClassFile classFile) {
+        var sourceNameAttribute = classFile.attributes.stream()
+                .filter(a -> "SourceFile".equals(constUtf8(classFile, a.nameIndex)))
+                .findFirst()
+                .orElse(null);
+        if (sourceNameAttribute == null) {
+            return null;
+        }
+
+        var scanner = new ByteScanner(sourceNameAttribute.attributes);
+        var sourceNameIndex = scanner.nextShort();
+        return constUtf8(classFile, sourceNameIndex);
+    }
 }
