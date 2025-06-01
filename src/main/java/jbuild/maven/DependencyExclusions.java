@@ -4,6 +4,7 @@ import jbuild.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -108,6 +109,15 @@ public final class DependencyExclusions {
                                 Map<String, Set<Pattern>> exclusionsByArtifact) {
         this.globalExclusions = globalExclusions;
         this.exclusionsByArtifact = exclusionsByArtifact;
+    }
+
+    public Map<String, Set<Pattern>> getExclusions() {
+        var map = new HashMap<String, Set<Pattern>>(exclusionsByArtifact.size() + 1);
+        map.putAll(exclusionsByArtifact);
+        if (!globalExclusions.isEmpty()) {
+            map.put("", globalExclusions);
+        }
+        return map;
     }
 
     public boolean isEmpty() {

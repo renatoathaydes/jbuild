@@ -198,7 +198,7 @@ public class InstallTest extends JBuildTestRunner {
             verifySuccessful("jbuild install", result);
             assertThat(result.getStdout()).startsWith(
                     "Successfully installed 7 artifacts at [" + dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + "" + LE +
-                    "JBuild success in ");
+                            "JBuild success in ");
 
             var jars = dir.toFile().listFiles();
 
@@ -325,7 +325,7 @@ public class InstallTest extends JBuildTestRunner {
         var dir = Files.createTempDirectory(InstallTest.class.getName());
         dir.toFile().deleteOnExit();
         var result = runWithIntTestRepo("install", "-n", "-d", dir.toFile().getPath(),
-                                        Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
+                Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
 
         verifySuccessful("jbuild install", result);
         assertThat(result.getStdout()).startsWith("Successfully installed 11 artifacts at " + dir + "" + LE + "JBuild success in ");
@@ -334,21 +334,21 @@ public class InstallTest extends JBuildTestRunner {
 
         assertThat(jars).isNotNull();
         assertThat(Arrays.stream(jars)
-        .map(File::getName)
-        .collect(toSet()))
-        .containsExactlyInAnyOrder(
-                "apiguardian-api-1.1.0.jar",
-                "failureaccess-1.0.1.jar",
-                "jsr305-3.0.2.jar",
-                "checker-qual-3.12.0.jar",
-                "guava-31.0.1-jre.jar",
-                "junit-jupiter-api-5.7.0.jar",
-                "junit-platform-engine-1.7.0.jar",
-                "error_prone_annotations-2.7.1.jar",
-                "j2objc-annotations-1.3.jar",
-                "junit-jupiter-engine-5.7.0.jar",
-                "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
-        );
+                .map(File::getName)
+                .collect(toSet()))
+                .containsExactlyInAnyOrder(
+                        "apiguardian-api-1.1.0.jar",
+                        "failureaccess-1.0.1.jar",
+                        "jsr305-3.0.2.jar",
+                        "checker-qual-3.12.0.jar",
+                        "guava-31.0.1-jre.jar",
+                        "junit-jupiter-api-5.7.0.jar",
+                        "junit-platform-engine-1.7.0.jar",
+                        "error_prone_annotations-2.7.1.jar",
+                        "j2objc-annotations-1.3.jar",
+                        "junit-jupiter-engine-5.7.0.jar",
+                        "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
+                );
     }
 
     @Test
@@ -393,8 +393,9 @@ public class InstallTest extends JBuildTestRunner {
                 Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
 
         verifySuccessful("jbuild install", result);
-        assertThat(result.getStdout()).startsWith("Successfully installed 9 artifacts at " + dir + "" + LE + "JBuild success in ");
-        
+        assertThat(result.getStdout()).startsWith("WARNING: global exclusion pattern did not exclude anything: foobar" + LE +
+                "Successfully installed 9 artifacts at " + dir + "" + LE + "JBuild success in ");
+
         var jars = dir.toFile().listFiles();
 
         assertThat(jars).isNotNull();

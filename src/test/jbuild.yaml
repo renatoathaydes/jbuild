@@ -4,6 +4,10 @@ properties:
   CLASSES_DIR: build/classes
   TEST_JARS_DIR: ../../build/tests
 
+group: com.athaydes.jbuild
+module: unit-tests
+name: Unit Tests
+version: 1.0.0
 source-dirs: [ java ]
 resource-dirs: [ resources ]
 output-dir: "{{CLASSES_DIR}}"

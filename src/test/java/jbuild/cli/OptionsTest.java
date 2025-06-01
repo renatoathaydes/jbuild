@@ -199,7 +199,7 @@ public class OptionsTest {
                                       boolean mavenLocal
     ) {
         assertEquals(artifacts, options.artifacts, "artifacts");
-        assertThatMap(exclusions).containsAllEntriesOf(mapValues(options.exclusions, s -> s.stream()
+        assertThatMap(exclusions).containsAllEntriesOf(mapValues(options.exclusions.getExclusions(), s -> s.stream()
                 .map(Pattern::pattern)
                 .collect(toSet())));
         assertEquals(mavenLocal, options.mavenLocal, "mavenLocal should be " + mavenLocal);

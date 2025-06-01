@@ -6,6 +6,10 @@ properties:
   INTEGRATION_TEST_REPO_DIR: build/integration-test-mvn-repo
   INTEGRATION_TEST_RESOURCES_DIR: resources
 
+group: com.athaydes.jbuild
+module: intTest
+name: Integration Tests
+version: 1.0.0
 source-dirs: [ java ]
 resource-dirs: [ resources ]
 output-dir: "{{CLASSES_DIR}}"
