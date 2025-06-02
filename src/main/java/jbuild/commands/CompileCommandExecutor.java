@@ -405,8 +405,9 @@ public final class CompileCommandExecutor {
             for (String resourcesDirectory : resourcesDirectories) {
                 resourcesByDir.put(ensureEndsWith(resourcesDirectory, File.separatorChar), new ArrayList<>());
             }
+            var resourcesFilter = includeGroovy ? NON_JAVA_GROOVY_FILES_FILTER : NON_JAVA_FILES_FILTER;
             for (String file : incrementalChanges.addedFiles) {
-                if (!file.endsWith(".java")) {
+                if (resourcesFilter.accept(null, file)) {
                     String dir = null;
                     for (var resourceDir : resourcesByDir.keySet()) {
                         if (file.startsWith(resourceDir)) {
