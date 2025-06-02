@@ -2,7 +2,6 @@ package jbuild.extension;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
-import jbuild.classes.ByteScanner;
 import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
@@ -12,7 +11,6 @@ import jbuild.extension.ConfigObject.ConfigObjectConstructor;
 import jbuild.log.JBuildLog;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
-import jbuild.util.Pair;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -20,16 +18,19 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import static jbuild.classes.model.AbstractAttributeParser.constUtf8;
 import static jbuild.util.FileUtils.CLASS_FILES_FILTER;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
@@ -54,40 +55,40 @@ public final class JbManifestGenerator {
                                              IncrementalChanges changes) {
         var startTime = System.currentTimeMillis();
 
-        // FIXME an extension may show up in both the jar and in the classes directory.
-        var extensions = Stream.concat(
-                        findExtensionsClassesDir(classesDir),
-                        findExtensionsInJarFile(jarFile))
-                .collect(Collectors.toCollection(ArrayList::new));
+        var extensions = new ArrayList<>(findExtensionsClassesDir(classesDir));
+
+        // the extensions in the jar file may be replaced by the ones just compiled (hence, in the class files),
+        // so only add those which are not yet in the 'extensions' list.
+        extensions.addAll(findExtensionsInJarFile(jarFile, extensions.stream()
+                .map(ClassFile::getTypeName)
+                .collect(Collectors.toSet())));
 
         log.verbosePrintln(() -> "Found " + extensions.size() + " jb extension(s) in " +
                 (System.currentTimeMillis() - startTime) + " ms");
 
         if (changes != null) {
-            var classFilesWithSourceNames = extensions.stream()
-                    .map(e -> new Pair<>(e, getSourceFileAttribute(e)))
-                    .filter(e -> e.second != null)
-                    .collect(Collectors.toList());
+            var deletedFiles = changes.deletedFiles.stream()
+                    .map(file -> Paths.get(file).getFileName().toString())
+                    .collect(Collectors.toSet());
 
             // find the intersection of source names and deleted files
-            var deletedExtensions = classFilesWithSourceNames.stream()
-                    .filter(e -> changes.deletedFiles.contains(e.second))
+            var deletedExtensions = extensions.stream()
+                    .filter(e -> deletedFiles.contains(e.getSourceFile()))
                     .collect(Collectors.toList());
 
             log.verbosePrintln(() -> "jb extension source files: [" +
-                    classFilesWithSourceNames.stream()
-                            .map(e -> e.second)
+                    extensions.stream()
+                            .map(ClassFile::getSourceFile)
                             .collect(Collectors.joining(",")) +
                     "], deleted: [" +
                     deletedExtensions.stream()
-                            .map(e -> e.second)
+                            .map(ClassFile::getSourceFile)
                             .collect(Collectors.joining(",")) + ']');
 
             if (!deletedExtensions.isEmpty()) {
                 log.verbosePrintln(() -> "Removing " + deletedExtensions.size() +
                         " deleted jb extensions from the manifest");
-                deletedExtensions.forEach(e ->
-                        extensions.remove(e.first));
+                extensions.removeAll(deletedExtensions);
             }
         }
 
@@ -103,9 +104,12 @@ public final class JbManifestGenerator {
         var startTime = System.currentTimeMillis();
         var yamlBuilder = new StringBuilder(4096);
         yamlBuilder.append("tasks:\n");
+        var classNameByTaskName = new TreeMap<String, String>();
         for (var extension : extensions) {
-            createEntryForExtension(extension, yamlBuilder);
+            createEntryForExtension(extension, yamlBuilder, classNameByTaskName);
         }
+        log.verbosePrintln(() -> "Creating jb manifest with the following task(s): " +
+                new TreeSet<>(classNameByTaskName.keySet()));
         var manifestFiles = writeManifest(yamlBuilder);
         log.verbosePrintln(() -> "Created jb manifest in " + (System.currentTimeMillis() - startTime) + " ms");
         return manifestFiles;
@@ -132,6 +136,10 @@ public final class JbManifestGenerator {
 
     // VisibleForTesting
     void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder) {
+        createEntryForExtension(extension, yamlBuilder, new HashMap<>(1));
+    }
+
+    private void createEntryForExtension(ClassFile extension, StringBuilder yamlBuilder, Map<String, String> classNameByTaskName) {
         var className = typeNameToClassName(extension.getTypeName());
         log.verbosePrintln(() -> "Creating jb manifest for " + className);
         try {
@@ -139,7 +147,7 @@ public final class JbManifestGenerator {
                 if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
                     log.verbosePrintln(() -> "Parsing @JbTaskInfo from " + extension.getConstructors());
                     var configObject = ConfigObject.describeConfigObject(extension);
-                    writeInfo(className, configObject, annotation.getMap(), yamlBuilder);
+                    writeInfo(className, configObject, annotation.getMap(), yamlBuilder, classNameByTaskName);
                     return; // only one annotation is allowed
                 }
             }
@@ -158,8 +166,17 @@ public final class JbManifestGenerator {
     private void writeInfo(String className,
                            ConfigObject.ConfigObjectDescriptor configObject,
                            Map<String, ElementValuePair> annotation,
-                           StringBuilder yamlBuilder) {
-        yamlBuilder.append("  \"").append(safeTaskName(annotation.get("name").value)).append("\":\n");
+                           StringBuilder yamlBuilder,
+                           Map<String, String> classNameByTaskName) {
+        String taskName = safeTaskName(annotation.get("name").value);
+        var previousClassName = classNameByTaskName.put(taskName, className);
+        if (previousClassName != null) {
+            throw new JBuildException("Invalid jb extension: task '" + taskName + "' duplicated in '" +
+                    className + "' and '" + previousClassName + "'.",
+                    ErrorCause.USER_INPUT);
+        }
+
+        yamlBuilder.append("  \"").append(taskName).append("\":\n");
         yamlBuilder.append("    class-name: ").append(className).append('\n');
         var description = annotation.get("description");
         if (description != null) {
@@ -230,27 +247,37 @@ public final class JbManifestGenerator {
                 ErrorCause.USER_INPUT);
     }
 
-    private Stream<ClassFile> findExtensionsClassesDir(String directory) {
+    private List<ClassFile> findExtensionsClassesDir(String directory) {
         var parser = new JBuildClassFileParser();
         return FileUtils.collectFiles(directory, CLASS_FILES_FILTER).files.stream()
                 .map(classFile -> parseClassFile(parser, classFile))
-                .filter(type -> type.getInterfaceNames().contains("Ljbuild/api/JbTask;")
-                        || warnIfAnnotatedWithTaskInfo(type));
+                .filter(this::implementsJbTask)
+                .collect(Collectors.toList());
     }
 
-    private Stream<ClassFile> findExtensionsInJarFile(String jarFile) {
+    private List<ClassFile> findExtensionsInJarFile(String jarFile, Set<String> existingExtensions) {
         if (jarFile == null || !new File(jarFile).exists()) {
-            return Stream.empty();
+            return List.of();
         }
         log.verbosePrintln(() -> "Trying to find jb extensions in existing jar file: " + jarFile);
         var parser = new JBuildClassFileParser();
         try (var zip = new ZipFile(jarFile)) {
             return zip.stream()
                     .filter(entry -> CLASS_FILES_FILTER.accept(null, entry.getName()))
-                    .map(classFile -> parseClassFile(parser, jarFile, zip, classFile));
+                    .map(classFile -> parseClassFile(parser, jarFile, zip, classFile))
+                    .filter(e -> !existingExtensions.contains(e.getTypeName()))
+                    .filter(this::implementsJbTask)
+                    .collect(Collectors.toList());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+
+            throw new JBuildException("Unable to open jar file at " + jarFile + ": " + e,
+                    ErrorCause.IO_READ);
         }
+    }
+
+    private boolean implementsJbTask(ClassFile type) {
+        return type.getInterfaceNames().contains("Ljbuild/api/JbTask;")
+                || warnIfAnnotatedWithTaskInfo(type);
     }
 
     private boolean warnIfAnnotatedWithTaskInfo(ClassFile type) {
@@ -285,19 +312,5 @@ public final class JbManifestGenerator {
                     classFile.getName() + ": " + e,
                     ErrorCause.IO_READ);
         }
-    }
-
-    private static String getSourceFileAttribute(ClassFile classFile) {
-        var sourceNameAttribute = classFile.attributes.stream()
-                .filter(a -> "SourceFile".equals(constUtf8(classFile, a.nameIndex)))
-                .findFirst()
-                .orElse(null);
-        if (sourceNameAttribute == null) {
-            return null;
-        }
-
-        var scanner = new ByteScanner(sourceNameAttribute.attributes);
-        var sourceNameIndex = scanner.nextShort();
-        return constUtf8(classFile, sourceNameIndex);
     }
 }

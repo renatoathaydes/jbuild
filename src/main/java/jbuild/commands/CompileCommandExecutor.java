@@ -361,8 +361,6 @@ public final class CompileCommandExecutor {
         }
         var result = new HashSet<String>(deletedFiles.size());
         for (String deletedFile : deletedFiles) {
-            // FIXME why is this absolute path?
-            log.println("Deleting '" + deletedFile + "'");
             final var file = fixWindowsPaths ? deletedFile.replaceAll("\\\\", "/") : deletedFile;
             if (file.endsWith(".class")) {
                 // class files must be passed with the exact output path (if not forJar), unlike resources
@@ -467,6 +465,7 @@ public final class CompileCommandExecutor {
     private void copyResources(List<FileCollection> resourceFiles, String outputDir) {
         if (resourceFiles.isEmpty()) return;
         var outPath = Paths.get(outputDir);
+        int totalResources = 0;
         try {
             for (var resourceCollection : resourceFiles) {
                 var srcDir = Paths.get(resourceCollection.directory);
@@ -479,8 +478,11 @@ public final class CompileCommandExecutor {
                     }
                     Files.copy(resourceFile.toPath(), destination,
                             StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                    totalResources++;
                 }
             }
+            final var total = totalResources;
+            log.verbosePrintln(() -> "Copied " + total + " resource(s) into " + outputDir);
         } catch (IOException e) {
             throw new JBuildException("Error copying resources: " + e, IO_WRITE);
         }
