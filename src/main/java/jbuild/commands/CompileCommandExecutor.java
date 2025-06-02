@@ -121,7 +121,8 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null) {
             incrementalChanges = incrementalChanges.relativize(workingDir);
         }
-        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, !groovyJar.isBlank());
+        boolean includeGroovy = !groovyJar.isBlank();
+        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, includeGroovy);
         if (incrementalChanges == null && sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
                     ? "src/main/java/, src/ and '.'"
@@ -130,7 +131,7 @@ public final class CompileCommandExecutor {
                     "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
-        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, !groovyJar.isBlank());
+        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, includeGroovy);
 
         if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
