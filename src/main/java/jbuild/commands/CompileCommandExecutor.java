@@ -119,7 +119,7 @@ public final class CompileCommandExecutor {
             resourcesDirectories = relativize(workingDir, resourcesDirectories);
         }
         if (incrementalChanges != null) {
-            incrementalChanges = incrementalChanges.relativize(workingDir);
+            incrementalChanges = incrementalChanges.relativize(workingDir, outputDirOrJar);
         }
         boolean includeGroovy = !groovyJar.isBlank();
         var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, includeGroovy);
@@ -158,12 +158,12 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
             var isJar = jarFile != null;
             var deletions = computeDeletedFiles(
-                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar, outputDir);
+                    inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar);
             if (!deletions.isEmpty()) {
                 if (isJar) {
                     deleteFilesFromJar(deletions, jarFile);
                 } else {
-                    deleteFilesFromDir(deletions, outputDir);
+                    deleteFilesFromDir(deletions);
                 }
                 deletionsDone = true;
             }
@@ -347,8 +347,7 @@ public final class CompileCommandExecutor {
     private Set<String> computeDeletedFiles(Set<String> inputDirectories,
                                             Set<String> resourcesDirectories,
                                             Set<String> deletedFiles,
-                                            boolean forJar,
-                                            String outputDir) {
+                                            boolean forJar) {
         var directories = new HashSet<String>(inputDirectories.size() + resourcesDirectories.size());
         var separator = forJar ? '/' : File.separatorChar;
         // if we're making paths for a Jar, we need to change the paths, but only on Windows
@@ -364,12 +363,7 @@ public final class CompileCommandExecutor {
         for (String deletedFile : deletedFiles) {
             final var file = fixWindowsPaths ? deletedFile.replaceAll("\\\\", "/") : deletedFile;
             if (file.endsWith(".class")) {
-                // class files must be passed with the exact output path (if not forJar), unlike resources
-                if (forJar) {
-                    result.add(file);
-                } else {
-                    result.add(relativize(outputDir, file));
-                }
+                result.add(file);
             } else {
                 // resource files need to be made relative
                 var found = false;
@@ -439,15 +433,10 @@ public final class CompileCommandExecutor {
                 collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
     }
 
-    private void deleteFilesFromDir(Set<String> deletedFiles, String outputDir) {
-        var dir = Paths.get(outputDir);
-        if (!dir.toFile().isDirectory()) {
-            throw new JBuildException("The outputDir does not exist, cannot delete files from it", USER_INPUT);
-        }
+    private void deleteFilesFromDir(Set<String> deletedFiles) {
         for (var file : deletedFiles) {
-            var toDelete = dir.resolve(file);
-            if (!toDelete.toFile().delete()) {
-                log.println("WARNING: could not delete file: " + toDelete);
+            if (!new File(file).delete()) {
+                log.println("WARNING: could not delete file: " + file);
             }
         }
     }
