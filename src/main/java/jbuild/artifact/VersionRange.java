@@ -132,7 +132,7 @@ public final class VersionRange {
             var minComp = version.compareTo(min);
             if (minComp < 0) return false;
             if (minComp == 0) return minInclusive;
-            var maxComp = version.compareTo(max);
+            var maxComp = version.compareTo(max, false);
             if (maxComp > 0) return false;
             return maxInclusive || maxComp != 0;
         }

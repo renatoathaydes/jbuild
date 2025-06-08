@@ -60,6 +60,10 @@ public final class Version implements Comparable<Version> {
 
     @Override
     public int compareTo(Version other) {
+        return compareTo(other, true);
+    }
+
+    public int compareTo(Version other, boolean includeQualifier) {
         if (major != other.major) {
             return Integer.compare(major, other.major);
         }
@@ -69,13 +73,16 @@ public final class Version implements Comparable<Version> {
         if (patch != other.patch) {
             return Integer.compare(patch, other.patch);
         }
-        if (qualifier.isBlank()) {
-            return other.qualifier.isBlank() ? 0 : 1;
+        if (includeQualifier) {
+            if (qualifier.isBlank()) {
+                return other.qualifier.isBlank() ? 0 : 1;
+            }
+            if (other.qualifier.isBlank()) {
+                return -1;
+            }
+            return qualifier.compareTo(other.qualifier);
         }
-        if (other.qualifier.isBlank()) {
-            return -1;
-        }
-        return qualifier.compareTo(other.qualifier);
+        return 0;
     }
 
     public boolean isAfter(Version version) {
