@@ -5,9 +5,12 @@ import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.util.Scanner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 
 public class JbManifestGeneratorTest {
 
@@ -29,8 +32,8 @@ public class JbManifestGeneratorTest {
         generator.createEntryForExtension(classFile, builder);
 
         assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
-                "    class-name: Main\n" +
-                "    description: a important task.\n" +
+                "    class-name: \"Main\"\n" +
+                "    description: \"a important task.\"\n" +
                 "    phase:\n" +
                 "      \"setup\": -1\n" +
                 "    config-constructors:\n" +
@@ -52,7 +55,7 @@ public class JbManifestGeneratorTest {
         generator.createEntryForExtension(classFile, builder);
 
         assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
-                "    class-name: Main\n" +
+                "    class-name: \"Main\"\n" +
                 "    config-constructors:\n" +
                 "      - \"argument1\": \"STRING\"\n");
     }
@@ -73,7 +76,7 @@ public class JbManifestGeneratorTest {
         generator.createEntryForExtension(classFile, builder);
 
         assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
-                "    class-name: Main\n" +
+                "    class-name: \"Main\"\n" +
                 "    config-constructors:\n" +
                 "      - \"jbConfig\": \"JB_CONFIG\"\n");
     }
@@ -95,7 +98,7 @@ public class JbManifestGeneratorTest {
         generator.createEntryForExtension(classFile, builder);
 
         assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
-                "    class-name: foo.bar.MyExtension\n" +
+                "    class-name: \"foo.bar.MyExtension\"\n" +
                 "    config-constructors:\n" +
                 "      - \"b1\": \"BOOLEAN\"\n" +
                 "        \"count\": \"INT\"\n" +
@@ -123,7 +126,7 @@ public class JbManifestGeneratorTest {
         generator.createEntryForExtension(classFile, builder);
 
         assertThat(builder.toString()).isEqualTo("  \"my-task\":\n" +
-                "    class-name: foo.bar.MyExtension\n" +
+                "    class-name: \"foo.bar.MyExtension\"\n" +
                 "    config-constructors:\n" +
                 "      - \"b\": \"BOOLEAN\"\n" +
                 "        \"c\": \"INT\"\n" +
@@ -154,4 +157,95 @@ public class JbManifestGeneratorTest {
                         "java.lang.String, boolean, int, float, java.util.List<java.lang.String>, java.lang.String[])");
     }
 
+    @Test
+    void canParseJbManifestWithSingleTask() {
+        var manifest = "tasks:\n" +
+                "  \"my-task\":\n" +
+                "    class-name: \"foo.bar.MyExtension\"\n" +
+                "    description: \"a important task.\"\n" +
+                "    phase:\n" +
+                "      name: \"setup\"\n" +
+                "      index: 1\n" +
+                "    config-constructors:\n" +
+                "        b1: BOOLEAN\n" +
+                "        one: FLOAT\n";
+
+        var entries = JbManifestGenerator.parseJbExtensions(new Scanner(new StringReader(manifest)), "test.jar");
+
+        assertThat(entries).hasSize(1);
+        entries.stream().findFirst()
+                .ifPresent(e -> e.with(
+                        parsed -> {
+                            fail("Expected Str, but got Parsed: " + parsed);
+                        },
+                        str -> {
+                            assertThat(str.getClassName()).isEqualTo("foo.bar.MyExtension");
+                            assertThat(str.getTaskName()).isEqualTo("my-task");
+                            assertThat(str.yamlString).isEqualTo("  \"my-task\":\n" +
+                                    "    class-name: \"foo.bar.MyExtension\"\n" +
+                                    "    description: \"a important task.\"\n" +
+                                    "    phase:\n" +
+                                    "      name: \"setup\"\n" +
+                                    "      index: 1\n" +
+                                    "    config-constructors:\n" +
+                                    "        b1: BOOLEAN\n" +
+                                    "        one: FLOAT\n");
+                        }
+                ));
+    }
+
+    @Test
+    void canParseJbManifestWithTwoTasks() {
+        var manifest = "tasks:\n" +
+                "  \"my-task\":\n" +
+                "    class-name: \"foo.bar.MyExtension\"\n" +
+                "    description: \"a important task.\"\n" +
+                "    phase:\n" +
+                "      name: \"setup\"\n" +
+                "      index: 1\n" +
+                "    config-constructors:\n" +
+                "        b1: BOOLEAN\n" +
+                "        one: FLOAT\n" +
+                "  \"other-task\":\n" +
+                "    class-name: \"some.OtherExtension\"\n";
+
+        var entries = JbManifestGenerator.parseJbExtensions(new Scanner(new StringReader(manifest)), "test.jar");
+
+        assertThat(entries).hasSize(2);
+        assertThat(entries.stream().map(JbManifestEntry.Str::getTaskName))
+                .containsExactlyInAnyOrder("my-task", "other-task");
+        entries.stream().filter(e -> e.getTaskName().equals("my-task"))
+                .findFirst()
+                .ifPresent(e -> e.with(
+                        parsed -> {
+                            fail("Expected Str, but got Parsed: " + parsed);
+                        },
+                        str -> {
+                            assertThat(str.getClassName()).isEqualTo("foo.bar.MyExtension");
+                            assertThat(str.getTaskName()).isEqualTo("my-task");
+                            assertThat(str.yamlString).isEqualTo("  \"my-task\":\n" +
+                                    "    class-name: \"foo.bar.MyExtension\"\n" +
+                                    "    description: \"a important task.\"\n" +
+                                    "    phase:\n" +
+                                    "      name: \"setup\"\n" +
+                                    "      index: 1\n" +
+                                    "    config-constructors:\n" +
+                                    "        b1: BOOLEAN\n" +
+                                    "        one: FLOAT\n");
+                        }
+                ));
+        entries.stream().filter(e -> e.getTaskName().equals("other-task"))
+                .findFirst()
+                .ifPresent(e -> e.with(
+                        parsed -> {
+                            fail("Expected Str, but got Parsed: " + parsed);
+                        },
+                        str -> {
+                            assertThat(str.getClassName()).isEqualTo("some.OtherExtension");
+                            assertThat(str.getTaskName()).isEqualTo("other-task");
+                            assertThat(str.yamlString).isEqualTo("  \"other-task\":\n" +
+                                    "    class-name: \"some.OtherExtension\"\n");
+                        }
+                ));
+    }
 }

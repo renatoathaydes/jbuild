@@ -65,10 +65,12 @@ public class JavaTypeUtilsTest {
 
     @Test
     void fileNameToTypeName() {
+        final var s = File.separatorChar;
+
         assertThat(JavaTypeUtils.fileToTypeName("Foo.class")).isEqualTo("LFoo;");
-        assertThat(JavaTypeUtils.fileToTypeName("p" + File.pathSeparator + "Foo.class")).isEqualTo("Lp/Foo;");
+        assertThat(JavaTypeUtils.fileToTypeName("p" + s + "Foo.class")).isEqualTo("Lp/Foo;");
         assertThat(JavaTypeUtils.fileToTypeName(
-            "pkg" + File.pathSeparator + "abc" + File.pathSeparator + "Some$Cls.class")
+                "pkg" + s + "abc" + s + "Some$Cls.class")
         ).isEqualTo("Lpkg/abc/Some$Cls;");
     }
 

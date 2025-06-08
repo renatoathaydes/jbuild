@@ -131,7 +131,8 @@ public final class CompileCommandExecutor {
                     "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
-        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, includeGroovy);
+        var resourceFiles = new ArrayList<>(
+                computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, includeGroovy));
 
         if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
@@ -154,33 +155,32 @@ public final class CompileCommandExecutor {
         // jarFile will be null if the output is not a Jar.
         var jarFile = outputDirOrJar.map(NoOp.fun(), jar -> jarOrDefault(workingDir, jar));
 
-        var deletionsDone = false;
+        Set<String> deletedFiles;
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
             var isJar = jarFile != null;
-            var deletions = computeDeletedFiles(
+            deletedFiles = computeDeletedFiles(
                     inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar);
-            if (!deletions.isEmpty()) {
+            if (!deletedFiles.isEmpty()) {
                 if (isJar) {
-                    deleteFilesFromJar(deletions, jarFile);
+                    deleteFilesFromJar(deletedFiles, jarFile);
                 } else {
-                    deleteFilesFromDir(deletions);
+                    deleteFilesFromDir(deletedFiles);
                 }
-                deletionsDone = true;
             }
+        } else {
+            deletedFiles = Set.of();
         }
 
         if (sourceFiles.isEmpty() && resourceFiles.isEmpty()) {
-            if (!deletionsDone) {
+            if (deletedFiles.isEmpty() || !generateJbManifest) {
                 log.println("No sources to compile. No resource files found. Nothing to do!");
+                return new CompileCommandResult();
             }
-            return new CompileCommandResult();
         }
 
         if (!ensureDirectoryExists(new File(outputDir))) {
             throw new JBuildException(outputDir + " directory could not be created", IO_WRITE);
         }
-
-        copyResources(resourceFiles, outputDir);
 
         var computedClasspath = computeClasspath(relativize(workingDir, classpath),
                 incrementalChanges == null ? null : jarFile == null ? outputDir : jarFile);
@@ -188,7 +188,7 @@ public final class CompileCommandExecutor {
         ToolRunResult compileResult = null;
         if (sourceFiles.isEmpty()) {
             log.println("No source files to compile");
-            if (resourceFiles.isEmpty()) {
+            if (resourceFiles.isEmpty() && deletedFiles.isEmpty()) {
                 return new CompileCommandResult();
             }
         } else {
@@ -206,11 +206,10 @@ public final class CompileCommandExecutor {
         }
 
         if (generateJbManifest) {
-            log.verbosePrintln("Generating jb manifest file");
-            var generator = new JbManifestGenerator(log);
-            var jbManifest = generator.generateJbManifest(outputDir, jarFile, incrementalChanges);
-            copyResources(List.of(jbManifest), outputDir);
+            resourceFiles.add(generateJbManifest(deletedFiles, outputDir, jarFile));
         }
+
+        copyResources(resourceFiles, outputDir);
 
         if (jarFile == null) {
             return new CompileCommandResult(compileResult);
@@ -221,6 +220,12 @@ public final class CompileCommandExecutor {
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
+    }
+
+    private FileCollection generateJbManifest(Set<String> deletions, String outputDir, String jarFile) {
+        log.verbosePrintln("Generating jb manifest file");
+        var generator = new JbManifestGenerator(log);
+        return generator.generateJbManifest(outputDir, jarFile, deletions);
     }
 
     private Iterator<ToolRunResult> invokeJarTasks(Set<String> inputDirectories,
