@@ -929,6 +929,72 @@ public class CompileCommandExecutorTest {
     }
 
     @Test
+    void incrementalCompilationWithDeletedSourceFile() throws Exception {
+        var logEntry = TestHelper.createLog(true);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var outDir = dir.resolve("dist");
+        var src = dir.resolve("src");
+        assert src.toFile().mkdir();
+        assert src.resolve("utils").toFile().mkdir();
+        assert src.resolve("app").toFile().mkdir();
+
+        var utilJava = src.resolve("utils").resolve("Util.java");
+        Files.write(utilJava, List.of("package utils;", "class Util { }"));
+
+        var mainJava = src.resolve("app").resolve("Main.java");
+        Files.write(mainJava, List.of("package app;", "class Main { }"));
+
+        // initial compilation
+        final var firstResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of("no-resources"),
+                Either.left(outDir.toFile().getAbsolutePath()),
+                "app.Main",
+                "",
+                false,
+                "",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(firstResult.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", firstResult.getCompileResult().get());
+        assertThat(firstResult.getJarResult()).isNotPresent();
+        assertThat(outDir).isDirectory();
+        assertThat(outDir.resolve(Paths.get("utils", "Util.class"))).isRegularFile();
+        assertThat(outDir.resolve(Paths.get("app", "Main.class"))).isRegularFile();
+
+        // delete the Util class
+        assert utilJava.toFile().delete();
+
+        // incremental compilation
+        final var secondResult = command.compile(Set.of(src.toFile().getAbsolutePath()),
+                Set.of("no-resources"),
+                Either.left(outDir.toFile().getAbsolutePath()),
+                "app.Main",
+                "",
+                false,
+                "",
+                Either.left(true),
+                List.of(),
+                new IncrementalChanges(
+                        // jb knows the path to the deleted class files (one Java file may cause many class files to be deleted)
+                        Set.of(Paths.get("utils", "Util.class").toString()),
+                        Set.of()));
+
+        System.out.println(logEntry.getValue());
+
+        // no result is present as there was nothing to compile
+        assertThat(secondResult.getCompileResult()).isNotPresent();
+        assertThat(secondResult.getJarResult()).isNotPresent();
+        assertThat(outDir).isDirectory();
+        assertThat(outDir.resolve(Paths.get("utils", "Util.class"))).doesNotExist();
+        assertThat(outDir.resolve(Paths.get("app", "Main.class"))).isRegularFile();
+    }
+
+    @Test
     void incrementalCompilationWithModifiedAndDeletedFileInPackageAndOutputDir() throws Exception {
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();

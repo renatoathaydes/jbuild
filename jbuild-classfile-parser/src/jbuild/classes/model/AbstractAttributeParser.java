@@ -15,6 +15,10 @@ public abstract class AbstractAttributeParser {
     }
 
     protected String constUtf8(int index) {
+        return constUtf8(classFile, index);
+    }
+
+    public static String constUtf8(ClassFile classFile, int index) {
         var utf8 = (ConstPoolInfo.Utf8) classFile.constPoolEntries.get(index);
         return utf8.asString();
     }

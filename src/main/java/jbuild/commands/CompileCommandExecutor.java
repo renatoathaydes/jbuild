@@ -119,9 +119,10 @@ public final class CompileCommandExecutor {
             resourcesDirectories = relativize(workingDir, resourcesDirectories);
         }
         if (incrementalChanges != null) {
-            incrementalChanges = incrementalChanges.relativize(workingDir);
+            incrementalChanges = incrementalChanges.relativize(workingDir, outputDirOrJar);
         }
-        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, !groovyJar.isBlank());
+        boolean includeGroovy = !groovyJar.isBlank();
+        var sourceFiles = computeSourceFiles(inputDirectories, incrementalChanges, includeGroovy);
         if (incrementalChanges == null && sourceFiles.isEmpty()) {
             var lookedAt = usingDefaultInputDirs
                     ? "src/main/java/, src/ and '.'"
@@ -130,7 +131,8 @@ public final class CompileCommandExecutor {
                     "(directories tried: " + lookedAt + ")", USER_INPUT);
         }
 
-        var resourceFiles = computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, !groovyJar.isBlank());
+        var resourceFiles = new ArrayList<>(
+                computeResourceFiles(inputDirectories, resourcesDirectories, incrementalChanges, includeGroovy));
 
         if (log.isVerbose() && incrementalChanges == null) {
             log.verbosePrintln("Found " + sourceFiles.size() + " source file(s) to compile.");
@@ -153,33 +155,32 @@ public final class CompileCommandExecutor {
         // jarFile will be null if the output is not a Jar.
         var jarFile = outputDirOrJar.map(NoOp.fun(), jar -> jarOrDefault(workingDir, jar));
 
-        var deletionsDone = false;
+        Set<String> deletedFiles;
         if (incrementalChanges != null && !incrementalChanges.deletedFiles.isEmpty()) {
             var isJar = jarFile != null;
-            var deletions = computeDeletedFiles(
+            deletedFiles = computeDeletedFiles(
                     inputDirectories, resourcesDirectories, incrementalChanges.deletedFiles, isJar);
-            if (!deletions.isEmpty()) {
+            if (!deletedFiles.isEmpty()) {
                 if (isJar) {
-                    deleteFilesFromJar(deletions, jarFile);
+                    deleteFilesFromJar(deletedFiles, jarFile);
                 } else {
-                    deleteFilesFromDir(deletions, outputDir);
+                    deleteFilesFromDir(deletedFiles);
                 }
-                deletionsDone = true;
             }
+        } else {
+            deletedFiles = Set.of();
         }
 
         if (sourceFiles.isEmpty() && resourceFiles.isEmpty()) {
-            if (!deletionsDone) {
+            if (deletedFiles.isEmpty() || !generateJbManifest) {
                 log.println("No sources to compile. No resource files found. Nothing to do!");
+                return new CompileCommandResult();
             }
-            return new CompileCommandResult();
         }
 
         if (!ensureDirectoryExists(new File(outputDir))) {
             throw new JBuildException(outputDir + " directory could not be created", IO_WRITE);
         }
-
-        copyResources(resourceFiles, outputDir);
 
         var computedClasspath = computeClasspath(relativize(workingDir, classpath),
                 incrementalChanges == null ? null : jarFile == null ? outputDir : jarFile);
@@ -187,7 +188,7 @@ public final class CompileCommandExecutor {
         ToolRunResult compileResult = null;
         if (sourceFiles.isEmpty()) {
             log.println("No source files to compile");
-            if (resourceFiles.isEmpty()) {
+            if (resourceFiles.isEmpty() && deletedFiles.isEmpty()) {
                 return new CompileCommandResult();
             }
         } else {
@@ -205,11 +206,10 @@ public final class CompileCommandExecutor {
         }
 
         if (generateJbManifest) {
-            log.verbosePrintln("Generating jb manifest file");
-            var generator = new JbManifestGenerator(log);
-            var jbManifest = generator.generateJbManifest(outputDir);
-            copyResources(List.of(jbManifest), outputDir);
+            resourceFiles.add(generateJbManifest(deletedFiles, outputDir, jarFile));
         }
+
+        copyResources(resourceFiles, outputDir);
 
         if (jarFile == null) {
             return new CompileCommandResult(compileResult);
@@ -220,6 +220,12 @@ public final class CompileCommandExecutor {
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
+    }
+
+    private FileCollection generateJbManifest(Set<String> deletions, String outputDir, String jarFile) {
+        log.verbosePrintln("Generating jb manifest file");
+        var generator = new JbManifestGenerator(log);
+        return generator.generateJbManifest(outputDir, jarFile, deletions);
     }
 
     private Iterator<ToolRunResult> invokeJarTasks(Set<String> inputDirectories,
@@ -362,7 +368,6 @@ public final class CompileCommandExecutor {
         for (String deletedFile : deletedFiles) {
             final var file = fixWindowsPaths ? deletedFile.replaceAll("\\\\", "/") : deletedFile;
             if (file.endsWith(".class")) {
-                // class files must be passed with the exact output path, unlike resources
                 result.add(file);
             } else {
                 // resource files need to be made relative
@@ -380,7 +385,7 @@ public final class CompileCommandExecutor {
             }
         }
         if (!result.isEmpty()) {
-            log.verbosePrintln(() -> "Deleting " + result.size() + " resource file" +
+            log.verbosePrintln(() -> "Deleting " + result.size() + " file" +
                     (result.size() == 1 ? "" : "s") + " from output");
         }
         return result;
@@ -399,8 +404,9 @@ public final class CompileCommandExecutor {
             for (String resourcesDirectory : resourcesDirectories) {
                 resourcesByDir.put(ensureEndsWith(resourcesDirectory, File.separatorChar), new ArrayList<>());
             }
+            var resourcesFilter = includeGroovy ? NON_JAVA_GROOVY_FILES_FILTER : NON_JAVA_FILES_FILTER;
             for (String file : incrementalChanges.addedFiles) {
-                if (!file.endsWith(".java")) {
+                if (resourcesFilter.accept(null, file)) {
                     String dir = null;
                     for (var resourceDir : resourcesByDir.keySet()) {
                         if (file.startsWith(resourceDir)) {
@@ -432,15 +438,10 @@ public final class CompileCommandExecutor {
                 collectFiles(resourcesDirectories, ALL_FILES_FILTER)).collect(toList());
     }
 
-    private void deleteFilesFromDir(Set<String> deletedFiles, String outputDir) {
-        var dir = Paths.get(outputDir);
-        if (!dir.toFile().isDirectory()) {
-            throw new JBuildException("The outputDir does not exist, cannot delete files from it", USER_INPUT);
-        }
+    private void deleteFilesFromDir(Set<String> deletedFiles) {
         for (var file : deletedFiles) {
-            var toDelete = dir.resolve(file);
-            if (!toDelete.toFile().delete()) {
-                log.println("WARNING: could not delete file: " + toDelete);
+            if (!new File(file).delete()) {
+                log.println("WARNING: could not delete file: " + file);
             }
         }
     }
@@ -460,6 +461,7 @@ public final class CompileCommandExecutor {
     private void copyResources(List<FileCollection> resourceFiles, String outputDir) {
         if (resourceFiles.isEmpty()) return;
         var outPath = Paths.get(outputDir);
+        int totalResources = 0;
         try {
             for (var resourceCollection : resourceFiles) {
                 var srcDir = Paths.get(resourceCollection.directory);
@@ -472,8 +474,11 @@ public final class CompileCommandExecutor {
                     }
                     Files.copy(resourceFile.toPath(), destination,
                             StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                    totalResources++;
                 }
             }
+            final var total = totalResources;
+            log.verbosePrintln(() -> "Copied " + total + " resource(s) into " + outputDir);
         } catch (IOException e) {
             throw new JBuildException("Error copying resources: " + e, IO_WRITE);
         }

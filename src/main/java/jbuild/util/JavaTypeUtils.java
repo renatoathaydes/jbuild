@@ -68,8 +68,13 @@ public final class JavaTypeUtils {
         if (!fileName.endsWith(".class")) {
             throw new IllegalArgumentException("Not a class file: " + fileName);
         }
-        return 'L' + fileName.substring(0, fileName.length() - ".class".length())
-                .replaceAll(File.pathSeparator, "/") + ';';
+        var typeName = 'L' + fileName.substring(0, fileName.length() - ".class".length()) + ';';
+
+        // ensure that on Windows, '\' is replaced with '/':
+        if (File.separatorChar == '\\') {
+            return typeName.replace('\\', '/');
+        }
+        return typeName;
     }
 
     private static String typeName(String basicClassName) {

@@ -41,6 +41,10 @@ public class VersionRangeTest {
                 {"(,2.0)", new Version(0, 0, 0), new Version(1, 0, 0), new Version(2, 0, 0)},
                 {"[0.1,0.2.0]", new Version(0, 0, 0), new Version(0, 2, 0), new Version(0, 3, 0)},
                 {"(0.0.19,0.0.21)", new Version(0, 0, 10), new Version(0, 0, 20), new Version(0, 0, 30)},
+                {"[4.5.1,5)", new Version(3, 5, 10), new Version(4, 5, 1), new Version(5, 0, 0)},
+                // qualifiers are considered "lower" than non-qualifier for the lower bound, but the "higher" for higher bound...
+                // this allows JBuild to NOT include versions with qualifiers accidentally, as in 5.0.0-alpha being included in "[4,5)"
+                {"[4.5.1,5)", new Version(4, 5, 1, "alpha"), new Version(4, 99, 99), new Version(5, 0, 0, "alpha")},
                 {"(1,2), (4,6) , (10,)",
                         new Version(0, 0, 0), new Version(1, 4, 0), new Version(8, 0, 0)},
                 {"(1,2), (4,6) , (10,)",
