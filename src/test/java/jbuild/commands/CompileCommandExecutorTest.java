@@ -7,6 +7,7 @@ import jbuild.util.Either;
 import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -446,6 +447,151 @@ public class CompileCommandExecutorTest {
                         "index.html",
                         "pkg/",
                         "pkg/MyClass.html");
+    }
+
+    @Test
+    void canCompileJavaModuleToJarAndSourcesAndJavadocJar() throws Exception {
+        var logEntry = TestHelper.createLog(false);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var rootDir = dir.resolve("mylib");
+        var src = rootDir.resolve("src");
+        var pkg = src.resolve("pkg");
+        assert pkg.toFile().mkdirs();
+        var myClassJava = pkg.resolve("MyClass.java");
+        Files.write(myClassJava, List.of(
+                "package pkg;",
+                "/**",
+                " * This is Javadoc.",
+                " **/",
+                "public class MyClass {",
+                "  /**",
+                "   * The hello method.",
+                "   **/",
+                "  public String hello() { return \"Hi\"; }",
+                "}"));
+        var moduleFile = src.resolve("module-info.java");
+        Files.write(moduleFile, List.of(
+                "/**",
+                " * My library module.",
+                " **/",
+                "module mylib {",
+                "  exports pkg;",
+                "}"));
+        var jar = rootDir.resolve(Paths.get("build", "mylib.jar"));
+        var sourcesJar = rootDir.resolve(Paths.get("build", "mylib-sources.jar"));
+        var javadocJar = rootDir.resolve(Paths.get("build", "mylib-javadoc.jar"));
+
+        // compile jar, sources-jar and javadoc-jar
+        var result = command.compile(
+                rootDir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.right(""), // let the default jar name be used
+                "",
+                "",
+                false,
+                true,
+                true,
+                "",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", result.getJarResult().get());
+        assertThat(result.getSourcesJarResult()).isPresent();
+        verifyToolSuccessful("sourcesJar", result.getSourcesJarResult().get());
+        assertThat(result.getJavadocJarResult()).isPresent();
+        verifyToolSuccessful("javadocJar", result.getJavadocJarResult().get());
+
+        var jarResult = Tools.Jar.create().listContents(jar.toString());
+        verifyToolSuccessful("jar tf", jarResult);
+        assertThat(jarResult.getStdoutLines().collect(toList()))
+                .containsExactlyInAnyOrder(
+                        "META-INF/",
+                        "META-INF/MANIFEST.MF",
+                        "module-info.class",
+                        "pkg/",
+                        "pkg/MyClass.class");
+
+        var sourceJarResult = Tools.Jar.create().listContents(sourcesJar.toString());
+        verifyToolSuccessful("jar tf", sourceJarResult);
+        assertThat(sourceJarResult.getStdoutLines().collect(toList()))
+                .containsExactlyInAnyOrder(
+                        "META-INF/",
+                        "META-INF/MANIFEST.MF",
+                        "module-info.java",
+                        "pkg/",
+                        "pkg/MyClass.java");
+
+        var javadocJarResult = Tools.Jar.create().listContents(javadocJar.toString());
+        verifyToolSuccessful("jar tf", javadocJarResult);
+        assertThat(javadocJarResult.getStdoutLines().collect(toList()))
+                .contains(
+                        "index.html",
+                        "mylib/",
+                        "mylib/module-summary.html",
+                        "mylib/pkg/",
+                        "mylib/pkg/MyClass.html");
+
+        // now check that a Java Module can rely on another Module in the module-path
+        var rootDir2 = dir.resolve("other");
+        var src2 = rootDir2.resolve("src");
+        var pkg2 = src2.resolve("other_pkg");
+        assert pkg2.toFile().mkdirs();
+        var otherClassJava = pkg2.resolve("Other.java");
+        Files.write(otherClassJava, List.of(
+                "package other_pkg;",
+                "public class Other {",
+                "  public static void main(String[] args) {",
+                "    System.out.println(new pkg.MyClass().hello());",
+                "  }",
+                "}"));
+        var moduleFile2 = src2.resolve("module-info.java");
+        Files.write(moduleFile2, List.of(
+                "module another {",
+                "  requires mylib;",
+                "}"));
+        var jar2 = rootDir2.resolve(Paths.get("build", "other.jar"));
+
+        // compile jar, sources-jar and javadoc-jar
+        var result2 = command.compile(
+                rootDir2.toString(),
+                Set.of("src"),
+                Set.of(),
+                Either.right(rootDir2.relativize(jar2).toString()),
+                "other_pkg.Other",
+                "",
+                false,
+                false,
+                false,
+                "",
+                "../mylib/build/mylib.jar",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(result2.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result2.getCompileResult().get());
+
+        assertThat(jar2).isRegularFile();
+
+        // to verify that the module was compile properly, try to run it as a module
+        var javaProcBuilder = new ProcessBuilder("java",
+                "--module-path", String.join(File.pathSeparator, jar.toString(), jar2.toString()),
+                // run the module by name, the main-class should be in the MANIFEST
+                "-m", "another");
+        javaProcBuilder.directory(dir.toFile());
+        var javaProc = javaProcBuilder.start();
+        var javaExitCode = javaProc.waitFor();
+
+        assertThat(javaExitCode).isZero();
+        assertThat(javaProc.getInputStream()).hasContent("Hi");
     }
 
     @Test

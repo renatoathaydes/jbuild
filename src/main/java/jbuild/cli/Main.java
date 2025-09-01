@@ -217,7 +217,7 @@ public final class Main {
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass, compileOptions.groovyJar,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
-                compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
+                compileOptions.classPath, compileOptions.modulePath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res ->

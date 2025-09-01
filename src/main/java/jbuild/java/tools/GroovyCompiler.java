@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.java.tools.Tools.Javac.collectArgs;
 
 public final class GroovyCompiler implements JbuildCompiler {
 
@@ -33,24 +34,16 @@ public final class GroovyCompiler implements JbuildCompiler {
     }
 
     @Override
-    public ToolRunResult compile(Set<String> sourceFiles, String outDir, String classpath, List<String> compilerArgs) {
-        String[] allArgs = new String[4 + compilerArgs.size() + sourceFiles.size()];
-        allArgs[0] = "-d";
-        allArgs[1] = outDir;
-        allArgs[2] = "-cp";
-        allArgs[3] = classpath;
-        int index = 4;
-        for (String arg : compilerArgs) {
-            allArgs[index++] = arg;
-        }
-        for (String sourceFile : sourceFiles) {
-            allArgs[index++] = sourceFile;
-        }
-
-        return run(allArgs);
+    public ToolRunResult compile(Set<String> sourceFiles,
+                                 String outDir,
+                                 String classPath,
+                                 String modulePath,
+                                 List<String> compilerArgs) {
+        var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs);
+        return run(args);
     }
 
-    private <CL extends ClassLoader & Closeable> ToolRunResult run(String[] args) {
+    private <CL extends ClassLoader & Closeable> ToolRunResult run(List<String> args) {
         CL groovyClassLoader;
         URL[] classpath;
         try {
@@ -71,14 +64,20 @@ public final class GroovyCompiler implements JbuildCompiler {
         new Thread(() -> {
             Thread.currentThread().setContextClassLoader(groovyClassLoader);
             try (groovyClassLoader) {
-                compilationFuture.complete(compile(groovyClassLoader, args));
+                compilationFuture.complete(compile(groovyClassLoader, args.toArray(new String[0])));
             } catch (Throwable t) {
                 compilationFuture.completeExceptionally(t);
             }
         }).start();
 
         try {
-            return compilationFuture.get();
+            return compilationFuture.whenComplete((result, error) -> {
+                try {
+                    groovyClassLoader.close();
+                } catch (IOException e) {
+                    log.verbosePrintln(() -> "Problem closing Groovy ClassLoader: " + e);
+                }
+            }).get();
         } catch (ExecutionException e) {
             throw new JBuildException("Could not compile due to: " + e.getCause(), ACTION_ERROR);
         } catch (Exception e) {

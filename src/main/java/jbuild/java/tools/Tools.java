@@ -288,10 +288,11 @@ public abstract class Tools {
         @Override
         public ToolRunResult compile(Set<String> sourceFiles,
                                      String outDir,
-                                     String classpath,
+                                     String classPath,
+                                     String modulePath,
                                      List<String> compilerArgs) {
             validateCompilerArgs(compilerArgs);
-            var args = collectArgs(sourceFiles, outDir, classpath, compilerArgs);
+            var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs);
             log.verbosePrintln(() -> "Compile command: javac " + String.join(" ", args));
             return run(args);
         }
@@ -309,9 +310,10 @@ public abstract class Tools {
             }
         }
 
-        private static List<String> collectArgs(Set<String> files,
+        static List<String> collectArgs(Set<String> files,
                                                 String outDir,
-                                                String classpath,
+                                        String classPath,
+                                        String modulePath,
                                                 List<String> compilerArgs) {
             var result = new ArrayList<String>();
 
@@ -328,9 +330,13 @@ public abstract class Tools {
             result.add("-d");
             result.add(outDir);
 
-            if (!classpath.isBlank()) {
-                result.add("-classpath");
-                result.add(classpath);
+            if (!classPath.isBlank()) {
+                result.add("--class-path");
+                result.add(classPath);
+            }
+            if (!modulePath.isBlank()) {
+                result.add("--module-path");
+                result.add(modulePath);
             }
             result.addAll(compilerArgs);
             result.addAll(files);

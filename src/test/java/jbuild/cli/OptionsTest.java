@@ -180,7 +180,7 @@ public class OptionsTest {
                                       Either<String, String> outputDirOrJar,
                                       String mainClass,
                                       Either<Boolean, String> manifest) {
-        assertEquals(classpath, options.classpath);
+        assertEquals(classpath, options.classPath);
         assertEquals(inputDirs, options.inputDirectories);
         assertEquals(resourcesDirs, options.resourcesDirectories);
         assertEquals(outputDirOrJar, options.outputDirOrJar);

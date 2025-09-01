@@ -107,6 +107,26 @@ public final class CompileCommandExecutor {
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
+        return compile(workingDir, inputDirectories, resourcesDirectories, outputDirOrJar, mainClass,
+                groovyJar, generateJbManifest, createSourcesJar, createJavadocsJar, classpath, "",
+                manifest, compilerArgs, incrementalChanges);
+    }
+
+    public CompileCommandResult compile(String workingDir,
+                                        Set<String> inputDirectories,
+                                        Set<String> resourcesDirectories,
+                                        Either<String, String> outputDirOrJar,
+                                        String mainClass,
+                                        String groovyJar,
+                                        boolean generateJbManifest,
+                                        boolean createSourcesJar,
+                                        boolean createJavadocsJar,
+                                        String classPath,
+                                        String modulePath,
+                                        Either<Boolean, String> manifest,
+                                        List<String> compilerArgs,
+                                        IncrementalChanges incrementalChanges)
+            throws InterruptedException, ExecutionException {
         var usingDefaultInputDirs = inputDirectories.isEmpty() && incrementalChanges == null;
         if (usingDefaultInputDirs) {
             inputDirectories = computeDefaultSourceDirs(workingDir);
@@ -182,8 +202,12 @@ public final class CompileCommandExecutor {
             throw new JBuildException(outputDir + " directory could not be created", IO_WRITE);
         }
 
-        var computedClasspath = computeClasspath(relativize(workingDir, classpath),
+        var computedClasspath = computeClasspath(relativize(workingDir, classPath),
                 incrementalChanges == null ? null : jarFile == null ? outputDir : jarFile);
+
+        var computedModulePath = modulePath.isEmpty()
+                ? ""
+                : computeClasspath(relativize(workingDir, modulePath), null);
 
         ToolRunResult compileResult = null;
         if (sourceFiles.isEmpty()) {
@@ -196,7 +220,7 @@ public final class CompileCommandExecutor {
                     ? Tools.Javac.create(log)
                     : new GroovyCompiler(log, relativize(workingDir, groovyJar));
             compileResult = await(runAsyncTiming(() -> compiler
-                                    .compile(sourceFiles, outputDir, computedClasspath, compilerArgs),
+                                    .compile(sourceFiles, outputDir, computedClasspath, computedModulePath, compilerArgs),
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
                     Duration.ofMinutes(30),
                     "compile");

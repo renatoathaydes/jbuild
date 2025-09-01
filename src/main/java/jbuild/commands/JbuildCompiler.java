@@ -12,12 +12,14 @@ public interface JbuildCompiler {
      *
      * @param sourceFiles  files to compile
      * @param outDir       where to store compiled class files
-     * @param classpath    the classpath (may be empty)
+     * @param classPath    the classpath (may be empty)
+     * @param modulePath   the module-path (may be empty)
      * @param compilerArgs compiler arguments
      * @return result
      */
     ToolRunResult compile(Set<String> sourceFiles,
                           String outDir,
-                          String classpath,
+                          String classPath,
+                          String modulePath,
                           List<String> compilerArgs);
 }
