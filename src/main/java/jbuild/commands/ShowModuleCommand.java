@@ -113,6 +113,7 @@ public final class ShowModuleCommand {
         for (ModuleAttribute.Exports export : exports) {
             log.println("    Package: " + export.packageName);
             log.println("      Flags: " + flagsOf(export));
+            log.println("      ToModules: " + String.join(" ", export.exportsToModules));
         }
     }
 

@@ -981,7 +981,7 @@ final class ShowModulesOptions {
     static final String DESCRIPTION = "shows Java module details";
 
     static final String USAGE = "  ## " + NAME + LINE_END +
-            "    Show Java module's details. One or more file may be provided." + LINE_END +
+            "    Show Java module's details. One or more files may be provided." + LINE_END +
             "    Each file should be either a jar or a module-info.class file." + LINE_END +
             "      Usage:" + LINE_END +
             "        jbuild " + NAME + " <file...>" + LINE_END +
