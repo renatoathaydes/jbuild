@@ -1,10 +1,14 @@
 package jbuild.classes.model;
 
-import jbuild.classes.AnnotationParser;
-import jbuild.classes.ByteScanner;
-import jbuild.classes.JavaTypeSignatureParser;
 import jbuild.classes.model.attributes.AnnotationInfo;
+import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.parser.AnnotationParser;
+import jbuild.classes.parser.ByteScanner;
+import jbuild.classes.parser.JavaTypeSignatureParser;
+import jbuild.classes.parser.MethodParametersParser;
+import jbuild.classes.parser.ModuleAttributeParser;
 import jbuild.classes.signature.MethodSignature;
 
 import java.nio.charset.StandardCharsets;
@@ -176,10 +180,24 @@ public final class ClassFile {
     public List<MethodParameter> getMethodParameters(MethodInfo methodInfo) {
         var methodParamsParser = new MethodParametersParser(this);
         return methodInfo.attributes.stream()
-                .filter(attr -> "MethodParameters".equals(getUtf8(attr.nameIndex)))
+                .filter(attr -> MethodParameter.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
                 .map((attr) -> methodParamsParser.parseMethodParameters(attr.attributes))
                 .orElse(List.of());
+    }
+
+    public Optional<ModuleAttribute> getModuleAttribute() {
+        if (!AccessFlags.isModule(accessFlags)) {
+            return Optional.empty();
+        }
+        var parser = new ModuleAttributeParser(this);
+        var attribute = attributes.stream()
+                .filter(attr -> ModuleAttribute.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Module attribute not found despite access flags " +
+                        "indicating class file is a module"));
+
+        return Optional.of(parser.parseModuleAttribute(attribute));
     }
 
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {

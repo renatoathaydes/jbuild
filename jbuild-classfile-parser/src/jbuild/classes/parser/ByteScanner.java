@@ -1,4 +1,4 @@
-package jbuild.classes;
+package jbuild.classes.parser;
 
 import java.io.IOException;
 import java.io.InputStream;

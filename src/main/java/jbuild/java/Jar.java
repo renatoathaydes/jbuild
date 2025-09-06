@@ -1,7 +1,7 @@
 package jbuild.java;
 
 import jbuild.api.JBuildException;
-import jbuild.classes.JBuildClassFileParser;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.java.code.TypeDefinition;
 import jbuild.java.tools.Tools;

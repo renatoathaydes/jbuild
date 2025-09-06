@@ -1,6 +1,5 @@
-package jbuild.classes;
+package jbuild.classes.parser;
 
-import jbuild.classes.model.AbstractAttributeParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;

@@ -1,6 +1,6 @@
-package jbuild.classes.model;
+package jbuild.classes.parser;
 
-import jbuild.classes.ByteScanner;
+import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.MethodParameter;
 
 import java.util.ArrayList;
@@ -33,8 +33,7 @@ public final class MethodParametersParser extends AbstractAttributeParser {
             // The value of the name_index item must either be zero or a valid index into the constant_pool table.
             var nameIndex = scanner.nextShort();
             var name = nameIndex == 0 ? "" : constUtf8(nameIndex);
-            var flags = MethodParameter.AccessFlag.of(scanner.nextShort());
-            result.add(new MethodParameter(flags, name));
+            result.add(new MethodParameter(scanner.nextShort(), name));
         }
         return result;
     }

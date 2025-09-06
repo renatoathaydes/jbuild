@@ -1,5 +1,7 @@
 package jbuild.classes.model;
 
+import jbuild.classes.model.attributes.AttributeInfo;
+
 import java.util.List;
 
 public final class FieldInfo {

@@ -1,5 +1,6 @@
 package jbuild.classes;
 
+import jbuild.classes.parser.JavaTypeSignatureParser;
 import jbuild.classes.signature.ClassSignature;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
@@ -24,7 +25,7 @@ public class JavaTypeSignatureParserTest {
     public static final ClassTypeSignature LIST = new ClassTypeSignature("java.util",
             new SimpleClassTypeSignature("List"));
 
-    private final JavaTypeSignatureParser parser = new JavaTypeSignatureParser();
+    private final JavaTypeSignatureParser parser = new jbuild.classes.parser.JavaTypeSignatureParser();
 
     @Test
     void canParseBaseTypeSignature() {

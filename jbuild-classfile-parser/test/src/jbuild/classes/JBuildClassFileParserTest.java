@@ -1,11 +1,14 @@
 package jbuild.classes;
 
+import jbuild.classes.model.AccessFlags;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.MajorVersion;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
 import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
 import jbuild.classes.signature.MethodSignature;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -23,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class JBuildClassFileParserTest {
 
-    JBuildClassFileParser parser = new JBuildClassFileParser();
+    jbuild.classes.parser.JBuildClassFileParser parser = new JBuildClassFileParser();
 
     @Test
     public void canParseHelloWorldClassFile() throws Exception {
@@ -55,7 +59,7 @@ public class JBuildClassFileParserTest {
                 .map(ConstPoolInfo::getClass)
                 .collect(Collectors.toList());
         assertThat(constPoolInfo)
-                .containsExactly(JBuildClassFileParser.FIRST_ITEM_SENTINEL.getClass(),
+                .containsExactly(jbuild.classes.parser.JBuildClassFileParser.FIRST_ITEM_SENTINEL.getClass(),
                         ConstPoolInfo.MethodRef.class,
                         ConstPoolInfo.ConstClass.class,
                         ConstPoolInfo.NameAndType.class,
@@ -85,7 +89,7 @@ public class JBuildClassFileParserTest {
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class);
 
-        assertThat(classFile.constPoolEntries.get(0)).isSameAs(JBuildClassFileParser.FIRST_ITEM_SENTINEL);
+        assertThat(classFile.constPoolEntries.get(0)).isSameAs(jbuild.classes.parser.JBuildClassFileParser.FIRST_ITEM_SENTINEL);
         assertThat((ConstPoolInfo.MethodRef) classFile.constPoolEntries.get(1))
                 .extracting(m -> m.classIndex)
                 .isEqualTo((short) 2);
@@ -275,7 +279,7 @@ public class JBuildClassFileParserTest {
         assertThat(classFile.getSignatureAttribute(constructors.get(0)))
                 .isNotPresent();
         assertThat(classFile.getMethodParameters(constructors.get(0)))
-                .isEqualTo(List.of(new MethodParameter(MethodParameter.AccessFlag.NONE, "hello")));
+                .isEqualTo(List.of(new MethodParameter((short) 0, "hello")));
 
         // String foo, final boolean bar, List<String> strings
         // (Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V
@@ -333,6 +337,35 @@ public class JBuildClassFileParserTest {
                 "()Ljava/net/http/HttpClient$Builder;");
     }
 
+    @Test
+    void canParseModuleInfoFile() throws IOException {
+        ClassFile classFile = parseModule1();
+        System.out.println(classFile);
+        assertThat(classFile.getTypeName())
+                .isEqualTo("Lmodule-info;");
+
+        var moduleInfo = classFile.constPoolEntries.stream()
+                .filter(it -> it.tag == ConstPoolInfo.ModuleInfo.TAG)
+                .map(it -> (ConstPoolInfo.ModuleInfo) it)
+                .findFirst();
+        assertThat(moduleInfo).isPresent()
+                .get()
+                .extracting(m -> classFile.constPoolEntries.get(m.nameIndex))
+                .isInstanceOf(ConstPoolInfo.Utf8.class)
+                .extracting(it -> ((ConstPoolInfo.Utf8) it).asString())
+                .isEqualTo("mod.one");
+
+        assertClassAccessFlags(classFile.accessFlags, false, false, false, false, false, false, false, false, true);
+        assertThat(AccessFlags.isModule(classFile.accessFlags)).isTrue();
+
+        assertThat(classFile.getModuleAttribute()).isPresent().get()
+                .isEqualTo(new ModuleAttribute("mod.one", ModuleAttribute.ModuleFlags.NONE,
+                        "",
+                        List.of(new ModuleAttribute.Requires("java.base", ModuleAttribute.RequiresFlags.ACC_MANDATED, "11.0.14")),
+                        List.of(new ModuleAttribute.Exports("m1", ModuleAttribute.ExportsFlags.NONE, Set.of())),
+                        List.of(), Set.of(), List.of()));
+    }
+
     private ClassFile parseHelloWorldClass() throws IOException {
         return parseClass("/HelloWorld.cls");
     }
@@ -351,6 +384,10 @@ public class JBuildClassFileParserTest {
 
     private ClassFile parseExampleAnnotatedClass() throws IOException {
         return parseClass("/ExampleAnnotated.cls");
+    }
+
+    private ClassFile parseModule1() throws IOException {
+        return parseClass("/mod1.cls");
     }
 
     private ClassFile parseClass(String path) throws IOException {

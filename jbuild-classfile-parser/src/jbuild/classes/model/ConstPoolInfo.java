@@ -166,6 +166,18 @@ public abstract class ConstPoolInfo {
         }
     }
 
+    public static final class DynamicInfo extends ConstPoolInfo {
+        public static final short TAG = 17;
+        public final short bootstrapMethodAttributeIndex;
+        public final short nameAndTypeIndex;
+
+        public DynamicInfo(short bootstrapMethodAttributeIndex, short descriptorIndex) {
+            super(TAG);
+            this.bootstrapMethodAttributeIndex = bootstrapMethodAttributeIndex;
+            this.nameAndTypeIndex = descriptorIndex;
+        }
+    }
+
     public static final class InvokeDynamic extends ConstPoolInfo {
         public static final short TAG = 18;
         public final short bootstrapMethodAttributeIndex;
@@ -176,5 +188,27 @@ public abstract class ConstPoolInfo {
             this.bootstrapMethodAttributeIndex = bootstrapMethodAttributeIndex;
             this.nameAndTypeIndex = descriptorIndex;
         }
+    }
+
+    public static final class ModuleInfo extends ConstPoolInfo {
+        public static final short TAG = 19;
+        public final short nameIndex;
+
+        public ModuleInfo(short nameIndex) {
+            super(TAG);
+            this.nameIndex = nameIndex;
+        }
+    }
+
+    public static final class PackageInfo extends ConstPoolInfo {
+        public static final short TAG = 20;
+
+        public final short nameIndex;
+
+        public PackageInfo(short nameIndex) {
+            super(TAG);
+            this.nameIndex = nameIndex;
+        }
+
     }
 }

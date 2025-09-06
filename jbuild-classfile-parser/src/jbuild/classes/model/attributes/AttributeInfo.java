@@ -1,4 +1,4 @@
-package jbuild.classes.model;
+package jbuild.classes.model.attributes;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;

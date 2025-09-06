@@ -1,7 +1,7 @@
 package jbuild.util;
 
 import jbuild.TestSystemProperties;
-import jbuild.classes.JBuildClassFileParser;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;

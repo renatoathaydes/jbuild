@@ -1,29 +1,32 @@
 package jbuild.classes.model.attributes;
 
-import java.util.Arrays;
-
 public final class MethodParameter {
-    public enum AccessFlag {
-        NONE((short) 0),
-        ACC_FINAL((short) 0x0010),
-        ACC_SYNTHETIC((short) 0x1000),
-        ACC_MANDATED((short) 0x8000);
+    public static final String ATTRIBUTE_NAME = "MethodParameters";
 
-        public final short value;
+    public static final class AccessFlag {
+        public static short NONE = 0;
+        public static short ACC_FINAL = 0x0010;
+        public static short ACC_SYNTHETIC = 0x1000;
+        public static short ACC_MANDATED = 0x4000;
 
-        AccessFlag(short value) {
-            this.value = value;
+        public static boolean isNone(short accessFlags) {
+            return accessFlags == 0;
         }
 
-        public static AccessFlag of(short value) {
-            return Arrays.stream(AccessFlag.values())
-                    .filter(it -> it.value == value)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Not a valid AccessFlag value: " + value));
+        public static boolean isFinal(short accessFlags) {
+            return (accessFlags & ACC_FINAL) != 0;
+        }
+
+        public static boolean isSynthetic(short accessFlags) {
+            return (accessFlags & ACC_SYNTHETIC) != 0;
+        }
+
+        public static boolean isMandated(short accessFlags) {
+            return (accessFlags & ACC_MANDATED) != 0;
         }
     }
 
-    public final AccessFlag accessFlag;
+    public final short accessFlags;
 
     /**
      * The name of a method parameter.
@@ -32,8 +35,8 @@ public final class MethodParameter {
      */
     public final String name;
 
-    public MethodParameter(AccessFlag accessFlag, String name) {
-        this.accessFlag = accessFlag;
+    public MethodParameter(short accessFlags, String name) {
+        this.accessFlags = accessFlags;
         this.name = name;
     }
 
@@ -44,13 +47,24 @@ public final class MethodParameter {
 
         MethodParameter that = (MethodParameter) o;
 
-        if (accessFlag != that.accessFlag) return false;
-        return name.equals(that.name);
+        return accessFlags == that.accessFlags && name.equals(that.name);
+    }
+
+    public boolean isFinal() {
+        return AccessFlag.isFinal(accessFlags);
+    }
+
+    public boolean isSynthetic() {
+        return AccessFlag.isSynthetic(accessFlags);
+    }
+
+    public boolean isMandated() {
+        return AccessFlag.isMandated(accessFlags);
     }
 
     @Override
     public int hashCode() {
-        int result = accessFlag.hashCode();
+        int result = Short.hashCode(accessFlags);
         result = 31 * result + name.hashCode();
         return result;
     }
@@ -58,7 +72,7 @@ public final class MethodParameter {
     @Override
     public String toString() {
         return "MethodParameter{" +
-                "accessFlag=" + accessFlag +
+                "accessFlags=" + accessFlags +
                 ", name=" + name +
                 '}';
     }

@@ -2,7 +2,7 @@ package jbuild.extension;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
-import jbuild.classes.JBuildClassFileParser;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.extension.ConfigObject.ConfigObjectConstructor;
