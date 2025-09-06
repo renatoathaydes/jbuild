@@ -13,6 +13,7 @@ import jbuild.commands.DoctorCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.RequirementsCommandExecutor;
+import jbuild.commands.ShowModuleCommand;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
@@ -85,6 +86,7 @@ public final class Main {
                     "  * " + FetchOptions.NAME + " - " + FetchOptions.DESCRIPTION + LINE_END +
                     "  * " + InstallOptions.NAME + " - " + InstallOptions.DESCRIPTION + LINE_END +
                     "  * " + RequirementsOptions.NAME + " - " + RequirementsOptions.DESCRIPTION + LINE_END +
+                    "  * " + ShowModulesOptions.NAME + " - " + ShowModulesOptions.DESCRIPTION + LINE_END +
                     "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
                     "  * help - displays this help message or help for one of the other commands" + LINE_END +
                     LINE_END +
@@ -167,6 +169,9 @@ public final class Main {
             case RequirementsOptions.NAME:
                 requirements(options);
                 break;
+            case ShowModulesOptions.NAME:
+                showModules(options);
+                break;
             default:
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
@@ -197,6 +202,9 @@ public final class Main {
                     break;
                 case RequirementsOptions.NAME:
                     System.out.println(RequirementsOptions.USAGE);
+                    break;
+                case ShowModulesOptions.NAME:
+                    System.out.println(ShowModulesOptions.USAGE);
                     break;
                 case VersionsOptions.NAME:
                     System.out.println(VersionsOptions.USAGE);
@@ -440,6 +448,12 @@ public final class Main {
         await(command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass),
                 Duration.ofMinutes(2),
                 "requirements");
+    }
+
+    private void showModules(Options options) throws Exception {
+        var command = new ShowModuleCommand(log);
+        var commandOptions = ShowModulesOptions.parse(options.commandArgs);
+        command.show(commandOptions.inputFiles);
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

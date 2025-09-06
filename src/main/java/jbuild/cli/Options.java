@@ -975,3 +975,28 @@ final class CompileOptions {
                 incrementalChanges);
     }
 }
+
+final class ShowModulesOptions {
+    static final String NAME = "module";
+    static final String DESCRIPTION = "shows Java module details";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    Show Java module's details. One or more file may be provided." + LINE_END +
+            "    Each file should be either a jar or a module-info.class file." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <file...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " lib.jar target/classes/module-info.class";
+
+    public final Set<String> inputFiles;
+
+    ShowModulesOptions(Set<String> inputFiles) {
+        this.inputFiles = inputFiles;
+    }
+
+    static ShowModulesOptions parse(List<String> args) {
+        var input = new LinkedHashSet<String>(args.size());
+        input.addAll(args);
+        return new ShowModulesOptions(input);
+    }
+}

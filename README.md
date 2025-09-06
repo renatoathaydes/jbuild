@@ -34,6 +34,7 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [ ] generate POM (done by `jb`).
 - [x] optionally compile using `groovyc` (i.e. can handle mixed Groovy/Java code base).
 - [ ] optionally compile using `kotlinc` (i.e. can handle mixed Kotlin/Java code base).
+- [x] show whether a jar or class file is a Java modules, and if so, details about it.
 
 ## Non-features
 
