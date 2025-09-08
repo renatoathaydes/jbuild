@@ -15,6 +15,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -66,28 +67,41 @@ public final class ShowModuleCommand {
     }
 
     private void showJar(File file) throws IOException {
-        try (ZipFile zipFile = new ZipFile(file, ZipFile.OPEN_READ)) {
-            var moduleEntry = findModuleInfo(zipFile);
+        try (var jar = new JarFile(file, false, ZipFile.OPEN_READ)) {
+            var moduleEntry = findModuleInfo(jar);
             if (moduleEntry == null) {
+                var automaticModule = findAutomaticModule(jar);
+                if (automaticModule != null) {
+                    log.println("Jar " + file + " is an automatic module: " + automaticModule);
+                    return;
+                }
                 log.println("Jar " + file + " is not a module.");
                 return;
             }
-            try (var stream = zipFile.getInputStream(moduleEntry)) {
+            try (var stream = jar.getInputStream(moduleEntry)) {
                 showClassFile(file, stream);
             }
         }
     }
 
-    private ZipEntry findModuleInfo(ZipFile zipFile) {
-        var entry = zipFile.getEntry("module-info.class");
+    private String findAutomaticModule(JarFile jar) throws IOException {
+        return jar.getManifest().getMainAttributes().getValue("Automatic-Module-Name");
+    }
+
+    private ZipEntry findModuleInfo(JarFile jar) throws IOException {
+        var multiRelease = jar.getManifest().getMainAttributes().getValue("Multi-Release");
+        if (!Boolean.parseBoolean(multiRelease)) {
+            return null;
+        }
+        var entry = jar.getEntry("module-info.class");
         if (entry != null) return entry;
-        if (zipFile.getEntry("META-INF/versions/") == null) return null;
+        if (jar.getEntry("META-INF/versions/") == null) return null;
         var javaVersion = JavaVersionHelper.currentJavaVersion();
         while (javaVersion > 7) {
-            entry = zipFile.getEntry("META-INF/versions/" + javaVersion + "/module-info.class");
+            entry = jar.getEntry("META-INF/versions/" + javaVersion + "/module-info.class");
             if (entry != null) {
                 final int version = javaVersion;
-                log.verbosePrintln(() -> "File " + zipFile.getName() + " has a module-info file at release=" + version);
+                log.verbosePrintln(() -> "File " + jar.getName() + " has a module-info file at release=" + version);
                 return entry;
             }
             javaVersion--;
