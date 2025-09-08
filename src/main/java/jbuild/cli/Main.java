@@ -450,10 +450,10 @@ public final class Main {
                 "requirements");
     }
 
-    private void showModules(Options options) throws Exception {
+    private void showModules(Options options) {
         var command = new ShowModuleCommand(log);
         var commandOptions = ShowModulesOptions.parse(options.commandArgs);
-        command.show(commandOptions.inputFiles);
+        command.show(List.copyOf(commandOptions.inputFiles));
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

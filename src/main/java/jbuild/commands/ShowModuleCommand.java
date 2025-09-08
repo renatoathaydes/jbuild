@@ -4,6 +4,7 @@ import jbuild.classes.ClassFileException;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.ModuleAttribute;
 import jbuild.classes.parser.JBuildClassFileParser;
+import jbuild.java.JavaVersionHelper;
 import jbuild.log.JBuildLog;
 
 import java.io.File;
@@ -12,9 +13,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public final class ShowModuleCommand {
@@ -25,18 +26,27 @@ public final class ShowModuleCommand {
         this.log = log;
     }
 
-    public void show(Collection<String> jarsOrClassFiles) {
+    /**
+     * Show whether the jars or class files are modules, and if so, details about them.
+     *
+     * @param jarsOrClassFiles jar files or class files
+     * @return true if ok, false otherwise
+     */
+    public boolean show(List<String> jarsOrClassFiles) {
+        boolean ok = true;
         for (String jarsOrClassFile : jarsOrClassFiles) {
             var file = new File(jarsOrClassFile);
             if (file.isFile()) {
-                show(file);
+                ok &= show(file);
             } else {
                 log.println("ERROR: not a file: " + jarsOrClassFile);
+                ok = false;
             }
         }
+        return ok;
     }
 
-    private void show(File file) {
+    private boolean show(File file) {
         try {
             if (file.getName().endsWith(".jar")) {
                 log.verbosePrintln(() -> "Showing a jar file: " + file);
@@ -45,16 +55,19 @@ public final class ShowModuleCommand {
                 log.verbosePrintln(() -> "Trying to parse as class file: " + file);
                 showClassFile(file, Files.newInputStream(file.toPath(), StandardOpenOption.READ));
             }
+            return true;
         } catch (IOException e) {
             log.println("ERROR: Reading file : " + file + ": " + e.getMessage());
+            return false;
         } catch (Exception e) {
             log.println("ERROR: Reading file : " + file + ": " + e);
+            return false;
         }
     }
 
     private void showJar(File file) throws IOException {
         try (ZipFile zipFile = new ZipFile(file, ZipFile.OPEN_READ)) {
-            var moduleEntry = zipFile.getEntry("module-info.class");
+            var moduleEntry = findModuleInfo(zipFile);
             if (moduleEntry == null) {
                 log.println("Jar " + file + " is not a module.");
                 return;
@@ -63,6 +76,23 @@ public final class ShowModuleCommand {
                 showClassFile(file, stream);
             }
         }
+    }
+
+    private ZipEntry findModuleInfo(ZipFile zipFile) {
+        var entry = zipFile.getEntry("module-info.class");
+        if (entry != null) return entry;
+        if (zipFile.getEntry("META-INF/versions/") == null) return null;
+        var javaVersion = JavaVersionHelper.currentJavaVersion();
+        while (javaVersion > 7) {
+            entry = zipFile.getEntry("META-INF/versions/" + javaVersion + "/module-info.class");
+            if (entry != null) {
+                final int version = javaVersion;
+                log.verbosePrintln(() -> "File " + zipFile.getName() + " has a module-info file at release=" + version);
+                return entry;
+            }
+            javaVersion--;
+        }
+        return null;
     }
 
     private void showClassFile(File file, InputStream stream) throws IOException {
