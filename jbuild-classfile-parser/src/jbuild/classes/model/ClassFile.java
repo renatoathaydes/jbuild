@@ -4,11 +4,8 @@ import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
-import jbuild.classes.parser.AnnotationParser;
-import jbuild.classes.parser.ByteScanner;
+import jbuild.classes.parser.AttributeParser;
 import jbuild.classes.parser.JavaTypeSignatureParser;
-import jbuild.classes.parser.MethodParametersParser;
-import jbuild.classes.parser.ModuleAttributeParser;
 import jbuild.classes.signature.MethodSignature;
 
 import java.nio.charset.StandardCharsets;
@@ -57,7 +54,7 @@ public final class ClassFile {
     public final List<MethodInfo> methods;
     public final List<AttributeInfo> attributes;
 
-    private final AnnotationParser annotationParser = new AnnotationParser(this);
+    private final AttributeParser attributeParser = new AttributeParser(this);
 
     // cached values
     private Set<String> typesReferredTo;
@@ -106,7 +103,7 @@ public final class ClassFile {
     public String getSourceFile() {
         return attributes.stream()
                 .filter(attr -> getUtf8(attr.nameIndex).equals("SourceFile"))
-                .map(attr -> getUtf8(new ByteScanner(attr.attributes).nextShort()))
+                .map(attr -> attributeParser.parseSourceFileAttribute(attr.attributes))
                 .findFirst()
                 .orElseThrow();
     }
@@ -178,11 +175,10 @@ public final class ClassFile {
      * @return the value of the MethodParameters attribute or the empty List if unavailable.
      */
     public List<MethodParameter> getMethodParameters(MethodInfo methodInfo) {
-        var methodParamsParser = new MethodParametersParser(this);
         return methodInfo.attributes.stream()
                 .filter(attr -> MethodParameter.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map((attr) -> methodParamsParser.parseMethodParameters(attr.attributes))
+                .map((attr) -> attributeParser.parseMethodParameters(attr.attributes))
                 .orElse(List.of());
     }
 
@@ -190,21 +186,20 @@ public final class ClassFile {
         if (!AccessFlags.isModule(accessFlags)) {
             return Optional.empty();
         }
-        var parser = new ModuleAttributeParser(this);
         var attribute = attributes.stream()
                 .filter(attr -> ModuleAttribute.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Module attribute not found despite access flags " +
                         "indicating class file is a module"));
 
-        return Optional.of(parser.parseModuleAttribute(attribute));
+        return Optional.of(attributeParser.parseModuleAttribute(attribute));
     }
 
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {
         return attributes.stream()
                 .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map(attribute -> annotationParser.parseAnnotationInfo(attribute.attributes))
+                .map(attribute -> attributeParser.parseAnnotationInfo(attribute.attributes))
                 .orElse(List.of());
     }
 
@@ -213,7 +208,7 @@ public final class ClassFile {
         return attributes.stream()
                 .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map(attribute -> annotationParser.parseMethodParameter(attribute.attributes))
+                .map(attribute -> attributeParser.parseMethodParameter(attribute.attributes))
                 .orElse(List.of());
     }
 

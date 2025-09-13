@@ -19,7 +19,7 @@ import java.util.List;
  * }
  * </pre>
  */
-public final class MethodParametersParser extends AbstractAttributeParser {
+final class MethodParametersParser extends AbstractAttributeParser {
 
     public MethodParametersParser(ClassFile classFile) {
         super(classFile);

@@ -9,7 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-public final class ModuleAttributeParser extends AbstractAttributeParser {
+final class ModuleAttributeParser extends AbstractAttributeParser {
     public ModuleAttributeParser(ClassFile classFile) {
         super(classFile);
     }

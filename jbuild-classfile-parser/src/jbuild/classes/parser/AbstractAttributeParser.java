@@ -3,7 +3,7 @@ package jbuild.classes.parser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 
-public abstract class AbstractAttributeParser {
+abstract class AbstractAttributeParser {
 
     private final ClassFile classFile;
 
