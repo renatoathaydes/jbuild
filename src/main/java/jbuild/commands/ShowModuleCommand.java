@@ -2,6 +2,7 @@ package jbuild.commands;
 
 import jbuild.classes.ClassFileException;
 import jbuild.classes.model.ClassFile;
+import jbuild.classes.model.MajorVersion;
 import jbuild.classes.model.attributes.ModuleAttribute;
 import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.java.JavaVersionHelper;
@@ -71,21 +72,38 @@ public final class ShowModuleCommand {
             var moduleEntry = findModuleInfo(jar);
             if (moduleEntry == null) {
                 var automaticModule = findAutomaticModule(jar);
-                if (automaticModule != null) {
+                if (automaticModule == null) {
+                    log.println("Jar " + file + " is not a module.");
+                } else {
                     log.println("Jar " + file + " is an automatic module: " + automaticModule);
-                    return;
                 }
-                log.println("Jar " + file + " is not a module.");
-                return;
-            }
-            try (var stream = jar.getInputStream(moduleEntry)) {
-                showClassFile(file, stream);
+                var classFile = findAnyClassFile(jar);
+                if (classFile != null) {
+                    showJavaVersion(classFile);
+                }
+            } else {
+                try (var stream = jar.getInputStream(moduleEntry)) {
+                    showClassFile(file, stream);
+                }
             }
         }
     }
 
     private String findAutomaticModule(JarFile jar) throws IOException {
         return jar.getManifest().getMainAttributes().getValue("Automatic-Module-Name");
+    }
+
+    private ClassFile findAnyClassFile(JarFile jar) throws IOException {
+        var entries = jar.entries();
+        while (entries.hasMoreElements()) {
+            var entry = entries.nextElement();
+            if (entry.getName().endsWith(".class")) {
+                try (var stream = jar.getInputStream(entry)) {
+                    return parseClassFile(entry.getName(), stream);
+                }
+            }
+        }
+        return null;
     }
 
     private ZipEntry findModuleInfo(JarFile jar) throws IOException {
@@ -109,24 +127,31 @@ public final class ShowModuleCommand {
         return null;
     }
 
-    private void showClassFile(File file, InputStream stream) throws IOException {
-        ClassFile classFile;
+    private ClassFile parseClassFile(String path, InputStream stream) throws IOException {
         try {
-            classFile = new JBuildClassFileParser().parse(stream);
+            return new JBuildClassFileParser().parse(stream);
         } catch (ClassFileException e) {
-            log.println("ERROR: File : " + file + " is not a valid class file: " + e.getMessage());
-            return;
+            log.println("ERROR: File : " + path + " is not a valid class file: " + e.getMessage());
+            return null;
         }
-        var moduleAttribute = classFile.getModuleAttribute().orElse(null);
-        if (moduleAttribute == null) {
-            log.println("File " + file + " is not a module.");
-            return;
-        }
-        show(file.getPath(), moduleAttribute);
     }
 
-    private void show(String path, ModuleAttribute moduleAttribute) {
+    private void showClassFile(File file, InputStream stream) throws IOException {
+        var classFile = parseClassFile(file.getPath(), stream);
+        if (classFile != null) {
+            show(file.getPath(), classFile);
+        }
+    }
+
+    private void show(String path, ClassFile classFile) {
+        var moduleAttribute = classFile.getModuleAttribute().orElse(null);
+        if (moduleAttribute == null) {
+            log.println("File " + path + " is not a module.");
+            showJavaVersion(classFile);
+            return;
+        }
         log.println("File " + path + " contains a Java module:");
+        showJavaVersion(classFile);
         log.println("  Name: " + moduleAttribute.moduleName);
         log.println("  Version: " + moduleAttribute.moduleVersion);
         log.println("  Flags: " + flagsOf(moduleAttribute));
@@ -135,6 +160,12 @@ public final class ShowModuleCommand {
         showOpens(moduleAttribute.opens);
         showUses(moduleAttribute.uses);
         showProvides(moduleAttribute.provides);
+    }
+
+    private void showJavaVersion(ClassFile classFile) {
+        log.println("  JavaVersion: " + classFile.majorVersion.toKnownVersion()
+                .map(MajorVersion.Known::displayName)
+                .orElse("unknown"));
     }
 
     private void showRequires(List<ModuleAttribute.Requires> requires) {
