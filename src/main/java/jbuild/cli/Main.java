@@ -41,6 +41,7 @@ import java.util.function.Function;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
@@ -332,7 +333,7 @@ public final class Main {
                         log.println(() -> "Successfully installed " + successes +
                                 " artifact" + (successes == 1 ? "" : "s") + " at " + fileWriter.getDestination());
                     } else {
-                        anyError.set(ErrorCause.ACTION_ERROR);
+                        anyError.set(ACTION_ERROR);
                     }
                 } else {
                     anyError.set(err instanceof JBuildException
@@ -453,7 +454,10 @@ public final class Main {
     private void showModules(Options options) {
         var command = new ShowModuleCommand(log);
         var commandOptions = ShowModulesOptions.parse(options.commandArgs);
-        command.show(List.copyOf(commandOptions.inputFiles));
+        var ok = command.show(List.copyOf(commandOptions.inputFiles));
+        if (!ok) {
+            throw new JBuildException("Failed to show information for one or more modules!", ACTION_ERROR);
+        }
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {
