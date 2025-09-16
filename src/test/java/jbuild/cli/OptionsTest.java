@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.TextUtils.LINE_END;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.MapAssert.assertThatMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -158,6 +159,15 @@ public class OptionsTest {
                 .hasMessage("cannot specify both 'non-transitive' and 'maven-local' options together.");
     }
 
+    @Test
+    void moduleOptions() {
+        verifyModuleOptions(ShowModulesOptions.parse(
+                Options.parse(new String[]{}).commandArgs), List.of());
+        verifyModuleOptions(ShowModulesOptions.parse(
+                        Options.parse(new String[]{"module", "a/b/c", "b.jar"}).commandArgs),
+                List.of("a/b/c", "b.jar"));
+    }
+
     private void verifyOptions(Options options,
                                String command,
                                List<String> commandArgs,
@@ -208,5 +218,9 @@ public class OptionsTest {
         assertEquals(repoDir, options.repoDir, "repoDir");
         assertEquals(scopes, options.scopes, "scopes");
         assertEquals(transitive, options.transitive, "transitive should be " + transitive);
+    }
+
+    private void verifyModuleOptions(ShowModulesOptions options, List<String> modules) {
+        assertThat(options.inputFiles).containsExactlyElementsOf(modules);
     }
 }

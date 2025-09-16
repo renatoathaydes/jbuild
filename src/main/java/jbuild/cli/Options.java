@@ -822,8 +822,7 @@ final class CompileOptions {
                     }
                     classPath.append(part);
                 }
-            }
-            if (waitingForModulePath) {
+            } else if (waitingForModulePath) {
                 waitingForModulePath = false;
                 for (String part : arg.split("[;:]", -1)) {
                     if (part.isBlank())
