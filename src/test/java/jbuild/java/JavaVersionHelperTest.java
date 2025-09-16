@@ -18,6 +18,7 @@ public class JavaVersionHelperTest {
         assertThat(JavaVersionHelper.parseJavaVersion("11.0.14")).isEqualTo(11);
         assertThat(JavaVersionHelper.parseJavaVersion("17.0.2")).isEqualTo(17);
         assertThat(JavaVersionHelper.parseJavaVersion("24.0.2")).isEqualTo(24);
+        assertThat(JavaVersionHelper.parseJavaVersion("25-ea")).isEqualTo(25);
     }
 
 }

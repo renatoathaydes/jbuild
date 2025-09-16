@@ -39,7 +39,7 @@ public final class GroovyCompiler implements JbuildCompiler {
                                  String classPath,
                                  String modulePath,
                                  List<String> compilerArgs) {
-        var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs);
+        var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs, true);
         return run(args);
     }
 

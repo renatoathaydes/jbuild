@@ -10,7 +10,7 @@ public class JavaVersionHelper {
     static int parseJavaVersion(String versionString) {
         var dotIndex = versionString.indexOf('.');
         if (dotIndex <= 0) {
-            error(versionString);
+            return parseEarlyReleaseVersion(versionString);
         }
         try {
             var firstDigit = Integer.parseInt(versionString.substring(0, dotIndex));
@@ -23,12 +23,23 @@ public class JavaVersionHelper {
             }
             return firstDigit;
         } catch (NumberFormatException e) {
-            error(versionString);
+            return error(versionString);
         }
-        return -1;
     }
 
-    private static void error(String versionString) {
+    private static int parseEarlyReleaseVersion(String versionString) {
+        var dashIndex = versionString.indexOf('-');
+        if (dashIndex <= 0) {
+            return error(versionString);
+        }
+        try {
+            return Integer.parseInt(versionString.substring(0, dashIndex));
+        } catch (NumberFormatException e) {
+            return error(versionString);
+        }
+    }
+
+    private static int error(String versionString) {
         throw new IllegalStateException("java.version system property not a recognizable version: '" + versionString + '\'');
     }
 

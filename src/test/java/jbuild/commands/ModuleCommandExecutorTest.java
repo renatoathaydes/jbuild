@@ -28,7 +28,9 @@ public class ModuleCommandExecutorTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0))
                 .isInstanceOf(ShowModuleCommand.SimpleJar.class)
-                .isEqualTo(new ShowModuleCommand.SimpleJar(new File(jar), currentMajorJavaVersion()));
+                .isEqualTo(new ShowModuleCommand.SimpleJar(new File(jar),
+                        // thanks to the --release flag this should be stable
+                        "11"));
     }
 
     @Test
@@ -47,12 +49,7 @@ public class ModuleCommandExecutorTest {
                 .isEqualTo(new ShowModuleCommand.AutomaticModule(
                         new File(jar),
                         "com.athaydes.jbuild.api",
-                        currentMajorJavaVersion()));
-    }
-
-    private static String currentMajorJavaVersion() {
-        var version = System.getProperty("java.version");
-        var index = version.indexOf('.');
-        return version.substring(0, index);
+                        // thanks to the --release flag this should be stable
+                        "11"));
     }
 }

@@ -292,7 +292,7 @@ public abstract class Tools {
                                      String modulePath,
                                      List<String> compilerArgs) {
             validateCompilerArgs(compilerArgs);
-            var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs);
+            var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs, false);
             log.verbosePrintln(() -> "Compile command: javac " + String.join(" ", args));
             return run(args);
         }
@@ -311,27 +311,41 @@ public abstract class Tools {
         }
 
         static List<String> collectArgs(Set<String> files,
-                                                String outDir,
+                                        String outDir,
                                         String classPath,
                                         String modulePath,
-                                                List<String> compilerArgs) {
+                                        List<String> compilerArgs,
+                                        boolean forGroovy) {
             var result = new ArrayList<String>();
 
-            if (!compilerArgs.contains("-encoding")) {
-                result.add("-encoding");
+            var encodingOption = "-encoding";
+            if (forGroovy) encodingOption = "-" + encodingOption;
+            if (!compilerArgs.contains(encodingOption)) {
+                result.add(encodingOption);
                 result.add("utf-8");
             }
-            if (!compilerArgs.contains("-nowarn") && !compilerArgs.contains("-Werror")) {
-                result.add("-Werror");
+            // warnings options
+            if (forGroovy) {
+                if (!compilerArgs.contains("-w") && !compilerArgs.contains("--warningLevel")) {
+                    result.add("-w");
+                    result.add("3");
+                }
+            } else {
+                if (!compilerArgs.contains("-nowarn") && !compilerArgs.contains("-Werror")) {
+                    result.add("-Werror");
+                }
             }
-            if (!compilerArgs.contains("-parameters")) {
-                result.add("-parameters");
+            var paramsOption = "-parameters";
+            if (forGroovy) paramsOption = "-" + paramsOption;
+            if (!compilerArgs.contains(paramsOption)) {
+                result.add(paramsOption);
             }
             result.add("-d");
             result.add(outDir);
 
             if (!classPath.isBlank()) {
-                result.add("--class-path");
+                // this works for Java and Groovy
+                result.add("-classpath");
                 result.add(classPath);
             }
             if (!modulePath.isBlank()) {
