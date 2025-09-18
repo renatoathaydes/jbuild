@@ -1,5 +1,6 @@
 package jbuild.java.tools;
 
+import jbuild.java.JavaTypeMapCreator;
 import jbuild.log.JBuildLog;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +11,6 @@ import java.util.List;
 import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static jbuild.java.JavapOutputParserTest.javapParse;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,6 +18,8 @@ public class JavacToolTest {
 
     @Test
     void canCompileSingleJavaFile() throws IOException {
+        JBuildLog log = new JBuildLog(System.out, false);
+
         var dir = Files.createTempDirectory(JavacToolTest.class.getName());
         var javaSrc = dir.resolve("src/my/JavaClass.java");
         assertThat(javaSrc.getParent().toFile().mkdirs()).isTrue();
@@ -32,7 +34,7 @@ public class JavacToolTest {
                 "    }\n" +
                 "}");
 
-        var result = Tools.Javac.create(new JBuildLog(System.out, false))
+        var result = Tools.Javac.create(log)
                 .compile(Set.of(javaSrc.toString()), outDir.getPath(), "", "", List.of());
         verifyToolSuccessful("javac", result);
 
@@ -40,8 +42,8 @@ public class JavacToolTest {
         assertThat(expectedClassFile).isNotEmptyFile();
 
         // verify that the class file was generated as expected
-        var types = javapParse(outDir.toString(), false, "my.JavaClass");
-        assertThat(types.keySet()).containsExactlyInAnyOrder("Lmy/JavaClass;");
+        var types = new JavaTypeMapCreator(log).getTypeMapsFrom(expectedClassFile.toFile());
+        assertThat(types.keySet()).containsExactlyInAnyOrder("my.JavaClass");
     }
 
     private static void write(Path path, String contents) throws IOException {

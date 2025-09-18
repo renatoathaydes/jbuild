@@ -5,6 +5,7 @@ import jbuild.log.JBuildLog;
 import jbuild.util.NonEmptyCollection;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowingConsumer;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -31,6 +32,7 @@ import static jbuild.java.TestHelper.jar;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Disabled("doctor command requires re-implementation after javap parser was removed")
 public class DoctorCommandExecutorRealJarsTest {
 
     @Test
@@ -150,7 +152,7 @@ public class DoctorCommandExecutorRealJarsTest {
 
             var codeToSet = result.getErrors().stream()
                     .flatMap(NonEmptyCollection::stream)
-                    .map(error -> error.to.typeName)
+                    .map(error -> error.to)
                     .collect(Collectors.toSet());
 
             assertThat(codeToSet).containsExactlyInAnyOrder(

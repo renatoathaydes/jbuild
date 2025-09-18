@@ -1,7 +1,7 @@
 package jbuild.commands;
 
 import jbuild.TestSystemProperties;
-import jbuild.java.JavapOutputParser;
+import jbuild.java.JavaTypeMapCreator;
 import jbuild.java.tools.Tools;
 import jbuild.util.Either;
 import jbuild.util.TestHelper;
@@ -19,7 +19,6 @@ import java.util.zip.ZipFile;
 
 import static java.util.stream.Collectors.toList;
 import static jbuild.TestSystemProperties.groovyJar;
-import static jbuild.java.JavapOutputParserTest.javap;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,10 +86,11 @@ public class CompileCommandExecutorTest {
 
         assertThat(buildFiles).containsExactlyInAnyOrder(fooClass.toFile(), barClass.toFile());
 
-        var types = new JavapOutputParser(log).processJavapOutput(
-                javap(buildDir.toString(), "Foo", "Bar"));
+        var typeMapCreator = new JavaTypeMapCreator(log);
+        var types = typeMapCreator.getTypeMapsFrom(fooClass.toFile());
+        types.putAll(typeMapCreator.getTypeMapsFrom(barClass.toFile()));
 
-        assertThat(types.keySet()).contains("LFoo;", "LBar;");
+        assertThat(types.keySet()).contains("Foo", "Bar");
     }
 
     @Test
@@ -248,10 +248,10 @@ public class CompileCommandExecutorTest {
 
         assertThat(buildFiles).containsExactlyInAnyOrder(fooClass.toFile());
 
-        var types = new JavapOutputParser(log).processJavapOutput(
-                javap(jar.toString(), "Bar"));
+        var typeMapCreator = new JavaTypeMapCreator(log);
+        var types = typeMapCreator.getTypeMapsFrom(jar.toFile());
 
-        assertThat(types.keySet()).contains("LBar;");
+        assertThat(types.keySet()).contains("Bar");
     }
 
     @Test

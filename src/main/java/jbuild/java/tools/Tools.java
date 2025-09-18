@@ -6,7 +6,6 @@ import jbuild.log.JBuildLog;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.spi.ToolProvider;
@@ -86,77 +85,6 @@ public abstract class Tools {
                 new PrintStream(stderr(), false, ISO_8859_1),
                 args);
         return result(exitCode, args);
-    }
-
-    /**
-     * The javap tool.
-     */
-    public static final class Javap extends Tools {
-
-        private static final ToolProvider toolProvider = Tools.lookupTool("javap");
-
-        public static Javap create() {
-            return new Javap(toolProvider, new MemoryStreams());
-        }
-
-        private Javap(ToolProvider tool, Streams streams) {
-            super(tool, streams);
-        }
-
-        /**
-         * Run javap with the default flags used in JBuild.
-         * <p>
-         * The output can be piped into {@link jbuild.java.JavapOutputParser} for parsing.
-         *
-         * @param classpath  the classpath. May be empty.
-         * @param classNames name of types to include
-         * @return result
-         */
-        public ToolRunResult run(String classpath, Collection<String> classNames) {
-            var args = collectArgs(classpath, classNames);
-            var toolResult = tool.run(stdout(), stderr(), args);
-            return result(toolResult, args);
-        }
-
-        /**
-         * Run javap with the default flags used in JBuild.
-         * <p>
-         * The output can be piped into {@link jbuild.java.JavapOutputParser} for parsing.
-         *
-         * @param classFile the single class file to give to javap.
-         * @return result
-         */
-        public ToolRunResult run(String classFile) {
-            var args = collectArgs(classFile);
-            var exitCode = tool.run(stdout(), stderr(), args);
-            return result(exitCode, args);
-        }
-
-        private static String[] collectArgs(String classpath,
-                                            Collection<String> classNames) {
-            var extraArgs = classpath.isBlank() ? 4 : 6;
-            var result = new String[classNames.size() + extraArgs];
-            var i = 0;
-            result[i++] = "-v";
-            result[i++] = "-s";
-            result[i++] = "-c";
-            result[i++] = "-p";
-            if (!classpath.isBlank()) {
-                result[i++] = "-classpath";
-                result[i++] = classpath;
-            }
-            for (var className : classNames) {
-                result[i++] = className;
-            }
-            return result;
-        }
-
-        private static String[] collectArgs(String classFile) {
-            return new String[]{
-                    "-v", "-s", "-c", "-p", classFile
-            };
-        }
-
     }
 
     /**

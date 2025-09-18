@@ -632,7 +632,7 @@ final class RequirementsOptions {
             "    " + LINE_END +
             "    Determines the Java types required by a set of jars or class files." + LINE_END +
             "      Usage:" + LINE_END +
-            "        jbuild " + NAME + "<options...> <file...>" + LINE_END +
+            "        jbuild " + NAME + " <options...> <file...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --per-class" + LINE_END +
             "        -c        show intra-jar requirements per-class" + LINE_END +

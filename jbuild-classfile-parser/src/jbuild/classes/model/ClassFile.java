@@ -223,7 +223,7 @@ public final class ClassFile {
         return 'L' + name + ';';
     }
 
-    private String getUtf8(short index) {
+    public String getUtf8(short index) {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(index & 0xFFFF);
         return utf8.asString();
     }

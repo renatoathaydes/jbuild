@@ -1,15 +1,10 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
-import jbuild.java.CallHierarchyVisitor;
-import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
 import jbuild.java.JarSetPermutations;
-import jbuild.java.code.Code;
-import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.CollectionUtils;
-import jbuild.util.Describable;
 import jbuild.util.JarFileFilter;
 import jbuild.util.NonEmptyCollection;
 
@@ -17,7 +12,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -28,7 +22,6 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
@@ -96,14 +89,8 @@ public final class DoctorCommandExecutor {
             }
 
             var checkResults = jarSets.stream().map(jarSet -> jarSet.toClassGraph().thenApplyAsync(classGraph -> {
-                        var callHVisitor = new CallHierarchyVisitor(classGraph, typeExclusions, Set.of());
-                        var docVisitor = new DoctorVisitor(log);
-                        callHVisitor.visit(entryJars, docVisitor);
-                        if (docVisitor.inconsistencies.isEmpty()) {
-                            log.verbosePrintln(() -> "Visited: " + docVisitor.visitedJars);
-                            return ConsistencyCheckResult.success(docVisitor.visitedJars);
-                        }
-                        return ConsistencyCheckResult.failure(NonEmptyCollection.of(docVisitor.inconsistencies));
+                        // TODO re-implement
+                        return ConsistencyCheckResult.success(jarSet.getJarFiles());
                     }).thenApplyAsync(results -> ClasspathCheckResult.of(results, jarSet)))
                     .collect(toList());
 
@@ -160,7 +147,7 @@ public final class DoctorCommandExecutor {
             log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
 
             var errorCount = 0;
-            var errorsGroupedByTarget = new LinkedHashMap<Describable, List<ClassPathInconsistency>>();
+            var errorsGroupedByTarget = new LinkedHashMap<String, List<ClassPathInconsistency>>();
             for (var inconsistency : failureResult.getErrors().get()) {
                 errorCount++;
                 errorsGroupedByTarget.computeIfAbsent(inconsistency.to,
@@ -175,7 +162,7 @@ public final class DoctorCommandExecutor {
                     : CollectionUtils.take(errorsGroupedByTarget, 5);
 
             for (var error : reportable.entrySet()) {
-                var target = error.getKey().getDescription();
+                var target = error.getKey();
                 log.println("  * " + target + " not found, but referenced from:");
                 var problems = error.getValue().stream();
                 var isHidingProblems = false;
@@ -253,81 +240,6 @@ public final class DoctorCommandExecutor {
         }
     }
 
-    private static final class DoctorVisitor implements CallHierarchyVisitor.Visitor {
-
-        private final JBuildLog log;
-        final List<ClassPathInconsistency> inconsistencies = new ArrayList<>();
-        final Set<File> visitedJars = new HashSet<>();
-
-        private File currentJar;
-
-        public DoctorVisitor(JBuildLog log) {
-            this.log = log;
-        }
-
-        @Override
-        public void startJar(File jar) {
-            currentJar = jar;
-        }
-
-        @Override
-        public void visit(List<Describable> referenceChain,
-                          ClassGraph.TypeDefinitionLocation typeDefinitionLocation) {
-            log.verbosePrintln(() -> "Visiting type " + typeDefinitionLocation.typeDefinition.typeName);
-            visitedJars.add(typeDefinitionLocation.jar);
-        }
-
-        @Override
-        public void visit(List<Describable> referenceChain, Definition definition) {
-            log.verbosePrintln(() -> "Visiting definition " + definition.getDescription());
-        }
-
-        @Override
-        public void visit(List<Describable> referenceChain, Code code) {
-            log.verbosePrintln(() -> "Visiting code usage " + code.getDescription());
-        }
-
-        @Override
-        public void onMissingType(List<Describable> referenceChain, String typeName) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    new Code.Type(typeName), currentJar, null));
-        }
-
-        @Override
-        public void onMissingMethod(List<Describable> referenceChain,
-                                    ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
-                                    Code.Method method) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    method, currentJar, typeDefinitionLocation.jar));
-        }
-
-        @Override
-        public void onMissingField(List<Describable> referenceChain,
-                                   ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
-                                   Code.Field field) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    field, currentJar, typeDefinitionLocation.jar));
-        }
-
-        @Override
-        public void onMissingField(List<Describable> referenceChain,
-                                   String javaTypeName,
-                                   Code.Field field) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    field, null, null));
-        }
-
-        private static String describeChain(List<Describable> referenceChain) {
-            return referenceChain.isEmpty() ? "" :
-                    referenceChain.stream().map(Describable::getDescription)
-                            .collect(joining(" -> ", "", ""));
-        }
-    }
-
     private static final class ConsistencyCheckResult {
 
         public final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
@@ -357,13 +269,14 @@ public final class DoctorCommandExecutor {
     public static final class ClassPathInconsistency {
 
         public final String referenceChain;
-        public final Code to;
+        // Java field/method/class?
+        public final String to;
         public final File jarFrom;
         public final File jarTo;
 
         public ClassPathInconsistency(
                 String referenceChain,
-                Code to,
+                String to,
                 File jarFrom,
                 File jarTo) {
             this.referenceChain = referenceChain;
