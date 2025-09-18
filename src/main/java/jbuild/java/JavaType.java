@@ -9,11 +9,17 @@ public final class JavaType {
     }
 
     public static class TypeId {
-        public final String name;
+        /**
+         * Java Class name.
+         */
+        public final String className;
+        /**
+         * Kind of type.
+         */
         public final Kind kind;
 
-        public TypeId(String name, Kind kind) {
-            this.name = name;
+        public TypeId(String className, Kind kind) {
+            this.className = className;
             this.kind = kind;
         }
 
@@ -22,12 +28,12 @@ public final class JavaType {
             if (o == null || getClass() != o.getClass()) return false;
 
             TypeId typeId = (TypeId) o;
-            return name.equals(typeId.name) && kind == typeId.kind;
+            return className.equals(typeId.className) && kind == typeId.kind;
         }
 
         @Override
         public int hashCode() {
-            int result = name.hashCode();
+            int result = className.hashCode();
             result = 31 * result + kind.hashCode();
             return result;
         }
@@ -35,7 +41,7 @@ public final class JavaType {
         @Override
         public String toString() {
             return "TypeId{" +
-                    "name='" + name + '\'' +
+                    "name='" + className + '\'' +
                     ", kind=" + kind +
                     '}';
         }

@@ -43,7 +43,7 @@ public class JavacToolTest {
 
         // verify that the class file was generated as expected
         var types = new JavaTypeMapCreator(log).getTypeMapsFrom(expectedClassFile.toFile());
-        assertThat(types.keySet()).containsExactlyInAnyOrder("my.JavaClass");
+        assertThat(types.keySet()).containsExactlyInAnyOrder("Lmy/JavaClass;");
     }
 
     private static void write(Path path, String contents) throws IOException {

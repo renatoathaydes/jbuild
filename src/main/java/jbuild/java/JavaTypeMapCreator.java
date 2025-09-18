@@ -93,14 +93,15 @@ public final class JavaTypeMapCreator {
         } catch (ClassFileException e) {
             throw new JBuildException("failed to parse class file " + description, ACTION_ERROR);
         }
-        var className = JavaTypeUtils.typeNameToClassName(classFile.getTypeName());
+        var typeName = classFile.getTypeName();
+        var className = JavaTypeUtils.typeNameToClassName(typeName);
         if (include(className, classNames)) {
-            result.put(className, createJavaType(classFile));
+            result.put(typeName, createJavaType(className, classFile));
         }
     }
 
-    private static JavaType createJavaType(ClassFile classFile) {
-        var typeId = new JavaType.TypeId(classFile.getTypeName(), kindOf(classFile));
+    private static JavaType createJavaType(String className, ClassFile classFile) {
+        var typeId = new JavaType.TypeId(className, kindOf(classFile));
         return new JavaType(typeId, classFile);
     }
 

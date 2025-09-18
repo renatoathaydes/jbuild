@@ -130,7 +130,13 @@ public final class Jar {
      * Parsed contents of a jar.
      */
     public static final class ParsedJar {
+        /**
+         * Jar file.
+         */
         public final File file;
+        /**
+         * Types in the jar, by internal type name.
+         */
         public final Map<String, JavaType> typeByName;
 
         public ParsedJar(File file, Map<String, JavaType> typeByName) {
@@ -138,7 +144,7 @@ public final class Jar {
             this.typeByName = typeByName;
         }
 
-        public Set<String> getTypes() {
+        public Set<String> getTypeNames() {
             return typeByName.keySet();
         }
     }

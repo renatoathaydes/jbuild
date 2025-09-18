@@ -90,7 +90,7 @@ public class CompileCommandExecutorTest {
         var types = typeMapCreator.getTypeMapsFrom(fooClass.toFile());
         types.putAll(typeMapCreator.getTypeMapsFrom(barClass.toFile()));
 
-        assertThat(types.keySet()).contains("Foo", "Bar");
+        assertThat(types.keySet()).contains("LFoo;", "LBar;");
     }
 
     @Test
@@ -251,7 +251,7 @@ public class CompileCommandExecutorTest {
         var typeMapCreator = new JavaTypeMapCreator(log);
         var types = typeMapCreator.getTypeMapsFrom(jar.toFile());
 
-        assertThat(types.keySet()).contains("Bar");
+        assertThat(types.keySet()).contains("LBar;");
     }
 
     @Test

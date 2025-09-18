@@ -121,7 +121,7 @@ public final class ClassGraph {
         public TypeDefinitionLocation(JavaType typeDefinition, File jar) {
             this.typeDefinition = typeDefinition;
             this.jar = jar;
-            this.className = typeNameToClassName(typeDefinition.typeId.name);
+            this.className = typeDefinition.typeId.className;
         }
 
         @Override
