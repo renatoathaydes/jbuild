@@ -8,11 +8,8 @@ import jbuild.classes.parser.AttributeParser;
 import jbuild.classes.parser.JavaTypeSignatureParser;
 import jbuild.classes.signature.MethodSignature;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -110,13 +107,9 @@ public final class ClassFile {
 
     public Set<String> getTypesReferredTo() {
         if (typesReferredTo == null) {
-            var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(thisClass & 0xFFFF);
-            var thisClassNameIndex = thisClassInfo.nameIndex;
             typesReferredTo = constPoolEntries.stream()
-                    .filter(e -> e != null &&
-                            (e.tag == ConstPoolInfo.ConstClass.TAG || e.tag == ConstPoolInfo.NameAndType.TAG))
-                    .map(e -> typeName(e, thisClassNameIndex))
-                    .filter(Objects::nonNull)
+                    .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG)
+                    .map(e -> nameOf((ConstPoolInfo.ConstClass) e))
                     .collect(toSet());
         }
         return typesReferredTo;
@@ -214,7 +207,6 @@ public final class ClassFile {
 
     private String nameOf(ConstPoolInfo.ConstClass type) {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex & 0xFFFF);
-        if (isJavaClassName(utf8)) return null;
         var name = utf8.asString();
         if (name.startsWith("[")) {
             // array types are already in the type name format
@@ -228,27 +220,4 @@ public final class ClassFile {
         return utf8.asString();
     }
 
-    private String typeName(ConstPoolInfo info, short nameIndex) {
-        if (info.tag == ConstPoolInfo.ConstClass.TAG) {
-            var classInfo = (ConstPoolInfo.ConstClass) info;
-            if (classInfo.nameIndex == nameIndex)
-                return null;
-            return nameOf(classInfo);
-        }
-        if (info.tag == ConstPoolInfo.NameAndType.TAG) {
-            var nameAndType = (ConstPoolInfo.NameAndType) info;
-            if (nameAndType.descriptorIndex == nameIndex)
-                return null;
-            return getUtf8(nameAndType.descriptorIndex);
-        }
-        throw new IllegalArgumentException("unsupported type: " + info.getClass().getSimpleName());
-    }
-
-    private static boolean isJavaClassName(ConstPoolInfo.Utf8 utf8) {
-        var len = utf8.value.length;
-        var minLen = JAVA_CLASSES_PREFIX.length;
-        return len > minLen && Arrays.compare(utf8.value, 0, minLen, JAVA_CLASSES_PREFIX, 0, minLen) == 0;
-    }
-
-    private static final byte[] JAVA_CLASSES_PREFIX = "java/lang/".getBytes(StandardCharsets.UTF_8);
 }

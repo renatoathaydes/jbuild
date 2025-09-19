@@ -1,12 +1,10 @@
 package jbuild.commands;
 
-import jbuild.commands.DoctorCommandExecutor.ClassPathInconsistency;
 import jbuild.commands.DoctorCommandExecutor.ClasspathCheckResult;
 import jbuild.java.TestHelper;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -23,16 +21,14 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.DoctorCommandExecutorRealJarsTest.withErrorReporting;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Disabled("doctor command requires re-implementation after javap parser was removed")
 public class DoctorCommandExecutorBasicTest {
 
     @Test
-    void canFindMissingTypeInClasspath() throws Exception {
+    void canFindMissingConstructorInClasspath() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
         var barJar = barJarPath.toFile();
@@ -65,7 +61,7 @@ public class DoctorCommandExecutorBasicTest {
             verifyOneGoodClasspath(results, List.of(fooJar, barJar));
         });
 
-        // modify the Bar class so that it can't be used by Foo anymore
+        // modify the Bar class so that there's no default constructor anymore, which breaks Foo
         assert barJar.delete();
         createJar(barJarPath, dir.resolve("src-bar"), Map.of(
                         Paths.get("foo", "Bar.java"),
@@ -83,43 +79,17 @@ public class DoctorCommandExecutorBasicTest {
             var checkResult = results.get(0);
             assertThat(checkResult.successful).isFalse();
 
-            assertThat(errorString(checkResult.getErrors().orElse(null)))
-                    .isEqualTo(
-                            errorString(NonEmptyCollection.of(
-                                    new ClassPathInconsistency(
-                                            "foo.jar!bar.Foo -> \"<init>\"()::void",
-                                            "Lfoo/Bar:\"<init>\"()V",
-                                            new File("foo.jar"),
-                                            new File("bar.jar")
-                                    ))));
-        });
-
-        // delete the Bar jar
-        assert barJar.delete();
-
-        // type references are now missing
-        withErrorReporting((command) -> {
-            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
-                            List.of(fooJar), Set.of())
-                    .toCompletableFuture()
-                    .get());
-
-            assertThat(results).hasSize(1);
-            var checkResult = results.get(0);
-            assertThat(checkResult.successful).isFalse();
-            assertThat(errorString(checkResult.getErrors().orElse(null)))
-                    .isEqualTo(errorString(NonEmptyCollection.of(List.of(
-                            new ClassPathInconsistency(
-                                    "foo.jar!bar.Foo -> bar::foo.Bar",
-                                    "Lfoo/Bar;",
-                                    new File("foo.jar"),
-                                    null
-                            )))));
+            assertThat(checkResult.getErrors()).isPresent()
+                    .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "foo.jar!bar.Foo -> bar.jar!foo.Bar()",
+                            "foo.Bar()",
+                            DoctorCommandExecutor.ReferenceTarget.CONSTRUCTOR
+                    )));
         });
     }
 
     @Test
-    void canFindTransitiveIncompatibility() throws Exception {
+    void canFindTransitiveMissingTypeInClasspath() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
 
         // this jar is used by messages.jar but won't be used by the final application!
@@ -209,29 +179,14 @@ public class DoctorCommandExecutorBasicTest {
                     .get());
             assertThat(result).hasSize(1);
 
-            var main = "app.jar!app.App -> main(java.lang.String[])::void -> ";
-
             assertThat(result.get(0).getErrors()).isPresent()
-                    .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))
-                    .isEqualTo(Set.of(
-                            main + "user.MessageUser#\"<init>\"()::void",
-                            main + "user.MessageUser#getMessage()::java.lang.String " +
-                                    "-> messages.Message#get()::java.lang.String"
-                    ));
+                    .get()
+                    .isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "app.jar!app.App -> messages-user.jar!user.MessageUser -> messages.Message",
+                            "messages.Message",
+                            DoctorCommandExecutor.ReferenceTarget.TYPE
+                    )));
         });
-    }
-
-    private static String errorString(
-            NonEmptyCollection<ClassPathInconsistency> inconsistencies) {
-        if (inconsistencies == null) return "Optional.empty()";
-        var result = "";
-        for (var error : inconsistencies) {
-            result = "\n" + error.referenceChain +
-                    "\nJarFrom=" + (error.jarFrom == null ? "null" : error.jarFrom.getName()) +
-                    "\nTo=" + error.to +
-                    "\nJarTo=" + (error.jarTo == null ? "null" : error.jarTo.getName());
-        }
-        return result;
     }
 
     private static void verifyOneGoodClasspath(List<ClasspathCheckResult> results,

@@ -117,11 +117,28 @@ public final class ClassGraph {
         public final JavaType typeDefinition;
         public final File jar;
         public final String className;
+        /**
+         * When used for keeping track of type references, which type referred to this one.
+         * May be null.
+         */
+        public final TypeDefinitionLocation parent;
 
-        public TypeDefinitionLocation(JavaType typeDefinition, File jar) {
+        public TypeDefinitionLocation(JavaType typeDefinition,
+                                      File jar,
+                                      TypeDefinitionLocation parent) {
             this.typeDefinition = typeDefinition;
             this.jar = jar;
             this.className = typeDefinition.typeId.className;
+            this.parent = parent;
+        }
+
+        public TypeDefinitionLocation(JavaType typeDefinition,
+                                      File jar) {
+            this(typeDefinition, jar, null);
+        }
+
+        public TypeDefinitionLocation withParent(TypeDefinitionLocation parent) {
+            return new TypeDefinitionLocation(typeDefinition, jar, parent);
         }
 
         @Override

@@ -108,4 +108,18 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
         return new NonEmptyCollection<>(iter.next(), list);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+
+        NonEmptyCollection<?> that = (NonEmptyCollection<?>) o;
+        return first.equals(that.first) && all.equals(that.all);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = first.hashCode();
+        result = 31 * result + all.hashCode();
+        return result;
+    }
 }
