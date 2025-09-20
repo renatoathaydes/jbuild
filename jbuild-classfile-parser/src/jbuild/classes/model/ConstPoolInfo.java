@@ -25,39 +25,38 @@ public abstract class ConstPoolInfo {
         }
     }
 
-    public static final class FieldRef extends ConstPoolInfo {
-        public static final short TAG = 9;
+    public static abstract class RefInfo extends ConstPoolInfo {
         public final short classIndex;
         public final short nameAndTypeIndex;
+
+        public RefInfo(short tag, short classIndex, short nameAndTypeIndex) {
+            super(tag);
+            this.classIndex = classIndex;
+            this.nameAndTypeIndex = nameAndTypeIndex;
+        }
+    }
+
+    public static final class FieldRef extends RefInfo {
+        public static final short TAG = 9;
 
         public FieldRef(short classIndex, short nameAndTypeIndex) {
-            super(TAG);
-            this.classIndex = classIndex;
-            this.nameAndTypeIndex = nameAndTypeIndex;
+            super(TAG, classIndex, nameAndTypeIndex);
         }
     }
 
-    public static final class MethodRef extends ConstPoolInfo {
+    public static final class MethodRef extends RefInfo {
         public static final short TAG = 10;
-        public final short classIndex;
-        public final short nameAndTypeIndex;
 
         public MethodRef(short classIndex, short nameAndTypeIndex) {
-            super(TAG);
-            this.classIndex = classIndex;
-            this.nameAndTypeIndex = nameAndTypeIndex;
+            super(TAG, classIndex, nameAndTypeIndex);
         }
     }
 
-    public static final class InterfaceMethodRef extends ConstPoolInfo {
+    public static final class InterfaceMethodRef extends RefInfo {
         public static final short TAG = 11;
-        public final short classIndex;
-        public final short nameAndTypeIndex;
 
         public InterfaceMethodRef(short classIndex, short nameAndTypeIndex) {
-            super(TAG);
-            this.classIndex = classIndex;
-            this.nameAndTypeIndex = nameAndTypeIndex;
+            super(TAG, classIndex, nameAndTypeIndex);
         }
     }
 

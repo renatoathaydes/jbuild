@@ -138,12 +138,31 @@ public final class ClassGraph {
         }
 
         public TypeDefinitionLocation withParent(TypeDefinitionLocation parent) {
+            if (parent.equals(this)) {
+                return this;
+            }
             return new TypeDefinitionLocation(typeDefinition, jar, parent);
         }
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
             builder.append(jar.getName()).append('!').append(className);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+
+            TypeDefinitionLocation that = (TypeDefinitionLocation) o;
+            return typeDefinition.equals(that.typeDefinition) && jar.equals(that.jar) && className.equals(that.className);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = typeDefinition.hashCode();
+            result = 31 * result + jar.hashCode();
+            result = 31 * result + className.hashCode();
+            return result;
         }
 
         @Override

@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
+import jbuild.classes.model.info.Reference;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
 import jbuild.java.JarSetPermutations;
@@ -29,12 +30,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.allFilesInDir;
+import static jbuild.util.JavaTypeUtils.parseMethodTypeRefs;
 import static jbuild.util.TextUtils.LINE_END;
 
 public final class DoctorCommandExecutor {
@@ -136,28 +139,32 @@ public final class DoctorCommandExecutor {
             var currentTypesToVisit = new HashSet<>(typesToVisit.entrySet());
             typesToVisit.clear();
             for (var typeByName : currentTypesToVisit) {
-                if (!visitedTypes.add(typeByName.getKey())) {
+                var fromTypeName = typeByName.getKey();
+                if (!visitedTypes.add(fromTypeName)) {
                     continue;
                 }
                 var from = typeByName.getValue();
                 var typeRefs = from.typeDefinition.classFile.getTypesReferredTo();
                 for (var typeRef : typeRefs) {
+                    if (JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
+                        continue;
+                    }
                     var to = JavaTypeUtils.typeNameToClassName(typeRef);
                     if (isExcluded(to, typeExclusions)) {
                         continue;
                     }
                     var ref = classGraph.findTypeDefinitionLocation(typeRef);
                     if (ref == null) {
-                        if (JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
-                            continue;
-                        }
-                        log.verbosePrintln(() -> "Type " + from.className + " needs missing type: " + to);
+                        log.verbosePrintln(() -> "Type " + from + " needs missing type: " + to);
                         inconsistencies.add(new ClassPathInconsistency(refChain(from, to), to, ReferenceTarget.TYPE));
                     } else {
                         if (visitedJars.add(ref.jar)) {
-                            log.verbosePrintln(() -> "Including jar " + ref.jar + " due to reference to " + to);
+                            log.verbosePrintln(() -> "Including jar " + ref.jar + " due to reference to " +
+                                    to + " from " + from);
                         }
-                        typesToVisit.put(typeRef, ref.withParent(from));
+                        var refWithParent = ref.withParent(from);
+                        typesToVisit.put(typeRef, refWithParent);
+                        checkReferences(classGraph, refWithParent, typeExclusions, typesToVisit, inconsistencies);
                     }
                 }
             }
@@ -167,6 +174,84 @@ public final class DoctorCommandExecutor {
             return ConsistencyCheckResult.success(visitedJars);
         }
         return ConsistencyCheckResult.failure(NonEmptyCollection.of(inconsistencies));
+    }
+
+    private void checkReferences(
+            ClassGraph classGraph,
+            ClassGraph.TypeDefinitionLocation location,
+            Set<Pattern> typeExclusions,
+            Map<String, ClassGraph.TypeDefinitionLocation> typesToVisit,
+            List<ClassPathInconsistency> results) {
+        for (var ref : location.typeDefinition.classFile.getReferences()) {
+            if (JavaTypeUtils.mayBeJavaStdLibType(ref.ownerType)) {
+                // skip Java stdlib types
+                continue;
+            }
+            var toClassName = JavaTypeUtils.typeNameToClassName(ref.ownerType);
+            if (isExcluded(toClassName, typeExclusions)) {
+                continue;
+            }
+            log.verbosePrintln(() -> "Checking reference from " + location.className + " to " +
+                    (ref.kind == Reference.RefKind.FIELD ? "field " : "method ") + ref.ownerType + "::" + ref.name +
+                    " with type " + ref.descriptor);
+            var toLocation = classGraph.findTypeDefinitionLocation(ref.ownerType);
+            if (toLocation == null) {
+                // missing types are reported already from the ClassInfo constants
+                return;
+            }
+            var targetLocation = toLocation.withParent(location);
+            typesToVisit.put(ref.ownerType, targetLocation);
+            var referenceTarget = ReferenceTarget.of(ref);
+            findTypeDescriptorByName(ref, targetLocation).ifPresentOrElse(descriptor -> {
+                if (!ref.descriptor.equals(descriptor)) {
+                    var to = describe(targetLocation, ref, referenceTarget);
+                    log.verbosePrintln(() -> "Type " + location.className + " needs " + to +
+                            "' with type " + ref.descriptor + " but the actual definition has type " + descriptor);
+                    results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
+                }
+            }, () -> {
+                var to = describe(targetLocation, ref, referenceTarget);
+                log.verbosePrintln(() -> "Type " + location.className + " needs missing: " + to);
+                results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
+            });
+        }
+    }
+
+    private static String describe(ClassGraph.TypeDefinitionLocation location,
+                                   Reference reference,
+                                   ReferenceTarget referenceTarget) {
+        var types = parseMethodTypeRefs(reference.descriptor).stream()
+                .map(JavaTypeUtils::typeNameToClassName)
+                .collect(toCollection(ArrayList::new));
+        if (referenceTarget == ReferenceTarget.CONSTRUCTOR) {
+            // ignore the constructor's return type which is always void
+            if (!types.isEmpty()) {
+                types.remove(types.size() - 1);
+            }
+            return location + "::(" + String.join(", ", types) + ')';
+        }
+        if (referenceTarget == ReferenceTarget.FIELD) {
+            assert types.size() == 1;
+            return location + "::" + reference.name + ':' + types.get(0);
+        }
+        var returnType = types.remove(types.size() - 1);
+        return location + "::" + reference.name + '(' + String.join(", ", types) + "):" + returnType;
+    }
+
+    private static Optional<String> findTypeDescriptorByName(Reference reference,
+                                                             ClassGraph.TypeDefinitionLocation location) {
+        var targetName = reference.name;
+        var classFile = location.typeDefinition.classFile;
+        if (reference.kind == Reference.RefKind.FIELD) {
+            return classFile.fields.stream()
+                    .filter(m -> classFile.getUtf8(m.nameIndex).equals(targetName))
+                    .map(m -> classFile.getUtf8(m.descriptorIndex))
+                    .findFirst();
+        }
+        return classFile.methods.stream()
+                .filter(m -> classFile.getUtf8(m.nameIndex).equals(targetName))
+                .map(m -> classFile.getUtf8(m.descriptorIndex))
+                .findFirst();
     }
 
     private boolean isExcluded(String className, Set<Pattern> typeExclusions) {
@@ -338,7 +423,17 @@ public final class DoctorCommandExecutor {
     }
 
     public enum ReferenceTarget {
-        TYPE, FIELD, METHOD, CONSTRUCTOR
+        TYPE, FIELD, METHOD, CONSTRUCTOR;
+
+        public static ReferenceTarget of(Reference ref) {
+            if (ref.kind == Reference.RefKind.FIELD) {
+                return FIELD;
+            }
+            if (ref.name.equals("<init>")) {
+                return CONSTRUCTOR;
+            }
+            return METHOD;
+        }
     }
 
     public static final class ClassPathInconsistency {

@@ -4,6 +4,7 @@ import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.model.info.Reference;
 import jbuild.classes.parser.AttributeParser;
 import jbuild.classes.parser.JavaTypeSignatureParser;
 import jbuild.classes.signature.MethodSignature;
@@ -188,6 +189,14 @@ public final class ClassFile {
         return Optional.of(attributeParser.parseModuleAttribute(attribute));
     }
 
+    public List<Reference> getReferences() {
+        return constPoolEntries.stream()
+                .filter(ConstPoolInfo.RefInfo.class::isInstance)
+                .map(ConstPoolInfo.RefInfo.class::cast)
+                .map(this::refOf)
+                .collect(toList());
+    }
+
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {
         return attributes.stream()
                 .filter(attr -> name.equals(getUtf8(attr.nameIndex)))
@@ -213,6 +222,13 @@ public final class ClassFile {
             return name;
         }
         return 'L' + name + ';';
+    }
+
+    private Reference refOf(ConstPoolInfo.RefInfo refInfo) {
+        var constClass = (ConstPoolInfo.ConstClass) constPoolEntries.get(refInfo.classIndex & 0xFFFF);
+        var nameAndType = (ConstPoolInfo.NameAndType) constPoolEntries.get(refInfo.nameAndTypeIndex & 0xFFFF);
+        return new Reference(Reference.kindOf(refInfo), nameOf(constClass),
+                getUtf8(nameAndType.nameIndex), getUtf8(nameAndType.descriptorIndex));
     }
 
     public String getUtf8(short index) {
