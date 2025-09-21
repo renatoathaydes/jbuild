@@ -3,6 +3,8 @@ package jbuild.classes.parser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 
+import java.util.Optional;
+
 abstract class AbstractAttributeParser {
 
     private final ClassFile classFile;
@@ -57,5 +59,11 @@ abstract class AbstractAttributeParser {
     protected String nextConstModule(ByteScanner scanner) {
         var i = (ConstPoolInfo.ModuleInfo) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return constUtf8(i.nameIndex);
+    }
+
+    protected Optional<ConstPoolInfo.NameAndType> nextConstNameAndType(ByteScanner scanner) {
+        var methodIndex = scanner.nextShortIndex();
+        if (methodIndex == 0) return Optional.empty();
+        return Optional.of((ConstPoolInfo.NameAndType) classFile.constPoolEntries.get(methodIndex));
     }
 }

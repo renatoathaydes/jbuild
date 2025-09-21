@@ -4,6 +4,7 @@ import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
+import jbuild.classes.model.attributes.EnclosingMethod;
 import jbuild.classes.model.attributes.EnumValue;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
@@ -157,6 +158,16 @@ public final class AttributeParser extends AbstractAttributeParser {
 
     public String parseSourceFileAttribute(byte[] bytes) {
         return nextConstUf8(new ByteScanner(bytes));
+    }
+
+    public EnclosingMethod parseEnclosingMethod(byte[] bytes) {
+        var scanner = new ByteScanner(bytes);
+        var className = nextConstClass(scanner);
+        return nextConstNameAndType(scanner).map(nt ->
+                        new EnclosingMethod(className, new EnclosingMethod.MethodDescriptor(
+                                constUtf8(nt.nameIndex),
+                                constUtf8(nt.descriptorIndex))))
+                .orElseGet(() -> new EnclosingMethod(className));
     }
 
     public ModuleAttribute parseModuleAttribute(AttributeInfo attribute) {

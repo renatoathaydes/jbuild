@@ -2,6 +2,7 @@ package jbuild.classes.model;
 
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.AttributeInfo;
+import jbuild.classes.model.attributes.EnclosingMethod;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
 import jbuild.classes.model.info.Reference;
@@ -189,6 +190,15 @@ public final class ClassFile {
         return Optional.of(attributeParser.parseModuleAttribute(attribute));
     }
 
+    /**
+     * @return this class file's {@link EnclosingMethod} attribute, if present.
+     */
+    public Optional<EnclosingMethod> getEnclosingMethodAttribute() {
+        return attributes.stream()
+                .filter(attr -> EnclosingMethod.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
+                .findFirst()
+                .map(attribute -> attributeParser.parseEnclosingMethod(attribute.attributes));
+    }
     public List<Reference> getReferences() {
         return constPoolEntries.stream()
                 .filter(ConstPoolInfo.RefInfo.class::isInstance)
