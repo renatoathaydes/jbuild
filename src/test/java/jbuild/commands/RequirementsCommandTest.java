@@ -65,6 +65,7 @@ public class RequirementsCommandTest {
                 "Lgenerics/BaseA;",
                 "Lgenerics/Base;",
                 "Lgenerics/ComplexType;",
+                "Lgenerics/ManyGenerics;",
                 "Lfoo/Fields;"
         );
         assertThat(visitor.done.get()).isTrue();
@@ -128,27 +129,28 @@ public class RequirementsCommandTest {
 
         assertThat(visitor.types.get("Lother/UsesBaseViaGenerics;").requirements).containsExactly("Lgenerics/Base;");
 
-        assertThat(visitor.types.get("Lother/UsesComplexType;").requirements).containsExactly(
-                "Lfoo/Zort;", "Lgenerics/ComplexType;", "Lother/UsesComplexType$Param;");
+        assertThat(visitor.types.get("Lother/UsesComplexType;").requirements).containsExactlyInAnyOrder(
+                "Lfoo/Zort;", "Lgenerics/ManyGenerics;", "Lgenerics/ComplexType;", "Lother/UsesComplexType$Param;");
 
-        assertThat(visitor.types.get("Lother/UsesEnum;").requirements).containsExactly(
+        assertThat(visitor.types.get("Lother/UsesEnum;").requirements).containsExactlyInAnyOrder(
                 "Lfoo/SomeEnum;", "Lother/UsesEnum$1;");
 
         assertThat(visitor.types.get("Lother/UsesFields;").requirements).containsExactly("Lfoo/Fields;");
 
-        assertThat(visitor.types.get("Lother/UsesGenerics;").requirements).containsExactly(
+        assertThat(visitor.types.get("Lother/UsesGenerics;").requirements).containsExactlyInAnyOrder(
                 "Lgenerics/Base;", "Lgenerics/BaseA;", "Lgenerics/Generics;");
 
         assertThat(visitor.types.get("Lother/UsesMethodHandleFromExampleLogger;").requirements)
                 .containsExactly("Lfoo/ExampleLogger;");
 
-        assertThat(visitor.types.get("Lother/UsesMultiInterface;").requirements).containsExactly("Lfoo/MultiInterface;");
+        assertThat(visitor.types.get("Lother/UsesMultiInterface;").requirements).containsExactly(
+                "Lfoo/MultiInterface;");
 
-        assertThat(visitor.types.get("Lother/UsesComplexType$Param;").requirements)
-                .containsExactly("Lfoo/EmptyInterface;", "Lgenerics/Generics;", "Lother/UsesComplexType;");
+        assertThat(visitor.types.get("Lother/UsesComplexType$Param;").requirements).containsExactlyInAnyOrder(
+                "Lfoo/EmptyInterface;", "Lgenerics/Generics;", "Lother/UsesComplexType;");
 
         assertThat(visitor.types.get("Lother/UsesEnum$1;").requirements)
-                .containsExactly("Lfoo/SomeEnum;", "Lother/UsesEnum;");
+                .containsExactlyInAnyOrder("Lfoo/SomeEnum;", "Lother/UsesEnum;");
     }
 
     private static class TestJarVisitor implements RequirementsCommandExecutor.TypeVisitor {

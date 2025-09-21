@@ -221,15 +221,21 @@ public class JBuildClassFileParserTest {
     }
 
     @Test
-    void canFindTypesReferredTo() throws Exception {
+    void canFindMethods() throws Exception {
         ClassFile classFile = parseHelloWorldClass();
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("LHelloWorld;");
-        assertThat(classFile.getTypesReferredTo())
-                .containsExactlyInAnyOrder("()V",
-                        "Ljava/io/PrintStream;", "(Ljava/lang/String;)V");
+        assertThat(classFile.getSourceFile())
+                .isEqualTo("HelloWorld.java");
+        assertThat(classFile.getMethods().stream().map(m -> m.name)
+                .collect(Collectors.toList()))
+                .containsExactly("<init>", "main");
+        assertThat(classFile.getMethods().stream().map(m -> m.descriptor)
+                .collect(Collectors.toList()))
+                .containsExactly("()V", "([Ljava/lang/String;)V");
 
+        assertThat(classFile.getFields()).isEmpty();
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).isEmpty();
     }
@@ -240,7 +246,6 @@ public class JBuildClassFileParserTest {
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("Ljbuild/api/ExampleAnnotated;");
-        assertThat(classFile.getTypesReferredTo()).containsExactly("()V");
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).hasSize(1);
 
@@ -323,18 +328,18 @@ public class JBuildClassFileParserTest {
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("Ljbuild/artifact/http/DefaultHttpClient;");
-        assertThat(classFile.getTypesReferredTo()).containsExactlyInAnyOrder(
-                "Ljava/time/Duration;",
-                "Ljava/net/http/HttpClient;",
-                "(J)Ljava/time/Duration;",
-                "()V",
-                "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;",
-                "Ljava/net/http/HttpClient$Builder;",
-                "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;",
-                "()Ljava/net/http/HttpClient;",
-                "Ljava/net/http/HttpClient$Redirect;",
-                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;",
-                "()Ljava/net/http/HttpClient$Builder;");
+//        assertThat(classFile.getTypesReferredTo()).containsExactlyInAnyOrder(
+//                "Ljava/time/Duration;",
+//                "Ljava/net/http/HttpClient;",
+//                "(J)Ljava/time/Duration;",
+//                "()V",
+//                "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;",
+//                "Ljava/net/http/HttpClient$Builder;",
+//                "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;",
+//                "()Ljava/net/http/HttpClient;",
+//                "Ljava/net/http/HttpClient$Redirect;",
+//                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;",
+//                "()Ljava/net/http/HttpClient$Builder;");
     }
 
     @Test

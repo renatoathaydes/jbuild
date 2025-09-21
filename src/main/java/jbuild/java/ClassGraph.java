@@ -1,13 +1,18 @@
 package jbuild.java;
 
+import jbuild.classes.model.ClassFile;
 import jbuild.util.Describable;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
+import static jbuild.util.JavaTypeUtils.parseTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
@@ -25,6 +30,9 @@ public final class ClassGraph {
 
     private final Map<File, Map<String, JavaType>> typesByJar;
     private final Map<String, File> jarByType;
+
+    // cache of type references
+    private final Map<String, Set<String>> typeRefsByType = new ConcurrentHashMap<>();
 
     public ClassGraph(Map<File, Map<String, JavaType>> typesByJar,
                       Map<String, File> jarByType) {
@@ -76,6 +84,30 @@ public final class ClassGraph {
         return null;
     }
 
+    public Set<String> getTypesReferredToBy(String typeName) {
+        return typeRefsByType.computeIfAbsent(typeName, (ignore) -> {
+            var typeDef = findTypeDefinition(typeName);
+            if (typeDef == null) return null;
+            return getTypesReferredToBy(typeDef.classFile);
+        });
+    }
+
+    public static Set<String> getTypesReferredToBy(ClassFile classFile) {
+        var result = new HashSet<String>();
+        for (var ref : classFile.getReferences()) {
+            result.add(ref.ownerType);
+            result.addAll(parseTypeDescriptor(ref.descriptor, false));
+        }
+        for (var method : classFile.getMethods()) {
+            result.addAll(parseTypeDescriptor(method.descriptor, false));
+        }
+        for (var field : classFile.getFields()) {
+            result.addAll(parseTypeDescriptor(field.descriptor, false));
+        }
+        result.addAll(classFile.getConstClassNames());
+        return result;
+    }
+
     /**
      * Check if a certain type exists.
      *
@@ -116,6 +148,13 @@ public final class ClassGraph {
     public static final class TypeDefinitionLocation implements Describable {
         public final JavaType typeDefinition;
         public final File jar;
+        /**
+         * The name of this type (internal JVM name).
+         */
+        public final String typeName;
+        /**
+         * The name of this class or interface.
+         */
         public final String className;
         /**
          * When used for keeping track of type references, which type referred to this one.
@@ -128,6 +167,7 @@ public final class ClassGraph {
                                       TypeDefinitionLocation parent) {
             this.typeDefinition = typeDefinition;
             this.jar = jar;
+            this.typeName = typeDefinition.classFile.getTypeName();
             this.className = typeDefinition.typeId.className;
             this.parent = parent;
         }

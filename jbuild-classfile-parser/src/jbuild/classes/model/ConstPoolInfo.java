@@ -25,11 +25,14 @@ public abstract class ConstPoolInfo {
         }
     }
 
+    /**
+     * Common representation of {@link FieldRef}, {@link MethodRef} and {@link InterfaceMethodRef}.
+     */
     public static abstract class RefInfo extends ConstPoolInfo {
         public final short classIndex;
         public final short nameAndTypeIndex;
 
-        public RefInfo(short tag, short classIndex, short nameAndTypeIndex) {
+        protected RefInfo(short tag, short classIndex, short nameAndTypeIndex) {
             super(tag);
             this.classIndex = classIndex;
             this.nameAndTypeIndex = nameAndTypeIndex;
@@ -110,18 +113,31 @@ public abstract class ConstPoolInfo {
         }
     }
 
+    /**
+     * The {@link NameAndType} structure is used to represent a field or method, without indicating which class or
+     * interface type it belongs to:
+     * <p>
+     * <pre>
+     * CONSTANT_NameAndType_info {
+     *   u1 tag;
+     *   u2 name_index;
+     *   u2 descriptor_index;
+     * }
+     * </pre>
+     * <p>
+     * This is used from:
+     * <ul>
+     *     <li>{@link RefInfo} subtypes (const pool)</li>
+     *     <li>{@link DynamicInfo} (const pool)</li>
+     *     <li>{@link InvokeDynamic} (const pool)</li>
+     *     <li>{@link jbuild.classes.model.attributes.EnclosingMethod} (attribute)</li>
+     * </ul>
+     */
     public static final class NameAndType extends ConstPoolInfo {
         public static final short TAG = 12;
         public final short nameIndex;
         public final short descriptorIndex;
 
-        /**
-         * CONSTANT_NameAndType_info {
-         * u1 tag;
-         * u2 name_index;
-         * u2 descriptor_index;
-         * }
-         */
         public NameAndType(short nameIndex, short descriptorIndex) {
             super(TAG);
             this.nameIndex = nameIndex;

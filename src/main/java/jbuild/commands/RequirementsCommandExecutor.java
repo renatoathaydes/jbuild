@@ -2,8 +2,9 @@ package jbuild.commands;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
-import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
+import jbuild.classes.parser.JBuildClassFileParser;
+import jbuild.java.ClassGraph;
 import jbuild.java.Jar;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
@@ -160,28 +161,20 @@ public class RequirementsCommandExecutor {
         }
     }
 
-    private void collectRequirements(Function<ClassFile, TreeSet<String>> getSet, ClassFile file, boolean perClass,
+    private void collectRequirements(Function<ClassFile, TreeSet<String>> getSet,
+                                     ClassFile file,
+                                     boolean perClass,
                                      Set<String> jarTypes) {
         var requirements = getSet.apply(file);
-        for (String typeItem : file.getTypesReferredTo()) {
-            // type may be a type descriptor
-            List<String> allTypes;
-            if (typeItem.contains("(")) {
-                allTypes = JavaTypeUtils.parseMethodTypeRefs(typeItem);
-            } else {
-                allTypes = List.of(typeItem);
+        var parentTypeName = file.getTypeName();
+        for (String typeName : ClassGraph.getTypesReferredToBy(file)) {
+            if (JavaTypeUtils.isPrimitiveJavaType(typeName) ||
+                    JavaTypeUtils.mayBeJavaStdLibType(typeName) ||
+                    typeName.equals(parentTypeName)) {
+                continue;
             }
-            for (var type : allTypes) {
-                var typeName = JavaTypeUtils.cleanArrayTypeName(type);
-                if (JavaTypeUtils.isPrimitiveJavaType(typeName))
-                    continue;
-                if (!JavaTypeUtils.isReferenceType(typeName)) {
-                    typeName = 'L' + typeName + ';';
-                }
-                if (!JavaTypeUtils.mayBeJavaStdLibType(typeName) &&
-                        (perClass || !jarTypes.contains(typeName))) {
-                    requirements.add(typeName);
-                }
+            if (perClass || !jarTypes.contains(typeName)) {
+                requirements.add(typeName);
             }
         }
     }

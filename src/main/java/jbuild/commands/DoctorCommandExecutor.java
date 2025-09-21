@@ -37,7 +37,7 @@ import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.allFilesInDir;
-import static jbuild.util.JavaTypeUtils.parseMethodTypeRefs;
+import static jbuild.util.JavaTypeUtils.parseTypeDescriptor;
 import static jbuild.util.TextUtils.LINE_END;
 
 public final class DoctorCommandExecutor {
@@ -144,9 +144,8 @@ public final class DoctorCommandExecutor {
                     continue;
                 }
                 var from = typeByName.getValue();
-                var typeRefs = from.typeDefinition.classFile.getTypesReferredTo();
-                for (var typeRef : typeRefs) {
-                    if (JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
+                for (var typeRef : classGraph.getTypesReferredToBy(from.typeName)) {
+                    if (JavaTypeUtils.isPrimitiveJavaType(typeRef) || JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
                         continue;
                     }
                     var to = JavaTypeUtils.typeNameToClassName(typeRef);
@@ -220,7 +219,7 @@ public final class DoctorCommandExecutor {
     private static String describe(ClassGraph.TypeDefinitionLocation location,
                                    Reference reference,
                                    ReferenceTarget referenceTarget) {
-        var types = parseMethodTypeRefs(reference.descriptor).stream()
+        var types = parseTypeDescriptor(reference.descriptor, false).stream()
                 .map(JavaTypeUtils::typeNameToClassName)
                 .collect(toCollection(ArrayList::new));
         if (referenceTarget == ReferenceTarget.CONSTRUCTOR) {

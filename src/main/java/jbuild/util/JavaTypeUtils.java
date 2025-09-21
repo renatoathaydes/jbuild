@@ -186,26 +186,21 @@ public final class JavaTypeUtils {
     }
 
     /**
-     * Parse a list of types referred to from a method argument list type descriptor.
+     * Parse a type descriptor.
      * <p>
-     * This method is intended to be used to find reference to types, hence it drops array components from type
-     * descriptors, i.e. if a type is referred to as an array like {@code [Ljava/lang/Object;}, this method will
-     * return the plain type {@code Ljava/lang/Object;}.
+     * This method may return array types if {@code retainArrayTypes} is {@code true}.
      *
-     * @param typeDef type definition
+     * @param typeDef          type definition
+     * @param retainArrayTypes whether to retain array types. For example, {@code [Ljava/lang/Object;} represents a
+     *                         {@code java.lang.Object[]} type.
      * @return the plain types included in the type definition
      */
-    public static List<String> parseMethodTypeRefs(String typeDef) {
-        if (typeDef.startsWith("(")) {
-            typeDef = typeDef.substring(1);
-        }
-        if (typeDef.endsWith(")")) {
-            typeDef = typeDef.substring(0, typeDef.length() - 1);
-        }
-        return parseTypeList(typeDef.toCharArray());
+    public static List<String> parseTypeDescriptor(String typeDef,
+                                                   boolean retainArrayTypes) {
+        return parseTypeList(typeDef.toCharArray(), retainArrayTypes);
     }
 
-    private static List<String> parseTypeList(char[] chars) {
+    private static List<String> parseTypeList(char[] chars, boolean retainArrayTypes) {
         int index = 0;
         int arrayDimension = 0;
         var result = new ArrayList<String>(4);
@@ -233,7 +228,9 @@ public final class JavaTypeUtils {
                     break;
                 }
                 case '[': {
-                    arrayDimension++;
+                    if (retainArrayTypes) {
+                        arrayDimension++;
+                    }
                     index++;
                     break;
                 }

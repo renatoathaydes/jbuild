@@ -5,18 +5,20 @@ import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.EnclosingMethod;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.model.info.MemberDefinition;
 import jbuild.classes.model.info.Reference;
 import jbuild.classes.parser.AttributeParser;
 import jbuild.classes.parser.JavaTypeSignatureParser;
 import jbuild.classes.signature.MethodSignature;
 
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 /**
  * ClassFile {
@@ -107,14 +109,32 @@ public final class ClassFile {
                 .orElseThrow();
     }
 
-    public Set<String> getTypesReferredTo() {
-        if (typesReferredTo == null) {
-            typesReferredTo = constPoolEntries.stream()
-                    .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG)
-                    .map(e -> nameOf((ConstPoolInfo.ConstClass) e))
-                    .collect(toSet());
-        }
-        return typesReferredTo;
+    /**
+     * @return the names of all {@link ConstPoolInfo.ConstClass} entries in the constant pool table.
+     */
+    public Set<String> getConstClassNames() {
+        return constPoolEntries.stream()
+                .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG)
+                .map(e -> nameOf((ConstPoolInfo.ConstClass) e))
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    /**
+     * @return the {@link MemberDefinition}s representing fields of this class.
+     */
+    public List<MemberDefinition> getFields() {
+        return fields.stream()
+                .map(f -> new MemberDefinition(f, getUtf8(f.nameIndex), getUtf8(f.descriptorIndex)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * @return the {@link MemberDefinition}s representing method of this class.
+     */
+    public List<MemberDefinition> getMethods() {
+        return methods.stream()
+                .map(m -> new MemberDefinition(m, getUtf8(m.nameIndex), getUtf8(m.descriptorIndex)))
+                .collect(Collectors.toList());
     }
 
     public List<AnnotationInfo> getRuntimeVisibleAnnotations() {
@@ -199,6 +219,11 @@ public final class ClassFile {
                 .findFirst()
                 .map(attribute -> attributeParser.parseEnclosingMethod(attribute.attributes));
     }
+
+    /**
+     * @return the references used by this class. Each {@link Reference} is created from a
+     * {@link jbuild.classes.model.ConstPoolInfo.RefInfo} included in this class file.
+     */
     public List<Reference> getReferences() {
         return constPoolEntries.stream()
                 .filter(ConstPoolInfo.RefInfo.class::isInstance)
@@ -228,6 +253,9 @@ public final class ClassFile {
         var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex & 0xFFFF);
         var name = utf8.asString();
         if (name.startsWith("[")) {
+            while (name.startsWith("[")) {
+                name = name.substring(1);
+            }
             // array types are already in the type name format
             return name;
         }

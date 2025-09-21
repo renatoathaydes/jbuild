@@ -13,7 +13,7 @@ import java.util.List;
  * attribute_info attributes[attributes_count];
  * }
  */
-public final class MethodInfo {
+public final class MethodInfo extends MemberInfo {
 
     public static final class AccessFlag {
         public static final int ACC_PUBLIC = 0x01;
@@ -78,16 +78,8 @@ public final class MethodInfo {
         }
     }
 
-    public final short accessFlags;
-    public final short nameIndex;
-    public final short descriptorIndex;
-    public final List<AttributeInfo> attributes;
-
     public MethodInfo(short accessFlags, short nameIndex, short descriptorIndex, List<AttributeInfo> attributes) {
-        this.accessFlags = accessFlags;
-        this.nameIndex = nameIndex;
-        this.descriptorIndex = descriptorIndex;
-        this.attributes = attributes;
+        super(accessFlags, nameIndex, descriptorIndex, attributes);
     }
 
     @Override

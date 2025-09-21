@@ -5,6 +5,8 @@ import jbuild.classes.model.ConstPoolInfo;
 /**
  * Representation of a <a href="https://docs.oracle.com/javase/specs/jvms/se24/html/jvms-4.html#jvms-4.4.2">
  * CONSTANT_Fieldref_info, CONSTANT_Methodref_info, CONSTANT_InterfaceMethodref_info</a>.
+ * <p>
+ * This is the resolved form of a {@link jbuild.classes.model.ConstPoolInfo.RefInfo}.
  */
 public final class Reference {
 
