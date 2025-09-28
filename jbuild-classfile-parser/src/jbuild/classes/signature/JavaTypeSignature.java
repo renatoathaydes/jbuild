@@ -1,6 +1,11 @@
 package jbuild.classes.signature;
 
+import jbuild.classes.TypeGroup;
+
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A Java type signature represents either a reference type or a primitive type of the Java programming language.
@@ -14,7 +19,7 @@ import java.util.List;
  *   (one of) B C D F I J S Z
  * </pre>
  */
-public interface JavaTypeSignature {
+public interface JavaTypeSignature extends TypeGroup {
 
     /**
      * Base types of the Java language (primitive types).
@@ -30,6 +35,7 @@ public interface JavaTypeSignature {
         BaseType(String name) {
             this.name = name;
         }
+
 
         /**
          * Pick the {@code BaseType} matching the given character.
@@ -65,6 +71,12 @@ public interface JavaTypeSignature {
             return "BaseType{" +
                     "name='" + name + '\'' +
                     '}';
+        }
+
+        @Override
+        public Set<String> getAllTypes() {
+            // the type name is the actual enum name, not the name field!
+            return Set.of(name());
         }
     }
 
@@ -113,6 +125,20 @@ public interface JavaTypeSignature {
             }
 
             @Override
+            public Set<String> getAllTypes() {
+                var identifierType = 'L' + packageName + '/' + typeSignature.identifier + ';';
+                var signatureTypes = typeSignature.getAllTypes();
+                var suffixTypes = typeSignatureSuffix.stream()
+                        .flatMap(a -> a.getAllTypes().stream())
+                        .collect(Collectors.toSet());
+                var result = new HashSet<String>(1 + signatureTypes.size() + suffixTypes.size());
+                result.add(identifierType);
+                result.addAll(signatureTypes);
+                result.addAll(suffixTypes);
+                return result;
+            }
+
+            @Override
             public boolean equals(Object o) {
                 if (this == o) return true;
                 if (o == null || getClass() != o.getClass()) return false;
@@ -150,6 +176,11 @@ public interface JavaTypeSignature {
             }
 
             @Override
+            public Set<String> getAllTypes() {
+                return Set.of();
+            }
+
+            @Override
             public boolean equals(Object o) {
                 if (this == o) return true;
                 if (o == null || getClass() != o.getClass()) return false;
@@ -179,6 +210,11 @@ public interface JavaTypeSignature {
             public ArrayTypeSignature(short dimensions, JavaTypeSignature typeSignature) {
                 this.dimensions = dimensions;
                 this.typeSignature = typeSignature;
+            }
+
+            @Override
+            public Set<String> getAllTypes() {
+                return typeSignature.getAllTypes();
             }
 
             @Override

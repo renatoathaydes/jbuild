@@ -2,9 +2,9 @@ package jbuild.extension;
 
 import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
-import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.extension.ConfigObject.ConfigObjectConstructor;
 import jbuild.log.JBuildLog;
 import jbuild.util.FileCollection;
@@ -158,7 +158,7 @@ public final class JbManifestGenerator {
         log.verbosePrintln(() -> "Creating jb manifest entry for " + className);
         try {
             for (var annotation : extension.getRuntimeInvisibleAnnotations()) {
-                if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
+                if (annotation.typeName.equals(JB_TASK_INFO)) {
                     log.verbosePrintln(() -> "Parsing @JbTaskInfo from " + extension.getConstructors());
                     var configObject = ConfigObject.describeConfigObject(extension);
                     var map = annotation.getMap();
@@ -354,7 +354,7 @@ public final class JbManifestGenerator {
 
     private boolean warnIfAnnotatedWithTaskInfo(ClassFile type) {
         for (var annotation : type.getRuntimeInvisibleAnnotations()) {
-            if (annotation.typeDescriptor.equals(JB_TASK_INFO)) {
+            if (annotation.typeName.equals(JB_TASK_INFO)) {
                 log.println(() -> "WARNING: class " +
                         typeNameToClassName(type.getTypeName()) +
                         "is annotated with @JbTaskInfo but does not implement JbTask, " +

@@ -130,7 +130,8 @@ public class RequirementsCommandTest {
         assertThat(visitor.types.get("Lother/UsesBaseViaGenerics;").requirements).containsExactly("Lgenerics/Base;");
 
         assertThat(visitor.types.get("Lother/UsesComplexType;").requirements).containsExactlyInAnyOrder(
-                "Lfoo/Zort;", "Lgenerics/ManyGenerics;", "Lgenerics/ComplexType;", "Lother/UsesComplexType$Param;");
+                "Lfoo/Zort;", "Lgenerics/Generics;", "Lgenerics/ManyGenerics;", "Lgenerics/ComplexType;",
+                "Lother/UsesComplexType$Param;");
 
         assertThat(visitor.types.get("Lother/UsesEnum;").requirements).containsExactlyInAnyOrder(
                 "Lfoo/SomeEnum;", "Lother/UsesEnum$1;");
@@ -147,7 +148,7 @@ public class RequirementsCommandTest {
                 "Lfoo/MultiInterface;");
 
         assertThat(visitor.types.get("Lother/UsesComplexType$Param;").requirements).containsExactlyInAnyOrder(
-                "Lfoo/EmptyInterface;", "Lgenerics/Generics;", "Lother/UsesComplexType;");
+                "Lfoo/EmptyInterface;", "Lgenerics/Generics;", "Lother/UsesComplexType;", "Lgenerics/BaseA;");
 
         assertThat(visitor.types.get("Lother/UsesEnum$1;").requirements)
                 .containsExactlyInAnyOrder("Lfoo/SomeEnum;", "Lother/UsesEnum;");

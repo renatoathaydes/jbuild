@@ -1,8 +1,13 @@
 package jbuild.classes.signature;
 
+import jbuild.classes.TypeGroup;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * <pre>
@@ -14,7 +19,7 @@ import java.util.Optional;
  *   : ReferenceTypeSignature
  * </pre>
  */
-public final class TypeParameter {
+public final class TypeParameter implements TypeGroup {
     public final String identifier;
     private final JavaTypeSignature.ReferenceTypeSignature classBoundTypeSignature;
     public final List<JavaTypeSignature.ReferenceTypeSignature> interfaceBoundTypeSignatures;
@@ -33,6 +38,14 @@ public final class TypeParameter {
 
     public TypeParameter(String identifier, JavaTypeSignature.ReferenceTypeSignature classBoundTypeSignature) {
         this(identifier, classBoundTypeSignature, List.of());
+    }
+
+    @Override
+    public Set<String> getAllTypes() {
+        return Stream.concat(classBoundTypeSignature.getAllTypes().stream(),
+                        interfaceBoundTypeSignatures.stream()
+                                .flatMap(i -> i.getAllTypes().stream()))
+                .collect(Collectors.toSet());
     }
 
     public Optional<JavaTypeSignature.ReferenceTypeSignature> getClassBoundTypeSignature() {

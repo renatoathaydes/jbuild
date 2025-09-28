@@ -1,10 +1,8 @@
 package jbuild.java;
 
-import jbuild.classes.model.ClassFile;
 import jbuild.util.Describable;
 
 import java.io.File;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
-import static jbuild.util.JavaTypeUtils.parseTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
@@ -85,26 +82,12 @@ public final class ClassGraph {
     }
 
     public Set<String> getTypesReferredToBy(String typeName) {
-        return typeRefsByType.computeIfAbsent(typeName, (ignore) -> {
+        var result = typeRefsByType.computeIfAbsent(typeName, (ignore) -> {
             var typeDef = findTypeDefinition(typeName);
             if (typeDef == null) return null;
-            return getTypesReferredToBy(typeDef.classFile);
+            return typeDef.classFile.getAllTypes();
         });
-    }
-
-    public static Set<String> getTypesReferredToBy(ClassFile classFile) {
-        var result = new HashSet<String>();
-        for (var ref : classFile.getReferences()) {
-            result.add(ref.ownerType);
-            result.addAll(parseTypeDescriptor(ref.descriptor, false));
-        }
-        for (var method : classFile.getMethods()) {
-            result.addAll(parseTypeDescriptor(method.descriptor, false));
-        }
-        for (var field : classFile.getFields()) {
-            result.addAll(parseTypeDescriptor(field.descriptor, false));
-        }
-        result.addAll(classFile.getConstClassNames());
+        if (result == null) return Set.of();
         return result;
     }
 

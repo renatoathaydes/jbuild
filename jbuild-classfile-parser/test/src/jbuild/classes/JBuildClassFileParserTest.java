@@ -251,7 +251,7 @@ public class JBuildClassFileParserTest {
 
         var annotation = classFile.getRuntimeInvisibleAnnotations().get(0);
 
-        assertThat(annotation.typeDescriptor).isEqualTo("Ljbuild/api/JbTaskInfo;");
+        assertThat(annotation.typeName).isEqualTo("Ljbuild/api/JbTaskInfo;");
         assertThat(annotation.elementValuePairs).hasSize(3);
         assertThat(annotation.elementValuePairs.get(0))
                 .isEqualTo(new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-task"));
@@ -268,7 +268,8 @@ public class JBuildClassFileParserTest {
 
     @Test
     void canFindClassConstructors() throws IOException {
-        var stringType = new ClassTypeSignature("java.lang", new SimpleClassTypeSignature("String"));
+        var stringType = new ClassTypeSignature("java/lang",
+                new SimpleClassTypeSignature("", "String"));
 
         ClassFile classFile = parseMultiConstructorsClass();
 
@@ -278,7 +279,7 @@ public class JBuildClassFileParserTest {
         var constructors = classFile.getConstructors();
         assertThat(constructors).hasSize(2);
         assertThat(classFile.getMethodTypeDescriptor(constructors.get(0)))
-                .isEqualTo(new MethodSignature(List.of(stringType),
+                .isEqualTo(new MethodSignature("", List.of(stringType),
                         VoidDescriptor.INSTANCE)); // (Ljava/lang/String;)V
         // only generic methods have a Signature attribute
         assertThat(classFile.getSignatureAttribute(constructors.get(0)))
@@ -288,19 +289,20 @@ public class JBuildClassFileParserTest {
 
         // String foo, final boolean bar, List<String> strings
         // (Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V
-        var constructorSignature = new MethodSignature(List.of(), List.of(
+        var constructorSignature = new MethodSignature("", List.of(), List.of(
                 stringType,
                 JavaTypeSignature.BaseType.Z,
-                new ClassTypeSignature("java.util",
-                        new SimpleClassTypeSignature("List", List.of(
+                new ClassTypeSignature("java/util",
+                        new SimpleClassTypeSignature("", "List", List.of(
                                 new TypeArgument.Reference(stringType))))),
                 VoidDescriptor.INSTANCE,
                 List.of());
 
         assertThat(classFile.getMethodTypeDescriptor(constructors.get(1)))
-                .isEqualTo(new MethodSignature(List.of(stringType,
+                .isEqualTo(new MethodSignature("", List.of(stringType,
                         JavaTypeSignature.BaseType.Z,
-                        new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List"))),
+                        new ClassTypeSignature("java/util",
+                                new SimpleClassTypeSignature("", "List"))),
                         VoidDescriptor.INSTANCE)); // (Ljava/lang/String;ZLjava/util/List;)V
         assertThat(classFile.getSignatureAttribute(constructors.get(1)))
                 .isPresent()
@@ -328,18 +330,14 @@ public class JBuildClassFileParserTest {
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("Ljbuild/artifact/http/DefaultHttpClient;");
-//        assertThat(classFile.getTypesReferredTo()).containsExactlyInAnyOrder(
-//                "Ljava/time/Duration;",
-//                "Ljava/net/http/HttpClient;",
-//                "(J)Ljava/time/Duration;",
-//                "()V",
-//                "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;",
-//                "Ljava/net/http/HttpClient$Builder;",
-//                "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;",
-//                "()Ljava/net/http/HttpClient;",
-//                "Ljava/net/http/HttpClient$Redirect;",
-//                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;",
-//                "()Ljava/net/http/HttpClient$Builder;");
+        assertThat(classFile.getConstClassNames()).containsExactlyInAnyOrder(
+                "Ljava/time/Duration;",
+                "Ljava/net/http/HttpClient;",
+                "Ljava/lang/Object;",
+                "Ljava/net/http/HttpClient$Builder;",
+                "Ljava/net/http/HttpClient$Redirect;",
+                "Ljbuild/artifact/http/DefaultHttpClient;",
+                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;");
     }
 
     @Test

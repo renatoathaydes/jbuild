@@ -1,14 +1,18 @@
 package jbuild.classes.model;
 
+import jbuild.classes.TypeGroup;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.EnclosingMethod;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.model.attributes.SignatureAttribute;
 import jbuild.classes.model.info.MemberDefinition;
 import jbuild.classes.model.info.Reference;
 import jbuild.classes.parser.AttributeParser;
 import jbuild.classes.parser.JavaTypeSignatureParser;
+import jbuild.classes.signature.ClassSignature;
+import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.MethodSignature;
 
 import java.util.HashSet;
@@ -40,7 +44,7 @@ import static java.util.stream.Collectors.toList;
  * attribute_info attributes[attributes_count];
  * }
  */
-public final class ClassFile {
+public final class ClassFile implements TypeGroup {
 
     public static final int MAGIC = 0xCAFEBABE;
 
@@ -56,9 +60,10 @@ public final class ClassFile {
     public final List<AttributeInfo> attributes;
 
     private final AttributeParser attributeParser = new AttributeParser(this);
+    private final JavaTypeSignatureParser signatureParser = new JavaTypeSignatureParser();
 
     // cached values
-    private Set<String> typesReferredTo;
+    private volatile Set<String> typesReferredTo;
 
     public ClassFile(short minorVersion,
                      short majorVersion,
@@ -109,12 +114,66 @@ public final class ClassFile {
                 .orElseThrow();
     }
 
+    @Override
+    public Set<String> getAllTypes() {
+        if (typesReferredTo == null) {
+            synchronized (this) {
+                if (typesReferredTo == null) {
+                    var result = new LinkedHashSet<String>(64);
+                    result.addAll(getConstClassNames());
+                    getClassSignature().ifPresent(s -> result.addAll(s.getAllTypes()));
+
+                    // Here, we first go through methods and fields, but also obtain their Signature attributes
+                    // to get their generic descriptors.
+                    getFields().stream()
+                            .flatMap(f ->
+                                    // if there's a signature attribute, it will contain the generic type
+                                    getSignatureAttribute(f.memberInfo)
+                                            .map(s -> s.getAllTypes().stream())
+                                            .orElseGet(() ->
+                                                    // otherwise, this will be non-generic type descriptor
+                                                    signatureParser.parseJavaTypeSignature(f.descriptor).getAllTypes().stream())
+                            )
+                            .forEach(result::add);
+
+                    getMethods().stream()
+                            .flatMap(m ->
+                                    // if there's a signature attribute, it will contain the generic type
+                                    getSignatureAttribute(m.memberInfo)
+                                            .map(s -> s.getAllTypes().stream())
+                                            .orElseGet(() ->
+                                                    // otherwise, this will be non-generic type descriptor
+                                                    signatureParser.parseMethodSignature(m.descriptor).getAllTypes().stream())
+                            )
+                            .forEach(result::add);
+
+                    getRuntimeVisibleAnnotations().stream()
+                            .map(p -> p.typeName)
+                            .forEach(result::add);
+                    getReferences().stream()
+                            .flatMap(ref -> signatureParser.parse(ref.descriptor, ref.kind).getAllTypes().stream())
+                            .forEach(result::add);
+
+                    // this is returning the type without the expected L and ;
+                    getEnclosingMethodAttribute().ifPresent(m -> {
+                        result.add(m.typeName);
+                        if (m.method != null) {
+                            result.addAll(signatureParser.parseMethodSignature(m.method.descriptor).getAllTypes());
+                        }
+                    });
+                    typesReferredTo = result;
+                }
+            }
+        }
+        return typesReferredTo;
+    }
+
     /**
      * @return the names of all {@link ConstPoolInfo.ConstClass} entries in the constant pool table.
      */
     public Set<String> getConstClassNames() {
         return constPoolEntries.stream()
-                .filter(e -> e.tag == ConstPoolInfo.ConstClass.TAG)
+                .filter(e -> e != null && e.tag == ConstPoolInfo.ConstClass.TAG)
                 .map(e -> nameOf((ConstPoolInfo.ConstClass) e))
                 .collect(Collectors.toCollection(HashSet::new));
     }
@@ -153,9 +212,21 @@ public final class ClassFile {
         return getMethodParameterAnnotationsAttribute("RuntimeInvisibleParameterAnnotations", methodInfo.attributes);
     }
 
+    public JavaTypeSignature.ReferenceTypeSignature getFieldTypeDescriptor(FieldInfo fieldInfo) {
+        return (JavaTypeSignature.ReferenceTypeSignature) signatureParser.parseJavaTypeSignature(
+                getUtf8(fieldInfo.descriptorIndex));
+    }
+
     public MethodSignature getMethodTypeDescriptor(MethodInfo methodInfo) {
-        return new JavaTypeSignatureParser().parseMethodSignature(
+        return signatureParser.parseMethodSignature(
                 getUtf8(methodInfo.descriptorIndex));
+    }
+
+    public Optional<ClassSignature> getClassSignature() {
+        return attributes.stream()
+                .filter(attr -> SignatureAttribute.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
+                .map(attr -> signatureParser.parseClassSignature(getUtf8(attr.signatureAttributeValueIndex())))
+                .findFirst();
     }
 
     /**
@@ -172,15 +243,17 @@ public final class ClassFile {
      * Java spec section 4.7.9.1
      * </a>
      *
-     * @param methodInfo the method (must be obtained from this class file)
+     * @param memberInfo the method (must be obtained from this class file)
      * @return the value of the Signature attribute or empty if unavailable.
      */
-    public Optional<MethodSignature> getSignatureAttribute(MethodInfo methodInfo) {
-        return methodInfo.attributes.stream()
-                .filter(attr -> "Signature".equals(getUtf8(attr.nameIndex)))
+    public Optional<SignatureAttribute> getSignatureAttribute(MemberInfo memberInfo) {
+        var isMethod = memberInfo instanceof MethodInfo;
+        return memberInfo.attributes.stream()
+                .filter(attr -> SignatureAttribute.ATTRIBUTE_NAME.equals(getUtf8(attr.nameIndex)))
                 .findFirst()
-                .map(attr -> new JavaTypeSignatureParser().parseMethodSignature(
-                        getUtf8(attr.signatureAttributeValueIndex())));
+                .map(attr -> signatureParser.parse(
+                        getUtf8(attr.signatureAttributeValueIndex()),
+                        isMethod ? Reference.RefKind.METHOD : Reference.RefKind.FIELD));
     }
 
     /**

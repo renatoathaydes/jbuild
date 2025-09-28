@@ -5,11 +5,11 @@ import java.util.List;
 import java.util.Map;
 
 public final class AnnotationInfo {
-    public final String typeDescriptor;
+    public final String typeName;
     public final List<ElementValuePair> elementValuePairs;
 
-    public AnnotationInfo(String typeDescriptor, List<ElementValuePair> elementValuePairs) {
-        this.typeDescriptor = typeDescriptor;
+    public AnnotationInfo(String typeName, List<ElementValuePair> elementValuePairs) {
+        this.typeName = typeName;
         this.elementValuePairs = elementValuePairs;
     }
 
@@ -28,13 +28,13 @@ public final class AnnotationInfo {
 
         AnnotationInfo that = (AnnotationInfo) o;
 
-        if (!typeDescriptor.equals(that.typeDescriptor)) return false;
+        if (!typeName.equals(that.typeName)) return false;
         return elementValuePairs.equals(that.elementValuePairs);
     }
 
     @Override
     public int hashCode() {
-        int result = typeDescriptor.hashCode();
+        int result = typeName.hashCode();
         result = 31 * result + elementValuePairs.hashCode();
         return result;
     }
@@ -42,7 +42,7 @@ public final class AnnotationInfo {
     @Override
     public String toString() {
         return "AnnotationInfo{" +
-                "typeDescriptor='" + typeDescriptor + '\'' +
+                "typeDescriptor='" + typeName + '\'' +
                 ", elementValuePairs=" + elementValuePairs +
                 '}';
     }

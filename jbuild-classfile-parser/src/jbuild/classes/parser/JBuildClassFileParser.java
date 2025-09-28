@@ -1,11 +1,11 @@
 package jbuild.classes.parser;
 
 import jbuild.classes.ClassFileException;
-import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.FieldInfo;
 import jbuild.classes.model.MethodInfo;
+import jbuild.classes.model.attributes.AttributeInfo;
 
 import java.io.IOException;
 import java.io.InputStream;

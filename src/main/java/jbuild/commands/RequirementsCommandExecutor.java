@@ -4,7 +4,6 @@ import jbuild.api.JBuildException;
 import jbuild.api.JBuildException.ErrorCause;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.parser.JBuildClassFileParser;
-import jbuild.java.ClassGraph;
 import jbuild.java.Jar;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
@@ -167,7 +166,7 @@ public class RequirementsCommandExecutor {
                                      Set<String> jarTypes) {
         var requirements = getSet.apply(file);
         var parentTypeName = file.getTypeName();
-        for (String typeName : ClassGraph.getTypesReferredToBy(file)) {
+        for (String typeName : file.getAllTypes()) {
             if (JavaTypeUtils.isPrimitiveJavaType(typeName) ||
                     JavaTypeUtils.mayBeJavaStdLibType(typeName) ||
                     typeName.equals(parentTypeName)) {

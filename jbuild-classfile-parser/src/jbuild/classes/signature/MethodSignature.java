@@ -1,8 +1,13 @@
 package jbuild.classes.signature;
 
+import jbuild.classes.TypeGroup;
+import jbuild.classes.model.attributes.SignatureAttribute;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.TypeVariableSignature;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A method signature encodes type information about a (possibly generic) method declaration.
@@ -21,25 +26,51 @@ import java.util.List;
  *   ^ TypeVariableSignature
  * </pre>
  */
-public final class MethodSignature {
+public final class MethodSignature extends SignatureAttribute {
 
     public final List<TypeParameter> typeParameters;
     public final List<JavaTypeSignature> arguments;
     public final MethodResult result;
     public final List<ThrowsSignature> throwsSignatures;
 
-    public MethodSignature(List<TypeParameter> typeParameters,
+    public MethodSignature(String signature,
+                           List<TypeParameter> typeParameters,
                            List<JavaTypeSignature> arguments,
                            MethodResult result,
                            List<ThrowsSignature> throwsSignatures) {
+        super(signature);
         this.typeParameters = typeParameters;
         this.arguments = arguments;
         this.result = result;
         this.throwsSignatures = throwsSignatures;
     }
 
-    public MethodSignature(List<JavaTypeSignature> arguments, MethodResult result) {
-        this(List.of(), arguments, result, List.of());
+    public MethodSignature(String signature,
+                           List<JavaTypeSignature> arguments,
+                           MethodResult result) {
+        this(signature, List.of(), arguments, result, List.of());
+    }
+
+    @Override
+    public Set<String> getAllTypes() {
+        var typeParams = typeParameters.stream()
+                .flatMap(p -> p.getAllTypes().stream())
+                .collect(Collectors.toList());
+        var argsTypes = arguments.stream()
+                .flatMap(p -> p.getAllTypes().stream())
+                .collect(Collectors.toList());
+        var resultTypes = result.getAllTypes();
+        var throwsTypes = throwsSignatures.stream()
+                .flatMap(p -> p.getAllTypes().stream())
+                .collect(Collectors.toList());
+        var result = new HashSet<String>(
+                typeParams.size() + argsTypes.size() +
+                        resultTypes.size() + throwsTypes.size());
+        result.addAll(typeParams);
+        result.addAll(argsTypes);
+        result.addAll(resultTypes);
+        result.addAll(throwsTypes);
+        return result;
     }
 
     @Override
@@ -74,12 +105,17 @@ public final class MethodSignature {
                 '}';
     }
 
-    public interface MethodResult {
+    public interface MethodResult extends TypeGroup {
         final class MethodReturnType implements MethodResult {
             public final JavaTypeSignature typeSignature;
 
             public MethodReturnType(JavaTypeSignature typeSignature) {
                 this.typeSignature = typeSignature;
+            }
+
+            @Override
+            public Set<String> getAllTypes() {
+                return typeSignature.getAllTypes();
             }
 
             @Override
@@ -105,15 +141,27 @@ public final class MethodSignature {
             }
         }
 
-        enum VoidDescriptor implements MethodResult {INSTANCE}
+        enum VoidDescriptor implements MethodResult {
+            INSTANCE;
+
+            @Override
+            public Set<String> getAllTypes() {
+                return Set.of();
+            }
+        }
     }
 
-    public interface ThrowsSignature {
+    public interface ThrowsSignature extends TypeGroup {
         final class Class implements ThrowsSignature {
             public final JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature typeSignature;
 
             public Class(JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature typeSignature) {
                 this.typeSignature = typeSignature;
+            }
+
+            @Override
+            public Set<String> getAllTypes() {
+                return typeSignature.getAllTypes();
             }
 
             @Override
@@ -144,6 +192,11 @@ public final class MethodSignature {
 
             public TypeVariable(TypeVariableSignature typeSignature) {
                 this.typeSignature = typeSignature;
+            }
+
+            @Override
+            public Set<String> getAllTypes() {
+                return typeSignature.getAllTypes();
             }
 
             @Override

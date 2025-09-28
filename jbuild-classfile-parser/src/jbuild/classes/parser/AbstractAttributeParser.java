@@ -48,7 +48,7 @@ abstract class AbstractAttributeParser {
 
     protected String nextConstClass(ByteScanner scanner) {
         var i = (ConstPoolInfo.ConstClass) classFile.constPoolEntries.get(scanner.nextShortIndex());
-        return constUtf8(i.nameIndex);
+        return "L" + constUtf8(i.nameIndex) + ";";
     }
 
     protected String nextConstPackage(ByteScanner scanner) {

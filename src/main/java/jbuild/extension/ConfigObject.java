@@ -26,18 +26,18 @@ import static java.util.stream.Collectors.toList;
 final class ConfigObject {
 
     private static final ClassTypeSignature STRING =
-            new ClassTypeSignature("java.lang", new SimpleClassTypeSignature("String"));
+            new ClassTypeSignature("java/lang", new SimpleClassTypeSignature("", "String"));
 
     private static final ClassTypeSignature JBUILD_LOGGER =
-            new ClassTypeSignature("jbuild.api", new SimpleClassTypeSignature("JBuildLogger"));
+            new ClassTypeSignature("jbuild/api", new SimpleClassTypeSignature("", "JBuildLogger"));
 
     private static final ClassTypeSignature JB_CONF =
-            new ClassTypeSignature("jbuild.api.config", new SimpleClassTypeSignature("JbConfig"));
+            new ClassTypeSignature("jbuild/api/config", new SimpleClassTypeSignature("", "JbConfig"));
 
     private static final ArrayTypeSignature ARRAY_STRING = new ArrayTypeSignature((short) 1, STRING);
 
     private static final ClassTypeSignature LIST_STRING =
-            new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List", List.of(
+            new ClassTypeSignature("java/util", new SimpleClassTypeSignature("", "List", List.of(
                     new TypeArgument.Reference(STRING))));
 
     private static abstract class StringListTypeToken implements List<String> {
@@ -91,7 +91,7 @@ final class ConfigObject {
 
             // prefer to use the generic type if it's available as we need the type parameters
             return extension.getSignatureAttribute(constructor)
-                    .map(signature -> createConstructor(className, params, signature))
+                    .map(signature -> createConstructor(className, params, (MethodSignature) signature))
                     .orElseGet(() -> createConstructor(className, params,
                             extension.getMethodTypeDescriptor(constructor)));
         });

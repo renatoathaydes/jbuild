@@ -1,7 +1,11 @@
 package jbuild.classes.signature;
 
+import jbuild.classes.TypeGroup;
+
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A component of a {@link jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature}.
@@ -19,17 +23,26 @@ import java.util.Optional;
  *   -
  * </pre>
  */
-public final class SimpleClassTypeSignature {
+public final class SimpleClassTypeSignature
+        implements TypeGroup {
     public final String identifier;
     public final List<TypeArgument> typeArguments;
 
-    public SimpleClassTypeSignature(String identifier, List<TypeArgument> typeArguments) {
+    // TODO signature param?
+    public SimpleClassTypeSignature(String signature, String identifier, List<TypeArgument> typeArguments) {
         this.identifier = identifier;
         this.typeArguments = typeArguments;
     }
 
-    public SimpleClassTypeSignature(String identifier) {
-        this(identifier, List.of());
+    public SimpleClassTypeSignature(String signature, String identifier) {
+        this(signature, identifier, List.of());
+    }
+
+    @Override
+    public Set<String> getAllTypes() {
+        return typeArguments.stream()
+                .flatMap(a -> a.getAllTypes().stream())
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -60,17 +73,24 @@ public final class SimpleClassTypeSignature {
 
     public enum WildCardIndicator {PLUS, MINUS}
 
-    public interface TypeArgument {
+    public interface TypeArgument extends TypeGroup {
 
-        enum Star implements TypeArgument {INSTANCE}
+        enum Star implements TypeArgument {
+            INSTANCE;
+
+            @Override
+            public Set<String> getAllTypes() {
+                return Set.of();
+            }
+        }
 
         final class Reference implements TypeArgument {
             private final WildCardIndicator wildCardIndicator;
             public final JavaTypeSignature.ReferenceTypeSignature typeSignature;
 
             public Reference(JavaTypeSignature.ReferenceTypeSignature typeSignature, WildCardIndicator wildCardIndicator) {
-                this.wildCardIndicator = wildCardIndicator;
                 this.typeSignature = typeSignature;
+                this.wildCardIndicator = wildCardIndicator;
             }
 
             public Reference(JavaTypeSignature.ReferenceTypeSignature typeSignature) {
@@ -79,6 +99,11 @@ public final class SimpleClassTypeSignature {
 
             public Optional<WildCardIndicator> getWildCardIndicator() {
                 return Optional.ofNullable(wildCardIndicator);
+            }
+
+            @Override
+            public Set<String> getAllTypes() {
+                return typeSignature.getAllTypes();
             }
 
             @Override
