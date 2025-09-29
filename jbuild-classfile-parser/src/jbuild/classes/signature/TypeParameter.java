@@ -42,7 +42,7 @@ public final class TypeParameter implements TypeGroup {
 
     @Override
     public Set<String> getAllTypes() {
-        return Stream.concat(classBoundTypeSignature.getAllTypes().stream(),
+        return Stream.concat(classBoundTypeSignature == null ? Stream.empty() : classBoundTypeSignature.getAllTypes().stream(),
                         interfaceBoundTypeSignatures.stream()
                                 .flatMap(i -> i.getAllTypes().stream()))
                 .collect(Collectors.toSet());
