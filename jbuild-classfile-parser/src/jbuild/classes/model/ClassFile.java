@@ -18,8 +18,10 @@ import jbuild.classes.signature.MethodSignature;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
@@ -64,6 +66,8 @@ public final class ClassFile implements TypeGroup {
 
     // cached values
     private volatile Set<String> typesReferredTo;
+    private final String[] cachedUtf8;
+    private final Map<ConstPoolInfo.ConstClass, String> cachedClassName = new ConcurrentHashMap<>();
 
     public ClassFile(short minorVersion,
                      short majorVersion,
@@ -85,6 +89,8 @@ public final class ClassFile implements TypeGroup {
         this.fields = fields;
         this.methods = methods;
         this.attributes = attributes;
+
+        this.cachedUtf8 = new String[this.constPoolEntries.size()];
     }
 
     public String getTypeName() {
@@ -323,16 +329,15 @@ public final class ClassFile implements TypeGroup {
     }
 
     private String nameOf(ConstPoolInfo.ConstClass type) {
-        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(type.nameIndex & 0xFFFF);
-        var name = utf8.asString();
-        if (name.startsWith("[")) {
-            while (name.startsWith("[")) {
-                name = name.substring(1);
+        return cachedClassName.computeIfAbsent(type, (k) -> {
+            var name = getUtf8(type.nameIndex);
+            var startIndex = name.lastIndexOf('[');
+            if (startIndex != -1) {
+                // array types are already in the type name format
+                return name.substring(startIndex + 1);
             }
-            // array types are already in the type name format
-            return name;
-        }
-        return 'L' + name + ';';
+            return 'L' + name + ';';
+        });
     }
 
     private Reference refOf(ConstPoolInfo.RefInfo refInfo) {
@@ -342,9 +347,16 @@ public final class ClassFile implements TypeGroup {
                 getUtf8(nameAndType.nameIndex), getUtf8(nameAndType.descriptorIndex));
     }
 
-    public String getUtf8(short index) {
-        var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(index & 0xFFFF);
-        return utf8.asString();
+    private String getUtf8(short index) {
+        var i = index & 0xFFFF;
+        synchronized (cachedUtf8) {
+            var cached = cachedUtf8[i];
+            if (cached == null) {
+                var utf8 = (ConstPoolInfo.Utf8) constPoolEntries.get(i);
+                cached = cachedUtf8[i] = utf8.asString();
+            }
+            return cached;
+        }
     }
 
 }
