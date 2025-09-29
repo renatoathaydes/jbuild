@@ -8,6 +8,7 @@ import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
 import jbuild.classes.model.attributes.MethodParameter;
 import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.model.info.Reference;
 import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
@@ -23,6 +24,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static jbuild.classes.model.info.Reference.RefKind.FIELD;
+import static jbuild.classes.model.info.Reference.RefKind.INTERFACE_METHOD;
+import static jbuild.classes.model.info.Reference.RefKind.METHOD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JBuildClassFileParserTest {
@@ -264,6 +268,14 @@ public class JBuildClassFileParserTest {
                                 new ElementValuePair("index", ElementValuePair.Type.INT, 42),
                                 new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
                         ))));
+
+        // also verify getReferences
+        assertThat(classFile.getReferences()).contains(
+                new Reference(METHOD, "Ljava/lang/Object;", "<init>", "()V"));
+
+        // also verify getAllTypes (does not return runtime-invisible annotations)
+        assertThat(classFile.getAllTypes()).containsExactlyInAnyOrder(
+                "Ljava/lang/Object;", "Ljbuild/api/ExampleAnnotated;");
     }
 
     @Test
@@ -338,6 +350,18 @@ public class JBuildClassFileParserTest {
                 "Ljava/net/http/HttpClient$Redirect;",
                 "Ljbuild/artifact/http/DefaultHttpClient;",
                 "Ljbuild/artifact/http/DefaultHttpClient$Singleton;");
+
+        assertThat(classFile.getReferences()).containsExactlyInAnyOrder(
+                new Reference(METHOD, "Ljava/lang/Object;", "<init>", "()V"),
+                new Reference(FIELD, "Ljbuild/artifact/http/DefaultHttpClient$Singleton;", "INSTANCE", "Ljbuild/artifact/http/DefaultHttpClient$Singleton;"),
+                new Reference(FIELD, "Ljbuild/artifact/http/DefaultHttpClient$Singleton;", "httpClient", "Ljava/net/http/HttpClient;"),
+                new Reference(METHOD, "Ljava/net/http/HttpClient;", "newBuilder", "()Ljava/net/http/HttpClient$Builder;"),
+                new Reference(FIELD, "Ljava/net/http/HttpClient$Redirect;", "NORMAL", "Ljava/net/http/HttpClient$Redirect;"),
+                new Reference(INTERFACE_METHOD, "Ljava/net/http/HttpClient$Builder;", "followRedirects", "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;"),
+                new Reference(METHOD, "Ljava/time/Duration;", "ofSeconds", "(J)Ljava/time/Duration;"),
+                new Reference(INTERFACE_METHOD, "Ljava/net/http/HttpClient$Builder;", "connectTimeout", "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;"),
+                new Reference(INTERFACE_METHOD, "Ljava/net/http/HttpClient$Builder;", "build", "()Ljava/net/http/HttpClient;")
+        );
     }
 
     @Test

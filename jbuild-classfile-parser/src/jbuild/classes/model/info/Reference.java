@@ -43,4 +43,31 @@ public final class Reference {
         this.name = name;
         this.descriptor = descriptor;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Reference reference = (Reference) o;
+        return kind == reference.kind && ownerType.equals(reference.ownerType) && name.equals(reference.name) && descriptor.equals(reference.descriptor);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = kind.hashCode();
+        result = 31 * result + ownerType.hashCode();
+        result = 31 * result + name.hashCode();
+        result = 31 * result + descriptor.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "Reference{" +
+                "kind=" + kind +
+                ", ownerType='" + ownerType + '\'' +
+                ", name='" + name + '\'' +
+                ", descriptor='" + descriptor + '\'' +
+                '}';
+    }
 }

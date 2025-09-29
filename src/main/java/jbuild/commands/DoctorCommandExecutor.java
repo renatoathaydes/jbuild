@@ -242,14 +242,14 @@ public final class DoctorCommandExecutor {
         var targetName = reference.name;
         var classFile = location.typeDefinition.classFile;
         if (reference.kind == Reference.RefKind.FIELD) {
-            return classFile.fields.stream()
-                    .filter(m -> classFile.getUtf8(m.nameIndex).equals(targetName))
-                    .map(m -> classFile.getUtf8(m.descriptorIndex))
+            return classFile.getFields().stream()
+                    .filter(m -> m.name.equals(targetName))
+                    .map(m -> m.descriptor)
                     .findFirst();
         }
-        return classFile.methods.stream()
-                .filter(m -> classFile.getUtf8(m.nameIndex).equals(targetName))
-                .map(m -> classFile.getUtf8(m.descriptorIndex))
+        return classFile.getMethods().stream()
+                .filter(m -> m.name.equals(targetName))
+                .map(m -> m.descriptor)
                 .findFirst();
     }
 
