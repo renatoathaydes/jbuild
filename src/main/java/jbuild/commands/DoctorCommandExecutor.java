@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
+import jbuild.classes.model.AccessFlags;
 import jbuild.classes.model.info.Reference;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
@@ -246,6 +247,15 @@ public final class DoctorCommandExecutor {
                     .filter(m -> m.name.equals(targetName))
                     .map(m -> m.descriptor)
                     .findFirst();
+        }
+        if (AccessFlags.isEnum(classFile.accessFlags)) {
+            // enum synthetic methods
+            if (targetName.equals("ordinal")) {
+                return Optional.of("()I");
+            }
+            if (targetName.equals("clone")) {
+                return Optional.of("()Ljava/lang/Object;");
+            }
         }
         return classFile.getMethods().stream()
                 .filter(m -> m.name.equals(targetName))

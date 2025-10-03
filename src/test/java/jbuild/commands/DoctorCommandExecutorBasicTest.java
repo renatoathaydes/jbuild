@@ -28,6 +28,62 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DoctorCommandExecutorBasicTest {
 
     @Test
+    void canFindHashCodeInAnyType() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  final int h;\n" +
+                                "  public Bar() {\n" +
+                                "    h = new Hash().hashCode();\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "class Hash { }\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindEnumImplicitMethods() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  final int h;\n" +
+                                "  public Bar(E e) {\n" +
+                                "    switch (e) {" +
+                                "      case A: h = 1; break;\n" +
+                                "      default: h = 2; break;\n" +
+                                "    }\n" +
+                                "  }\n" +
+                                "  public static enum E { A, B }" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
     void canFindMissingConstructorInClasspath() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
