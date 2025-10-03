@@ -98,6 +98,11 @@ public final class ClassFile implements TypeGroup {
         return nameOf(thisClassInfo);
     }
 
+    public String getSuperClass() {
+        var thisClassInfo = (ConstPoolInfo.ConstClass) constPoolEntries.get(superClass & 0xFFFF);
+        return nameOf(thisClassInfo);
+    }
+
     public List<MethodInfo> getConstructors() {
         return methods.stream().filter((m) -> getUtf8(m.nameIndex).equals("<init>"))
                 .collect(toList());

@@ -27,6 +27,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class DoctorCommandExecutorBasicTest {
 
+    // TODO test call method from interface that is a supertype of another interface
+    // even Java Object methods are not found from interfaces
+
     @Test
     void canFindHashCodeInAnyType() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
@@ -64,14 +67,113 @@ public class DoctorCommandExecutorBasicTest {
                                 "public class Bar {\n" +
                                 "  final int h;\n" +
                                 "  public Bar(E e) {\n" +
-                                "    switch (e) {" +
+                                "    e.name();\n" +
+                                "    e.hashCode();\n" +
+                                "    switch (e) {\n" +
                                 "      case A: h = 1; break;\n" +
                                 "      default: h = 2; break;\n" +
                                 "    }\n" +
                                 "  }\n" +
-                                "  public static enum E { A, B }" +
+                                "  public static enum E { A, B }\n" +
                                 "}\n" +
                                 "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindInterfaceMethodThroughImpl() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; public interface Inter { void foo(); }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar() {\n" +
+                                "    new Foo().foo();\n" +
+                                "    Inter i = new Foo();\n" +
+                                "    i.foo();\n" +
+                                "  }\n" +
+                                "  private static class Foo implements Inter {\n" +
+                                "    @Override public void foo() {}\n" +
+                                "  }" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindSuperClassMethodAndField() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Abs.java"),
+                        "package foo; abstract class Abs { abstract void foo(); int bar() {return 1;} }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  final int h;\n" +
+                                "  public Bar() {\n" +
+                                "    new MyAbs().foo();\n" +
+                                "    new MyAbs().bar();\n" +
+                                "    Abs a = new MyAbs();\n" +
+                                "    a.foo();\n" +
+                                "    a.bar();\n" +
+                                "    // check also Java superClass method\n" +
+                                "    if (a.equals(new MyAbs())) h=1;\n" +
+                                "    else h=2;\n" +
+                                "  }\n" +
+                                "  private static class MyAbs extends Abs {\n" +
+                                "    @Override void foo() {}\n" +
+                                "  }" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindOverloadedMethodAnd() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; interface Inter { void foo(String s); int foo(int i); }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(Inter inter) {\n" +
+                                "    inter.foo(\"\");\n" +
+                                "    inter.foo(0);\n" +
+                                "  }\n" +
+                                "}\n"),
                 "");
 
         withErrorReporting((command) -> {

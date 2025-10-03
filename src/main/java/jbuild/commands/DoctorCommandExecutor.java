@@ -2,6 +2,7 @@ package jbuild.commands;
 
 import jbuild.api.JBuildException;
 import jbuild.classes.model.AccessFlags;
+import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.info.Reference;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
@@ -202,18 +203,15 @@ public final class DoctorCommandExecutor {
             var targetLocation = toLocation.withParent(location);
             typesToVisit.put(ref.ownerType, targetLocation);
             var referenceTarget = ReferenceTarget.of(ref);
-            findTypeDescriptorByName(ref, targetLocation).ifPresentOrElse(descriptor -> {
-                if (!ref.descriptor.equals(descriptor)) {
-                    var to = describe(targetLocation, ref, referenceTarget);
-                    log.verbosePrintln(() -> "Type " + location.className + " needs " + to +
-                            "' with type " + ref.descriptor + " but the actual definition has type " + descriptor);
-                    results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
-                }
-            }, () -> {
+            var targetDescriptor = ref.descriptor;
+            var ok = findTypeDescriptorsByName(ref, targetLocation, classGraph)
+                    .anyMatch(targetDescriptor::equals);
+            if (!ok) {
                 var to = describe(targetLocation, ref, referenceTarget);
-                log.verbosePrintln(() -> "Type " + location.className + " needs missing: " + to);
+                log.verbosePrintln(() -> "Type " + location.className + " needs missing " + to +
+                        "' with type " + ref.descriptor);
                 results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
-            });
+            }
         }
     }
 
@@ -238,29 +236,54 @@ public final class DoctorCommandExecutor {
         return location + "::" + reference.name + '(' + String.join(", ", types) + "):" + returnType;
     }
 
-    private static Optional<String> findTypeDescriptorByName(Reference reference,
-                                                             ClassGraph.TypeDefinitionLocation location) {
+    private static Stream<String> findTypeDescriptorsByName(Reference reference,
+                                                            ClassGraph.TypeDefinitionLocation location,
+                                                            ClassGraph classGraph) {
         var targetName = reference.name;
         var classFile = location.typeDefinition.classFile;
         if (reference.kind == Reference.RefKind.FIELD) {
             return classFile.getFields().stream()
                     .filter(m -> m.name.equals(targetName))
-                    .map(m -> m.descriptor)
-                    .findFirst();
+                    .map(m -> m.descriptor);
         }
         if (AccessFlags.isEnum(classFile.accessFlags)) {
             // enum synthetic methods
             if (targetName.equals("ordinal")) {
-                return Optional.of("()I");
+                return Stream.of("()I");
+            }
+            if (targetName.equals("name")) {
+                return Stream.of("()Ljava/lang/String;");
             }
             if (targetName.equals("clone")) {
-                return Optional.of("()Ljava/lang/Object;");
+                return Stream.of("()Ljava/lang/Object;");
+            }
+            if (targetName.equals("toString")) {
+                return Stream.of("()Ljava/lang/String;");
+            }
+            if (targetName.equals("equals")) {
+                return Stream.of("(Ljava/lang/Object;)Z");
+            }
+            if (targetName.equals("hashCode")) {
+                return Stream.of("()I");
             }
         }
-        return classFile.getMethods().stream()
-                .filter(m -> m.name.equals(targetName))
-                .map(m -> m.descriptor)
-                .findFirst();
+
+        return expandWithSuperTypes(classFile, classGraph)
+                .flatMap(cf -> cf.getMethods().stream()
+                        .filter(m -> m.name.equals(targetName))
+                        .map(m -> m.descriptor));
+    }
+
+    private static Stream<ClassFile> expandWithSuperTypes(ClassFile classFile, ClassGraph classGraph) {
+        return Stream.iterate(
+                classFile,
+                Objects::nonNull,
+                cf -> {
+                    var superClass = cf.getSuperClass();
+                    var superType = classGraph.findTypeDefinition(superClass);
+                    return superType == null ? null : superType.classFile;
+                }
+        );
     }
 
     private boolean isExcluded(String className, Set<Pattern> typeExclusions) {
