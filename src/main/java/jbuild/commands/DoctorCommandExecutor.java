@@ -1,8 +1,6 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
-import jbuild.classes.model.AccessFlags;
-import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.info.Reference;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
@@ -242,48 +240,18 @@ public final class DoctorCommandExecutor {
         var targetName = reference.name;
         var classFile = location.typeDefinition.classFile;
         if (reference.kind == Reference.RefKind.FIELD) {
-            return classFile.getFields().stream()
-                    .filter(m -> m.name.equals(targetName))
-                    .map(m -> m.descriptor);
-        }
-        if (AccessFlags.isEnum(classFile.accessFlags)) {
-            // enum synthetic methods
-            if (targetName.equals("ordinal")) {
-                return Stream.of("()I");
-            }
-            if (targetName.equals("name")) {
-                return Stream.of("()Ljava/lang/String;");
-            }
-            if (targetName.equals("clone")) {
-                return Stream.of("()Ljava/lang/Object;");
-            }
-            if (targetName.equals("toString")) {
-                return Stream.of("()Ljava/lang/String;");
-            }
-            if (targetName.equals("equals")) {
-                return Stream.of("(Ljava/lang/Object;)Z");
-            }
-            if (targetName.equals("hashCode")) {
-                return Stream.of("()I");
-            }
+            return Stream.concat(JavaDescriptorsCache.expandWithSuperTypes(classFile, classGraph)
+                            .flatMap(cf -> cf.getFields().stream()
+                                    .filter(m -> m.name.equals(targetName))
+                                    .map(m -> m.descriptor)),
+                    JavaDescriptorsCache.findFieldDescriptorsByName(classFile, targetName, classGraph));
         }
 
-        return expandWithSuperTypes(classFile, classGraph)
-                .flatMap(cf -> cf.getMethods().stream()
-                        .filter(m -> m.name.equals(targetName))
-                        .map(m -> m.descriptor));
-    }
-
-    private static Stream<ClassFile> expandWithSuperTypes(ClassFile classFile, ClassGraph classGraph) {
-        return Stream.iterate(
-                classFile,
-                Objects::nonNull,
-                cf -> {
-                    var superClass = cf.getSuperClass();
-                    var superType = classGraph.findTypeDefinition(superClass);
-                    return superType == null ? null : superType.classFile;
-                }
-        );
+        return Stream.concat(JavaDescriptorsCache.expandWithSuperTypes(classFile, classGraph)
+                        .flatMap(cf -> cf.getMethods().stream()
+                                .filter(m -> m.name.equals(targetName))
+                                .map(m -> m.descriptor)),
+                JavaDescriptorsCache.findMethodDescriptorsByName(classFile, targetName, classGraph));
     }
 
     private boolean isExcluded(String className, Set<Pattern> typeExclusions) {
