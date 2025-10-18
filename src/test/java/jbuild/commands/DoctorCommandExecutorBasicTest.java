@@ -5,7 +5,6 @@ import jbuild.java.TestHelper;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -54,9 +53,7 @@ public class DoctorCommandExecutorBasicTest {
         });
     }
 
-    // FIXME the Enum.values() method clones the Enum array, but JBuild thinks it's calling Enum.clone()
     @Test
-    @Disabled
     void canFindEnumImplicitMethods() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
@@ -75,6 +72,31 @@ public class DoctorCommandExecutorBasicTest {
                                 "    }\n" +
                                 "  }\n" +
                                 "  public static enum E { A, B }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindArrayImplicitFields() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(int[] array) {\n" +
+                                "    int x = array.length;\n" +
+                                "  }\n" +
                                 "}\n" +
                                 "\n"),
                 "");

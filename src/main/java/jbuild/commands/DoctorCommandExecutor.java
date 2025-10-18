@@ -145,7 +145,8 @@ public final class DoctorCommandExecutor {
                 }
                 var from = typeByName.getValue();
                 for (var typeRef : classGraph.getTypesReferredToBy(from.typeName)) {
-                    if (JavaTypeUtils.isPrimitiveJavaType(typeRef) || JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
+                    if (JavaTypeUtils.isPrimitiveJavaType(typeRef)
+                            || JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
                         continue;
                     }
                     var to = JavaTypeUtils.typeNameToClassName(typeRef);
@@ -182,8 +183,9 @@ public final class DoctorCommandExecutor {
             Map<String, ClassGraph.TypeDefinitionLocation> typesToVisit,
             List<ClassPathInconsistency> results) {
         for (var ref : location.typeDefinition.classFile.getReferences()) {
-            if (JavaTypeUtils.mayBeJavaStdLibType(ref.ownerType)) {
-                // skip Java stdlib types
+            if (JavaTypeUtils.mayBeJavaStdLibType(ref.ownerType)
+                    || location.typeName.equals(ref.ownerType)) {
+                // skip Java stdlib types and refs to internal methods/fields
                 continue;
             }
             var toClassName = JavaTypeUtils.typeNameToClassName(ref.ownerType);
@@ -191,7 +193,7 @@ public final class DoctorCommandExecutor {
                 continue;
             }
             log.verbosePrintln(() -> "Checking reference from " + location.className + " to " +
-                    (ref.kind == Reference.RefKind.FIELD ? "field " : "method ") + ref.ownerType + "::" + ref.name +
+                    (ref.kind == Reference.RefKind.FIELD ? "field " : "method ") + toClassName + "::" + ref.name +
                     " with type " + ref.descriptor);
             var toLocation = classGraph.findTypeDefinitionLocation(ref.ownerType);
             if (toLocation == null) {
