@@ -16,24 +16,18 @@ final class JavaDescriptorsCache {
             ClassFile classFile,
             String targetName,
             ClassGraph classGraph) {
-        return expandWithJavaSuperTypes(classFile, classGraph)
-                .flatMap(c -> Stream.of(c.getFields()))
-                .filter(f -> f.getName().equals(targetName))
-                .map(f -> JavaTypeUtils.toTypeDescriptor(f.getType()));
+        return findFieldDescriptors(expandWithJavaSuperTypes(classFile, classGraph), targetName);
     }
 
     public static Stream<String> findMethodDescriptorsByName(
             ClassFile classFile,
             String targetName,
             ClassGraph classGraph) {
-        return expandWithJavaSuperTypes(classFile, classGraph)
-                .flatMap(c -> Stream.of(c.getMethods()))
-                .filter(f -> f.getName().equals(targetName))
-                .map(m -> JavaTypeUtils.toMethodTypeDescriptor(m.getReturnType(), m.getParameterTypes()));
+        return findMethodDescriptors(expandWithJavaSuperTypes(classFile, classGraph), targetName);
     }
 
     static Stream<ClassFile> expandWithSuperTypes(ClassFile classFile, ClassGraph classGraph) {
-        var superClasses = Stream.iterate(
+        return Stream.iterate(
                 classFile,
                 Objects::nonNull,
                 cf -> {
@@ -41,12 +35,14 @@ final class JavaDescriptorsCache {
                     var superType = classGraph.findTypeDefinition(superClass);
                     return superType == null ? null : superType.classFile;
                 }
-        );
-        return Stream.concat(superClasses,
-                findSuperInterfaces(classFile, classGraph));
+        ).flatMap(cf -> Stream.concat(
+                Stream.of(cf),
+                findSuperInterfaces(cf, classGraph)));
     }
 
-    private static Stream<ClassFile> findSuperInterfaces(ClassFile classFile, ClassGraph classGraph) {
+    private static Stream<ClassFile> findSuperInterfaces(ClassFile classFile,
+                                                         ClassGraph classGraph) {
+
         return classFile.getInterfaceNames().stream()
                 .flatMap(interfaceName -> {
                     var def = classGraph.findTypeDefinition(interfaceName);
@@ -92,5 +88,38 @@ final class JavaDescriptorsCache {
         } catch (ClassNotFoundException e) {
             throw new JBuildException("Cannot find Java stdlib class " + name, ACTION_ERROR);
         }
+    }
+
+    public static Stream<String> findArrayFieldDescriptorsByName(String name) {
+        return findFieldDescriptors(Stream.of(Object.class, DummyArray.class), name);
+    }
+
+    public static Stream<String> findArrayMethodDescriptorsByName(String name) {
+        return findMethodDescriptors(Stream.of(Object.class, DummyArray.class), name);
+    }
+
+    private static Stream<String> findFieldDescriptors(Stream<Class<?>> classes, String name) {
+        return classes
+                .flatMap(c -> Stream.of(c.getFields()))
+                .filter(f -> f.getName().equals(name))
+                .map(f -> JavaTypeUtils.toTypeDescriptor(f.getType()));
+    }
+
+    private static Stream<String> findMethodDescriptors(Stream<Class<?>> classes, String name) {
+        return classes
+                .flatMap(c -> Stream.of(c.getMethods()))
+                .filter(m -> m.getName().equals(name))
+                .map(m -> JavaTypeUtils.toMethodTypeDescriptor(m.getReturnType(), m.getParameterTypes()));
+    }
+
+    private static final class DummyArray {
+        public final int length = 0;
+
+        @SuppressWarnings("MethodDoesntCallSuperMethod")
+        @Override
+        public Object clone() {
+            return this;
+        }
+
     }
 }

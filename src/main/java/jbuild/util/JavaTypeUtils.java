@@ -109,7 +109,16 @@ public final class JavaTypeUtils {
      * @return Java language type name
      */
     public static String typeNameToClassName(String typeName) {
-        var typeInfo = TypeInfo.from(typeName);
+        return typeNameToClassName(TypeInfo.from(typeName));
+    }
+
+    /**
+     * Convert a JVM internal type name to a name using the Java language conventional syntax.
+     *
+     * @param typeInfo the type info obtained by calling {@link TypeInfo#from(String)}
+     * @return Java language type name
+     */
+    public static String typeNameToClassName(TypeInfo typeInfo) {
         var simpleClassName = className(typeInfo.basicTypeName, typeInfo.isReferenceType);
         if (typeInfo.arrayDimensions == 0) return simpleClassName;
         return simpleClassName + arrayTypeSuffix(typeInfo.arrayDimensions);
@@ -343,10 +352,10 @@ public final class JavaTypeUtils {
                 .collect(joining("", "(", ")")) + toTypeDescriptor(returnType);
     }
 
-    private static final class TypeInfo {
-        final String basicTypeName;
-        final int arrayDimensions;
-        final boolean isReferenceType;
+    public static final class TypeInfo {
+        public final String basicTypeName;
+        public final int arrayDimensions;
+        public final boolean isReferenceType;
 
         public TypeInfo(String basicTypeName, int arrayDimensions, boolean isReferenceType) {
             this.basicTypeName = basicTypeName;
@@ -354,7 +363,7 @@ public final class JavaTypeUtils {
             this.isReferenceType = isReferenceType;
         }
 
-        static TypeInfo from(String typeName) {
+        public static TypeInfo from(String typeName) {
             var arrayDimensions = 0;
             for (int i = 0; i < typeName.length(); i++) {
                 if (typeName.charAt(i) == '[') arrayDimensions++;
@@ -362,6 +371,15 @@ public final class JavaTypeUtils {
             }
             var isReferenceType = typeName.charAt(arrayDimensions) == 'L';
             return new TypeInfo(typeName.substring(arrayDimensions), arrayDimensions, isReferenceType);
+        }
+
+        @Override
+        public String toString() {
+            return "TypeInfo{" +
+                    "basicTypeName='" + basicTypeName + '\'' +
+                    ", arrayDimensions=" + arrayDimensions +
+                    ", isReferenceType=" + isReferenceType +
+                    '}';
         }
     }
 

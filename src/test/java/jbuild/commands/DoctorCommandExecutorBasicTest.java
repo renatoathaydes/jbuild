@@ -86,7 +86,7 @@ public class DoctorCommandExecutorBasicTest {
     }
 
     @Test
-    void canFindArrayImplicitFields() throws Exception {
+    void canFindPrimitiveArrayImplicitFields() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
         var barJar = barJarPath.toFile();
@@ -96,6 +96,36 @@ public class DoctorCommandExecutorBasicTest {
                                 "public class Bar {\n" +
                                 "  public Bar(int[] array) {\n" +
                                 "    int x = array.length;\n" +
+                                "    int[] cp = array.clone();\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindObjectArrayImplicitFields() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Foo.java"),
+                        "package foo;\n" +
+                                "final class Foo {}",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(Foo[] array) {\n" +
+                                "    int x = array.length;\n" +
+                                "    Foo[] cp = array.clone();\n" +
                                 "  }\n" +
                                 "}\n" +
                                 "\n"),
@@ -156,6 +186,38 @@ public class DoctorCommandExecutorBasicTest {
                                 "  public Bar(Inter inter) {\n" +
                                 "    inter.run();\n" +
                                 "    inter.hashCode();\n" +
+                                "  }\n" +
+                                "}\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindJavaDefaultInterfaceMethodViaSuperClass() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; public interface Inter {\n" +
+                                "  default int getInt() { return 0; }\n" +
+                                "}",
+                        Paths.get("foo", "Super.java"),
+                        "package foo; public class Super implements Inter {}",
+                        Paths.get("foo", "Other.java"),
+                        "package foo; public class Other extends Super {}",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar extends Super {\n" +
+                                "  public Bar(Other other) {\n" +
+                                "    int x = other.getInt();\n" +
                                 "  }\n" +
                                 "}\n"),
                 "");

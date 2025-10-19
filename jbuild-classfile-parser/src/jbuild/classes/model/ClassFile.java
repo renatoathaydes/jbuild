@@ -345,10 +345,26 @@ public final class ClassFile implements TypeGroup {
         });
     }
 
+    /**
+     * Like {@link ClassFile#nameOf(ConstPoolInfo.ConstClass)}, but keeps any array prefix.
+     *
+     * @param type type
+     * @return owner type
+     */
+    private String typeOf(ConstPoolInfo.ConstClass type) {
+        var name = getUtf8(type.nameIndex);
+        var arrayIndex = name.indexOf('[');
+        if (arrayIndex != -1) {
+            // array types are already in the type name format
+            return name;
+        }
+        return 'L' + name + ';';
+    }
+
     private Reference refOf(ConstPoolInfo.RefInfo refInfo) {
         var constClass = (ConstPoolInfo.ConstClass) constPoolEntries.get(refInfo.classIndex & 0xFFFF);
         var nameAndType = (ConstPoolInfo.NameAndType) constPoolEntries.get(refInfo.nameAndTypeIndex & 0xFFFF);
-        return new Reference(Reference.kindOf(refInfo), nameOf(constClass),
+        return new Reference(Reference.kindOf(refInfo), typeOf(constClass),
                 getUtf8(nameAndType.nameIndex), getUtf8(nameAndType.descriptorIndex));
     }
 

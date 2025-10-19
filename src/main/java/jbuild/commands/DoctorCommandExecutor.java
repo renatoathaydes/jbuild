@@ -99,7 +99,7 @@ public final class DoctorCommandExecutor {
             }
 
             var checkResults = jarSets.stream().map(jarSet -> jarSet.toClassGraph()
-                    .thenApplyAsync(cg -> checkForInconsistencies(cg, entryPoints, typeExclusions))
+                    .thenApplyAsync(cg -> checkForInconsistencies(cg, entryJars, typeExclusions))
                     .thenApplyAsync(results -> ClasspathCheckResult.of(results, jarSet))
             ).collect(toList());
 
@@ -121,7 +121,7 @@ public final class DoctorCommandExecutor {
 
     private ConsistencyCheckResult checkForInconsistencies(
             ClassGraph classGraph,
-            List<File> entryPoints,
+            Set<File> entryPoints,
             Set<Pattern> typeExclusions) {
         var visitedJars = new HashSet<>(entryPoints);
         var capacity = classGraph.getTypesByJar().values().stream().mapToInt(Map::size).sum();
@@ -183,19 +183,25 @@ public final class DoctorCommandExecutor {
             Map<String, ClassGraph.TypeDefinitionLocation> typesToVisit,
             List<ClassPathInconsistency> results) {
         for (var ref : location.typeDefinition.classFile.getReferences()) {
-            if (JavaTypeUtils.mayBeJavaStdLibType(ref.ownerType)
-                    || location.typeName.equals(ref.ownerType)) {
+            var ownerTypeInfo = JavaTypeUtils.TypeInfo.from(ref.ownerType);
+            if (ownerTypeInfo.arrayDimensions > 0) {
+                checkArrayReference(ownerTypeInfo, classGraph, location, ref, typesToVisit, results);
+                continue;
+            }
+            if (!ownerTypeInfo.isReferenceType
+                    || JavaTypeUtils.mayBeJavaStdLibType(ownerTypeInfo.basicTypeName)
+                    || location.typeName.equals(ownerTypeInfo.basicTypeName)) {
                 // skip Java stdlib types and refs to internal methods/fields
                 continue;
             }
-            var toClassName = JavaTypeUtils.typeNameToClassName(ref.ownerType);
+            var toClassName = JavaTypeUtils.typeNameToClassName(ownerTypeInfo);
             if (isExcluded(toClassName, typeExclusions)) {
                 continue;
             }
             log.verbosePrintln(() -> "Checking reference from " + location.className + " to " +
                     (ref.kind == Reference.RefKind.FIELD ? "field " : "method ") + toClassName + "::" + ref.name +
                     " with type " + ref.descriptor);
-            var toLocation = classGraph.findTypeDefinitionLocation(ref.ownerType);
+            var toLocation = classGraph.findTypeDefinitionLocation(ownerTypeInfo.basicTypeName);
             if (toLocation == null) {
                 // missing types are reported already from the ClassInfo constants
                 return;
@@ -208,10 +214,37 @@ public final class DoctorCommandExecutor {
                     .anyMatch(targetDescriptor::equals);
             if (!ok) {
                 var to = describe(targetLocation, ref, referenceTarget);
-                log.verbosePrintln(() -> "Type " + location.className + " needs missing " + to +
+                log.verbosePrintln(() -> "Type " + location.className + " needs missing '" + to +
                         "' with type " + ref.descriptor);
                 results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
             }
+        }
+    }
+
+    private void checkArrayReference(JavaTypeUtils.TypeInfo ownerTypeInfo,
+                                     ClassGraph classGraph,
+                                     ClassGraph.TypeDefinitionLocation location, Reference ref,
+                                     Map<String, ClassGraph.TypeDefinitionLocation> typesToVisit,
+                                     List<ClassPathInconsistency> results) {
+        assert ownerTypeInfo.arrayDimensions > 0;
+        if (ownerTypeInfo.isReferenceType) {
+            var type = classGraph.findTypeDefinitionLocation(ownerTypeInfo.basicTypeName);
+            if (type != null) {
+                typesToVisit.put(ownerTypeInfo.basicTypeName, type);
+            }
+        }
+        Stream<String> existingDescriptors;
+        if (ref.kind == Reference.RefKind.FIELD) {
+            existingDescriptors = JavaDescriptorsCache.findArrayFieldDescriptorsByName(ref.name);
+        } else {
+            existingDescriptors = JavaDescriptorsCache.findArrayMethodDescriptorsByName(ref.name);
+        }
+        if (existingDescriptors.noneMatch(ref.descriptor::equals)) {
+            var referenceTarget = ReferenceTarget.of(ref);
+            var to = JavaTypeUtils.typeNameToClassName(ownerTypeInfo);
+            log.verbosePrintln(() -> "Type " + location.className + " needs missing '" + to + "::" + ref.name +
+                    "' with type " + ref.descriptor);
+            results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
         }
     }
 
