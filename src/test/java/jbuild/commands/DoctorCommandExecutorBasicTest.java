@@ -454,7 +454,7 @@ public class DoctorCommandExecutorBasicTest {
 
             assertThat(checkResult.getErrors()).isPresent()
                     .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
-                            "foo.jar!bar.Foo -> bar.jar!foo.Bar::()",
+                            "foo.jar!bar.Foo",
                             "bar.jar!foo.Bar::()",
                             DoctorCommandExecutor.ReferenceTarget.CONSTRUCTOR
                     )));
@@ -516,7 +516,7 @@ public class DoctorCommandExecutorBasicTest {
 
             assertThat(checkResult.getErrors()).isPresent()
                     .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
-                            "foo.jar!bar.Foo -> bar.jar!foo.Bar::zort:int",
+                            "foo.jar!bar.Foo",
                             "bar.jar!foo.Bar::zort:int",
                             DoctorCommandExecutor.ReferenceTarget.FIELD
                     )));
@@ -578,7 +578,7 @@ public class DoctorCommandExecutorBasicTest {
 
             assertThat(checkResult.getErrors()).isPresent()
                     .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
-                            "foo.jar!bar.Foo -> bar.jar!foo.Bar::zort:int",
+                            "foo.jar!bar.Foo",
                             "bar.jar!foo.Bar::zort:int",
                             DoctorCommandExecutor.ReferenceTarget.FIELD
                     )));
@@ -640,7 +640,7 @@ public class DoctorCommandExecutorBasicTest {
 
             assertThat(checkResult.getErrors()).isPresent()
                     .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
-                            "foo.jar!bar.Foo -> bar.jar!foo.Bar::getString():java.lang.String",
+                            "foo.jar!bar.Foo",
                             "bar.jar!foo.Bar::getString():java.lang.String",
                             DoctorCommandExecutor.ReferenceTarget.METHOD
                     )));
@@ -702,7 +702,7 @@ public class DoctorCommandExecutorBasicTest {
 
             assertThat(checkResult.getErrors()).isPresent()
                     .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
-                            "foo.jar!bar.Foo -> bar.jar!foo.Bar::getString():java.lang.String",
+                            "foo.jar!bar.Foo",
                             "bar.jar!foo.Bar::getString():java.lang.String",
                             DoctorCommandExecutor.ReferenceTarget.METHOD
                     )));
@@ -803,7 +803,7 @@ public class DoctorCommandExecutorBasicTest {
             assertThat(result.get(0).getErrors()).isPresent()
                     .get()
                     .isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
-                            "app.jar!app.App -> messages-user.jar!user.MessageUser -> messages.Message",
+                            "app.jar!app.App -> messages-user.jar!user.MessageUser",
                             "messages.Message",
                             DoctorCommandExecutor.ReferenceTarget.TYPE
                     )));

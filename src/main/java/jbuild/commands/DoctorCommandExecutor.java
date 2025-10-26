@@ -157,7 +157,7 @@ public final class DoctorCommandExecutor {
                     var ref = classGraph.findTypeDefinitionLocation(typeRef);
                     if (ref == null) {
                         log.verbosePrintln(() -> "Type " + from + " needs missing type: " + to);
-                        inconsistencies.add(new ClassPathInconsistency(refChain(from, to), to, ReferenceTarget.TYPE));
+                        inconsistencies.add(new ClassPathInconsistency(refChain(from), to, ReferenceTarget.TYPE));
                     } else {
                         if (visitedJars.add(ref.jar)) {
                             log.verbosePrintln(() -> "Including jar " + ref.jar + " due to reference to " +
@@ -217,7 +217,7 @@ public final class DoctorCommandExecutor {
                 var to = describe(targetLocation, ref, referenceTarget);
                 log.verbosePrintln(() -> "Type " + location.className + " needs missing '" + to +
                         "' with type " + ref.descriptor);
-                results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
+                results.add(new ClassPathInconsistency(refChain(location), to, referenceTarget));
             }
         }
     }
@@ -245,7 +245,7 @@ public final class DoctorCommandExecutor {
             var to = JavaTypeUtils.typeNameToClassName(ownerTypeInfo);
             log.verbosePrintln(() -> "Type " + location.className + " needs missing '" + to + "::" + ref.name +
                     "' with type " + ref.descriptor);
-            results.add(new ClassPathInconsistency(refChain(location, to), to, referenceTarget));
+            results.add(new ClassPathInconsistency(refChain(location), to, referenceTarget));
         }
     }
 
@@ -302,10 +302,9 @@ public final class DoctorCommandExecutor {
         return false;
     }
 
-    private static String refChain(ClassGraph.TypeDefinitionLocation from, String to) {
+    private static String refChain(ClassGraph.TypeDefinitionLocation from) {
         var chain = new ArrayList<String>();
         // build the chain in reverse
-        chain.add(to);
         var current = from;
         while (current != null) {
             chain.add(current.jar.getName() + '!' + current.className);
