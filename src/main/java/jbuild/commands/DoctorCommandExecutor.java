@@ -252,7 +252,7 @@ public final class DoctorCommandExecutor {
     private static String describe(ClassGraph.TypeDefinitionLocation location,
                                    Reference reference,
                                    ReferenceTarget referenceTarget) {
-        var types = parseTypeDescriptor(reference.descriptor, false).stream()
+        var types = parseTypeDescriptor(reference.descriptor, true).stream()
                 .map(JavaTypeUtils::typeNameToClassName)
                 .collect(toCollection(ArrayList::new));
         if (referenceTarget == ReferenceTarget.CONSTRUCTOR) {

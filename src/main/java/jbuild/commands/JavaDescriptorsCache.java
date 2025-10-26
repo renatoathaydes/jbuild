@@ -121,17 +121,56 @@ final class JavaDescriptorsCache {
     }
 
     private static Stream<String> findFieldDescriptors(Stream<Class<?>> classes, String name) {
-        return classes
-                .flatMap(c -> Stream.concat(Stream.of(c.getFields()), Stream.of(c.getDeclaredFields())))
-                .filter(f -> f.getName().equals(name))
-                .map(f -> JavaTypeUtils.toTypeDescriptor(f.getType()));
+        return classes.flatMap(c -> findAccessibleFieldDescriptors(c, name));
     }
 
     private static Stream<String> findMethodDescriptors(Stream<Class<?>> classes, String name) {
-        return classes
-                .flatMap(c -> Stream.concat(Stream.of(c.getMethods()), Stream.of(c.getDeclaredMethods())))
-                .filter(m -> m.getName().equals(name))
-                .map(m -> JavaTypeUtils.toMethodTypeDescriptor(m.getReturnType(), m.getParameterTypes()));
+        return classes.flatMap(c -> findAccessibleMethodDescriptors(c, name));
+    }
+
+    // TODO follow Java visibility rules
+    private static Stream<String> findAccessibleFieldDescriptors(Class<?> type, String name) {
+        var toVisit = new ArrayList<Class<?>>();
+        toVisit.add(type);
+        var result = new HashSet<String>(4);
+        while (!toVisit.isEmpty()) {
+            var currentType = toVisit.remove(0);
+            for (var f : currentType.getDeclaredFields()) {
+                if (f.getName().equals(name)) {
+                    result.add(JavaTypeUtils.toTypeDescriptor(f.getType()));
+                }
+            }
+            var superType = currentType.getSuperclass();
+            if (superType != null) {
+                toVisit.add(superType);
+            }
+            for (Class<?> inter : currentType.getInterfaces()) {
+                toVisit.add(inter);
+            }
+        }
+        return result.stream();
+    }
+
+    private static Stream<String> findAccessibleMethodDescriptors(Class<?> type, String name) {
+        var toVisit = new ArrayList<Class<?>>();
+        toVisit.add(type);
+        var result = new HashSet<String>(4);
+        while (!toVisit.isEmpty()) {
+            var currentType = toVisit.remove(0);
+            for (var m : currentType.getDeclaredMethods()) {
+                if (m.getName().equals(name)) {
+                    result.add(JavaTypeUtils.toMethodTypeDescriptor(m.getReturnType(), m.getParameterTypes()));
+                }
+            }
+            var superType = currentType.getSuperclass();
+            if (superType != null) {
+                toVisit.add(superType);
+            }
+            for (Class<?> inter : currentType.getInterfaces()) {
+                toVisit.add(inter);
+            }
+        }
+        return result.stream();
     }
 
     private static final class DummyArray {

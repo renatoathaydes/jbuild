@@ -310,7 +310,13 @@ public class DoctorCommandExecutorBasicTest {
         var barJar = barJarPath.toFile();
         createJar(barJarPath, dir.resolve("src-bar"), Map.of(
                         Paths.get("foo", "CL.java"),
-                        "package foo; abstract class CL extends ClassLoader {\n" +
+                        "package foo;\n" +
+                                "abstract class BaseCL extends java.net.URLClassLoader {\n" +
+                                "  BaseCL() {\n" +
+                                "    super(new java.net.URL[0], Thread.currentThread().getContextClassLoader());\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "abstract class CL extends BaseCL {\n" +
                                 "    public Class defineClass(final String name, final byte[] bytes) throws ClassFormatError {\n" +
                                 "        return super.defineClass(name, bytes, 0, bytes.length);\n" +
                                 "    }\n" +
