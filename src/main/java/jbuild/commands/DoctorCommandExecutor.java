@@ -1,6 +1,7 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
+import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.info.Reference;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
@@ -274,19 +275,20 @@ public final class DoctorCommandExecutor {
                                                             ClassGraph classGraph) {
         var targetName = reference.name;
         var classFile = location.typeDefinition.classFile;
+        Set<ClassFile> parentTypes = JavaDescriptorsCache.expandWithSuperTypes(classFile, classGraph);
         if (reference.kind == Reference.RefKind.FIELD) {
-            return Stream.concat(JavaDescriptorsCache.expandWithSuperTypes(classFile, classGraph)
+            return Stream.concat(parentTypes.stream()
                             .flatMap(cf -> cf.getFields().stream()
                                     .filter(m -> m.name.equals(targetName))
                                     .map(m -> m.descriptor)),
                     JavaDescriptorsCache.findFieldDescriptorsByName(classFile, targetName, classGraph));
         }
 
-        return Stream.concat(JavaDescriptorsCache.expandWithSuperTypes(classFile, classGraph)
+        return Stream.concat(parentTypes.stream()
                         .flatMap(cf -> cf.getMethods().stream()
                                 .filter(m -> m.name.equals(targetName))
                                 .map(m -> m.descriptor)),
-                JavaDescriptorsCache.findMethodDescriptorsByName(classFile, targetName, classGraph));
+                JavaDescriptorsCache.findMethodDescriptorsByName(parentTypes, targetName, classGraph));
     }
 
     private boolean isExcluded(String className, Set<Pattern> typeExclusions) {

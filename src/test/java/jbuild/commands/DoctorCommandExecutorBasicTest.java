@@ -304,6 +304,76 @@ public class DoctorCommandExecutorBasicTest {
     }
 
     @Test
+    void canFindIndirectSuperClassProtectedMethods() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "CL.java"),
+                        "package foo; abstract class CL extends ClassLoader {\n" +
+                                "    public Class defineClass(final String name, final byte[] bytes) throws ClassFormatError {\n" +
+                                "        return super.defineClass(name, bytes, 0, bytes.length);\n" +
+                                "    }\n" +
+                                "\n}",
+                        Paths.get("foo", "CL1.java"),
+                        "package foo;\n" +
+                                "public class CL1 extends CL {\n" +
+                                "    @Override\n" +
+                                "    protected synchronized Class loadClass(String name, boolean resolve) throws ClassNotFoundException {\n" +
+                                "        return super.loadClass(name, resolve);\n" +
+                                "    }\n" +
+                                "    @Override\n" +
+                                "    public Class defineClass(final String name, final byte[] data) {\n" +
+                                "        return super.defineClass(name, data, 0, data.length);\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindSuperClassInterfaceMethod() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "MyMap.java"),
+                        "package foo;\n" +
+                                "import java.util.Map;\n" +
+                                "abstract class MyMap implements Map<String, Integer> {}",
+                        Paths.get("foo", "Main.java"),
+                        "package foo;\n" +
+                                "public abstract class Main extends MyMap {\n" +
+                                "    public void putInt(int i) {\n" +
+                                "        put(\"i\", i);\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "final class Another {\n" +
+                                "    public void putSomethingOn(Main main) {\n" +
+                                "        main.putAll(java.util.Map.of(\"a\", 1));\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
     void canFindOverloadedMethodAnd() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
