@@ -5,6 +5,7 @@ import jbuild.commands.JbuildCompiler;
 import jbuild.log.JBuildLog;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -39,7 +40,8 @@ public final class GroovyCompiler implements JbuildCompiler {
                                  String classPath,
                                  String modulePath,
                                  List<String> compilerArgs) {
-        var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs, true);
+        // groovy does not have the --module-path option
+        var args = collectArgs(sourceFiles, outDir, joinClasspath(classPath, modulePath), "", compilerArgs, true);
         return run(args);
     }
 
@@ -124,5 +126,11 @@ public final class GroovyCompiler implements JbuildCompiler {
         var groovyClassLoaderClass = mainClassLoader.loadClass(GROOVY_CLASS_LOADER);
         var constructor = groovyClassLoaderClass.getDeclaredConstructor(URL[].class, ClassLoader.class);
         return (CL) constructor.newInstance(classpath, mainClassLoader);
+    }
+
+    private static String joinClasspath(String classPath, String modulePath) {
+        if (classPath.isEmpty()) return modulePath;
+        if (modulePath.isEmpty()) return classPath;
+        return classPath + File.pathSeparator + modulePath;
     }
 }

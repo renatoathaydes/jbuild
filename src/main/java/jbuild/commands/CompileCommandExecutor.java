@@ -219,11 +219,13 @@ public final class CompileCommandExecutor {
             JbuildCompiler compiler = groovyJar.isBlank()
                     ? Tools.Javac.create(log)
                     : new GroovyCompiler(log, relativize(workingDir, groovyJar));
+
             compileResult = await(runAsyncTiming(() -> compiler
                                     .compile(sourceFiles, outputDir, computedClasspath, computedModulePath, compilerArgs),
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
                     Duration.ofMinutes(30),
                     "compile");
+
             if (compileResult.exitCode() != 0) {
                 return new CompileCommandResult(compileResult);
             }
