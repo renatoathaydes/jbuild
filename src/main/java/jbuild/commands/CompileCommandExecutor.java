@@ -11,7 +11,6 @@ import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
-import jbuild.util.JarFileFilter;
 import jbuild.util.JarPatcher;
 import jbuild.util.NoOp;
 
@@ -46,7 +45,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
-import static jbuild.api.JBuildException.ErrorCause.IO_READ;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.await;
@@ -515,34 +513,8 @@ public final class CompileCommandExecutor {
         return Stream.concat(
                         previousOutput == null ? Stream.of() : Stream.of(previousOutput),
                         Stream.of(classpath.split(File.pathSeparator))
-                                .map(CompileCommandExecutor::computeClasspathPart)
                                 .filter(not(String::isBlank)))
                 .collect(joining(File.pathSeparator));
-    }
-
-    private static String computeClasspathPart(String classpath) {
-        if (classpath.isBlank()) {
-            return "";
-        }
-        if (classpath.endsWith("*")) {
-            return classpath;
-        }
-        File canonical;
-        try {
-            canonical = new File(classpath).getCanonicalFile();
-        } catch (IOException e) {
-            throw new JBuildException("Cannot compute classpath, unable to canonicalize " + classpath +
-                    " due to " + e, IO_READ);
-        }
-        if (canonical.isDirectory()) {
-            // expand classpath to include any jars available in the directory
-            var jars = FileUtils.allFilesInDir(canonical, JarFileFilter.getInstance());
-            if (jars.length > 0) {
-                return Stream.concat(Stream.of(classpath), Stream.of(jars).map(File::getPath))
-                        .collect(joining(File.pathSeparator));
-            }
-        }
-        return canonical.getPath();
     }
 
     String jarOrDefault(String workingDir, String jar) {
