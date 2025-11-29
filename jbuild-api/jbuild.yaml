@@ -7,6 +7,7 @@ module: jbuild-api
 name: JBuild API
 version: "{{versions.jbuild}}"
 description: JBuild Java API for extending the jb tool.
+manifest: MANIFEST.MF
 
 javac-args: [ "--release={{versions.java}}" ]
 

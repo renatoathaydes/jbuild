@@ -67,9 +67,10 @@ public final class RpcMain {
         var server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
         server.setExecutor(executor);
 
-        // the caller must read the first 2 lines: PORT and TOKEN
+        // the caller must read the first 3 lines: PORT, TOKEN, JVM_VERSION
         System.out.println(server.getAddress().getPort());
         System.out.println(token);
+        System.out.println(System.getProperty("java.version"));
 
         var javaRunner = new JavaRunner(new JBuildLog(System.out, verbose));
         var serverContext = new JBuildHttpHandler(stopper, token, verbose, javaRunner);

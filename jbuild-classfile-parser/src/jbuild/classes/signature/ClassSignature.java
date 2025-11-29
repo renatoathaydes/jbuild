@@ -1,8 +1,12 @@
 package jbuild.classes.signature;
 
+import jbuild.classes.model.attributes.SignatureAttribute;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A class signature encodes type information about a (possibly generic) class or interface declaration.
@@ -23,22 +27,37 @@ import java.util.List;
  *   ClassTypeSignature
  * </pre>
  */
-public final class ClassSignature {
+public final class ClassSignature extends SignatureAttribute {
     public final List<TypeParameter> typeParameters;
     public final ClassTypeSignature superclassSignature;
     public final List<ClassTypeSignature> superInterfaceSignatures;
 
-    public ClassSignature(List<TypeParameter> typeParameters,
+    public ClassSignature(String signature,
+                          List<TypeParameter> typeParameters,
                           ClassTypeSignature superclassSignature,
                           List<ClassTypeSignature> superInterfaceSignatures) {
+        super(signature);
         this.typeParameters = typeParameters;
         this.superclassSignature = superclassSignature;
         this.superInterfaceSignatures = superInterfaceSignatures;
     }
 
-    public ClassSignature(List<TypeParameter> typeParameters,
+    public ClassSignature(String signature,
+                          List<TypeParameter> typeParameters,
                           ClassTypeSignature superclassSignature) {
-        this(typeParameters, superclassSignature, List.of());
+        this(signature, typeParameters, superclassSignature, List.of());
+    }
+
+    @Override
+    public Set<String> getAllTypes() {
+        return Stream.concat(
+                        Stream.concat(typeParameters.stream()
+                                        .flatMap(p -> p.interfaceBoundTypeSignatures.stream()
+                                                .flatMap(s -> s.getAllTypes().stream())),
+                                superclassSignature.getAllTypes().stream()),
+                        superInterfaceSignatures.stream()
+                                .flatMap(s -> s.getAllTypes().stream()))
+                .collect(Collectors.toSet());
     }
 
     @Override

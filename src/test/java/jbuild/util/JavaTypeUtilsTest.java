@@ -10,31 +10,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class JavaTypeUtilsTest {
 
     @Test
-    void canParseMethodTypeRefs() {
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("(Lfoo/Bar;)"))
+    void canParseTypeDescriptor() {
+        assertThat(JavaTypeUtils.parseTypeDescriptor("(Lfoo/Bar;)", true))
                 .isEqualTo(List.of("Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("(Lfoo/Bar;"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("(Lfoo/Bar;", true))
                 .isEqualTo(List.of("Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("(BLfoo/Bar;"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("(BLfoo/Bar;", true))
                 .isEqualTo(List.of("B", "Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("(Lfoo/Bar;I"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("(Lfoo/Bar;I", true))
                 .isEqualTo(List.of("Lfoo/Bar;", "I"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("(Lfoo/Bar;Ljava/lang/String;"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("(Lfoo/Bar;Ljava/lang/String;", true))
                 .isEqualTo(List.of("Lfoo/Bar;", "Ljava/lang/String;"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("(Lfoo/Bar;IBCDFIJSZ"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("(Lfoo/Bar;IBCDFIJSZ", true))
                 .isEqualTo(List.of("Lfoo/Bar;", "I", "B", "C", "D", "F", "I", "J", "S", "Z"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("ZLjava/lang/String;ILjava/util/List;Z"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("ZLjava/lang/String;ILjava/util/List;Z", true))
                 .isEqualTo(List.of("Z", "Ljava/lang/String;", "I", "Ljava/util/List;", "Z"));
     }
 
     @Test
     void canParseArrayType() {
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("[Lfoo/Bar;"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("[Lfoo/Bar;", true))
                 .isEqualTo(List.of("[Lfoo/Bar;"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("[I"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("[I", true))
                 .isEqualTo(List.of("[I"));
-        assertThat(JavaTypeUtils.parseMethodTypeRefs("[[[Lfoo/Bar;[[[I"))
+        assertThat(JavaTypeUtils.parseTypeDescriptor("[[[Lfoo/Bar;[[[I", true))
                 .isEqualTo(List.of("[[[Lfoo/Bar;", "[[[I"));
+    }
+
+    @Test
+    void canParseArrayTypeWithNoArrayRetention() {
+        assertThat(JavaTypeUtils.parseTypeDescriptor("[Lfoo/Bar;", false))
+                .isEqualTo(List.of("Lfoo/Bar;"));
+        assertThat(JavaTypeUtils.parseTypeDescriptor("[I", false))
+                .isEqualTo(List.of("I"));
+        assertThat(JavaTypeUtils.parseTypeDescriptor("[[[Lfoo/Bar;[[[I", false))
+                .isEqualTo(List.of("Lfoo/Bar;", "I"));
     }
 
     @Test

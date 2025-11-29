@@ -1,26 +1,15 @@
 package jbuild.java;
 
-import jbuild.java.code.Code;
-import jbuild.java.code.Definition;
-import jbuild.java.code.TypeDefinition;
 import jbuild.util.Describable;
 
 import java.io.File;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static jbuild.util.JavaTypeUtils.cleanArrayTypeName;
 import static jbuild.util.JavaTypeUtils.isPrimitiveJavaType;
 import static jbuild.util.JavaTypeUtils.mayBeJavaStdLibType;
-import static jbuild.util.JavaTypeUtils.toMethodTypeDescriptor;
-import static jbuild.util.JavaTypeUtils.toTypeDescriptor;
 import static jbuild.util.JavaTypeUtils.typeNameToClassName;
 
 /**
@@ -36,16 +25,13 @@ import static jbuild.util.JavaTypeUtils.typeNameToClassName;
  */
 public final class ClassGraph {
 
-    private static final Definition.FieldDefinition ARRAY_LENGTH =
-            new Definition.FieldDefinition("length", "I");
-
-    private static final Definition.MethodDefinition ARRAY_CLONE =
-            new Definition.MethodDefinition("clone", "()Ljava/lang/Object;");
-
-    private final Map<File, Map<String, TypeDefinition>> typesByJar;
+    private final Map<File, Map<String, JavaType>> typesByJar;
     private final Map<String, File> jarByType;
 
-    public ClassGraph(Map<File, Map<String, TypeDefinition>> typesByJar,
+    // cache of type references
+    private final Map<String, Set<String>> typeRefsByType = new ConcurrentHashMap<>();
+
+    public ClassGraph(Map<File, Map<String, JavaType>> typesByJar,
                       Map<String, File> jarByType) {
         this.typesByJar = typesByJar;
         this.jarByType = jarByType;
@@ -54,7 +40,7 @@ public final class ClassGraph {
     /**
      * @return a Map from all jars in this graph to the types which they contain, indexed by name.
      */
-    public Map<File, Map<String, TypeDefinition>> getTypesByJar() {
+    public Map<File, Map<String, JavaType>> getTypesByJar() {
         return typesByJar;
     }
 
@@ -87,7 +73,7 @@ public final class ClassGraph {
      * @param typeName name of the type
      * @return the type definition if it exists, null otherwise
      */
-    public TypeDefinition findTypeDefinition(String typeName) {
+    public JavaType findTypeDefinition(String typeName) {
         var jar = jarByType.get(typeName);
         if (jar != null) {
             return typesByJar.get(jar).get(typeName);
@@ -95,26 +81,14 @@ public final class ClassGraph {
         return null;
     }
 
-    public Set<Code> findImplementation(Code.Method method) {
-        return findImplementation(method.typeName, method.toDefinition());
-    }
-
-    public Set<Code> findImplementation(String typeName,
-                                        Definition.MethodDefinition method) {
-        var typeDef = typeName.startsWith("[") ? null : findTypeDefinition(typeName);
-        if (typeDef == null) {
-            return existsJava(typeName, method) ? Set.of() : null;
-        }
-
-        var impl = typeDef.methods.get(method);
-        if (impl != null) return impl;
-
-        // try to find the method on the parent types
-        for (var parentType : typeDef.type.getParentTypes()) {
-            impl = findImplementation(parentType.name, method);
-            if (impl != null) return impl;
-        }
-        return null;
+    public Set<String> getTypesReferredToBy(String typeName) {
+        var result = typeRefsByType.computeIfAbsent(typeName, (ignore) -> {
+            var typeDef = findTypeDefinition(typeName);
+            if (typeDef == null) return null;
+            return typeDef.classFile.getAllTypes();
+        });
+        if (result == null) return Set.of();
+        return result;
     }
 
     /**
@@ -125,38 +99,6 @@ public final class ClassGraph {
      */
     public boolean exists(String typeName) {
         return findTypeDefinition(typeName) != null || existsJava(typeName);
-    }
-
-    /**
-     * Check if a certain field exists.
-     *
-     * @param field a field usage
-     * @return true if the field exists, false otherwise
-     */
-    public boolean exists(Code.Field field) {
-        return exists(field.typeName, field.toDefinition());
-    }
-
-    /**
-     * Check if a certain definition exists.
-     *
-     * @param typeName   the type where the definition might exist
-     * @param definition a definition being referenced from elsewhere
-     * @return true if the definition exists in the type, false otherwise
-     */
-    public boolean exists(String typeName, Definition definition) {
-        if (typeName.startsWith("[")) return existsJavaArray(definition);
-        var typeDef = findTypeDefinition(typeName);
-        if (typeDef == null) return existsJava(typeName, definition);
-        var found = definition.match(
-                typeDef.fields::contains,
-                typeDef.methods::containsKey);
-        if (found) return true;
-
-        for (var parentType : typeDef.type.getParentTypes()) {
-            if (exists(parentType.name, definition)) return true;
-        }
-        return false;
     }
 
     /**
@@ -172,24 +114,6 @@ public final class ClassGraph {
         return getJavaType(type) != null || isPrimitiveJavaType(type);
     }
 
-    /**
-     * Check if a certain definition exists in the Java standard library.
-     *
-     * @param typeName   the type where the definition might exist
-     * @param definition a definition being referenced from elsewhere
-     * @return true if the definition exists in the standard library type, false otherwise
-     */
-    public boolean existsJava(String typeName, Definition definition) {
-        if (typeName.startsWith("[")) return existsJavaArray(definition);
-        var type = getJavaType(typeName);
-        if (type == null) return false;
-        return definition.match(f -> javaFieldExists(type, f), m -> javaMethodExists(type, m));
-    }
-
-    private boolean existsJavaArray(Definition definition) {
-        return definition.match(ARRAY_LENGTH::equals, ARRAY_CLONE::equals);
-    }
-
     private static Class<?> getJavaType(String typeName) {
         if (mayBeJavaStdLibType(typeName)) {
             try {
@@ -201,86 +125,67 @@ public final class ClassGraph {
         return null;
     }
 
-    private static boolean javaFieldExists(Class<?> type, Definition.FieldDefinition field) {
-        for (var javaField : type.getFields()) {
-            if (javaField.getName().equals(field.name)) {
-                var fieldType = toTypeDescriptor(javaField.getType());
-                if (fieldType.equals(field.type)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static boolean javaMethodExists(Class<?> type,
-                                            Definition.MethodDefinition method) {
-        if (method.name.equals("\"<init>\"")) {
-            return javaConstructorExists(type, method.type);
-        }
-        var wantsStatic = method.isStatic;
-        Predicate<Method> staticPredicate = m -> Modifier.isStatic(m.getModifiers()) == wantsStatic;
-
-        // public, accessible methods
-        return isMethodIn(Arrays.stream(type.getMethods()).filter(staticPredicate), method)
-                // all private, protected methods from super types
-                || isMethodIn(
-                typeHierarchyOf(type).stream()
-                        .flatMap(t -> Arrays.stream(t.getDeclaredMethods()))
-                        .filter(staticPredicate),
-                method);
-    }
-
-    private static boolean isMethodIn(Stream<Method> methods, Definition.MethodDefinition methodDefinition) {
-        var targetName = methodDefinition.name;
-        var targetType = methodDefinition.type;
-        return methods.anyMatch(javaMethod -> {
-            if (javaMethod.getName().equals(targetName)) {
-                var methodType = toMethodTypeDescriptor(javaMethod.getReturnType(), javaMethod.getParameterTypes());
-                return methodType.equals(targetType);
-            }
-            return false;
-        });
-    }
-
-    private static List<Class<?>> typeHierarchyOf(Class<?> type) {
-        var result = new ArrayList<Class<?>>(4);
-        result.add(type);
-        var superType = type.getSuperclass();
-        while (superType != null) {
-            result.add(superType);
-            superType = superType.getSuperclass();
-        }
-        return result;
-    }
-
-    private static boolean javaConstructorExists(Class<?> type, String constructorType) {
-        for (var constructor : type.getConstructors()) {
-            var typeDescriptor = toMethodTypeDescriptor(void.class, constructor.getParameterTypes());
-            if (typeDescriptor.equals(constructorType)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /**
-     * A {@link TypeDefinition} with its location jar.
+     * A {@link JavaType} with its location jar.
      */
     public static final class TypeDefinitionLocation implements Describable {
-        public final TypeDefinition typeDefinition;
+        public final JavaType typeDefinition;
         public final File jar;
+        /**
+         * The name of this type (internal JVM name).
+         */
+        public final String typeName;
+        /**
+         * The name of this class or interface.
+         */
         public final String className;
+        /**
+         * When used for keeping track of type references, which type referred to this one.
+         * May be null.
+         */
+        public final TypeDefinitionLocation parent;
 
-        public TypeDefinitionLocation(TypeDefinition typeDefinition, File jar) {
+        public TypeDefinitionLocation(JavaType typeDefinition,
+                                      File jar,
+                                      TypeDefinitionLocation parent) {
             this.typeDefinition = typeDefinition;
             this.jar = jar;
-            this.className = typeNameToClassName(typeDefinition.typeName);
+            this.typeName = typeDefinition.classFile.getTypeName();
+            this.className = typeDefinition.typeId.className;
+            this.parent = parent;
+        }
+
+        public TypeDefinitionLocation(JavaType typeDefinition,
+                                      File jar) {
+            this(typeDefinition, jar, null);
+        }
+
+        public TypeDefinitionLocation withParent(TypeDefinitionLocation parent) {
+            if (parent.equals(this)) {
+                return this;
+            }
+            return new TypeDefinitionLocation(typeDefinition, jar, parent);
         }
 
         @Override
         public void describe(StringBuilder builder, boolean verbose) {
             builder.append(jar.getName()).append('!').append(className);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+
+            TypeDefinitionLocation that = (TypeDefinitionLocation) o;
+            return typeDefinition.equals(that.typeDefinition) && jar.equals(that.jar) && className.equals(that.className);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = typeDefinition.hashCode();
+            result = 31 * result + jar.hashCode();
+            result = 31 * result + className.hashCode();
+            return result;
         }
 
         @Override

@@ -1,18 +1,26 @@
-package jbuild.classes;
+package jbuild.classes.parser;
 
-import jbuild.classes.model.AbstractAttributeParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.attributes.AnnotationInfo;
+import jbuild.classes.model.attributes.AttributeInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
+import jbuild.classes.model.attributes.EnclosingMethod;
 import jbuild.classes.model.attributes.EnumValue;
+import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.model.attributes.ModuleAttribute;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public final class AnnotationParser extends AbstractAttributeParser {
+public final class AttributeParser extends AbstractAttributeParser {
 
-    public AnnotationParser(ClassFile classFile) {
+    private final ModuleAttributeParser moduleAttributeParser;
+    private final MethodParametersParser methodParametersParser;
+
+    public AttributeParser(ClassFile classFile) {
         super(classFile);
+        moduleAttributeParser = new ModuleAttributeParser(classFile);
+        methodParametersParser = new MethodParametersParser(classFile);
     }
 
     public List<AnnotationInfo> parseAnnotationInfo(byte[] attributes) {
@@ -148,4 +156,25 @@ public final class AnnotationParser extends AbstractAttributeParser {
         }
     }
 
+    public String parseSourceFileAttribute(byte[] bytes) {
+        return nextConstUf8(new ByteScanner(bytes));
+    }
+
+    public EnclosingMethod parseEnclosingMethod(byte[] bytes) {
+        var scanner = new ByteScanner(bytes);
+        var className = nextConstClass(scanner);
+        return nextConstNameAndType(scanner).map(nt ->
+                        new EnclosingMethod(className, new EnclosingMethod.MethodDescriptor(
+                                constUtf8(nt.nameIndex),
+                                constUtf8(nt.descriptorIndex))))
+                .orElseGet(() -> new EnclosingMethod(className));
+    }
+
+    public ModuleAttribute parseModuleAttribute(AttributeInfo attribute) {
+        return moduleAttributeParser.parseModuleAttribute(attribute);
+    }
+
+    public List<MethodParameter> parseMethodParameters(byte[] attributes) {
+        return methodParametersParser.parseMethodParameters(attributes);
+    }
 }

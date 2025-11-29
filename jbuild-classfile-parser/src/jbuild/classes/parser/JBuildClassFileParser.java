@@ -1,10 +1,11 @@
-package jbuild.classes;
+package jbuild.classes.parser;
 
-import jbuild.classes.model.AttributeInfo;
+import jbuild.classes.ClassFileException;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.FieldInfo;
 import jbuild.classes.model.MethodInfo;
+import jbuild.classes.model.attributes.AttributeInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -137,8 +138,14 @@ public class JBuildClassFileParser {
                 return new ConstPoolInfo.MethodHandle(scanner.nextByte(), scanner.nextShort());
             case ConstPoolInfo.MethodType.TAG:
                 return new ConstPoolInfo.MethodType(scanner.nextShort());
+            case ConstPoolInfo.DynamicInfo.TAG:
+                return new ConstPoolInfo.DynamicInfo(scanner.nextShort(), scanner.nextShort());
             case ConstPoolInfo.InvokeDynamic.TAG:
                 return new ConstPoolInfo.InvokeDynamic(scanner.nextShort(), scanner.nextShort());
+            case ConstPoolInfo.ModuleInfo.TAG:
+                return new ConstPoolInfo.ModuleInfo(scanner.nextShort());
+            case ConstPoolInfo.PackageInfo.TAG:
+                return new ConstPoolInfo.PackageInfo(scanner.nextShort());
             default:
                 throw new ClassFileException("Unknown constant pool tag: " + tag, scanner.previousPosition());
         }

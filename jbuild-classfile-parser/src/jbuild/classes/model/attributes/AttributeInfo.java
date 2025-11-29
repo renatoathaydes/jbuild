@@ -1,4 +1,4 @@
-package jbuild.classes.model;
+package jbuild.classes.model.attributes;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -31,9 +31,9 @@ public final class AttributeInfo {
      * Calling this method assumes that this attribute is a Signature attribute:
      * <pre>
      * Signature_attribute {
-     * u2 attribute_name_index;
-     * u4 attribute_length;
-     * u2 signature_index;
+     *   u2 attribute_name_index;
+     *   u4 attribute_length;
+     *   u2 signature_index;
      * }
      * </pre>
      *
@@ -41,9 +41,7 @@ public final class AttributeInfo {
      */
     public short signatureAttributeValueIndex() {
         assert attributes.length == 2;
-        var buf = ByteBuffer.allocate(2);
-        buf.put(attributes);
-        buf.flip();
+        var buf = ByteBuffer.wrap(attributes);
         return buf.getShort();
     }
 }

@@ -1,9 +1,8 @@
 package jbuild.java;
 
 import jbuild.api.JBuildException;
-import jbuild.classes.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
-import jbuild.java.code.TypeDefinition;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
 import jbuild.util.CachedSupplier;
@@ -43,7 +42,7 @@ import static jbuild.java.tools.Tools.verifyToolSuccessful;
  * A parsed jar file.
  * <p>
  * It contains information about a jar, including its types, and can lazily load its
- * {@link jbuild.java.code.TypeDefinition}s via the {@link Jar#parsed()} method.
+ * {@link jbuild.java.JavaType}s via the {@link Jar#parsed()} method.
  */
 public final class Jar {
 
@@ -131,15 +130,21 @@ public final class Jar {
      * Parsed contents of a jar.
      */
     public static final class ParsedJar {
+        /**
+         * Jar file.
+         */
         public final File file;
-        public final Map<String, TypeDefinition> typeByName;
+        /**
+         * Types in the jar, by internal type name.
+         */
+        public final Map<String, JavaType> typeByName;
 
-        public ParsedJar(File file, Map<String, TypeDefinition> typeByName) {
+        public ParsedJar(File file, Map<String, JavaType> typeByName) {
             this.file = file;
             this.typeByName = typeByName;
         }
 
-        public Set<String> getTypes() {
+        public Set<String> getTypeNames() {
             return typeByName.keySet();
         }
     }
@@ -217,7 +222,7 @@ public final class Jar {
                     " partitions in " + totalTime.get() + "ms");
 
             startTime = System.currentTimeMillis();
-            final var typeDefs = new HashMap<String, TypeDefinition>(classNames.size());
+            final var typeDefs = new HashMap<String, JavaType>(classNames.size());
             CompletableFuture<?>[] partitionFutures = new CompletableFuture[partitions.size()];
 
             for (var i = 0; i < partitions.size(); i++) {
@@ -278,26 +283,18 @@ public final class Jar {
             return partitions;
         }
 
-        private Map<String, TypeDefinition> parse(File jar, Collection<String> classNames, int partitionIndex) {
+        private Map<String, JavaType> parse(File jar, Collection<String> classNames, int partitionIndex) {
             var startTime = System.currentTimeMillis();
-            var javap = Tools.Javap.create();
-            var toolResult = javap.run(jar.getAbsolutePath(), classNames);
-            var totalTime = new AtomicLong(System.currentTimeMillis() - startTime);
-            log.verbosePrintln(() -> "javap " + jar + " (partition " + partitionIndex +
-                    ") completed in " + totalTime.get() + "ms");
-            verifyToolSuccessful("javap", toolResult);
-            startTime = System.currentTimeMillis();
-            var javapOutputParser = new JavapOutputParser(log);
-            Map<String, TypeDefinition> typeDefs;
-            try (var stdoutStream = toolResult.getStdoutLines();
-                 var ignored = toolResult.getStderrLines()) {
-                typeDefs = javapOutputParser.processJavapOutput(stdoutStream.iterator());
+            var typeMapCreator = new JavaTypeMapCreator(log);
+            Map<String, JavaType> typeDefs;
+            try {
+                typeDefs = typeMapCreator.getTypeMapsFrom(jar, classNames);
             } catch (JBuildException e) {
                 throw new JBuildException(e.getMessage() + " (jar: " + jar + ")", e.getErrorCause());
             }
-            totalTime.set(System.currentTimeMillis() - startTime);
-            log.verbosePrintln(() -> "JavapOutputParser parsed output for " + jar +
-                    " (partition " + partitionIndex + ") in " + totalTime.get() + "ms");
+            var totalTime = System.currentTimeMillis() - startTime;
+            log.verbosePrintln(() -> "JavaTypeMapCreator created type Map from " + jar +
+                    " (partition " + partitionIndex + ") in " + totalTime + "ms");
             return typeDefs;
         }
     }

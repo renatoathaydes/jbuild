@@ -1,9 +1,7 @@
 package jbuild.commands;
 
-import jbuild.commands.DoctorCommandExecutor.ClassPathInconsistency;
 import jbuild.commands.DoctorCommandExecutor.ClasspathCheckResult;
 import jbuild.java.TestHelper;
-import jbuild.java.code.Code;
 import jbuild.log.JBuildLog;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
@@ -23,16 +21,393 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static jbuild.commands.DoctorCommandExecutorRealJarsTest.withErrorReporting;
-import static jbuild.java.code.Code.Method.Instruction.invokespecial;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class DoctorCommandExecutorBasicTest {
 
     @Test
-    void canFindMissingTypeInClasspath() throws Exception {
+    void canFindHashCodeInAnyType() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  final int h;\n" +
+                                "  public Bar() {\n" +
+                                "    h = new Hash().hashCode();\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "class Hash { }\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindEnumImplicitMethods() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  final int h;\n" +
+                                "  public Bar(E e) {\n" +
+                                "    e.name();\n" +
+                                "    e.hashCode();\n" +
+                                "    switch (e) {\n" +
+                                "      case A: h = 1; break;\n" +
+                                "      default: h = 2; break;\n" +
+                                "    }\n" +
+                                "  }\n" +
+                                "  public static enum E { A, B }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindPrimitiveArrayImplicitFields() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(int[] array) {\n" +
+                                "    int x = array.length;\n" +
+                                "    int[] cp = array.clone();\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindObjectArrayImplicitFields() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Foo.java"),
+                        "package foo;\n" +
+                                "final class Foo {}",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(Foo[] array) {\n" +
+                                "    int x = array.length;\n" +
+                                "    Foo[] cp = array.clone();\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindInterfaceMethodThroughImpl() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; public interface Inter { void foo(); }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar() {\n" +
+                                "    new Foo().foo();\n" +
+                                "    Inter i = new Foo();\n" +
+                                "    i.foo();\n" +
+                                "  }\n" +
+                                "  private static class Foo implements Inter {\n" +
+                                "    @Override public void foo() {}\n" +
+                                "  }" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindJavaInterfaceMethods() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; public interface Inter extends Runnable { }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(Inter inter) {\n" +
+                                "    inter.run();\n" +
+                                "    inter.hashCode();\n" +
+                                "  }\n" +
+                                "}\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindJavaDefaultInterfaceMethodViaSuperClass() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; public interface Inter {\n" +
+                                "  default int getInt() { return 0; }\n" +
+                                "}",
+                        Paths.get("foo", "Super.java"),
+                        "package foo; public class Super implements Inter {}",
+                        Paths.get("foo", "Other.java"),
+                        "package foo; public class Other extends Super {}",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar extends Super {\n" +
+                                "  public Bar(Other other) {\n" +
+                                "    int x = other.getInt();\n" +
+                                "  }\n" +
+                                "}\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindInterfaceMethodThroughInterfaceReference() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; public interface Inter { void foo(); default int integer() { return 1; } }",
+                        Paths.get("foo", "Inter2.java"),
+                        "package foo; public interface Inter2 extends Inter { boolean b(); }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(Inter2 inter) {\n" +
+                                "    inter.b();\n" +
+                                "    inter.foo();\n" +
+                                "    inter.integer();\n" +
+                                "    inter.hashCode();\n" +
+                                "  }\n" +
+                                "}\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindSuperClassMethodAndField() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Abs.java"),
+                        "package foo; abstract class Abs { boolean b; abstract void foo(); int bar() {return 1;} }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  final int h;\n" +
+                                "  public Bar() {\n" +
+                                "    new MyAbs().foo();\n" +
+                                "    new MyAbs().bar();\n" +
+                                "    boolean b = new MyAbs().b;\n" +
+                                "    Abs a = new MyAbs();\n" +
+                                "    a.foo();\n" +
+                                "    a.bar();\n" +
+                                "    b = a.b;\n" +
+                                "    // check also Java superClass method\n" +
+                                "    if (a.equals(new MyAbs())) h=1;\n" +
+                                "    else if (new MyAbs().equals(a)) h=2;\n" +
+                                "    else h=3;\n" +
+                                "  }\n" +
+                                "  private static class MyAbs extends Abs {\n" +
+                                "    @Override void foo() {}\n" +
+                                "  }" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindIndirectSuperClassProtectedMethods() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "CL.java"),
+                        "package foo;\n" +
+                                "abstract class BaseCL extends java.net.URLClassLoader {\n" +
+                                "  BaseCL() {\n" +
+                                "    super(new java.net.URL[0], Thread.currentThread().getContextClassLoader());\n" +
+                                "  }\n" +
+                                "}\n" +
+                                "abstract class CL extends BaseCL {\n" +
+                                "    public Class defineClass(final String name, final byte[] bytes) throws ClassFormatError {\n" +
+                                "        return super.defineClass(name, bytes, 0, bytes.length);\n" +
+                                "    }\n" +
+                                "\n}",
+                        Paths.get("foo", "CL1.java"),
+                        "package foo;\n" +
+                                "public class CL1 extends CL {\n" +
+                                "    @Override\n" +
+                                "    protected synchronized Class loadClass(String name, boolean resolve) throws ClassNotFoundException {\n" +
+                                "        return super.loadClass(name, resolve);\n" +
+                                "    }\n" +
+                                "    @Override\n" +
+                                "    public Class defineClass(final String name, final byte[] data) {\n" +
+                                "        return super.defineClass(name, data, 0, data.length);\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindSuperClassInterfaceMethod() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "MyMap.java"),
+                        "package foo;\n" +
+                                "import java.util.Map;\n" +
+                                "abstract class MyMap implements Map<String, Integer> {}",
+                        Paths.get("foo", "Main.java"),
+                        "package foo;\n" +
+                                "public abstract class Main extends MyMap {\n" +
+                                "    public void putInt(int i) {\n" +
+                                "        put(\"i\", i);\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "final class Another {\n" +
+                                "    public void putSomethingOn(Main main) {\n" +
+                                "        main.putAll(java.util.Map.of(\"a\", 1));\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindOverloadedMethodAnd() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Inter.java"),
+                        "package foo; interface Inter { void foo(String s); int foo(int i); }",
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public Bar(Inter inter) {\n" +
+                                "    inter.foo(\"\");\n" +
+                                "    inter.foo(0);\n" +
+                                "  }\n" +
+                                "}\n"),
+                "");
+
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(barJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(barJar));
+        });
+    }
+
+    @Test
+    void canFindMissingConstructorInClasspath() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
         var barJarPath = dir.resolve("bar.jar");
         var barJar = barJarPath.toFile();
@@ -65,7 +440,7 @@ public class DoctorCommandExecutorBasicTest {
             verifyOneGoodClasspath(results, List.of(fooJar, barJar));
         });
 
-        // modify the Bar class so that it can't be used by Foo anymore
+        // modify the Bar class so that there's no default constructor anymore, which breaks Foo
         assert barJar.delete();
         createJar(barJarPath, dir.resolve("src-bar"), Map.of(
                         Paths.get("foo", "Bar.java"),
@@ -83,43 +458,265 @@ public class DoctorCommandExecutorBasicTest {
             var checkResult = results.get(0);
             assertThat(checkResult.successful).isFalse();
 
-            assertThat(errorString(checkResult.getErrors().orElse(null)))
-                    .isEqualTo(
-                            errorString(NonEmptyCollection.of(
-                                    new ClassPathInconsistency(
-                                            "foo.jar!bar.Foo -> \"<init>\"()::void",
-                                            new Code.Method("Lfoo/Bar;", "\"<init>\"", "()V", invokespecial),
-                                            new File("foo.jar"),
-                                            new File("bar.jar")
-                                    ))));
+            assertThat(checkResult.getErrors()).isPresent()
+                    .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "foo.jar!bar.Foo",
+                            "bar.jar!foo.Bar::()",
+                            DoctorCommandExecutor.ReferenceTarget.CONSTRUCTOR
+                    )));
         });
+    }
 
-        // delete the Bar jar
-        assert barJar.delete();
+    @Test
+    void canFindMissingFieldInClasspath() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar { public int zort; }"),
+                "");
 
-        // type references are now missing
+        var fooJarPath = dir.resolve("foo.jar");
+        var fooJar = fooJarPath.toFile();
+        createJar(fooJarPath, dir.resolve("src-foo"), Map.of(
+                        Paths.get("bar", "Foo.java"),
+                        "package bar;\n" +
+                                "import foo.Bar;" +
+                                "public class Foo {\n" +
+                                "  final Bar bar;" +
+                                "  public Foo() {\n" +
+                                "    this.bar = new Bar();\n" +
+                                "    this.bar.zort = 1;\n" +
+                                "  }\n" +
+                                "}"),
+                barJar.getAbsolutePath());
+
+        // so far, everything should work
         withErrorReporting((command) -> {
             var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
                             List.of(fooJar), Set.of())
                     .toCompletableFuture()
                     .get());
+            verifyOneGoodClasspath(results, List.of(fooJar, barJar));
+        });
 
+        // modify the Bar class so that the zort field does not exist anymore
+        assert barJar.delete();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public int blah;\n" +
+                                "}"),
+                "");
+
+        // now, checking the classpath should fail
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(), List.of(fooJar), Set.of())
+                    .toCompletableFuture().get());
             assertThat(results).hasSize(1);
             var checkResult = results.get(0);
             assertThat(checkResult.successful).isFalse();
-            assertThat(errorString(checkResult.getErrors().orElse(null)))
-                    .isEqualTo(errorString(NonEmptyCollection.of(List.of(
-                            new ClassPathInconsistency(
-                                    "foo.jar!bar.Foo -> bar::foo.Bar",
-                                    new Code.Type("Lfoo/Bar;"),
-                                    new File("foo.jar"),
-                                    null
-                            )))));
+
+            assertThat(checkResult.getErrors()).isPresent()
+                    .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "foo.jar!bar.Foo",
+                            "bar.jar!foo.Bar::zort:int",
+                            DoctorCommandExecutor.ReferenceTarget.FIELD
+                    )));
         });
     }
 
     @Test
-    void canFindTransitiveIncompatibility() throws Exception {
+    void canFindFieldWithWrongType() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar { public int zort; }"),
+                "");
+
+        var fooJarPath = dir.resolve("foo.jar");
+        var fooJar = fooJarPath.toFile();
+        createJar(fooJarPath, dir.resolve("src-foo"), Map.of(
+                        Paths.get("bar", "Foo.java"),
+                        "package bar;\n" +
+                                "import foo.Bar;" +
+                                "public class Foo {\n" +
+                                "  final Bar bar;" +
+                                "  public Foo() {\n" +
+                                "    this.bar = new Bar();\n" +
+                                "    this.bar.zort = 1;\n" +
+                                "  }\n" +
+                                "}"),
+                barJar.getAbsolutePath());
+
+        // so far, everything should work
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(fooJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(fooJar, barJar));
+        });
+
+        // modify the Bar class so that the zort field has a different type
+        assert barJar.delete();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar {\n" +
+                                "  public boolean zort;\n" +
+                                "}"),
+                "");
+
+        // now, checking the classpath should fail
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(), List.of(fooJar), Set.of())
+                    .toCompletableFuture().get());
+            assertThat(results).hasSize(1);
+            var checkResult = results.get(0);
+            assertThat(checkResult.successful).isFalse();
+
+            assertThat(checkResult.getErrors()).isPresent()
+                    .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "foo.jar!bar.Foo",
+                            "bar.jar!foo.Bar::zort:int",
+                            DoctorCommandExecutor.ReferenceTarget.FIELD
+                    )));
+        });
+    }
+
+    @Test
+    void canFindMethodWithWrongType() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar { public String getString() { return \"A\"; } }"),
+                "");
+
+        var fooJarPath = dir.resolve("foo.jar");
+        var fooJar = fooJarPath.toFile();
+        createJar(fooJarPath, dir.resolve("src-foo"), Map.of(
+                        Paths.get("bar", "Foo.java"),
+                        "package bar;\n" +
+                                "import foo.Bar;" +
+                                "import java.util.function.Supplier;" +
+                                "public class Foo {\n" +
+                                "  final Bar bar;" +
+                                "  public Foo() {\n" +
+                                "    this.bar = new Bar();\n" +
+                                "    String s = bar.getString();\n" +
+                                "    System.out.println(s);\n" +
+                                "  }\n" +
+                                "}"),
+                barJar.getAbsolutePath());
+
+        // so far, everything should work
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(fooJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(fooJar, barJar));
+        });
+
+        // modify the Bar class so that the method uses the wrong type
+        assert barJar.delete();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar { public int getString() { return 0; } }"),
+                "");
+
+        // now, checking the classpath should fail
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(), List.of(fooJar), Set.of())
+                    .toCompletableFuture().get());
+            assertThat(results).hasSize(1);
+            var checkResult = results.get(0);
+            assertThat(checkResult.successful).isFalse();
+
+            assertThat(checkResult.getErrors()).isPresent()
+                    .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "foo.jar!bar.Foo",
+                            "bar.jar!foo.Bar::getString():java.lang.String",
+                            DoctorCommandExecutor.ReferenceTarget.METHOD
+                    )));
+        });
+    }
+
+    @Test
+    void canFindMethodHandleWithWrongType() throws Exception {
+        var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
+        var barJarPath = dir.resolve("bar.jar");
+        var barJar = barJarPath.toFile();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar { public String getString() { return \"A\"; } }"),
+                "");
+
+        var fooJarPath = dir.resolve("foo.jar");
+        var fooJar = fooJarPath.toFile();
+        createJar(fooJarPath, dir.resolve("src-foo"), Map.of(
+                        Paths.get("bar", "Foo.java"),
+                        "package bar;\n" +
+                                "import foo.Bar;" +
+                                "import java.util.function.Supplier;" +
+                                "public class Foo {\n" +
+                                "  final Bar bar;" +
+                                "  public Foo() {\n" +
+                                "    this.bar = new Bar();\n" +
+                                "    Supplier<String> s = bar::getString;\n" +
+                                "    System.out.println(s.get());\n" +
+                                "  }\n" +
+                                "}"),
+                barJar.getAbsolutePath());
+
+        // so far, everything should work
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(),
+                            List.of(fooJar), Set.of())
+                    .toCompletableFuture()
+                    .get());
+            verifyOneGoodClasspath(results, List.of(fooJar, barJar));
+        });
+
+        // modify the Bar class so that the method handle uses the wrong type
+        assert barJar.delete();
+        createJar(barJarPath, dir.resolve("src-bar"), Map.of(
+                        Paths.get("foo", "Bar.java"),
+                        "package foo;\n" +
+                                "public class Bar { public int getString() { return 0; } }"),
+                "");
+
+        // now, checking the classpath should fail
+        withErrorReporting((command) -> {
+            var results = new ArrayList<>(command.findValidClasspaths(dir.toFile(), List.of(fooJar), Set.of())
+                    .toCompletableFuture().get());
+            assertThat(results).hasSize(1);
+            var checkResult = results.get(0);
+            assertThat(checkResult.successful).isFalse();
+
+            assertThat(checkResult.getErrors()).isPresent()
+                    .get().isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "foo.jar!bar.Foo",
+                            "bar.jar!foo.Bar::getString():java.lang.String",
+                            DoctorCommandExecutor.ReferenceTarget.METHOD
+                    )));
+        });
+    }
+
+    @Test
+    void canFindTransitiveMissingTypeInClasspath() throws Exception {
         var dir = Files.createTempDirectory(DoctorCommandExecutorBasicTest.class.getName());
 
         // this jar is used by messages.jar but won't be used by the final application!
@@ -209,29 +806,14 @@ public class DoctorCommandExecutorBasicTest {
                     .get());
             assertThat(result).hasSize(1);
 
-            var main = "app.jar!app.App -> main(java.lang.String[])::void -> ";
-
             assertThat(result.get(0).getErrors()).isPresent()
-                    .get().extracting(e -> e.stream().map(it -> it.referenceChain).collect(toSet()))
-                    .isEqualTo(Set.of(
-                            main + "user.MessageUser#\"<init>\"()::void",
-                            main + "user.MessageUser#getMessage()::java.lang.String " +
-                                    "-> messages.Message#get()::java.lang.String"
-                    ));
+                    .get()
+                    .isEqualTo(NonEmptyCollection.of(new DoctorCommandExecutor.ClassPathInconsistency(
+                            "app.jar!app.App -> messages-user.jar!user.MessageUser",
+                            "messages.Message",
+                            DoctorCommandExecutor.ReferenceTarget.TYPE
+                    )));
         });
-    }
-
-    private static String errorString(
-            NonEmptyCollection<ClassPathInconsistency> inconsistencies) {
-        if (inconsistencies == null) return "Optional.empty()";
-        var result = "";
-        for (var error : inconsistencies) {
-            result = "\n" + error.referenceChain +
-                    "\nJarFrom=" + (error.jarFrom == null ? "null" : error.jarFrom.getName()) +
-                    "\nTo=" + error.to +
-                    "\nJarTo=" + (error.jarTo == null ? "null" : error.jarTo.getName());
-        }
-        return result;
     }
 
     private static void verifyOneGoodClasspath(List<ClasspathCheckResult> results,

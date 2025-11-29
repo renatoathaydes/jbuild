@@ -1,11 +1,11 @@
-package jbuild.classes;
+package jbuild.classes.parser;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public final class ByteScanner {
+final class ByteScanner {
     private final ByteBuffer buffer;
 
     private int latestBytesRead;

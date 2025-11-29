@@ -32,6 +32,10 @@ public final class TextUtils {
         return opt1.equals(toTest) || opt2.equals(toTest);
     }
 
+    public static boolean isEither(String toTest, String opt1, String opt2, String opt3) {
+        return opt1.equals(toTest) || opt2.equals(toTest) || opt3.equals(toTest);
+    }
+
     public static String requireNonBlank(String value, String description) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(description + " cannot be blank");

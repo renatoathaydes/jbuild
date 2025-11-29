@@ -109,7 +109,16 @@ public final class JavaTypeUtils {
      * @return Java language type name
      */
     public static String typeNameToClassName(String typeName) {
-        var typeInfo = TypeInfo.from(typeName);
+        return typeNameToClassName(TypeInfo.from(typeName));
+    }
+
+    /**
+     * Convert a JVM internal type name to a name using the Java language conventional syntax.
+     *
+     * @param typeInfo the type info obtained by calling {@link TypeInfo#from(String)}
+     * @return Java language type name
+     */
+    public static String typeNameToClassName(TypeInfo typeInfo) {
         var simpleClassName = className(typeInfo.basicTypeName, typeInfo.isReferenceType);
         if (typeInfo.arrayDimensions == 0) return simpleClassName;
         return simpleClassName + arrayTypeSuffix(typeInfo.arrayDimensions);
@@ -186,26 +195,21 @@ public final class JavaTypeUtils {
     }
 
     /**
-     * Parse a list of types referred to from a method argument list type descriptor.
+     * Parse a type descriptor.
      * <p>
-     * This method is intended to be used to find reference to types, hence it drops array components from type
-     * descriptors, i.e. if a type is referred to as an array like {@code [Ljava/lang/Object;}, this method will
-     * return the plain type {@code Ljava/lang/Object;}.
+     * This method may return array types if {@code retainArrayTypes} is {@code true}.
      *
-     * @param typeDef type definition
+     * @param typeDef          type definition
+     * @param retainArrayTypes whether to retain array types. For example, {@code [Ljava/lang/Object;} represents a
+     *                         {@code java.lang.Object[]} type.
      * @return the plain types included in the type definition
      */
-    public static List<String> parseMethodTypeRefs(String typeDef) {
-        if (typeDef.startsWith("(")) {
-            typeDef = typeDef.substring(1);
-        }
-        if (typeDef.endsWith(")")) {
-            typeDef = typeDef.substring(0, typeDef.length() - 1);
-        }
-        return parseTypeList(typeDef.toCharArray());
+    public static List<String> parseTypeDescriptor(String typeDef,
+                                                   boolean retainArrayTypes) {
+        return parseTypeList(typeDef.toCharArray(), retainArrayTypes);
     }
 
-    private static List<String> parseTypeList(char[] chars) {
+    private static List<String> parseTypeList(char[] chars, boolean retainArrayTypes) {
         int index = 0;
         int arrayDimension = 0;
         var result = new ArrayList<String>(4);
@@ -233,7 +237,9 @@ public final class JavaTypeUtils {
                     break;
                 }
                 case '[': {
-                    arrayDimension++;
+                    if (retainArrayTypes) {
+                        arrayDimension++;
+                    }
                     index++;
                     break;
                 }
@@ -346,10 +352,10 @@ public final class JavaTypeUtils {
                 .collect(joining("", "(", ")")) + toTypeDescriptor(returnType);
     }
 
-    private static final class TypeInfo {
-        final String basicTypeName;
-        final int arrayDimensions;
-        final boolean isReferenceType;
+    public static final class TypeInfo {
+        public final String basicTypeName;
+        public final int arrayDimensions;
+        public final boolean isReferenceType;
 
         public TypeInfo(String basicTypeName, int arrayDimensions, boolean isReferenceType) {
             this.basicTypeName = basicTypeName;
@@ -357,7 +363,7 @@ public final class JavaTypeUtils {
             this.isReferenceType = isReferenceType;
         }
 
-        static TypeInfo from(String typeName) {
+        public static TypeInfo from(String typeName) {
             var arrayDimensions = 0;
             for (int i = 0; i < typeName.length(); i++) {
                 if (typeName.charAt(i) == '[') arrayDimensions++;
@@ -365,6 +371,15 @@ public final class JavaTypeUtils {
             }
             var isReferenceType = typeName.charAt(arrayDimensions) == 'L';
             return new TypeInfo(typeName.substring(arrayDimensions), arrayDimensions, isReferenceType);
+        }
+
+        @Override
+        public String toString() {
+            return "TypeInfo{" +
+                    "basicTypeName='" + basicTypeName + '\'' +
+                    ", arrayDimensions=" + arrayDimensions +
+                    ", isReferenceType=" + isReferenceType +
+                    '}';
         }
     }
 

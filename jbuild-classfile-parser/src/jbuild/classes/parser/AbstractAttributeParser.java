@@ -1,8 +1,11 @@
-package jbuild.classes.model;
+package jbuild.classes.parser;
 
-import jbuild.classes.ByteScanner;
+import jbuild.classes.model.ClassFile;
+import jbuild.classes.model.ConstPoolInfo;
 
-public abstract class AbstractAttributeParser {
+import java.util.Optional;
+
+abstract class AbstractAttributeParser {
 
     private final ClassFile classFile;
 
@@ -41,5 +44,26 @@ public abstract class AbstractAttributeParser {
     protected long nextConstLong(ByteScanner scanner) {
         var i = (ConstPoolInfo.ConstLong) classFile.constPoolEntries.get(scanner.nextShortIndex());
         return i.value;
+    }
+
+    protected String nextConstClass(ByteScanner scanner) {
+        var i = (ConstPoolInfo.ConstClass) classFile.constPoolEntries.get(scanner.nextShortIndex());
+        return "L" + constUtf8(i.nameIndex) + ";";
+    }
+
+    protected String nextConstPackage(ByteScanner scanner) {
+        var i = (ConstPoolInfo.PackageInfo) classFile.constPoolEntries.get(scanner.nextShortIndex());
+        return constUtf8(i.nameIndex);
+    }
+
+    protected String nextConstModule(ByteScanner scanner) {
+        var i = (ConstPoolInfo.ModuleInfo) classFile.constPoolEntries.get(scanner.nextShortIndex());
+        return constUtf8(i.nameIndex);
+    }
+
+    protected Optional<ConstPoolInfo.NameAndType> nextConstNameAndType(ByteScanner scanner) {
+        var methodIndex = scanner.nextShortIndex();
+        if (methodIndex == 0) return Optional.empty();
+        return Optional.of((ConstPoolInfo.NameAndType) classFile.constPoolEntries.get(methodIndex));
     }
 }

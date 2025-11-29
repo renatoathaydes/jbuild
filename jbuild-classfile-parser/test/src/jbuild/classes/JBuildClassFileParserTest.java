@@ -1,11 +1,15 @@
 package jbuild.classes;
 
+import jbuild.classes.model.AccessFlags;
 import jbuild.classes.model.ClassFile;
 import jbuild.classes.model.ConstPoolInfo;
 import jbuild.classes.model.MajorVersion;
 import jbuild.classes.model.attributes.AnnotationInfo;
 import jbuild.classes.model.attributes.ElementValuePair;
 import jbuild.classes.model.attributes.MethodParameter;
+import jbuild.classes.model.attributes.ModuleAttribute;
+import jbuild.classes.model.info.Reference;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature;
 import jbuild.classes.signature.MethodSignature;
@@ -16,14 +20,18 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static jbuild.classes.model.info.Reference.RefKind.FIELD;
+import static jbuild.classes.model.info.Reference.RefKind.INTERFACE_METHOD;
+import static jbuild.classes.model.info.Reference.RefKind.METHOD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JBuildClassFileParserTest {
 
-    JBuildClassFileParser parser = new JBuildClassFileParser();
+    jbuild.classes.parser.JBuildClassFileParser parser = new JBuildClassFileParser();
 
     @Test
     public void canParseHelloWorldClassFile() throws Exception {
@@ -55,7 +63,7 @@ public class JBuildClassFileParserTest {
                 .map(ConstPoolInfo::getClass)
                 .collect(Collectors.toList());
         assertThat(constPoolInfo)
-                .containsExactly(JBuildClassFileParser.FIRST_ITEM_SENTINEL.getClass(),
+                .containsExactly(jbuild.classes.parser.JBuildClassFileParser.FIRST_ITEM_SENTINEL.getClass(),
                         ConstPoolInfo.MethodRef.class,
                         ConstPoolInfo.ConstClass.class,
                         ConstPoolInfo.NameAndType.class,
@@ -85,7 +93,7 @@ public class JBuildClassFileParserTest {
                         ConstPoolInfo.Utf8.class,
                         ConstPoolInfo.Utf8.class);
 
-        assertThat(classFile.constPoolEntries.get(0)).isSameAs(JBuildClassFileParser.FIRST_ITEM_SENTINEL);
+        assertThat(classFile.constPoolEntries.get(0)).isSameAs(jbuild.classes.parser.JBuildClassFileParser.FIRST_ITEM_SENTINEL);
         assertThat((ConstPoolInfo.MethodRef) classFile.constPoolEntries.get(1))
                 .extracting(m -> m.classIndex)
                 .isEqualTo((short) 2);
@@ -217,15 +225,21 @@ public class JBuildClassFileParserTest {
     }
 
     @Test
-    void canFindTypesReferredTo() throws Exception {
+    void canFindMethods() throws Exception {
         ClassFile classFile = parseHelloWorldClass();
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("LHelloWorld;");
-        assertThat(classFile.getTypesReferredTo())
-                .containsExactlyInAnyOrder("()V",
-                        "Ljava/io/PrintStream;", "(Ljava/lang/String;)V");
+        assertThat(classFile.getSourceFile())
+                .isEqualTo("HelloWorld.java");
+        assertThat(classFile.getMethods().stream().map(m -> m.name)
+                .collect(Collectors.toList()))
+                .containsExactly("<init>", "main");
+        assertThat(classFile.getMethods().stream().map(m -> m.descriptor)
+                .collect(Collectors.toList()))
+                .containsExactly("()V", "([Ljava/lang/String;)V");
 
+        assertThat(classFile.getFields()).isEmpty();
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).isEmpty();
     }
@@ -236,13 +250,12 @@ public class JBuildClassFileParserTest {
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("Ljbuild/api/ExampleAnnotated;");
-        assertThat(classFile.getTypesReferredTo()).containsExactly("()V");
         assertThat(classFile.getRuntimeVisibleAnnotations()).isEmpty();
         assertThat(classFile.getRuntimeInvisibleAnnotations()).hasSize(1);
 
         var annotation = classFile.getRuntimeInvisibleAnnotations().get(0);
 
-        assertThat(annotation.typeDescriptor).isEqualTo("Ljbuild/api/JbTaskInfo;");
+        assertThat(annotation.typeName).isEqualTo("Ljbuild/api/JbTaskInfo;");
         assertThat(annotation.elementValuePairs).hasSize(3);
         assertThat(annotation.elementValuePairs.get(0))
                 .isEqualTo(new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-task"));
@@ -255,11 +268,20 @@ public class JBuildClassFileParserTest {
                                 new ElementValuePair("index", ElementValuePair.Type.INT, 42),
                                 new ElementValuePair("name", ElementValuePair.Type.STRING, "my-custom-phase")
                         ))));
+
+        // also verify getReferences
+        assertThat(classFile.getReferences()).contains(
+                new Reference(METHOD, "Ljava/lang/Object;", "<init>", "()V"));
+
+        // also verify getAllTypes (does not return runtime-invisible annotations)
+        assertThat(classFile.getAllTypes()).containsExactlyInAnyOrder(
+                "Ljava/lang/Object;", "Ljbuild/api/ExampleAnnotated;");
     }
 
     @Test
     void canFindClassConstructors() throws IOException {
-        var stringType = new ClassTypeSignature("java.lang", new SimpleClassTypeSignature("String"));
+        var stringType = new ClassTypeSignature("java/lang",
+                new SimpleClassTypeSignature("", "String"));
 
         ClassFile classFile = parseMultiConstructorsClass();
 
@@ -269,29 +291,30 @@ public class JBuildClassFileParserTest {
         var constructors = classFile.getConstructors();
         assertThat(constructors).hasSize(2);
         assertThat(classFile.getMethodTypeDescriptor(constructors.get(0)))
-                .isEqualTo(new MethodSignature(List.of(stringType),
+                .isEqualTo(new MethodSignature("", List.of(stringType),
                         VoidDescriptor.INSTANCE)); // (Ljava/lang/String;)V
         // only generic methods have a Signature attribute
         assertThat(classFile.getSignatureAttribute(constructors.get(0)))
                 .isNotPresent();
         assertThat(classFile.getMethodParameters(constructors.get(0)))
-                .isEqualTo(List.of(new MethodParameter(MethodParameter.AccessFlag.NONE, "hello")));
+                .isEqualTo(List.of(new MethodParameter((short) 0, "hello")));
 
         // String foo, final boolean bar, List<String> strings
         // (Ljava/lang/String;ZLjava/util/List<Ljava/lang/String;>;)V
-        var constructorSignature = new MethodSignature(List.of(), List.of(
+        var constructorSignature = new MethodSignature("", List.of(), List.of(
                 stringType,
                 JavaTypeSignature.BaseType.Z,
-                new ClassTypeSignature("java.util",
-                        new SimpleClassTypeSignature("List", List.of(
+                new ClassTypeSignature("java/util",
+                        new SimpleClassTypeSignature("", "List", List.of(
                                 new TypeArgument.Reference(stringType))))),
                 VoidDescriptor.INSTANCE,
                 List.of());
 
         assertThat(classFile.getMethodTypeDescriptor(constructors.get(1)))
-                .isEqualTo(new MethodSignature(List.of(stringType,
+                .isEqualTo(new MethodSignature("", List.of(stringType,
                         JavaTypeSignature.BaseType.Z,
-                        new ClassTypeSignature("java.util", new SimpleClassTypeSignature("List"))),
+                        new ClassTypeSignature("java/util",
+                                new SimpleClassTypeSignature("", "List"))),
                         VoidDescriptor.INSTANCE)); // (Ljava/lang/String;ZLjava/util/List;)V
         assertThat(classFile.getSignatureAttribute(constructors.get(1)))
                 .isPresent()
@@ -319,18 +342,55 @@ public class JBuildClassFileParserTest {
 
         assertThat(classFile.getTypeName())
                 .isEqualTo("Ljbuild/artifact/http/DefaultHttpClient;");
-        assertThat(classFile.getTypesReferredTo()).containsExactlyInAnyOrder(
+        assertThat(classFile.getConstClassNames()).containsExactlyInAnyOrder(
                 "Ljava/time/Duration;",
                 "Ljava/net/http/HttpClient;",
-                "(J)Ljava/time/Duration;",
-                "()V",
-                "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;",
+                "Ljava/lang/Object;",
                 "Ljava/net/http/HttpClient$Builder;",
-                "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;",
-                "()Ljava/net/http/HttpClient;",
                 "Ljava/net/http/HttpClient$Redirect;",
-                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;",
-                "()Ljava/net/http/HttpClient$Builder;");
+                "Ljbuild/artifact/http/DefaultHttpClient;",
+                "Ljbuild/artifact/http/DefaultHttpClient$Singleton;");
+
+        assertThat(classFile.getReferences()).containsExactlyInAnyOrder(
+                new Reference(METHOD, "Ljava/lang/Object;", "<init>", "()V"),
+                new Reference(FIELD, "Ljbuild/artifact/http/DefaultHttpClient$Singleton;", "INSTANCE", "Ljbuild/artifact/http/DefaultHttpClient$Singleton;"),
+                new Reference(FIELD, "Ljbuild/artifact/http/DefaultHttpClient$Singleton;", "httpClient", "Ljava/net/http/HttpClient;"),
+                new Reference(METHOD, "Ljava/net/http/HttpClient;", "newBuilder", "()Ljava/net/http/HttpClient$Builder;"),
+                new Reference(FIELD, "Ljava/net/http/HttpClient$Redirect;", "NORMAL", "Ljava/net/http/HttpClient$Redirect;"),
+                new Reference(INTERFACE_METHOD, "Ljava/net/http/HttpClient$Builder;", "followRedirects", "(Ljava/net/http/HttpClient$Redirect;)Ljava/net/http/HttpClient$Builder;"),
+                new Reference(METHOD, "Ljava/time/Duration;", "ofSeconds", "(J)Ljava/time/Duration;"),
+                new Reference(INTERFACE_METHOD, "Ljava/net/http/HttpClient$Builder;", "connectTimeout", "(Ljava/time/Duration;)Ljava/net/http/HttpClient$Builder;"),
+                new Reference(INTERFACE_METHOD, "Ljava/net/http/HttpClient$Builder;", "build", "()Ljava/net/http/HttpClient;")
+        );
+    }
+
+    @Test
+    void canParseModuleInfoFile() throws IOException {
+        ClassFile classFile = parseModule1();
+        System.out.println(classFile);
+        assertThat(classFile.getTypeName())
+                .isEqualTo("Lmodule-info;");
+
+        var moduleInfo = classFile.constPoolEntries.stream()
+                .filter(it -> it.tag == ConstPoolInfo.ModuleInfo.TAG)
+                .map(it -> (ConstPoolInfo.ModuleInfo) it)
+                .findFirst();
+        assertThat(moduleInfo).isPresent()
+                .get()
+                .extracting(m -> classFile.constPoolEntries.get(m.nameIndex))
+                .isInstanceOf(ConstPoolInfo.Utf8.class)
+                .extracting(it -> ((ConstPoolInfo.Utf8) it).asString())
+                .isEqualTo("mod.one");
+
+        assertClassAccessFlags(classFile.accessFlags, false, false, false, false, false, false, false, false, true);
+        assertThat(AccessFlags.isModule(classFile.accessFlags)).isTrue();
+
+        assertThat(classFile.getModuleAttribute()).isPresent().get()
+                .isEqualTo(new ModuleAttribute("mod.one", ModuleAttribute.ModuleFlags.NONE,
+                        "",
+                        List.of(new ModuleAttribute.Requires("java.base", ModuleAttribute.RequiresFlags.ACC_MANDATED, "11.0.14")),
+                        List.of(new ModuleAttribute.Exports("m1", ModuleAttribute.ExportsFlags.NONE, Set.of())),
+                        List.of(), Set.of(), List.of()));
     }
 
     private ClassFile parseHelloWorldClass() throws IOException {
@@ -351,6 +411,10 @@ public class JBuildClassFileParserTest {
 
     private ClassFile parseExampleAnnotatedClass() throws IOException {
         return parseClass("/ExampleAnnotated.cls");
+    }
+
+    private ClassFile parseModule1() throws IOException {
+        return parseClass("/mod1.cls");
     }
 
     private ClassFile parseClass(String path) throws IOException {

@@ -25,39 +25,41 @@ public abstract class ConstPoolInfo {
         }
     }
 
-    public static final class FieldRef extends ConstPoolInfo {
-        public static final short TAG = 9;
+    /**
+     * Common representation of {@link FieldRef}, {@link MethodRef} and {@link InterfaceMethodRef}.
+     */
+    public static abstract class RefInfo extends ConstPoolInfo {
         public final short classIndex;
         public final short nameAndTypeIndex;
+
+        protected RefInfo(short tag, short classIndex, short nameAndTypeIndex) {
+            super(tag);
+            this.classIndex = classIndex;
+            this.nameAndTypeIndex = nameAndTypeIndex;
+        }
+    }
+
+    public static final class FieldRef extends RefInfo {
+        public static final short TAG = 9;
 
         public FieldRef(short classIndex, short nameAndTypeIndex) {
-            super(TAG);
-            this.classIndex = classIndex;
-            this.nameAndTypeIndex = nameAndTypeIndex;
+            super(TAG, classIndex, nameAndTypeIndex);
         }
     }
 
-    public static final class MethodRef extends ConstPoolInfo {
+    public static final class MethodRef extends RefInfo {
         public static final short TAG = 10;
-        public final short classIndex;
-        public final short nameAndTypeIndex;
 
         public MethodRef(short classIndex, short nameAndTypeIndex) {
-            super(TAG);
-            this.classIndex = classIndex;
-            this.nameAndTypeIndex = nameAndTypeIndex;
+            super(TAG, classIndex, nameAndTypeIndex);
         }
     }
 
-    public static final class InterfaceMethodRef extends ConstPoolInfo {
+    public static final class InterfaceMethodRef extends RefInfo {
         public static final short TAG = 11;
-        public final short classIndex;
-        public final short nameAndTypeIndex;
 
         public InterfaceMethodRef(short classIndex, short nameAndTypeIndex) {
-            super(TAG);
-            this.classIndex = classIndex;
-            this.nameAndTypeIndex = nameAndTypeIndex;
+            super(TAG, classIndex, nameAndTypeIndex);
         }
     }
 
@@ -111,18 +113,31 @@ public abstract class ConstPoolInfo {
         }
     }
 
+    /**
+     * The {@link NameAndType} structure is used to represent a field or method, without indicating which class or
+     * interface type it belongs to:
+     * <p>
+     * <pre>
+     * CONSTANT_NameAndType_info {
+     *   u1 tag;
+     *   u2 name_index;
+     *   u2 descriptor_index;
+     * }
+     * </pre>
+     * <p>
+     * This is used from:
+     * <ul>
+     *     <li>{@link RefInfo} subtypes (const pool)</li>
+     *     <li>{@link DynamicInfo} (const pool)</li>
+     *     <li>{@link InvokeDynamic} (const pool)</li>
+     *     <li>{@link jbuild.classes.model.attributes.EnclosingMethod} (attribute)</li>
+     * </ul>
+     */
     public static final class NameAndType extends ConstPoolInfo {
         public static final short TAG = 12;
         public final short nameIndex;
         public final short descriptorIndex;
 
-        /**
-         * CONSTANT_NameAndType_info {
-         * u1 tag;
-         * u2 name_index;
-         * u2 descriptor_index;
-         * }
-         */
         public NameAndType(short nameIndex, short descriptorIndex) {
             super(TAG);
             this.nameIndex = nameIndex;
@@ -166,6 +181,18 @@ public abstract class ConstPoolInfo {
         }
     }
 
+    public static final class DynamicInfo extends ConstPoolInfo {
+        public static final short TAG = 17;
+        public final short bootstrapMethodAttributeIndex;
+        public final short nameAndTypeIndex;
+
+        public DynamicInfo(short bootstrapMethodAttributeIndex, short descriptorIndex) {
+            super(TAG);
+            this.bootstrapMethodAttributeIndex = bootstrapMethodAttributeIndex;
+            this.nameAndTypeIndex = descriptorIndex;
+        }
+    }
+
     public static final class InvokeDynamic extends ConstPoolInfo {
         public static final short TAG = 18;
         public final short bootstrapMethodAttributeIndex;
@@ -176,5 +203,27 @@ public abstract class ConstPoolInfo {
             this.bootstrapMethodAttributeIndex = bootstrapMethodAttributeIndex;
             this.nameAndTypeIndex = descriptorIndex;
         }
+    }
+
+    public static final class ModuleInfo extends ConstPoolInfo {
+        public static final short TAG = 19;
+        public final short nameIndex;
+
+        public ModuleInfo(short nameIndex) {
+            super(TAG);
+            this.nameIndex = nameIndex;
+        }
+    }
+
+    public static final class PackageInfo extends ConstPoolInfo {
+        public static final short TAG = 20;
+
+        public final short nameIndex;
+
+        public PackageInfo(short nameIndex) {
+            super(TAG);
+            this.nameIndex = nameIndex;
+        }
+
     }
 }

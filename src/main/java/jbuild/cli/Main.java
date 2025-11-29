@@ -13,6 +13,7 @@ import jbuild.commands.DoctorCommandExecutor;
 import jbuild.commands.FetchCommandExecutor;
 import jbuild.commands.InstallCommandExecutor;
 import jbuild.commands.RequirementsCommandExecutor;
+import jbuild.commands.ShowModuleCommand;
 import jbuild.commands.VersionsCommandExecutor;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
@@ -40,6 +41,7 @@ import java.util.function.Function;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.artifact.file.ArtifactFileWriter.WriteMode.FLAT_DIR;
@@ -85,6 +87,7 @@ public final class Main {
                     "  * " + FetchOptions.NAME + " - " + FetchOptions.DESCRIPTION + LINE_END +
                     "  * " + InstallOptions.NAME + " - " + InstallOptions.DESCRIPTION + LINE_END +
                     "  * " + RequirementsOptions.NAME + " - " + RequirementsOptions.DESCRIPTION + LINE_END +
+                    "  * " + ShowModulesOptions.NAME + " - " + ShowModulesOptions.DESCRIPTION + LINE_END +
                     "  * " + VersionsOptions.NAME + " - " + VersionsOptions.DESCRIPTION + LINE_END +
                     "  * help - displays this help message or help for one of the other commands" + LINE_END +
                     LINE_END +
@@ -167,6 +170,9 @@ public final class Main {
             case RequirementsOptions.NAME:
                 requirements(options);
                 break;
+            case ShowModulesOptions.NAME:
+                showModules(options);
+                break;
             default:
                 throw new JBuildException("Unknown command: " + options.command +
                         ". Run jbuild --help for usage.", USER_INPUT);
@@ -198,6 +204,9 @@ public final class Main {
                 case RequirementsOptions.NAME:
                     System.out.println(RequirementsOptions.USAGE);
                     break;
+                case ShowModulesOptions.NAME:
+                    System.out.println(ShowModulesOptions.USAGE);
+                    break;
                 case VersionsOptions.NAME:
                     System.out.println(VersionsOptions.USAGE);
                     break;
@@ -217,7 +226,7 @@ public final class Main {
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass, compileOptions.groovyJar,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
-                compileOptions.classpath, compileOptions.manifest, options.applicationArgs,
+                compileOptions.classPath, compileOptions.modulePath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res ->
@@ -324,7 +333,7 @@ public final class Main {
                         log.println(() -> "Successfully installed " + successes +
                                 " artifact" + (successes == 1 ? "" : "s") + " at " + fileWriter.getDestination());
                     } else {
-                        anyError.set(ErrorCause.ACTION_ERROR);
+                        anyError.set(ACTION_ERROR);
                     }
                 } else {
                     anyError.set(err instanceof JBuildException
@@ -440,6 +449,15 @@ public final class Main {
         await(command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass),
                 Duration.ofMinutes(2),
                 "requirements");
+    }
+
+    private void showModules(Options options) {
+        var command = new ShowModuleCommand(log);
+        var commandOptions = ShowModulesOptions.parse(options.commandArgs);
+        var ok = command.show(List.copyOf(commandOptions.inputFiles));
+        if (!ok) {
+            throw new JBuildException("Failed to show information for one or more modules!", ACTION_ERROR);
+        }
     }
 
     private VersionsCommandExecutor createVersionsCommandExecutor(Options options) {

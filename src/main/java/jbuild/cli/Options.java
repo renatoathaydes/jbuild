@@ -632,7 +632,7 @@ final class RequirementsOptions {
             "    " + LINE_END +
             "    Determines the Java types required by a set of jars or class files." + LINE_END +
             "      Usage:" + LINE_END +
-            "        jbuild " + NAME + "<options...> <file...>" + LINE_END +
+            "        jbuild " + NAME + " <options...> <file...>" + LINE_END +
             "      Options:" + LINE_END +
             "        --per-class" + LINE_END +
             "        -c        show intra-jar requirements per-class" + LINE_END +
@@ -713,8 +713,10 @@ final class CompileOptions {
             "      Usage:" + LINE_END +
             "        jbuild " + NAME + " <options... | input-directory...> [-- <javac-args>]" + LINE_END +
             "      Options:" + LINE_END +
-            "        --classpath" + LINE_END +
+            "        --class-path" + LINE_END +
             "        -cp <paths> Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
+            "        --module-path" + LINE_END +
+            "        -mp <paths> Java module path (may be given more than once)." + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --resources" + LINE_END +
@@ -755,7 +757,8 @@ final class CompileOptions {
     final boolean generateJbManifest;
     final boolean createSourcesJar;
     final boolean createJavadocsJar;
-    final String classpath;
+    final String classPath;
+    final String modulePath;
     final Either<Boolean, String> manifest;
     final IncrementalChanges incrementalChanges;
 
@@ -767,7 +770,8 @@ final class CompileOptions {
                           boolean generateJbManifest,
                           boolean createSourcesJar,
                           boolean createJavadocsJar,
-                          String classpath,
+                          String classPath,
+                          String modulePath,
                           Either<Boolean, String> manifest,
                           IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
@@ -778,7 +782,8 @@ final class CompileOptions {
         this.generateJbManifest = generateJbManifest;
         this.createSourcesJar = createSourcesJar;
         this.createJavadocsJar = createJavadocsJar;
-        this.classpath = classpath;
+        this.classPath = classPath;
+        this.modulePath = modulePath;
         this.manifest = manifest;
         this.incrementalChanges = incrementalChanges;
     }
@@ -790,9 +795,10 @@ final class CompileOptions {
         Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null, groovyJar = null;
         Either<Boolean, String> manifest = null;
-        var classpath = new StringBuilder();
+        StringBuilder classPath = new StringBuilder(), modulePath = new StringBuilder();
 
         boolean waitingForClasspath = false,
+                waitingForModulePath = false,
                 waitingForDirectory = false,
                 waitingForResources = false,
                 waitingForJar = false,
@@ -811,10 +817,20 @@ final class CompileOptions {
                 for (String part : arg.split("[;:]", -1)) {
                     if (part.isBlank())
                         continue;
-                    if (classpath.length() > 0) {
-                        classpath.append(File.pathSeparatorChar);
+                    if (classPath.length() > 0) {
+                        classPath.append(File.pathSeparatorChar);
                     }
-                    classpath.append(part);
+                    classPath.append(part);
+                }
+            } else if (waitingForModulePath) {
+                waitingForModulePath = false;
+                for (String part : arg.split("[;:]", -1)) {
+                    if (part.isBlank())
+                        continue;
+                    if (modulePath.length() > 0) {
+                        modulePath.append(File.pathSeparatorChar);
+                    }
+                    modulePath.append(part);
                 }
             } else if (waitingForDirectory) {
                 waitingForDirectory = false;
@@ -845,8 +861,10 @@ final class CompileOptions {
                 waitingForGroovyJar = false;
                 groovyJar = arg;
             } else if (arg.startsWith("-")) {
-                if (isEither(arg, "-cp", "--classpath")) {
+                if (isEither(arg, "-cp", "--classpath", "--class-path")) {
                     waitingForClasspath = true;
+                } else if (isEither(arg, "-mp", "--modulepath", "--module-path")) {
+                    waitingForModulePath = true;
                 } else if (isEither(arg, "-x", "--jb-extension")) {
                     generateJbManifest = true;
                 } else if (isEither(arg, "-sj", "--sources-jar")) {
@@ -899,7 +917,10 @@ final class CompileOptions {
         }
 
         if (waitingForClasspath) {
-            throw new JBuildException("expecting value for '--classpath' option", USER_INPUT);
+            throw new JBuildException("expecting value for '--class-path' option", USER_INPUT);
+        }
+        if (waitingForModulePath) {
+            throw new JBuildException("expecting value for '--module-path' option", USER_INPUT);
         }
         if (waitingForDirectory) {
             throw new JBuildException("expecting value for '--directory' option", USER_INPUT);
@@ -947,8 +968,34 @@ final class CompileOptions {
                 generateJbManifest,
                 createSourcesJar,
                 createJavadocsJar,
-                classpath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classpath.toString(),
+                classPath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classPath.toString(),
+                modulePath.toString(),
                 manifest == null ? Either.left(true) : manifest,
                 incrementalChanges);
+    }
+}
+
+final class ShowModulesOptions {
+    static final String NAME = "module";
+    static final String DESCRIPTION = "shows Java module details";
+
+    static final String USAGE = "  ## " + NAME + LINE_END +
+            "    Show Java module's details. One or more files may be provided." + LINE_END +
+            "    Each file should be either a jar or a module-info.class file." + LINE_END +
+            "      Usage:" + LINE_END +
+            "        jbuild " + NAME + " <file...>" + LINE_END +
+            "      Example:" + LINE_END +
+            "        jbuild " + NAME + " lib.jar target/classes/module-info.class";
+
+    public final Set<String> inputFiles;
+
+    ShowModulesOptions(Set<String> inputFiles) {
+        this.inputFiles = inputFiles;
+    }
+
+    static ShowModulesOptions parse(List<String> args) {
+        var input = new LinkedHashSet<String>(args.size());
+        input.addAll(args);
+        return new ShowModulesOptions(input);
     }
 }

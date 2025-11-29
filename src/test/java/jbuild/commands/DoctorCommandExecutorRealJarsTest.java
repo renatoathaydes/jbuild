@@ -135,14 +135,14 @@ public class DoctorCommandExecutorRealJarsTest {
 
             var jarFromSet = result.getErrors().stream()
                     .flatMap(NonEmptyCollection::stream)
-                    .map(error -> error.jarFrom.getName())
+                    .map(error -> jarFrom(error.referenceChain))
                     .collect(Collectors.toSet());
 
             assertThat(jarFromSet).containsExactly(otherClassesJar.getName());
 
             var jarToSet = result.getErrors().stream()
                     .flatMap(NonEmptyCollection::stream)
-                    .map(error -> error.jarTo == null ? "null" : error.jarTo.getName())
+                    .map(error -> jarFrom(error.to))
                     .collect(Collectors.toSet());
 
             // the jarTo must be null because there's no way of knowing where the missing types should come from
@@ -150,24 +150,26 @@ public class DoctorCommandExecutorRealJarsTest {
 
             var codeToSet = result.getErrors().stream()
                     .flatMap(NonEmptyCollection::stream)
-                    .map(error -> error.to.typeName)
+                    .map(error -> error.to)
                     .collect(Collectors.toSet());
 
             assertThat(codeToSet).containsExactlyInAnyOrder(
-                    "Lfoo/Bar;",
-                    "Lfoo/FunctionalCode;",
-                    "Lfoo/SomethingSpecific;",
-                    "Lgenerics/Base;",
-                    "Lfoo/ExampleLogger;",
-                    "Lfoo/Zort;",
-                    "Lgenerics/BaseA;",
-                    "Lfoo/MultiInterface;",
-                    "Lfoo/Something;",
-                    "Lgenerics/ComplexType;",
-                    "Lfoo/Fields;",
-                    "Lfoo/SomeEnum;",
-                    "Lgenerics/Generics;",
-                    "Lfoo/EmptyInterface;");
+                    "foo.Bar",
+                    "foo.FunctionalCode",
+                    "foo.SomethingSpecific",
+                    "generics.Base",
+                    "foo.ExampleLogger",
+                    "foo.Zort",
+                    "generics.BaseA",
+                    "foo.MultiInterface",
+                    "foo.Something",
+                    "generics.ComplexType",
+                    "foo.Fields",
+                    "foo.SomeEnum",
+                    "generics.Generics",
+                    "foo.EmptyInterface",
+                    "generics.ManyGenerics"
+            );
 
             assertThat(result.successful).isFalse();
         });
@@ -197,6 +199,11 @@ public class DoctorCommandExecutorRealJarsTest {
             System.out.println("STDOUT:\n" + stdout.toString(UTF_8));
             throw t;
         }
+    }
+
+    private static String jarFrom(String referenceChain) {
+        var endIndex = referenceChain.indexOf('!');
+        return endIndex == -1 ? "null" : referenceChain.substring(0, endIndex);
     }
 
     static void expectError(

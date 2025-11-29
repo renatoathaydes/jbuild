@@ -1,25 +1,27 @@
 package jbuild.commands;
 
 import jbuild.api.JBuildException;
-import jbuild.java.CallHierarchyVisitor;
+import jbuild.classes.model.ClassFile;
+import jbuild.classes.model.info.Reference;
 import jbuild.java.ClassGraph;
 import jbuild.java.JarSet;
 import jbuild.java.JarSetPermutations;
-import jbuild.java.code.Code;
-import jbuild.java.code.Definition;
 import jbuild.log.JBuildLog;
 import jbuild.util.CollectionUtils;
-import jbuild.util.Describable;
 import jbuild.util.JarFileFilter;
+import jbuild.util.JavaTypeUtils;
 import jbuild.util.NonEmptyCollection;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -28,13 +30,15 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.joining;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.FileUtils.allFilesInDir;
+import static jbuild.util.JavaTypeUtils.parseTypeDescriptor;
 import static jbuild.util.TextUtils.LINE_END;
 
 public final class DoctorCommandExecutor {
@@ -95,17 +99,10 @@ public final class DoctorCommandExecutor {
                 throw new JBuildException("Could not find any valid classpath permutation", ACTION_ERROR);
             }
 
-            var checkResults = jarSets.stream().map(jarSet -> jarSet.toClassGraph().thenApplyAsync(classGraph -> {
-                        var callHVisitor = new CallHierarchyVisitor(classGraph, typeExclusions, Set.of());
-                        var docVisitor = new DoctorVisitor(log);
-                        callHVisitor.visit(entryJars, docVisitor);
-                        if (docVisitor.inconsistencies.isEmpty()) {
-                            log.verbosePrintln(() -> "Visited: " + docVisitor.visitedJars);
-                            return ConsistencyCheckResult.success(docVisitor.visitedJars);
-                        }
-                        return ConsistencyCheckResult.failure(NonEmptyCollection.of(docVisitor.inconsistencies));
-                    }).thenApplyAsync(results -> ClasspathCheckResult.of(results, jarSet)))
-                    .collect(toList());
+            var checkResults = jarSets.stream().map(jarSet -> jarSet.toClassGraph()
+                    .thenApplyAsync(cg -> checkForInconsistencies(cg, entryJars, typeExclusions))
+                    .thenApplyAsync(results -> ClasspathCheckResult.of(results, jarSet))
+            ).collect(toList());
 
             return awaitValues(checkResults).thenApplyAsync(results -> {
                 var bad = results.stream().map(e -> e.map(l -> null, r -> r))
@@ -121,6 +118,200 @@ public final class DoctorCommandExecutor {
                         .collect(toList());
             });
         });
+    }
+
+    private ConsistencyCheckResult checkForInconsistencies(
+            ClassGraph classGraph,
+            Set<File> entryPoints,
+            Set<Pattern> typeExclusions) {
+        var visitedJars = new HashSet<>(entryPoints);
+        var capacity = classGraph.getTypesByJar().values().stream().mapToInt(Map::size).sum();
+        var typesToVisit = new HashMap<String, ClassGraph.TypeDefinitionLocation>(capacity);
+        // we will visit types referred to by the entry points
+        var visitedTypes = new HashSet<String>(capacity * 2);
+        var inconsistencies = new ArrayList<ClassPathInconsistency>();
+        for (var jar : entryPoints) {
+            classGraph.getTypesByJar().get(jar).forEach((name, type) ->
+                    typesToVisit.put(name, new ClassGraph.TypeDefinitionLocation(type, jar)));
+        }
+        while (!typesToVisit.isEmpty()) {
+            log.verbosePrintln(() -> "Checking " + typesToVisit.size() + " in this iteration, " +
+                    visitedTypes.size() + " visited so far");
+            var currentTypesToVisit = new HashSet<>(typesToVisit.entrySet());
+            typesToVisit.clear();
+            for (var typeByName : currentTypesToVisit) {
+                var fromTypeName = typeByName.getKey();
+                if (!visitedTypes.add(fromTypeName)) {
+                    continue;
+                }
+                var from = typeByName.getValue();
+                for (var typeRef : classGraph.getTypesReferredToBy(from.typeName)) {
+                    if (JavaTypeUtils.isPrimitiveJavaType(typeRef)
+                            || JavaTypeUtils.mayBeJavaStdLibType(typeRef)) {
+                        continue;
+                    }
+                    var to = JavaTypeUtils.typeNameToClassName(typeRef);
+                    if (isExcluded(to, typeExclusions)) {
+                        continue;
+                    }
+                    var ref = classGraph.findTypeDefinitionLocation(typeRef);
+                    if (ref == null) {
+                        log.verbosePrintln(() -> "Type " + from + " needs missing type: " + to);
+                        inconsistencies.add(new ClassPathInconsistency(refChain(from), to, ReferenceTarget.TYPE));
+                    } else {
+                        if (visitedJars.add(ref.jar)) {
+                            log.verbosePrintln(() -> "Including jar " + ref.jar + " due to reference to " +
+                                    to + " from " + from);
+                        }
+                        var refWithParent = ref.withParent(from);
+                        typesToVisit.put(typeRef, refWithParent);
+                        checkReferences(classGraph, refWithParent, typeExclusions, typesToVisit, inconsistencies);
+                    }
+                }
+            }
+        }
+        log.verbosePrintln(() -> "Visited " + visitedTypes.size() + " types from " + visitedJars.size() + " jars in total");
+        if (inconsistencies.isEmpty()) {
+            return ConsistencyCheckResult.success(visitedJars);
+        }
+        return ConsistencyCheckResult.failure(NonEmptyCollection.of(inconsistencies));
+    }
+
+    private void checkReferences(
+            ClassGraph classGraph,
+            ClassGraph.TypeDefinitionLocation location,
+            Set<Pattern> typeExclusions,
+            Map<String, ClassGraph.TypeDefinitionLocation> typesToVisit,
+            List<ClassPathInconsistency> results) {
+        for (var ref : location.typeDefinition.classFile.getReferences()) {
+            var ownerTypeInfo = JavaTypeUtils.TypeInfo.from(ref.ownerType);
+            if (ownerTypeInfo.arrayDimensions > 0) {
+                checkArrayReference(ownerTypeInfo, classGraph, location, ref, typesToVisit, results);
+                continue;
+            }
+            if (!ownerTypeInfo.isReferenceType
+                    || JavaTypeUtils.mayBeJavaStdLibType(ownerTypeInfo.basicTypeName)
+                    || location.typeName.equals(ownerTypeInfo.basicTypeName)) {
+                // skip Java stdlib types and refs to internal methods/fields
+                continue;
+            }
+            var toClassName = JavaTypeUtils.typeNameToClassName(ownerTypeInfo);
+            if (isExcluded(toClassName, typeExclusions)) {
+                continue;
+            }
+            log.verbosePrintln(() -> "Checking reference from " + location.className + " to " +
+                    (ref.kind == Reference.RefKind.FIELD ? "field " : "method ") + toClassName + "::" + ref.name +
+                    " with type " + ref.descriptor);
+            var toLocation = classGraph.findTypeDefinitionLocation(ownerTypeInfo.basicTypeName);
+            if (toLocation == null) {
+                // missing types are reported already from the ClassInfo constants
+                return;
+            }
+            var targetLocation = toLocation.withParent(location);
+            typesToVisit.put(ref.ownerType, targetLocation);
+            var referenceTarget = ReferenceTarget.of(ref);
+            var targetDescriptor = ref.descriptor;
+            var ok = findTypeDescriptorsByName(ref, targetLocation, classGraph)
+                    .anyMatch(targetDescriptor::equals);
+            if (!ok) {
+                var to = describe(targetLocation, ref, referenceTarget);
+                log.verbosePrintln(() -> "Type " + location.className + " needs missing '" + to +
+                        "' with type " + ref.descriptor);
+                results.add(new ClassPathInconsistency(refChain(location), to, referenceTarget));
+            }
+        }
+    }
+
+    private void checkArrayReference(JavaTypeUtils.TypeInfo ownerTypeInfo,
+                                     ClassGraph classGraph,
+                                     ClassGraph.TypeDefinitionLocation location, Reference ref,
+                                     Map<String, ClassGraph.TypeDefinitionLocation> typesToVisit,
+                                     List<ClassPathInconsistency> results) {
+        assert ownerTypeInfo.arrayDimensions > 0;
+        if (ownerTypeInfo.isReferenceType) {
+            var type = classGraph.findTypeDefinitionLocation(ownerTypeInfo.basicTypeName);
+            if (type != null) {
+                typesToVisit.put(ownerTypeInfo.basicTypeName, type);
+            }
+        }
+        Stream<String> existingDescriptors;
+        if (ref.kind == Reference.RefKind.FIELD) {
+            existingDescriptors = JavaDescriptorsCache.findArrayFieldDescriptorsByName(ref.name);
+        } else {
+            existingDescriptors = JavaDescriptorsCache.findArrayMethodDescriptorsByName(ref.name);
+        }
+        if (existingDescriptors.noneMatch(ref.descriptor::equals)) {
+            var referenceTarget = ReferenceTarget.of(ref);
+            var to = JavaTypeUtils.typeNameToClassName(ownerTypeInfo);
+            log.verbosePrintln(() -> "Type " + location.className + " needs missing '" + to + "::" + ref.name +
+                    "' with type " + ref.descriptor);
+            results.add(new ClassPathInconsistency(refChain(location), to, referenceTarget));
+        }
+    }
+
+    private static String describe(ClassGraph.TypeDefinitionLocation location,
+                                   Reference reference,
+                                   ReferenceTarget referenceTarget) {
+        var types = parseTypeDescriptor(reference.descriptor, true).stream()
+                .map(JavaTypeUtils::typeNameToClassName)
+                .collect(toCollection(ArrayList::new));
+        if (referenceTarget == ReferenceTarget.CONSTRUCTOR) {
+            // ignore the constructor's return type which is always void
+            if (!types.isEmpty()) {
+                types.remove(types.size() - 1);
+            }
+            return location + "::(" + String.join(", ", types) + ')';
+        }
+        if (referenceTarget == ReferenceTarget.FIELD) {
+            assert types.size() == 1;
+            return location + "::" + reference.name + ':' + types.get(0);
+        }
+        var returnType = types.remove(types.size() - 1);
+        return location + "::" + reference.name + '(' + String.join(", ", types) + "):" + returnType;
+    }
+
+    private static Stream<String> findTypeDescriptorsByName(Reference reference,
+                                                            ClassGraph.TypeDefinitionLocation location,
+                                                            ClassGraph classGraph) {
+        var targetName = reference.name;
+        var classFile = location.typeDefinition.classFile;
+        Set<ClassFile> parentTypes = JavaDescriptorsCache.expandWithSuperTypes(classFile, classGraph);
+        if (reference.kind == Reference.RefKind.FIELD) {
+            return Stream.concat(parentTypes.stream()
+                            .flatMap(cf -> cf.getFields().stream()
+                                    .filter(m -> m.name.equals(targetName))
+                                    .map(m -> m.descriptor)),
+                    JavaDescriptorsCache.findFieldDescriptorsByName(classFile, targetName, classGraph));
+        }
+
+        return Stream.concat(parentTypes.stream()
+                        .flatMap(cf -> cf.getMethods().stream()
+                                .filter(m -> m.name.equals(targetName))
+                                .map(m -> m.descriptor)),
+                JavaDescriptorsCache.findMethodDescriptorsByName(parentTypes, targetName, classGraph));
+    }
+
+    private boolean isExcluded(String className, Set<Pattern> typeExclusions) {
+        for (var pattern : typeExclusions) {
+            if (pattern.matcher(className).matches()) {
+                log.verbosePrintln(() -> "Skipping " + className +
+                        " as it matches exclusion pattern " + pattern);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String refChain(ClassGraph.TypeDefinitionLocation from) {
+        var chain = new ArrayList<String>();
+        // build the chain in reverse
+        var current = from;
+        while (current != null) {
+            chain.add(current.jar.getName() + '!' + current.className);
+            current = current.parent;
+        }
+        Collections.reverse(chain);
+        return String.join(" -> ", chain);
     }
 
     private List<JarSet> eliminateJarSetsMissingEntrypoints(Set<File> entryJars, List<JarSet> jarSets) {
@@ -156,11 +347,11 @@ public final class DoctorCommandExecutor {
 
     private void showClasspathErrors(Collection<ClasspathCheckResult> results) {
         for (var failureResult : results) {
-            if (failureResult.aborted || failureResult.getErrors().isEmpty()) break;
+            if (failureResult.getErrors().isEmpty()) break;
             log.println(() -> LINE_END + "Attempted classpath: " + failureResult.jarSet.toClasspath());
 
             var errorCount = 0;
-            var errorsGroupedByTarget = new LinkedHashMap<Describable, List<ClassPathInconsistency>>();
+            var errorsGroupedByTarget = new LinkedHashMap<String, List<ClassPathInconsistency>>();
             for (var inconsistency : failureResult.getErrors().get()) {
                 errorCount++;
                 errorsGroupedByTarget.computeIfAbsent(inconsistency.to,
@@ -175,7 +366,7 @@ public final class DoctorCommandExecutor {
                     : CollectionUtils.take(errorsGroupedByTarget, 5);
 
             for (var error : reportable.entrySet()) {
-                var target = error.getKey().getDescription();
+                var target = error.getKey();
                 log.println("  * " + target + " not found, but referenced from:");
                 var problems = error.getValue().stream();
                 var isHidingProblems = false;
@@ -183,15 +374,7 @@ public final class DoctorCommandExecutor {
                     problems = problems.limit(3);
                     isHidingProblems = true;
                 }
-                problems.forEach(problem -> {
-                    // TODO show all info possible
-                    if (problem.referenceChain.isEmpty()) {
-                        var from = problem.jarFrom == null ? "?" : problem.jarFrom;
-                        log.println("    - " + from);
-                    } else {
-                        log.println("    - " + problem.referenceChain);
-                    }
-                });
+                problems.forEach(problem -> log.println("    - " + problem.referenceChain));
                 if (isHidingProblems) log.println("    ...");
             }
             if (reportable.size() < errorsGroupedByTarget.size() && log.isVerbose()) {
@@ -219,23 +402,21 @@ public final class DoctorCommandExecutor {
     public static final class ClasspathCheckResult {
 
         private final NonEmptyCollection<ClassPathInconsistency> errors;
-        public final boolean aborted;
         public final JarSet jarSet;
         public final boolean successful;
 
         public ClasspathCheckResult(JarSet jarSet,
-                                    boolean aborted,
                                     NonEmptyCollection<ClassPathInconsistency> errors) {
             this.jarSet = jarSet;
-            this.aborted = aborted;
             this.errors = errors;
-            successful = !aborted && errors == null;
+            successful = errors == null;
         }
 
-        public static ClasspathCheckResult of(ConsistencyCheckResult result, JarSet jarSet) {
-            var jars = result.isOk() ? jarSet.filterFiles(result.jars) : jarSet;
-            var errors = result.isOk() ? null : result.inconsistencies;
-            return new ClasspathCheckResult(jars, false, errors);
+        private static ClasspathCheckResult of(ConsistencyCheckResult result, JarSet jarSet) {
+            if (result.isOk()) {
+                return new ClasspathCheckResult(jarSet.filterFiles(result.visitedJars), null);
+            }
+            return new ClasspathCheckResult(jarSet, result.inconsistencies);
         }
 
         public Optional<NonEmptyCollection<ClassPathInconsistency>> getErrors() {
@@ -246,107 +427,30 @@ public final class DoctorCommandExecutor {
         public String toString() {
             return "ClasspathCheckResult{" +
                     "errors=" + errors +
-                    ", aborted=" + aborted +
                     ", jarSet=" + jarSet +
                     ", successful=" + successful +
                     '}';
         }
     }
 
-    private static final class DoctorVisitor implements CallHierarchyVisitor.Visitor {
-
-        private final JBuildLog log;
-        final List<ClassPathInconsistency> inconsistencies = new ArrayList<>();
-        final Set<File> visitedJars = new HashSet<>();
-
-        private File currentJar;
-
-        public DoctorVisitor(JBuildLog log) {
-            this.log = log;
-        }
-
-        @Override
-        public void startJar(File jar) {
-            currentJar = jar;
-        }
-
-        @Override
-        public void visit(List<Describable> referenceChain,
-                          ClassGraph.TypeDefinitionLocation typeDefinitionLocation) {
-            log.verbosePrintln(() -> "Visiting type " + typeDefinitionLocation.typeDefinition.typeName);
-            visitedJars.add(typeDefinitionLocation.jar);
-        }
-
-        @Override
-        public void visit(List<Describable> referenceChain, Definition definition) {
-            log.verbosePrintln(() -> "Visiting definition " + definition.getDescription());
-        }
-
-        @Override
-        public void visit(List<Describable> referenceChain, Code code) {
-            log.verbosePrintln(() -> "Visiting code usage " + code.getDescription());
-        }
-
-        @Override
-        public void onMissingType(List<Describable> referenceChain, String typeName) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    new Code.Type(typeName), currentJar, null));
-        }
-
-        @Override
-        public void onMissingMethod(List<Describable> referenceChain,
-                                    ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
-                                    Code.Method method) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    method, currentJar, typeDefinitionLocation.jar));
-        }
-
-        @Override
-        public void onMissingField(List<Describable> referenceChain,
-                                   ClassGraph.TypeDefinitionLocation typeDefinitionLocation,
-                                   Code.Field field) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    field, currentJar, typeDefinitionLocation.jar));
-        }
-
-        @Override
-        public void onMissingField(List<Describable> referenceChain,
-                                   String javaTypeName,
-                                   Code.Field field) {
-            inconsistencies.add(new ClassPathInconsistency(
-                    describeChain(referenceChain),
-                    field, null, null));
-        }
-
-        private static String describeChain(List<Describable> referenceChain) {
-            return referenceChain.isEmpty() ? "" :
-                    referenceChain.stream().map(Describable::getDescription)
-                            .collect(joining(" -> ", "", ""));
-        }
-    }
-
     private static final class ConsistencyCheckResult {
 
+        public final Set<File> visitedJars;
         public final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
-        public final Set<File> jars;
 
-        ConsistencyCheckResult(NonEmptyCollection<ClassPathInconsistency> inconsistencies,
-                               Set<File> jars) {
+        ConsistencyCheckResult(
+                Set<File> visitedJars,
+                NonEmptyCollection<ClassPathInconsistency> inconsistencies) {
+            this.visitedJars = visitedJars;
             this.inconsistencies = inconsistencies;
-            this.jars = jars;
         }
 
-        static ConsistencyCheckResult success(Set<File> jars) {
-            assert jars != null;
-            return new ConsistencyCheckResult(null, jars);
+        static ConsistencyCheckResult success(Set<File> visitedJars) {
+            return new ConsistencyCheckResult(requireNonNull(visitedJars), null);
         }
 
         static ConsistencyCheckResult failure(NonEmptyCollection<ClassPathInconsistency> inconsistencies) {
-            assert inconsistencies != null;
-            return new ConsistencyCheckResult(inconsistencies, null);
+            return new ConsistencyCheckResult(Set.of(), requireNonNull(inconsistencies));
         }
 
         boolean isOk() {
@@ -354,22 +458,34 @@ public final class DoctorCommandExecutor {
         }
     }
 
+    public enum ReferenceTarget {
+        TYPE, FIELD, METHOD, CONSTRUCTOR;
+
+        public static ReferenceTarget of(Reference ref) {
+            if (ref.kind == Reference.RefKind.FIELD) {
+                return FIELD;
+            }
+            if (ref.name.equals("<init>")) {
+                return CONSTRUCTOR;
+            }
+            return METHOD;
+        }
+    }
+
     public static final class ClassPathInconsistency {
 
         public final String referenceChain;
-        public final Code to;
-        public final File jarFrom;
-        public final File jarTo;
+        // Java field/method/class?
+        public final String to;
+        public final ReferenceTarget target;
 
         public ClassPathInconsistency(
                 String referenceChain,
-                Code to,
-                File jarFrom,
-                File jarTo) {
+                String to,
+                ReferenceTarget target) {
             this.referenceChain = referenceChain;
             this.to = to;
-            this.jarFrom = jarFrom;
-            this.jarTo = jarTo;
+            this.target = target;
         }
 
         @Override
@@ -379,24 +495,22 @@ public final class DoctorCommandExecutor {
             var that = (ClassPathInconsistency) obj;
             return Objects.equals(this.referenceChain, that.referenceChain) &&
                     Objects.equals(this.to, that.to) &&
-                    Objects.equals(this.jarFrom, that.jarFrom) &&
-                    Objects.equals(this.jarTo, that.jarTo);
+                    Objects.equals(this.target, that.target);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(referenceChain, to, jarFrom, jarTo);
+            return Objects.hash(referenceChain, to, target);
         }
 
         @Override
         public String toString() {
-            return "ClassPathInconsistency[" +
-                    "referenceChain=" + referenceChain + ", " +
-                    "to=" + to + ", " +
-                    "jarFrom=" + jarFrom + ", " +
-                    "jarTo=" + jarTo + ']';
+            return "ClassPathInconsistency{" +
+                    "referenceChain='" + referenceChain + '\'' +
+                    ", to='" + to + '\'' +
+                    ", target=" + target +
+                    '}';
         }
-
     }
 
 }

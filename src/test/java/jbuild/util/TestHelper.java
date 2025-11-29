@@ -1,7 +1,7 @@
 package jbuild.util;
 
 import jbuild.TestSystemProperties;
-import jbuild.classes.JBuildClassFileParser;
+import jbuild.classes.parser.JBuildClassFileParser;
 import jbuild.classes.model.ClassFile;
 import jbuild.java.tools.Tools;
 import jbuild.log.JBuildLog;
@@ -68,7 +68,7 @@ public final class TestHelper {
                 .resolve(className + ".class");
         var result = Tools.Javac.create(createLog(false).getKey())
                 .compile(Set.of(javaFile.toString()), outDir.getPath(),
-                        resolve(classPathOption), List.of());
+                        resolve(classPathOption), "", List.of());
         verifyToolSuccessful("javac", result);
         return expectedClassFile;
     }

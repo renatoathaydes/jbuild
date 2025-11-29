@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.util.CollectionUtils.mapValues;
 import static jbuild.util.TextUtils.LINE_END;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.MapAssert.assertThatMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,31 +73,39 @@ public class OptionsTest {
         var p = File.pathSeparatorChar;
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile"}).commandArgs, false),
-                "java-libs", Set.of(), Set.of(), Either.right(""), "", defaultManifest);
+                "java-libs", "", Set.of(), Set.of(), Either.right(""), "", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "--main-class", "a.b.C", "-d", "out"}).commandArgs, false),
-                "java-libs", Set.of(), Set.of(), Either.left("out"), "a.b.C", defaultManifest);
+                "java-libs", "", Set.of(), Set.of(), Either.left("out"), "a.b.C", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "-m", "a.b.C", "--jar", "lib.jar", "--classpath", "foo"}).commandArgs, false),
-                "foo", Set.of(), Set.of(), Either.right("lib.jar"), "a.b.C", defaultManifest);
+                "foo", "", Set.of(), Set.of(), Either.right("lib.jar"), "a.b.C", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "dir", "-cp", "a:b;c", "-cp", "d"}).commandArgs, false),
-                "a" + p + "b" + p + "c" + p + "d", Set.of("dir"), Set.of(), Either.right(""), "", defaultManifest);
+                "a" + p + "b" + p + "c" + p + "d", "", Set.of("dir"), Set.of(), Either.right(""), "", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "--resources", "res", "dir", "-cp", "d", "-r", "files"}).commandArgs, false),
-                "d", Set.of("dir"), Set.of("res", "files"), Either.right(""), "", defaultManifest);
+                "d", "", Set.of("dir"), Set.of("res", "files"), Either.right(""), "", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "--manifest", "-"}).commandArgs, false),
-                "java-libs", Set.of(), Set.of(), Either.right(""), "", Either.left(false));
+                "java-libs", "", Set.of(), Set.of(), Either.right(""), "", Either.left(false), "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "-mf", "MANIFEST.txt"}).commandArgs, false),
-                "java-libs", Set.of(), Set.of(), Either.right(""), "", Either.right("MANIFEST.txt"));
+                "java-libs", "", Set.of(), Set.of(), Either.right(""), "", Either.right("MANIFEST.txt"), "");
+
+        // -q -V compile -m example.Main src -g build/compile-libs/groovy-4.0.20.jar -mp build/compile-libs/groovy-4.0.20.jar
+        verifyCompileOptions(CompileOptions.parse(
+                        Options.parse(new String[]{"compile", "-m", "example.Main", "src",
+                                "-g", "build/libs/groovy1.jar", "-mp", "build/libs/groovy2.jar"}
+                        ).commandArgs, false),
+                "java-libs", "build/libs/groovy2.jar", Set.of("src"), Set.of(), Either.right(""), "example.Main", Either.left(true),
+                "build/libs/groovy1.jar");
     }
 
     @Test
@@ -158,6 +167,15 @@ public class OptionsTest {
                 .hasMessage("cannot specify both 'non-transitive' and 'maven-local' options together.");
     }
 
+    @Test
+    void moduleOptions() {
+        verifyModuleOptions(ShowModulesOptions.parse(
+                Options.parse(new String[]{}).commandArgs), List.of());
+        verifyModuleOptions(ShowModulesOptions.parse(
+                        Options.parse(new String[]{"module", "a/b/c", "b.jar"}).commandArgs),
+                List.of("a/b/c", "b.jar"));
+    }
+
     private void verifyOptions(Options options,
                                String command,
                                List<String> commandArgs,
@@ -175,17 +193,21 @@ public class OptionsTest {
 
     private void verifyCompileOptions(CompileOptions options,
                                       String classpath,
+                                      String modulepath,
                                       Set<String> inputDirs,
                                       Set<String> resourcesDirs,
                                       Either<String, String> outputDirOrJar,
                                       String mainClass,
-                                      Either<Boolean, String> manifest) {
-        assertEquals(classpath, options.classpath);
+                                      Either<Boolean, String> manifest,
+                                      String groovyJar) {
+        assertEquals(classpath, options.classPath);
+        assertEquals(modulepath, options.modulePath);
         assertEquals(inputDirs, options.inputDirectories);
         assertEquals(resourcesDirs, options.resourcesDirectories);
         assertEquals(outputDirOrJar, options.outputDirOrJar);
         assertEquals(mainClass, options.mainClass);
         assertEquals(manifest, options.manifest);
+        assertEquals(groovyJar, options.groovyJar);
     }
 
     private void verifyInstallOptions(InstallOptions options,
@@ -208,5 +230,9 @@ public class OptionsTest {
         assertEquals(repoDir, options.repoDir, "repoDir");
         assertEquals(scopes, options.scopes, "scopes");
         assertEquals(transitive, options.transitive, "transitive should be " + transitive);
+    }
+
+    private void verifyModuleOptions(ShowModulesOptions options, List<String> modules) {
+        assertThat(options.inputFiles).containsExactlyElementsOf(modules);
     }
 }
