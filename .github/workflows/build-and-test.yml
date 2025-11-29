@@ -5,7 +5,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        java: [ 11, 17, 21 ]
+        java: [ 11, 17, 21, 25 ]
         include:
             - os: ubuntu-latest
               oskind: linux
@@ -26,8 +26,8 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: 'renatoathaydes/jb'
-          version: 'tags/0.14.0'
-          file: 'jb-0.14.0-${{ matrix.oskind }}.tar.gz'
+          version: 'tags/0.15.0'
+          file: 'jb-0.15.0-${{ matrix.oskind }}.tar.gz'
           target: jb.tar.gz
 
       - name: Install jb
