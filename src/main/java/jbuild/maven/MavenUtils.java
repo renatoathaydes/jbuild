@@ -30,7 +30,7 @@ public final class MavenUtils {
     public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2/";
 
     public static Path mavenHome() {
-        var mavenHome = System.getenv("MAVEN_HOME");
+        var mavenHome = System.getenv("MAVEN_LOCAL_HOME");
         if (mavenHome != null && !mavenHome.isBlank()) {
             return Paths.get(mavenHome);
         }

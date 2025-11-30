@@ -21,7 +21,7 @@ test-java-args:
   - "-Dtests.int-tests.resources={{INTEGRATION_TEST_RESOURCES_DIR}}"
 
 test-java-env:
-  MAVEN_HOME: "{{INTEGRATION_TEST_REPO_DIR}}"
+  MAVEN_LOCAL_HOME: "{{INTEGRATION_TEST_REPO_DIR}}"
 
 dependencies:
   "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}":
