@@ -3,6 +3,7 @@ package jbuild.artifact.file;
 import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.artifact.ResolvedArtifactChecksum;
 import jbuild.commands.MavenPomRetriever;
 import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.maven.MavenPom;
@@ -33,7 +34,7 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
     }
 
     private final File directory;
-    protected final WriteMode mode;
+    public final WriteMode mode;
     private final ExecutorService writerExecutor;
 
     // keep track of written files to prevent writing files again and again
@@ -141,6 +142,16 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
             default:
                 throw new IllegalStateException("Unhandled case: " + mode);
         }
+    }
+
+    @Override
+    public CompletionStage<MavenPom> createPom(ResolvedArtifactChecksum resolvedArtifact, boolean consume) {
+        var checksum = resolvedArtifact.checksum;
+        if (checksum != null) {
+            return write(checksum, consume).thenComposeAsync(ignore ->
+                    createPom(resolvedArtifact.artifact, consume));
+        }
+        return createPom(resolvedArtifact.artifact, consume);
     }
 
     @Override

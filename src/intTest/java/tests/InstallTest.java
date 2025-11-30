@@ -46,131 +46,179 @@ public class InstallTest extends JBuildTestRunner {
                 "  asm" + LE +
                 "    3.2" + LE +
                 "      asm-3.2.jar" + LE +
+                "      asm-3.2.jar.sha1" + LE +
                 "      asm-3.2.pom" + LE +
+                "      asm-3.2.pom.sha1" + LE +
                 "  asm-parent" + LE +
                 "    3.2" + LE +
                 "      asm-parent-3.2.pom" + LE +
+                "      asm-parent-3.2.pom.sha1" + LE +
                 "com" + LE +
                 "  github" + LE +
                 "    luben" + LE +
                 "      zstd-jni" + LE +
                 "        1.5.0-2" + LE +
                 "          zstd-jni-1.5.0-2.jar" + LE +
+                "          zstd-jni-1.5.0-2.jar.sha1" + LE +
                 "          zstd-jni-1.5.0-2.pom" + LE +
+                "          zstd-jni-1.5.0-2.pom.sha1" + LE +
                 "  google" + LE +
                 "    code" + LE +
                 "      findbugs" + LE +
                 "        jsr305" + LE +
                 "          3.0.2" + LE +
                 "            jsr305-3.0.2.jar" + LE +
+                "            jsr305-3.0.2.jar.sha1" + LE +
                 "            jsr305-3.0.2.pom" + LE +
+                "            jsr305-3.0.2.pom.sha1" + LE +
                 "    errorprone" + LE +
                 "      error_prone_annotations" + LE +
                 "        2.7.1" + LE +
                 "          error_prone_annotations-2.7.1.jar" + LE +
+                "          error_prone_annotations-2.7.1.jar.sha1" + LE +
                 "          error_prone_annotations-2.7.1.pom" + LE +
+                "          error_prone_annotations-2.7.1.pom.sha1" + LE +
                 "      error_prone_parent" + LE +
                 "        2.7.1" + LE +
                 "          error_prone_parent-2.7.1.pom" + LE +
+                "          error_prone_parent-2.7.1.pom.sha1" + LE +
                 "    guava" + LE +
                 "      failureaccess" + LE +
                 "        1.0.1" + LE +
                 "          failureaccess-1.0.1.jar" + LE +
+                "          failureaccess-1.0.1.jar.sha1" + LE +
                 "          failureaccess-1.0.1.pom" + LE +
+                "          failureaccess-1.0.1.pom.sha1" + LE +
                 "      guava" + LE +
                 "        31.0.1-jre" + LE +
                 "          guava-31.0.1-jre.jar" + LE +
+                "          guava-31.0.1-jre.jar.sha1" + LE +
                 "          guava-31.0.1-jre.pom" + LE +
+                "          guava-31.0.1-jre.pom.sha1" + LE +
                 "      guava-parent" + LE +
                 "        26.0-android" + LE +
                 "          guava-parent-26.0-android.pom" + LE +
+                "          guava-parent-26.0-android.pom.sha1" + LE +
                 "        31.0.1-jre" + LE +
                 "          guava-parent-31.0.1-jre.pom" + LE +
+                "          guava-parent-31.0.1-jre.pom.sha1" + LE +
                 "      listenablefuture" + LE +
                 "        9999.0-empty-to-avoid-conflict-with-guava" + LE +
                 "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar" + LE +
+                "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar.sha1" + LE +
                 "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom" + LE +
+                "          listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom.sha1" + LE +
                 "    j2objc" + LE +
                 "      j2objc-annotations" + LE +
                 "        1.3" + LE +
                 "          j2objc-annotations-1.3.jar" + LE +
+                "          j2objc-annotations-1.3.jar.sha1" + LE +
                 "          j2objc-annotations-1.3.pom" + LE +
+                "          j2objc-annotations-1.3.pom.sha1" + LE +
                 "org" + LE +
                 "  apache" + LE +
                 "    apache" + LE +
                 "      23" + LE +
                 "        apache-23.pom" + LE +
+                "        apache-23.pom.sha1" + LE +
                 "    commons" + LE +
                 "      commons-compress" + LE +
                 "        1.21" + LE +
                 "          commons-compress-1.21.jar" + LE +
+                "          commons-compress-1.21.jar.sha1" + LE +
                 "          commons-compress-1.21.pom" + LE +
+                "          commons-compress-1.21.pom.sha1" + LE +
                 "      commons-parent" + LE +
                 "        52" + LE +
                 "          commons-parent-52.pom" + LE +
+                "          commons-parent-52.pom.sha1" + LE +
                 "  apiguardian" + LE +
                 "    apiguardian-api" + LE +
                 "      1.1.0" + LE +
                 "        apiguardian-api-1.1.0.jar" + LE +
+                "        apiguardian-api-1.1.0.jar.sha1" + LE +
                 "        apiguardian-api-1.1.0.pom" + LE +
+                "        apiguardian-api-1.1.0.pom.sha1" + LE +
                 "  brotli" + LE +
                 "    dec" + LE +
                 "      0.1.2" + LE +
                 "        dec-0.1.2.jar" + LE +
+                "        dec-0.1.2.jar.sha1" + LE +
                 "        dec-0.1.2.pom" + LE +
+                "        dec-0.1.2.pom.sha1" + LE +
                 "    parent" + LE +
                 "      0.1.2" + LE +
                 "        parent-0.1.2.pom" + LE +
+                "        parent-0.1.2.pom.sha1" + LE +
                 "  checkerframework" + LE +
                 "    checker-qual" + LE +
                 "      3.12.0" + LE +
                 "        checker-qual-3.12.0.jar" + LE +
+                "        checker-qual-3.12.0.jar.sha1" + LE +
                 "        checker-qual-3.12.0.pom" + LE +
+                "        checker-qual-3.12.0.pom.sha1" + LE +
                 "  codehaus" + LE +
                 "    groovy" + LE +
                 "      groovy" + LE +
                 "        3.0.9" + LE +
                 "          groovy-3.0.9.jar" + LE +
+                "          groovy-3.0.9.jar.sha1" + LE +
                 "          groovy-3.0.9.pom" + LE +
+                "          groovy-3.0.9.pom.sha1" + LE +
                 "  junit" + LE +
                 "    junit-bom" + LE +
                 "      5.7.0" + LE +
                 "        junit-bom-5.7.0.pom" + LE +
+                "        junit-bom-5.7.0.pom.sha1" + LE +
                 "    jupiter" + LE +
                 "      junit-jupiter-api" + LE +
                 "        5.7.0" + LE +
                 "          junit-jupiter-api-5.7.0.jar" + LE +
+                "          junit-jupiter-api-5.7.0.jar.sha1" + LE +
                 "          junit-jupiter-api-5.7.0.pom" + LE +
+                "          junit-jupiter-api-5.7.0.pom.sha1" + LE +
                 "      junit-jupiter-engine" + LE +
                 "        5.7.0" + LE +
                 "          junit-jupiter-engine-5.7.0.jar" + LE +
+                "          junit-jupiter-engine-5.7.0.jar.sha1" + LE +
                 "          junit-jupiter-engine-5.7.0.pom" + LE +
+                "          junit-jupiter-engine-5.7.0.pom.sha1" + LE +
                 "    platform" + LE +
                 "      junit-platform-commons" + LE +
                 "        1.7.0" + LE +
                 "          junit-platform-commons-1.7.0.jar" + LE +
+                "          junit-platform-commons-1.7.0.jar.sha1" + LE +
                 "          junit-platform-commons-1.7.0.pom" + LE +
+                "          junit-platform-commons-1.7.0.pom.sha1" + LE +
                 "      junit-platform-engine" + LE +
                 "        1.7.0" + LE +
                 "          junit-platform-engine-1.7.0.jar" + LE +
+                "          junit-platform-engine-1.7.0.jar.sha1" + LE +
                 "          junit-platform-engine-1.7.0.pom" + LE +
+                "          junit-platform-engine-1.7.0.pom.sha1" + LE +
                 "  opentest4j" + LE +
                 "    opentest4j" + LE +
                 "      1.2.0" + LE +
                 "        opentest4j-1.2.0.jar" + LE +
+                "        opentest4j-1.2.0.jar.sha1" + LE +
                 "        opentest4j-1.2.0.pom" + LE +
+                "        opentest4j-1.2.0.pom.sha1" + LE +
                 "  sonatype" + LE +
                 "    oss" + LE +
                 "      oss-parent" + LE +
                 "        7" + LE +
                 "          oss-parent-7.pom" + LE +
+                "          oss-parent-7.pom.sha1" + LE +
                 "        9" + LE +
                 "          oss-parent-9.pom" + LE +
+                "          oss-parent-9.pom.sha1" + LE +
                 "  tukaani" + LE +
                 "    xz" + LE +
                 "      1.9" + LE +
                 "        xz-1.9.jar" + LE +
-                "        xz-1.9.pom" +
+                "        xz-1.9.jar.sha1" + LE +
+                "        xz-1.9.pom" + LE +
+                "        xz-1.9.pom.sha1" +
                 "").lines().collect(toList());
 
         assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
@@ -179,9 +227,9 @@ public class InstallTest extends JBuildTestRunner {
 
     @Test
     void canInstallToBothDirAndMavenLocal() throws IOException {
-        var mavenHome = System.getenv("MAVEN_HOME");
+        var mavenHome = System.getenv("MAVEN_LOCAL_HOME");
         assumeTrue(mavenHome != null,
-                "Test requires MAVEN_HOME to be set");
+                "Test requires MAVEN_LOCAL_HOME to be set");
 
         var tempDirectory = Files.createTempDirectory(InstallTest.class.getName());
         tempDirectory.toFile().deleteOnExit();
@@ -271,7 +319,65 @@ public class InstallTest extends JBuildTestRunner {
                     "          oss-parent-9.pom" + LE +
                     "").lines().collect(toList());
 
-            // notice that the test environment sets MAVEN_HOME to integrationTestsRepo
+            // notice that the test environment sets MAVEN_LOCAL_HOME to integrationTestsRepo
+            var rootDirectories = SystemProperties.integrationTestsRepo.listFiles();
+            assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
+                    .containsExactlyElementsOf(expectedLines);
+        } finally {
+            FileUtils.deleteDirectory(integrationTestsRepo);
+            FileUtils.moveDirectory(mavenRepoCopy, integrationTestsRepo);
+        }
+    }
+
+    @Test
+    void canInstallToBothDirAndMavenLocalNonTransitiveWithChecksums() throws IOException {
+        var mavenHome = System.getenv("MAVEN_LOCAL_HOME");
+        assumeTrue(mavenHome != null,
+                "Test requires MAVEN_LOCAL_HOME to be set");
+
+        var tempDirectory = Files.createTempDirectory(InstallTest.class.getName());
+        tempDirectory.toFile().deleteOnExit();
+        var mavenRepoCopy = new File(tempDirectory.toFile(), "repo");
+
+        var dir = Files.createTempDirectory(InstallTest.class.getName());
+        dir.toFile().deleteOnExit();
+
+        // move the Maven repo to another location, so we can simulate installing back to Maven local
+        FileUtils.moveDirectory(integrationTestsRepo, mavenRepoCopy);
+
+        try {
+            var result = runWithRepo(mavenRepoCopy.toPath(), "install", "-m", "-n", "-c", "-d", dir.toString(), Artifacts.GUAVA);
+            verifySuccessful("jbuild install", result);
+            assertThat(result.getStdout()).startsWith(
+                    "Successfully installed 2 artifacts at [" + dir + ", " + integrationTestsRepo.getAbsolutePath() + "]" + LE +
+                            "JBuild success in ");
+
+            var jars = dir.toFile().listFiles();
+
+            assertThat(jars).isNotNull();
+            assertThat(Arrays.stream(jars)
+                    .map(File::getName)
+                    .collect(toSet()))
+                    .containsExactlyInAnyOrder(
+                            "guava-31.0.1-jre.pom",
+                            "guava-31.0.1-jre.pom.sha1",
+                            "guava-31.0.1-jre.jar",
+                            "guava-31.0.1-jre.jar.sha1"
+                    );
+
+            List<String> expectedLines = ("" +
+                    "com" + LE +
+                    "  google" + LE +
+                    "    guava" + LE +
+                    "      guava" + LE +
+                    "        31.0.1-jre" + LE +
+                    "          guava-31.0.1-jre.jar" + LE +
+                    "          guava-31.0.1-jre.jar.sha1" + LE +
+                    "          guava-31.0.1-jre.pom" + LE +
+                    "          guava-31.0.1-jre.pom.sha1" + LE +
+                    "").lines().collect(toList());
+
+            // notice that the test environment sets MAVEN_LOCAL_HOME to integrationTestsRepo
             var rootDirectories = SystemProperties.integrationTestsRepo.listFiles();
             assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
                     .containsExactlyElementsOf(expectedLines);
@@ -283,9 +389,9 @@ public class InstallTest extends JBuildTestRunner {
 
     @Test
     void canInstallToBothRepoAndMavenLocal() throws IOException {
-        var mavenHome = System.getenv("MAVEN_HOME");
+        var mavenHome = System.getenv("MAVEN_LOCAL_HOME");
         assumeTrue(mavenHome != null,
-                "Test requires MAVEN_HOME to be set");
+                "Test requires MAVEN_LOCAL_HOME to be set");
 
         var tempDirectory = Files.createTempDirectory(InstallTest.class.getName());
         tempDirectory.toFile().deleteOnExit();
@@ -309,7 +415,7 @@ public class InstallTest extends JBuildTestRunner {
             var dirRoots = dir.toFile().listFiles();
             var dirTree = fileTreeString(dirRoots).lines().collect(toList());
 
-            // notice that the test environment sets MAVEN_HOME to integrationTestsRepo
+            // notice that the test environment sets MAVEN_LOCAL_HOME to integrationTestsRepo
             var rootDirectories = SystemProperties.integrationTestsRepo.listFiles();
 
             assertThat(fileTreeString(rootDirectories).lines().collect(toList()))
@@ -324,11 +430,12 @@ public class InstallTest extends JBuildTestRunner {
     void canInstallJarsIntoSingleFolderNonTransitive() throws IOException {
         var dir = Files.createTempDirectory(InstallTest.class.getName());
         dir.toFile().deleteOnExit();
-        var result = runWithIntTestRepo("install", "-n", "-d", dir.toFile().getPath(),
+        // --non-transitive, --checksum, --directory
+        var result = runWithIntTestRepo("install", "-n", "-c", "-d", dir.toFile().getPath(),
                 Artifacts.JUNIT5_ENGINE, Artifacts.GUAVA);
 
         verifySuccessful("jbuild install", result);
-        assertThat(result.getStdout()).startsWith("Successfully installed 11 artifacts at " + dir + "" + LE + "JBuild success in ");
+        assertThat(result.getStdout()).startsWith("Successfully installed 2 artifacts at " + dir + LE + "JBuild success in ");
 
         var jars = dir.toFile().listFiles();
 
@@ -337,17 +444,10 @@ public class InstallTest extends JBuildTestRunner {
                 .map(File::getName)
                 .collect(toSet()))
                 .containsExactlyInAnyOrder(
-                        "apiguardian-api-1.1.0.jar",
-                        "failureaccess-1.0.1.jar",
-                        "jsr305-3.0.2.jar",
-                        "checker-qual-3.12.0.jar",
                         "guava-31.0.1-jre.jar",
-                        "junit-jupiter-api-5.7.0.jar",
-                        "junit-platform-engine-1.7.0.jar",
-                        "error_prone_annotations-2.7.1.jar",
-                        "j2objc-annotations-1.3.jar",
+                        "guava-31.0.1-jre.jar.sha1",
                         "junit-jupiter-engine-5.7.0.jar",
-                        "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
+                        "junit-jupiter-engine-5.7.0.jar.sha1"
                 );
     }
 

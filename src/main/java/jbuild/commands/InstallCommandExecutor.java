@@ -3,16 +3,16 @@ package jbuild.commands;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
 import jbuild.artifact.file.ArtifactFileWriter;
+import jbuild.artifact.file.MultiArtifactFileWriter;
 import jbuild.log.JBuildLog;
 import jbuild.maven.DependencyExclusions;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.ResolvedDependency;
 import jbuild.maven.Scope;
+import jbuild.util.Describable;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
-import jbuild.util.SHA1;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -20,9 +20,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.maven.MavenUtils.extensionOfPackaging;
@@ -58,17 +60,33 @@ public final class InstallCommandExecutor {
             boolean transitive,
             DependencyExclusions exclusions,
             boolean checksum) {
-        var depsCommand = new DepsCommandExecutor<>(log, new MavenPomRetriever<>(log, fetchCommand, writer));
+        var depsCommand = new DepsCommandExecutor<>(log, new MavenPomRetriever<>(log, fetchCommand, writer, checksum));
+
+        if (!transitive) {
+            // not installing transitive dependencies, but may still need to retrieve poms for the repository writer
+            var mustInstallPom = includesMavenRepositoryWriter(writer);
+            return awaitValues(artifacts.stream().map(artifact ->
+                            install(DependencyTree.childless(artifact, null), checksum, mustInstallPom))
+                    .collect(toList()))
+                    .thenApply(this::groupErrors)
+                    .thenApply(e -> foldEither(e, Long::sum));
+        }
 
         return awaitValues(
-                depsCommand.fetchDependencyTree(artifacts, null, scopes, transitive, optional, exclusions)
+                depsCommand.fetchDependencyTree(artifacts, null, scopes, true, optional, exclusions)
                         .values().stream()
                         .map((completion) -> completion.thenCompose(tree ->
-                                tree.map(a -> install(a, checksum)).orElseGet(() ->
+                                tree.map(a -> install(a, checksum, false)).orElseGet(() ->
                                         completedStage(0L))))
                         .collect(toList())
         ).thenApply(this::groupErrors)
                 .thenApply(e -> foldEither(e, Long::sum));
+    }
+
+    private static boolean includesMavenRepositoryWriter(ArtifactFileWriter writer) {
+        return writer.mode == ArtifactFileWriter.WriteMode.MAVEN_REPOSITORY ||
+                (writer instanceof MultiArtifactFileWriter
+                        && includesMavenRepositoryWriter(((MultiArtifactFileWriter) writer).secondWriter));
     }
 
     private Collection<Either<Long, NonEmptyCollection<Throwable>>> groupErrors(
@@ -78,9 +96,11 @@ public final class InstallCommandExecutor {
                 .collect(toList());
     }
 
-    private CompletionStage<Long> install(DependencyTree tree, boolean checksum) {
+    private CompletionStage<Long> install(DependencyTree tree,
+                                          boolean checksum,
+                                          boolean mustInstallPom) {
         var treeSet = tree.toSet().stream()
-                .flatMap(dep -> artifactsToFetchFrom(dep, checksum))
+                .flatMap(dep -> artifactsToFetchFrom(dep, checksum, mustInstallPom))
                 .collect(toSet());
 
         log.verbosePrintln(() -> "Will install " + treeSet.size() +
@@ -112,63 +132,77 @@ public final class InstallCommandExecutor {
             Map<Artifact, Either<Optional<ResolvedArtifact>, Throwable>> results) {
         class Sha1 {
             final ResolvedArtifact resolved;
-            byte[] actual;
-            byte[] expected;
+            ResolvedArtifact sha1;
 
             Sha1(ResolvedArtifact resolved) {
                 this.resolved = resolved;
             }
         }
 
-        long successCount = 0;
+        final var successCount = new AtomicLong(0L);
         var checksumByArtifact = new HashMap<Artifact, Sha1>(results.size() / 2);
 
+        // put the non-checksum files in the Map
         for (var e : results.entrySet()) {
             var resolved = e.getValue().map(ok -> ok.orElse(null), err -> null);
-            if (resolved != null) {
-                var sha1 = checksumByArtifact.computeIfAbsent(e.getKey().noSha1(), ignore -> new Sha1(resolved));
-                if (resolved.artifact.isSha1()) {
-                    try {
-                        sha1.expected = SHA1.fromSha1StringBytes(resolved.consumeContentsToArray());
-                    } catch (IllegalArgumentException ignore) {
-                        log.println("WARNING: Checksum of " + resolved.artifact.getCoordinates() + " is invalid");
-                    }
+            if (resolved != null && !resolved.artifact.isSha1()) {
+                checksumByArtifact.computeIfAbsent(e.getKey(), ignore -> new Sha1(resolved));
+            }
+        }
+
+        // try to match the checksums with the artifacts in the Map
+        for (var e : results.entrySet()) {
+            var resolved = e.getValue().map(ok -> ok.orElse(null), err -> null);
+            if (resolved != null && resolved.artifact.isSha1()) {
+                var sha = checksumByArtifact.get(resolved.artifact.noSha1());
+                if (sha == null) {
+                    throw new IllegalStateException("Did not find checksum for " + e.getKey().getCoordinates());
                 } else {
-                    sha1.actual = SHA1.computeSha1(resolved.consumeContentsToArray());
+                    sha.sha1 = resolved;
                 }
             }
         }
 
+        // verify the checksums
         for (var entry : checksumByArtifact.entrySet()) {
             var artifact = entry.getKey();
-            var sha1 = entry.getValue();
-            if (sha1.actual != null && sha1.expected != null) {
-                if (Arrays.equals(sha1.actual, sha1.expected)) {
-                    successCount++;
-                    log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() + "'s checksum successfully verified.");
-                } else {
-                    log.println("ERROR: Checksum of " + artifact.getCoordinates() + " does not match expected value.");
-                    if (!writer.delete(sha1.resolved.artifact.noSha1())) {
+            var shaEntry = entry.getValue();
+            if (shaEntry.sha1 != null) {
+                var result = ChecksumVerifier.verify(shaEntry.resolved, shaEntry.sha1, log.isVerbose());
+                result.use(ok -> {
+                    successCount.incrementAndGet();
+                    log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() +
+                            "'s checksum successfully verified.");
+                }, errors -> {
+                    log.println("ERROR: " + errors.stream().map(Describable::getDescription).collect(joining(", ")));
+                    if (!writer.delete(shaEntry.resolved.artifact.noSha1())) {
                         log.println("WARNING: Could not delete " + artifact.getCoordinates() +
                                 " (invalid checksum was detected - do not use installed files).");
                     }
-                    writer.delete(sha1.resolved.artifact.sha1());
-                }
-            } else {
-                log.println("WARNING: Artifact " + artifact.getCoordinates() + "'s checksum could not be verified." +
-                        " actual=" + Arrays.toString(sha1.actual) + ", expected=" + Arrays.toString(sha1.expected));
+                    writer.delete(shaEntry.resolved.artifact.sha1());
+                });
             }
         }
 
-        return successCount;
+        return successCount.get();
     }
 
-    private static Stream<Artifact> artifactsToFetchFrom(ResolvedDependency dep, boolean checksum) {
-        var mainArtifact = dep.artifact.withExtension(extensionOfPackaging(dep.pom.getPackaging()));
+    private static Stream<Artifact> artifactsToFetchFrom(ResolvedDependency dep,
+                                                         boolean checksum,
+                                                         boolean mustInstallPom) {
+        var mainArtifact = dep.artifact.withExtension(
+                dep.pom == null ? "jar" : extensionOfPackaging(dep.pom.getPackaging()));
+        Stream<Artifact> artifacts;
         if (checksum && !mainArtifact.isSha1()) {
-            return Stream.of(mainArtifact, mainArtifact.sha1());
+            artifacts = Stream.of(mainArtifact, mainArtifact.sha1());
+        } else {
+            artifacts = Stream.of(mainArtifact);
         }
-        return Stream.of(mainArtifact);
+        if (mustInstallPom && !mainArtifact.isPom()) {
+            var pom = mainArtifact.pom();
+            return Stream.concat(artifacts, Stream.of(pom, pom.sha1()));
+        }
+        return artifacts;
     }
 
 }

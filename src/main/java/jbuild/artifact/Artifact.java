@@ -80,6 +80,10 @@ public class Artifact implements WritableXml {
         return extension.endsWith("sha1");
     }
 
+    public boolean isPom() {
+        return extension.endsWith("pom");
+    }
+
     public Artifact withExtension(String ext) {
         if (ext.equals(extension)) {
             return this;

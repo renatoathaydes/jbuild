@@ -3,10 +3,12 @@ package jbuild.commands;
 import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.artifact.ResolvedArtifactChecksum;
 import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenPom;
 import jbuild.maven.MavenUtils;
+import jbuild.util.AsyncUtils;
 import jbuild.util.Describable;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
@@ -42,16 +44,25 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     private final JBuildLog log;
     private final FetchCommandExecutor<Err> fetchCommandExecutor;
     private final PomCreator pomCreator;
+    private final boolean checksum;
 
     private final Map<Artifact, CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>>> cache;
 
     public MavenPomRetriever(JBuildLog log,
                              FetchCommandExecutor<Err> fetchCommandExecutor,
                              PomCreator pomCreator) {
+        this(log, fetchCommandExecutor, pomCreator, false);
+    }
+
+    public MavenPomRetriever(JBuildLog log,
+                             FetchCommandExecutor<Err> fetchCommandExecutor,
+                             PomCreator pomCreator,
+                             boolean checksum) {
         this.log = log;
         this.fetchCommandExecutor = fetchCommandExecutor;
         this.pomCreator = pomCreator;
         this.cache = new ConcurrentHashMap<>();
+        this.checksum = checksum;
     }
 
     public static MavenPomRetriever<? extends ArtifactRetrievalError> createDefault(JBuildLog log) {
@@ -88,8 +99,16 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
         var fromCache = new AtomicBoolean(true);
         var result = cache.computeIfAbsent(artifact, a -> {
             fromCache.set(false);
-            return fetchCommandExecutor.fetchArtifact(a.pom())
-                    .thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors));
+            var pomResult = fetchCommandExecutor.fetchArtifact(a.pom());
+            CompletionStage<Either<ResolvedArtifactChecksum, NonEmptyCollection<Describable>>> fullResult;
+            if (checksum) {
+                var sha1Result = fetchCommandExecutor.fetchArtifact(a.pom().sha1());
+                fullResult = AsyncUtils.chainActions(pomResult, sha1Result,
+                        (res, sha) -> ChecksumVerifier.verify(res, sha, log.isVerbose()));
+            } else {
+                fullResult = pomResult.thenApply(e -> e.mapLeft(res -> new ResolvedArtifactChecksum(res, null)));
+            }
+            return fullResult.thenComposeAsync(res -> res.map(this::handleResolved, this::handleRetrievalErrors));
         });
 
         if (fromCache.get()) {
@@ -100,7 +119,8 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     }
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleResolved(
-            ResolvedArtifact resolvedArtifact) {
+            ResolvedArtifactChecksum resolvedArtifactChecksum) {
+        var resolvedArtifact = resolvedArtifactChecksum.artifact;
         var requestDuration = Duration.ofMillis(System.currentTimeMillis() - resolvedArtifact.requestTime);
         log.verbosePrintln(() -> resolvedArtifact.artifact + " successfully resolved (" +
                 resolvedArtifact.contentLength + " bytes) from " +
@@ -108,7 +128,7 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
 
         log.verbosePrintln(() -> "Parsing POM of " + resolvedArtifact.artifact);
 
-        return withParentIfNeeded(pomCreator.createPom(resolvedArtifact));
+        return withParentIfNeeded(pomCreator.createPom(resolvedArtifactChecksum));
     }
 
     private CompletionStage<Either<MavenPom, NonEmptyCollection<Describable>>> handleRetrievalErrors(
@@ -168,11 +188,13 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     }
 
     public interface PomCreator {
-        default CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact) {
+        default CompletionStage<MavenPom> createPom(ResolvedArtifactChecksum resolvedArtifact) {
             return createPom(resolvedArtifact, true);
         }
 
         CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact, boolean consume);
+
+        CompletionStage<MavenPom> createPom(ResolvedArtifactChecksum resolvedArtifact, boolean consume);
     }
 
     public enum DefaultPomCreator implements PomCreator {
@@ -188,6 +210,11 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
                         artifact.artifact.getCoordinates() + "' due to: " + e, ACTION_ERROR));
             }
 
+        }
+
+        @Override
+        public CompletionStage<MavenPom> createPom(ResolvedArtifactChecksum resolvedArtifact, boolean consume) {
+            return createPom(resolvedArtifact.artifact, consume);
         }
     }
 

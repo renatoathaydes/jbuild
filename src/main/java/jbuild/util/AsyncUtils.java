@@ -60,6 +60,17 @@ public final class AsyncUtils {
         return future;
     }
 
+    public static <A, B, E, R> CompletionStage<Either<R, E>> chainActions(
+            CompletionStage<Either<A, E>> action,
+            CompletionStage<Either<B, E>> nextAction,
+            BiFunction<A, B, Either<R, E>> composeResult) {
+        return action.thenComposeAsync(either1 -> either1.map(
+                left1 -> nextAction.thenComposeAsync(either2 -> either2.map(
+                        left2 -> CompletableFuture.completedStage(composeResult.apply(left1, left2)),
+                        right2 -> CompletableFuture.completedStage(Either.right(right2)))),
+                right1 -> CompletableFuture.completedStage(Either.right(right1))));
+    }
+
     public static <T> CompletionStage<Collection<Either<T, Throwable>>> awaitValues(
             List<? extends CompletionStage<T>> list) {
         if (list.isEmpty()) {

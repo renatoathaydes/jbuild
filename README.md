@@ -17,6 +17,7 @@ library, allowing JVM applications to manage other Java projects and dependencie
 - [x] fetch artifacts from file repositories.
 - [x] fetch artifacts from HTTP repositories.
 - [x] fetch artifacts transitively (install command).
+- [x] fetch SHA1 checksum of artifacts and check it.
 - [x] specify file and HTTP repositories locations.
 - [ ] fetch and check PGP signatures (done by `jb`).
 - [x] list direct dependencies of artifacts.

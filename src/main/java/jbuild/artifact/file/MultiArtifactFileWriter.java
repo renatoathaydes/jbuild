@@ -2,6 +2,7 @@ package jbuild.artifact.file;
 
 import jbuild.artifact.Artifact;
 import jbuild.artifact.ResolvedArtifact;
+import jbuild.artifact.ResolvedArtifactChecksum;
 import jbuild.maven.MavenPom;
 import jbuild.util.Describable;
 import jbuild.util.Either;
@@ -15,7 +16,7 @@ import static jbuild.util.CollectionUtils.appendList;
 
 public final class MultiArtifactFileWriter extends ArtifactFileWriter {
 
-    private final ArtifactFileWriter secondWriter;
+    public final ArtifactFileWriter secondWriter;
 
     public MultiArtifactFileWriter(ArtifactFileWriter primaryWriter, ArtifactFileWriter secondWriter) {
         super(primaryWriter);
@@ -35,6 +36,28 @@ public final class MultiArtifactFileWriter extends ArtifactFileWriter {
 
     @Override
     public CompletionStage<MavenPom> createPom(ResolvedArtifact resolvedArtifact, boolean consume) {
+        switch (mode) {
+            case FLAT_DIR:
+                // super wouldn't write the POM, so calling super is unnecessary
+                return secondWriter.createPom(resolvedArtifact, consume);
+            case MAVEN_REPOSITORY:
+                switch (secondWriter.mode) {
+                    case FLAT_DIR:
+                        return super.createPom(resolvedArtifact, consume);
+                    case MAVEN_REPOSITORY:
+                        // both are Maven repositories, create the POM in both repos
+                        return super.createPom(resolvedArtifact, false)
+                                .thenCompose(ignore -> secondWriter.createPom(resolvedArtifact, consume));
+                    default:
+                        throw new IllegalStateException("Unhandled case: " + secondWriter.mode);
+                }
+            default:
+                throw new IllegalStateException("Unhandled case: " + mode);
+        }
+    }
+
+    @Override
+    public CompletionStage<MavenPom> createPom(ResolvedArtifactChecksum resolvedArtifact, boolean consume) {
         switch (mode) {
             case FLAT_DIR:
                 // super wouldn't write the POM, so calling super is unnecessary

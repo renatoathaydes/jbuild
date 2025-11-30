@@ -405,8 +405,7 @@ final class InstallOptions {
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +
             "        If the --maven-local flag is used, then artifacts are installed at ~/.m2/repository" + LINE_END +
-            "        (or MAVEN_HOME) and any other location given." + LINE_END +
-            "        The --non-transitive option cannot be used together with the --maven-local option." + LINE_END +
+            "        (or MAVEN_LOCAL_HOME) and any other location given." + LINE_END +
             "        By default, the equivalent of '-d java-libs/' is used." + LINE_END +
             "      Examples:" + LINE_END +
             "        # install Apache commons-lang3 and its transitive compile-scope dependencies" + LINE_END +
@@ -519,18 +518,10 @@ final class InstallOptions {
         // if no scopes are included explicitly, use runtime
         if (scopes.isEmpty())
             scopes = EnumSet.of(Scope.RUNTIME);
-        if (outDir == null && repoDir == null && !mavenLocal)
+        if (outDir == null && repoDir == null)
             outDir = InstallCommandExecutor.LIBS_DIR;
         if (outDir != null && repoDir != null) {
             throw new JBuildException("cannot specify both 'directory' and 'repository' options together." +
-                    (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
-        }
-        if (!transitive && mavenLocal) {
-            throw new JBuildException("cannot specify both 'non-transitive' and 'maven-local' options together." +
-                    (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
-        }
-        if (!transitive && repoDir != null) {
-            throw new JBuildException("cannot specify both 'non-transitive' and 'repository' options together." +
                     (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
         }
 
