@@ -573,7 +573,7 @@ public final class Main {
         exit.accept(exitCode(cause));
     }
 
-    private static ArtifactFileWriter selectArtifactWriter(
+    private ArtifactFileWriter selectArtifactWriter(
             String workingDir, InstallOptions installOptions) {
         var writer = installOptions.outDir == null
                 ? new ArtifactFileWriter(new File(relativize(workingDir, installOptions.repoDir)), MAVEN_REPOSITORY)
@@ -581,10 +581,16 @@ public final class Main {
 
         if (installOptions.mavenLocal) {
             var m2Repo = MavenUtils.mavenHome().toAbsolutePath();
-            var mavenRepoWriter = new ArtifactFileWriter(m2Repo.toFile(), MAVEN_REPOSITORY);
-            return new MultiArtifactFileWriter(writer, mavenRepoWriter);
+            var targetRepo = installOptions.outDir == null ? new File(writer.getDestination()).getAbsolutePath() : null;
+            // make sure to not write twice to the same target location
+            if (!m2Repo.toString().equals(targetRepo)) {
+                var mavenRepoWriter = new ArtifactFileWriter(m2Repo.toFile(), MAVEN_REPOSITORY);
+                log.verbosePrintln(() -> "Artifact writers: " + writer + ", " + mavenRepoWriter);
+                return new MultiArtifactFileWriter(writer, mavenRepoWriter);
+            }
         }
 
+        log.verbosePrintln(() -> "Artifact writer: " + writer);
         return writer;
     }
 
