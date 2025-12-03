@@ -88,7 +88,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         var result = mapEntries(withLocalPom(mavenPomRetriever.fetchPoms(artifacts), mavenPom),
                 (artifact, completionStage) ->
                         completionStage.thenCompose(pom ->
-                                pom.map(value -> fetchChildren(Set.of(), artifact, value,
+                                pom.map(value -> fetchChildren(Set.of(), value,
                                                 expandedScopes, transitive, optional, exclusionsWithUsage)
                                                 .thenApply(Optional::of))
                                         .orElseGet(() -> completedFuture(Optional.empty()))));
@@ -128,12 +128,12 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
 
     private CompletionStage<DependencyTree> fetchChildren(
             Set<Dependency> chain,
-            Artifact artifact,
             MavenPom pom,
             EnumSet<Scope> scopes,
             boolean transitive,
             boolean includeOptionals,
             DependencyExclusions.ExclusionsWithUsage exclusions) {
+        var artifact = pom.getArtifact();
         var forAll = exclusions.globalExclusions;
         var forThis = exclusions.get(artifact.getCoordinates());
         var applicableExclusions = forThis == null ? forAll : appendList(forAll, forThis);
@@ -190,7 +190,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
             if (child.isEmpty()) return completedFuture(Optional.empty());
             var pom = child.get();
             var depExclusions = asPatterns(dependency.exclusions).globalExclusions;
-            return fetchChildren(chain, dependency.artifact, pom,
+            return fetchChildren(chain, pom,
                     dependency.scope.transitiveScopes(), true, includeOptionals,
                     exclusions.withGlobalExclusions(depExclusions)
             ).thenApply(Optional::of);

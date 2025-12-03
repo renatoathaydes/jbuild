@@ -93,6 +93,7 @@ public class VersionRangeTest {
                 {"(1,20)", Set.of("1", "2", "10", "5", "15", "18", "19", "30", "31", "100"), Version.parse("19")},
                 {"[1,2],[10,20]", Set.of("1", "2", "5", "8"), Version.parse("2")},
                 {"[1,2],[10,20]", Set.of("1", "2", "15", "5", "8"), Version.parse("15")},
+                {"", Set.of("2.0", "3.5"), Version.parse("3.5")},
         };
     }
 

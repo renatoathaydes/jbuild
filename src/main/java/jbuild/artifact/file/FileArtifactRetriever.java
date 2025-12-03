@@ -133,4 +133,8 @@ public class FileArtifactRetriever implements ArtifactRetriever<FileRetrievalErr
         return ArtifactResolution.failure(new FileRetrievalError(this, artifact, error));
     }
 
+    @Override
+    public String toString() {
+        return getDescription();
+    }
 }

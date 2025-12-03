@@ -8,7 +8,6 @@ import jbuild.errors.ArtifactRetrievalError;
 import jbuild.log.JBuildLog;
 import jbuild.maven.MavenPom;
 import jbuild.maven.MavenUtils;
-import jbuild.util.AsyncUtils;
 import jbuild.util.Describable;
 import jbuild.util.Either;
 import jbuild.util.NonEmptyCollection;
@@ -22,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,9 +77,15 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
     public Map<Artifact, CompletionStage<Optional<MavenPom>>> fetchPoms(
             Set<? extends Artifact> artifacts) {
         // first stage: run all retrievers and parse POMs, accumulating the results for each artifact
-        var fetchCompletions = artifacts.stream()
+        var allPoms = artifacts.stream()
                 .map(Artifact::pom)
-                .collect(toSet()).stream()
+                .collect(toSet());
+
+        log.verbosePrintln(() -> "Will fetch POMs: " + allPoms.stream()
+                .map(Artifact::getCoordinates)
+                .collect(joining(", ")));
+
+        var fetchCompletions = allPoms.stream()
                 .collect(toMap(a -> a, this::fetch));
 
         // final stage: report all errors
@@ -102,9 +108,16 @@ public final class MavenPomRetriever<Err extends ArtifactRetrievalError> {
             var pomResult = fetchCommandExecutor.fetchArtifact(a.pom());
             CompletionStage<Either<ResolvedArtifactChecksum, NonEmptyCollection<Describable>>> fullResult;
             if (checksum) {
-                var sha1Result = fetchCommandExecutor.fetchArtifact(a.pom().sha1());
-                fullResult = AsyncUtils.chainActions(pomResult, sha1Result,
-                        (res, sha) -> ChecksumVerifier.verify(res, sha, log.isVerbose()));
+                fullResult = pomResult.thenComposeAsync(pom ->
+                        pom.map(resolvedArtifact -> {
+                                    log.verbosePrintln(() -> "Fetching checksum of POM for " +
+                                            resolvedArtifact.artifact.getCoordinates());
+                                    return fetchCommandExecutor.fetchArtifact(resolvedArtifact.artifact.pom().sha1())
+                                            .thenApply(sha -> sha.map(
+                                                    shaOk -> ChecksumVerifier.verify(resolvedArtifact, shaOk, log.isVerbose()),
+                                                    Either::right));
+                                },
+                                err -> CompletableFuture.completedStage(Either.right(err))));
             } else {
                 fullResult = pomResult.thenApply(e -> e.mapLeft(res -> new ResolvedArtifactChecksum(res, null)));
             }

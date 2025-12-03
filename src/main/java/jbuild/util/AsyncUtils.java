@@ -22,7 +22,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -30,13 +29,6 @@ import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 
 public final class AsyncUtils {
-
-    public static <T, V> Function<T, V> returning(V value, Consumer<T> consumer) {
-        return (T t) -> {
-            consumer.accept(t);
-            return value;
-        };
-    }
 
     public static <K, V> CompletionStage<Map<K, Either<V, Throwable>>> awaitValues(
             Map<K, ? extends CompletionStage<V>> map) {
@@ -58,17 +50,6 @@ public final class AsyncUtils {
         });
 
         return future;
-    }
-
-    public static <A, B, E, R> CompletionStage<Either<R, E>> chainActions(
-            CompletionStage<Either<A, E>> action,
-            CompletionStage<Either<B, E>> nextAction,
-            BiFunction<A, B, Either<R, E>> composeResult) {
-        return action.thenComposeAsync(either1 -> either1.map(
-                left1 -> nextAction.thenComposeAsync(either2 -> either2.map(
-                        left2 -> CompletableFuture.completedStage(composeResult.apply(left1, left2)),
-                        right2 -> CompletableFuture.completedStage(Either.right(right2)))),
-                right1 -> CompletableFuture.completedStage(Either.right(right1))));
     }
 
     public static <T> CompletionStage<Collection<Either<T, Throwable>>> awaitValues(
@@ -244,6 +225,18 @@ public final class AsyncUtils {
             }
             throw new JBuildException("'" + actionName + "' failed due to: " + cause, ACTION_ERROR);
         }
+    }
+
+    public static <T> CompletableFuture<T> toCompletableFuture(CompletionStage<T> stage) {
+        if (stage instanceof CompletableFuture) {
+            return (CompletableFuture<T>) stage;
+        }
+        CompletableFuture<T> future = new CompletableFuture<>();
+        stage.whenComplete((result, ex) -> {
+            if (ex != null) future.completeExceptionally(ex);
+            else future.complete(result);
+        });
+        return future;
     }
 
     private static Throwable unwrapConcurrentException(Throwable throwable) {

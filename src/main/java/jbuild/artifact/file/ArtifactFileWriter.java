@@ -171,4 +171,12 @@ public class ArtifactFileWriter implements AutoCloseable, Closeable, MavenPomRet
                 throw new IllegalStateException("unknown enum variant: " + mode);
         }
     }
+
+    @Override
+    public String toString() {
+        return "ArtifactFileWriter{" +
+                "directory=" + directory +
+                ", mode=" + mode +
+                '}';
+    }
 }

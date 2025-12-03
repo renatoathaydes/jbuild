@@ -24,13 +24,17 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.maven.MavenUtils.standardArtifactPath;
+import static jbuild.util.AsyncUtils.toCompletableFuture;
 import static jbuild.util.AsyncUtils.withRetries;
 
 public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
@@ -41,12 +45,17 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
     private final URI baseUrl;
     private final HttpClient httpClient;
 
+    private final Map<Artifact, CompletableFuture<Either<? extends ArtifactMetadata, HttpError>>> metadataCache;
+    private final Map<Artifact, CompletableFuture<ArtifactResolution<HttpError>>> artifactCache;
+
     public HttpArtifactRetriever(JBuildLog log,
                                  URI baseUrl,
                                  HttpClient httpClient) {
         this.log = log;
         this.baseUrl = baseUrl;
         this.httpClient = httpClient;
+        metadataCache = new ConcurrentHashMap<>();
+        artifactCache = new ConcurrentHashMap<>();
     }
 
     public HttpArtifactRetriever(JBuildLog log, String baseUrl) {
@@ -73,6 +82,11 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
             var range = VersionRange.parse(artifact.version);
             return retrieveFromVersionRange(artifact, range);
         }
+        return artifactCache.computeIfAbsent(artifact, a -> toCompletableFuture(doRetrieve(a)));
+    }
+
+    private CompletionStage<ArtifactResolution<HttpError>> doRetrieve(Artifact artifact) {
+
         URI requestPath;
         try {
             requestPath = new URI(standardArtifactPath(artifact, false));
@@ -129,6 +143,10 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
 
     @Override
     public CompletionStage<Either<? extends ArtifactMetadata, HttpError>> retrieveMetadata(Artifact artifact) {
+        return metadataCache.computeIfAbsent(artifact.forMetadata(), ignore -> toCompletableFuture(doRetrieveMetadata(artifact)));
+    }
+
+    public CompletionStage<Either<? extends ArtifactMetadata, HttpError>> doRetrieveMetadata(Artifact artifact) {
         var requestUri = buildMetadataUri(baseUrl, artifact);
         var request = HttpRequest.newBuilder(requestUri).build();
         return send(request, (response, httpRequestError) -> {
@@ -177,4 +195,8 @@ public class HttpArtifactRetriever implements ArtifactRetriever<HttpError> {
                         "/maven-metadata.xml"));
     }
 
+    @Override
+    public String toString() {
+        return getDescription();
+    }
 }

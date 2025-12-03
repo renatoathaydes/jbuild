@@ -143,20 +143,20 @@ public final class InstallCommandExecutor {
         var checksumByArtifact = new HashMap<Artifact, Sha1>(results.size() / 2);
 
         // put the non-checksum files in the Map
-        for (var e : results.entrySet()) {
-            var resolved = e.getValue().map(ok -> ok.orElse(null), err -> null);
+        for (var result : results.values()) {
+            var resolved = result.map(ok -> ok.orElse(null), err -> null);
             if (resolved != null && !resolved.artifact.isSha1()) {
-                checksumByArtifact.computeIfAbsent(e.getKey(), ignore -> new Sha1(resolved));
+                checksumByArtifact.computeIfAbsent(resolved.artifact, ignore -> new Sha1(resolved));
             }
         }
 
         // try to match the checksums with the artifacts in the Map
-        for (var e : results.entrySet()) {
-            var resolved = e.getValue().map(ok -> ok.orElse(null), err -> null);
+        for (var result : results.values()) {
+            var resolved = result.map(ok -> ok.orElse(null), err -> null);
             if (resolved != null && resolved.artifact.isSha1()) {
                 var sha = checksumByArtifact.get(resolved.artifact.noSha1());
                 if (sha == null) {
-                    throw new IllegalStateException("Did not find checksum for " + e.getKey().getCoordinates());
+                    throw new IllegalStateException("Did not find checksum for " + resolved.artifact.getCoordinates());
                 } else {
                     sha.sha1 = resolved;
                 }

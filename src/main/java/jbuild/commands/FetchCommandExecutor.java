@@ -2,6 +2,7 @@ package jbuild.commands;
 
 import jbuild.api.JBuildException;
 import jbuild.artifact.Artifact;
+import jbuild.artifact.ArtifactMetadata;
 import jbuild.artifact.ArtifactResolution;
 import jbuild.artifact.ArtifactRetriever;
 import jbuild.artifact.DefaultArtifactRetrievers;
@@ -22,10 +23,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Stream;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
@@ -47,9 +50,10 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
         this.retrievers = retrievers;
     }
 
+    // this stops javac from failing due to type inference not working
+    @SuppressWarnings("rawtypes")
     public static FetchCommandExecutor<ArtifactRetrievalError> createDefault(JBuildLog log) {
-        // keep type parameter as javac sporadically fails without this!
-        return new FetchCommandExecutor<ArtifactRetrievalError>(log, DefaultArtifactRetrievers.get(log));
+        return new FetchCommandExecutor(log, DefaultArtifactRetrievers.get(log));
     }
 
     public CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> fetchArtifact(Artifact artifact) {
@@ -76,8 +80,15 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
     public <S> CompletionStage<NonEmptyCollection<S>> fetchArtifact(
             Artifact artifact,
             FetchHandler<S> handler) {
+        CompletionStage<Artifact> exactVersion;
+        if (VersionRange.isVersionRange(artifact.version) || artifact.version.isBlank()) {
+            exactVersion = selectVersion(artifact, VersionRange.parse(artifact.version));
+        } else {
+            exactVersion = completedFuture(artifact);
+        }
         var retrievers = this.retrievers.iterator();
-        return fetch(artifact, retrievers.next(), retrievers, handler, List.of());
+        return exactVersion.thenComposeAsync(a ->
+                fetch(a, retrievers.next(), retrievers, handler, List.of()));
     }
 
     private <S> CompletionStage<NonEmptyCollection<S>> fetch(Artifact artifact,
@@ -85,39 +96,48 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
                                                              Iterator<? extends ArtifactRetriever<?>> remainingRetrievers,
                                                              FetchHandler<S> handler,
                                                              Iterable<S> currentResults) {
-        CompletionStage<Artifact> exactVersion;
-        if (VersionRange.isVersionRange(artifact.version) || artifact.version.isBlank()) {
-            exactVersion = selectVersion(artifact, VersionRange.parse(artifact.version));
-        } else {
-            exactVersion = completedFuture(artifact);
-        }
-        return exactVersion.thenComposeAsync((exactArtifact) -> retriever.retrieve(exactArtifact)
+        return retriever.retrieve(artifact)
                 .thenCompose(resolution -> handler.handle(artifact, resolution)
                         .thenCompose(res ->
-                                fetchIfNotDone(artifact, remainingRetrievers, handler, currentResults, res))));
+                                fetchIfNotDone(artifact, remainingRetrievers, handler, currentResults, res)));
     }
 
     private CompletionStage<Artifact> selectVersion(Artifact artifact, VersionRange range) {
-        log.verbosePrintln(() -> "Selecting version for artifact " + artifact.getCoordinates());
+        log.verbosePrintln(() -> "Selecting version for artifact " + artifact.getCoordinates() +
+                " from " + retrievers.toList());
         return awaitSuccessValues(retrievers.stream()
                 .map(r -> r.retrieveMetadata(artifact))
                 .collect(toList()))
                 .thenApplyAsync(results -> {
-                    var maxVersion = results.stream().flatMap(res -> res.map(
-                                    ok -> range.selectLatest(ok.getVersions()).stream(),
-                                    err -> Stream.of()))
+                    var successResults = results.stream()
+                            .map(res -> res.map(ArtifactMetadata::getVersions, err -> Set.<String>of()))
+                            .filter(versions -> !versions.isEmpty())
+                            .collect(toList());
+                    if (successResults.isEmpty()) {
+                        var errors = results.stream()
+                                .map(res -> res.map(ok -> null, Function.identity()))
+                                .filter(Objects::nonNull)
+                                .collect(toList());
+                        throw new JBuildException(
+                                "Failed to get metadata for " + artifact.getCoordinates() + " due to " + errors,
+                                ACTION_ERROR);
+                    }
+                    var maxVersion = successResults.stream()
+                            .flatMap(versions -> range.selectLatest(versions).stream())
                             .max(Version::compareTo)
                             .orElse(null);
                     if (maxVersion == null) {
-                        log.verbosePrintln(() -> "Could not find any version satisfying " + artifact.getCoordinates());
+                        log.verbosePrintln(() -> "Could not find any version satisfying " +
+                                artifact.getCoordinates() + ", available versions: " + successResults.stream()
+                                .map(Object::toString)
+                                .collect(Collectors.joining(", ")));
                         throw new JBuildException(
                                 "Could not find any version satisfying " + artifact.getCoordinates(),
                                 ACTION_ERROR);
-                    } else {
-                        log.verbosePrintln(() -> "Selected version for " +
-                                artifact.getCoordinates() + " -> " + maxVersion);
-                        return artifact.withVersion(maxVersion);
                     }
+                    log.verbosePrintln(() -> "Selected version for " +
+                            artifact.getCoordinates() + " -> " + maxVersion);
+                    return artifact.withVersion(maxVersion);
                 });
     }
 
@@ -138,6 +158,9 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
             Set<? extends Artifact> artifacts,
             ArtifactFileWriter fileWriter,
             boolean consumeArtifacts) {
+        log.verbosePrintln(() -> "Fetching with " + retrievers.toList() + " artifacts: " +
+                artifacts.stream().map(Artifact::getCoordinates).collect(toList()));
+
         // first stage: run all retrievers and output handlers, accumulating the results for each artifact
         var fetchCompletions = fetchArtifacts(
                 artifacts,

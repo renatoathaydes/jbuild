@@ -84,6 +84,14 @@ public class Artifact implements WritableXml {
         return extension.endsWith("pom");
     }
 
+    /**
+     * @return this artifact with the default version, extension and classifier.
+     * For the Maven metadata, only the groupId and artifactId matter.
+     */
+    public Artifact forMetadata() {
+        return new Artifact(groupId, artifactId);
+    }
+
     public Artifact withExtension(String ext) {
         if (ext.equals(extension)) {
             return this;
