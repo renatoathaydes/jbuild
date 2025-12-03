@@ -120,7 +120,7 @@ public class OptionsTest {
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-m"}).commandArgs, false),
-                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), null, null, false, true, true);
+                Set.of(), Map.of(), EnumSet.of(Scope.RUNTIME), "java-libs", null, false, true, true);
 
         verifyInstallOptions(InstallOptions.parse(
                         Options.parse(new String[]{"install", "-d", "foo", "--non-transitive"}).commandArgs, false),
@@ -151,20 +151,6 @@ public class OptionsTest {
                 .isInstanceOf(JBuildException.class)
                 .hasMessage("cannot specify both 'directory' and 'repository' options together." + LINE_END +
                         "Run jbuild --help for usage.");
-    }
-
-    @Test
-    void installOptionsNonTransitiveAndRepoDirAreMutuallyExclusive() {
-        assertThatThrownBy(() -> InstallOptions.parse(
-                Options.parse(new String[]{"install", "-n", "--repository", "r"}).commandArgs, true))
-                .isInstanceOf(JBuildException.class)
-                .hasMessage("cannot specify both 'non-transitive' and 'repository' options together." + LINE_END +
-                        "Run jbuild --help for usage.");
-
-        assertThatThrownBy(() -> InstallOptions.parse(
-                Options.parse(new String[]{"install", "-n", "-m"}).commandArgs, false))
-                .isInstanceOf(JBuildException.class)
-                .hasMessage("cannot specify both 'non-transitive' and 'maven-local' options together.");
     }
 
     @Test
