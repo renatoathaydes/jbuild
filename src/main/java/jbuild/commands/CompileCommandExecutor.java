@@ -218,8 +218,16 @@ public final class CompileCommandExecutor {
                     ? Tools.Javac.create(log)
                     : new GroovyCompiler(log, relativize(workingDir, groovyJar));
 
-            compileResult = await(runAsyncTiming(() -> compiler
-                                    .compile(sourceFiles, outputDir, computedClasspath, computedModulePath, compilerArgs),
+            compileResult = await(runAsyncTiming(() -> {
+                                try {
+                                    return compiler
+                                            .compile(sourceFiles, outputDir, computedClasspath, computedModulePath, compilerArgs);
+                                } catch (Throwable e) {
+                                    log.println("Error trying to run compiler");
+                                    e.printStackTrace(log.out);
+                                    throw new JBuildException("Failed to run compiler", ACTION_ERROR);
+                                }
+                            },
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
                     Duration.ofMinutes(30),
                     "compile");
