@@ -159,7 +159,7 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
             ArtifactFileWriter fileWriter,
             boolean consumeArtifacts) {
         log.verbosePrintln(() -> "Fetching with " + retrievers.toList() + " artifacts: " +
-                artifacts.stream().map(Artifact::getCoordinates).collect(toList()));
+                artifacts.stream().map(Artifact::toString).collect(toList()));
 
         // first stage: run all retrievers and output handlers, accumulating the results for each artifact
         var fetchCompletions = fetchArtifacts(

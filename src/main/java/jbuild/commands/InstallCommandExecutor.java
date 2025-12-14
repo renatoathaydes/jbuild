@@ -171,12 +171,11 @@ public final class InstallCommandExecutor {
                 var result = ChecksumVerifier.verify(shaEntry.resolved, shaEntry.sha1, log.isVerbose());
                 result.use(ok -> {
                     successCount.incrementAndGet();
-                    log.verbosePrintln(() -> "Artifact " + artifact.getCoordinates() +
-                            "'s checksum successfully verified.");
+                    log.verbosePrintln(() -> artifact + "'s checksum successfully verified.");
                 }, errors -> {
                     log.println("ERROR: " + errors.stream().map(Describable::getDescription).collect(joining(", ")));
                     if (!writer.delete(shaEntry.resolved.artifact.noSha1())) {
-                        log.println("WARNING: Could not delete " + artifact.getCoordinates() +
+                        log.println("WARNING: Could not delete " + artifact +
                                 " (invalid checksum was detected - do not use installed files).");
                     }
                     writer.delete(shaEntry.resolved.artifact.sha1());
@@ -200,7 +199,10 @@ public final class InstallCommandExecutor {
         }
         if (mustInstallPom && !mainArtifact.isPom()) {
             var pom = mainArtifact.pom();
-            return Stream.concat(artifacts, Stream.of(pom, pom.sha1()));
+            if (checksum) {
+                return Stream.concat(artifacts, Stream.of(pom, pom.sha1()));
+            }
+            return Stream.concat(artifacts, Stream.of(pom));
         }
         return artifacts;
     }
