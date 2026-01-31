@@ -13,6 +13,7 @@ import jbuild.util.FileCollection;
 import jbuild.util.FileUtils;
 import jbuild.util.JarPatcher;
 import jbuild.util.NoOp;
+import jbuild.util.SHA1;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -45,6 +46,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.api.JBuildException.ErrorCause.IO_READ;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
 import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 import static jbuild.util.AsyncUtils.await;
@@ -106,7 +108,7 @@ public final class CompileCommandExecutor {
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(workingDir, inputDirectories, resourcesDirectories, outputDirOrJar, mainClass,
-                groovyJar, generateJbManifest, createSourcesJar, createJavadocsJar, classpath, "",
+                groovyJar, generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "",
                 manifest, compilerArgs, incrementalChanges);
     }
 
@@ -119,6 +121,7 @@ public final class CompileCommandExecutor {
                                         boolean generateJbManifest,
                                         boolean createSourcesJar,
                                         boolean createJavadocsJar,
+                                        boolean checksum,
                                         String classPath,
                                         String modulePath,
                                         Either<Boolean, String> manifest,
@@ -248,7 +251,7 @@ public final class CompileCommandExecutor {
         }
 
         var jarResults = invokeJarTasks(inputDirectories, mainClass, createSourcesJar, createJavadocsJar,
-                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles);
+                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles, checksum);
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
@@ -269,7 +272,8 @@ public final class CompileCommandExecutor {
                                                    String jarFile,
                                                    Either<Boolean, String> manifest,
                                                    String computedClasspath,
-                                                   Set<String> sourceFiles) {
+                                                   Set<String> sourceFiles,
+                                                   boolean checksum) {
         // make sure the tmp directory exists as the Jar command assumes it does!
         try {
             Files.createTempFile("CompileCommandExecutor", "");
@@ -278,7 +282,8 @@ public final class CompileCommandExecutor {
         }
 
         List<CompletionStage<ToolRunResult>> actions = List.of(
-                jar(mainClass, outputDir, jarFile, manifest, incrementalChanges),
+                jar(mainClass, outputDir, jarFile, manifest, incrementalChanges)
+                        .thenApply((result) -> computeChecksum(result, jarFile, checksum)),
                 createSourcesJar
                         ? sourcesJar(inputDirectories, jarFile)
                         : completedStage(null),
@@ -294,6 +299,23 @@ public final class CompileCommandExecutor {
                 timeout,
                 "jar, sources-jar, javadocs-jar)"
         ).iterator();
+    }
+
+    private ToolRunResult computeChecksum(ToolRunResult result, String jarFile, boolean checksum) {
+        if (checksum && result.exitCode() == 0) {
+            byte[] sha1;
+            try {
+                sha1 = SHA1.computeSha1(Files.readAllBytes(Paths.get(jarFile)));
+            } catch (IOException e) {
+                throw new JBuildException("Could not read jar file that should have been created at: " + jarFile, IO_READ);
+            }
+            try {
+                Files.write(Paths.get(jarFile + ".sha1"), sha1);
+            } catch (IOException e) {
+                throw new JBuildException("Could not write SHA! file for jar: " + jarFile, IO_WRITE);
+            }
+        }
+        return result;
     }
 
     private CompletionStage<Either<ToolRunResult, String>> createJavadoc(String classpath, Set<String> sourceFiles) {

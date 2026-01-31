@@ -558,6 +558,7 @@ public class CompileCommandExecutorTest {
                 "  requires mylib;",
                 "}"));
         var jar2 = rootDir2.resolve(Paths.get("build", "other.jar"));
+        var jar2Sha1 = rootDir2.resolve(Paths.get("build", "other.jar.sha1"));
 
         // compile jar, sources-jar and javadoc-jar
         var result2 = command.compile(
@@ -570,6 +571,7 @@ public class CompileCommandExecutorTest {
                 false,
                 false,
                 false,
+                true, // checksum
                 "",
                 "../mylib/build/mylib.jar",
                 Either.left(true),
@@ -581,7 +583,11 @@ public class CompileCommandExecutorTest {
 
         assertThat(jar2).isRegularFile();
 
-        // to verify that the module was compile properly, try to run it as a module
+        // verify that the checksum was computed
+        assertThat(jar2Sha1).isRegularFile();
+        assertThat(jar2Sha1.toFile().length()).isEqualTo(20L);
+
+        // to verify that the module was compiled properly, try to run it as a module
         var javaProcBuilder = new ProcessBuilder("java",
                 "--module-path", String.join(File.pathSeparator, jar.toString(), jar2.toString()),
                 // run the module by name, the main-class should be in the MANIFEST

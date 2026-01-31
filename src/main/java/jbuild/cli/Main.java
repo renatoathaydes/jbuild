@@ -225,7 +225,8 @@ public final class Main {
                 options.workingDir,
                 compileOptions.inputDirectories, compileOptions.resourcesDirectories,
                 compileOptions.outputDirOrJar, compileOptions.mainClass, compileOptions.groovyJar,
-                compileOptions.generateJbManifest, compileOptions.createSourcesJar, compileOptions.createJavadocsJar,
+                compileOptions.generateJbManifest, compileOptions.createSourcesJar,
+                compileOptions.checksum, compileOptions.createJavadocsJar,
                 compileOptions.classPath, compileOptions.modulePath, compileOptions.manifest, options.applicationArgs,
                 compileOptions.incrementalChanges
         );

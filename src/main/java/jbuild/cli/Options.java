@@ -400,8 +400,8 @@ final class InstallOptions {
             "        -x <regex> dependency exclusion regex pattern, matches against coordinates" + LINE_END +
             "                   (can be passed more than once). Each exclusion applies to the previously" + LINE_END +
             "                   listed artifact, or globally if not preceded by any artifact." + LINE_END +
-            "        -c" + LINE_END +
-            "        --checksum download and verify the checksum of all artifacts." + LINE_END +
+            "        --checksum" + LINE_END +
+            "        -c         download and verify the checksum of all artifacts." + LINE_END +
             "      Note:" + LINE_END +
             "        The --directory and --repository options are mutually exclusive." + LINE_END +
             "        If the --maven-local flag is used, then artifacts are installed at ~/.m2/repository" + LINE_END +
@@ -712,10 +712,12 @@ final class CompileOptions {
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --resources" + LINE_END +
             "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
-            "        --jar" + LINE_END +
             "        --groovy" + LINE_END +
             "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
+            "        --jar" + LINE_END +
             "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
+            "        --checksum" + LINE_END +
+            "        -c        create a .sha1 checksum file for the jar." + LINE_END +
             "        --sources-jar" + LINE_END +
             "        -sj       whether to create a sources jar (name: <jar-name>-sources.jar)." + LINE_END +
             "        --javadoc-jar" + LINE_END +
@@ -748,6 +750,7 @@ final class CompileOptions {
     final boolean generateJbManifest;
     final boolean createSourcesJar;
     final boolean createJavadocsJar;
+    final boolean checksum;
     final String classPath;
     final String modulePath;
     final Either<Boolean, String> manifest;
@@ -761,6 +764,7 @@ final class CompileOptions {
                           boolean generateJbManifest,
                           boolean createSourcesJar,
                           boolean createJavadocsJar,
+                          boolean checksum,
                           String classPath,
                           String modulePath,
                           Either<Boolean, String> manifest,
@@ -773,6 +777,7 @@ final class CompileOptions {
         this.generateJbManifest = generateJbManifest;
         this.createSourcesJar = createSourcesJar;
         this.createJavadocsJar = createJavadocsJar;
+        this.checksum = checksum;
         this.classPath = classPath;
         this.modulePath = modulePath;
         this.manifest = manifest;
@@ -800,7 +805,8 @@ final class CompileOptions {
                 waitingForAdded = false,
                 generateJbManifest = false,
                 createSourcesJar = false,
-                createJavadocsJar = false;
+                createJavadocsJar = false,
+                checksum = false;
 
         for (String arg : args) {
             if (waitingForClasspath) {
@@ -864,6 +870,8 @@ final class CompileOptions {
                     createJavadocsJar = true;
                 } else if (isEither(arg, "-r", "--resources")) {
                     waitingForResources = true;
+                } else if (isEither(arg, "-c", "--checksum")) {
+                    checksum = true;
                 } else if (isEither(arg, "-g", "--groovy")) {
                     if (groovyJar != null) {
                         throw new JBuildException("cannot provide groovy option more than once." +
@@ -959,6 +967,7 @@ final class CompileOptions {
                 generateJbManifest,
                 createSourcesJar,
                 createJavadocsJar,
+                checksum,
                 classPath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classPath.toString(),
                 modulePath.toString(),
                 manifest == null ? Either.left(true) : manifest,
