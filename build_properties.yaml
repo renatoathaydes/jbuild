@@ -1,10 +1,10 @@
 properties:
     versions:
-        jbuild: 0.13.0
-        java: 11
-        junit: 5.9.1
-        assertj: 3.23.1
-        commons-io: 2.11.0
+      jbuild: 0.14.0
+      java: 11
+      junit: 5.9.1
+      assertj: 3.23.1
+      commons-io: 2.11.0
 
 # Maven publication data
 
