@@ -23,6 +23,7 @@ import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
         phase = @TaskPhase(name = "codegen", index = 200))
 public class GenerateJBuildVersion implements JbTask {
 
+    static final String BUILD_FILE_INPUT = "build_properties.yaml";
     static final String JAVA_INPUT = "src/main/template/jbuild/Version.java";
     static final String MANIFEST_INPUT = "src/main/template/MANIFEST.txt";
     static final String JAVA_OUTPUT = "src/main/java/jbuild/Version.java";
@@ -38,7 +39,7 @@ public class GenerateJBuildVersion implements JbTask {
 
     @Override
     public List<String> inputs() {
-        return List.of(JAVA_INPUT, MANIFEST_INPUT);
+        return List.of(BUILD_FILE_INPUT, JAVA_INPUT, MANIFEST_INPUT);
     }
 
     @Override
