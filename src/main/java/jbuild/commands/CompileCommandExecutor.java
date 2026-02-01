@@ -281,15 +281,20 @@ public final class CompileCommandExecutor {
             log.println("WARNING: unable to create temp file, jar command may fail!");
         }
 
+        String sourcesJar = createSourcesJar ? FileUtils.withoutExtension(jarFile) + "-sources.jar" : null;
+        String javadocJar = createJavadocsJar ? FileUtils.withoutExtension(jarFile) + "-javadoc.jar" : null;
+
         List<CompletionStage<ToolRunResult>> actions = List.of(
                 jar(mainClass, outputDir, jarFile, manifest, incrementalChanges)
                         .thenApply((result) -> computeChecksum(result, jarFile, checksum)),
-                createSourcesJar
-                        ? sourcesJar(inputDirectories, jarFile)
+                sourcesJar != null
+                        ? sourcesJar(inputDirectories, sourcesJar)
+                        .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
-                createJavadocsJar
+                javadocJar != null
                         ? createJavadoc(computedClasspath, sourceFiles)
-                        .thenCompose(result -> javadocJar(result, jarFile))
+                        .thenCompose(result -> javadocJar(result, javadocJar))
+                        .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
 
         var timeout = Duration.ofMinutes(5);
@@ -303,6 +308,8 @@ public final class CompileCommandExecutor {
 
     private ToolRunResult computeChecksum(ToolRunResult result, String jarFile, boolean checksum) {
         if (checksum && result.exitCode() == 0) {
+            log.verbosePrintln(() -> "Computing SHA1 of file: " + jarFile);
+            final var startTime = System.currentTimeMillis();
             byte[] sha1;
             try {
                 sha1 = SHA1.computeSha1(Files.readAllBytes(Paths.get(jarFile)));
@@ -314,6 +321,8 @@ public final class CompileCommandExecutor {
             } catch (IOException e) {
                 throw new JBuildException("Could not write SHA! file for jar: " + jarFile, IO_WRITE);
             }
+            log.verbosePrintln(() -> "Created SHA1 of " + jarFile + " in " +
+                    (System.currentTimeMillis() - startTime) + " ms");
         }
         return result;
     }
@@ -358,16 +367,14 @@ public final class CompileCommandExecutor {
                 createLogTimer("Updated jar"));
     }
 
-    private CompletionStage<ToolRunResult> sourcesJar(Set<String> inputDirs, String jarFile) {
-        var sourcesJar = FileUtils.withoutExtension(jarFile) + "-sources.jar";
+    private CompletionStage<ToolRunResult> sourcesJar(Set<String> inputDirs, String sourcesJar) {
         log.verbosePrintln(() -> "Creating sources jar file at " + sourcesJar);
         return runAsyncTiming(() -> Tools.Jar.create().createJar(sourcesJar, inputDirs),
                 createLogTimer("Created sources jar"));
     }
 
-    private CompletionStage<ToolRunResult> javadocJar(Either<ToolRunResult, String> javadocResult, String jarFile) {
+    private CompletionStage<ToolRunResult> javadocJar(Either<ToolRunResult, String> javadocResult, String javadocJar) {
         return javadocResult.map(CompletableFuture::completedFuture, inputDir -> {
-            var javadocJar = FileUtils.withoutExtension(jarFile) + "-javadoc.jar";
             log.verbosePrintln(() -> "Creating javadoc jar file at " + javadocJar);
             return runAsyncTiming(() -> Tools.Jar.create().createJar(javadocJar, Set.of(inputDir)),
                     createLogTimer("Created javadoc jar"));
