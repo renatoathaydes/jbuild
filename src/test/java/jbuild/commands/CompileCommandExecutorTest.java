@@ -585,7 +585,7 @@ public class CompileCommandExecutorTest {
 
         // verify that the checksum was computed
         assertThat(jar2Sha1).isRegularFile();
-        assertThat(jar2Sha1.toFile().length()).isEqualTo(20L);
+        assertThat(jar2Sha1.toFile().length()).isEqualTo(40L);
 
         // to verify that the module was compiled properly, try to run it as a module
         var javaProcBuilder = new ProcessBuilder("java",

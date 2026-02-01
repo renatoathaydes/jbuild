@@ -310,14 +310,14 @@ public final class CompileCommandExecutor {
         if (checksum && result.exitCode() == 0) {
             log.verbosePrintln(() -> "Computing SHA1 of file: " + jarFile);
             final var startTime = System.currentTimeMillis();
-            byte[] sha1;
+            String sha1;
             try {
-                sha1 = SHA1.computeSha1(Files.readAllBytes(Paths.get(jarFile)));
+                sha1 = SHA1.computeSha1HexString(Files.readAllBytes(Paths.get(jarFile)));
             } catch (IOException e) {
                 throw new JBuildException("Could not read jar file that should have been created at: " + jarFile, IO_READ);
             }
             try {
-                Files.write(Paths.get(jarFile + ".sha1"), sha1);
+                Files.writeString(Paths.get(jarFile + ".sha1"), sha1);
             } catch (IOException e) {
                 throw new JBuildException("Could not write SHA! file for jar: " + jarFile, IO_WRITE);
             }

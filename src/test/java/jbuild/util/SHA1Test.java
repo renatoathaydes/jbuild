@@ -35,6 +35,13 @@ public class SHA1Test {
         assertThat(computed).containsExactly(sha1);
     }
 
+    @Test
+    void conComputeSha1HexString() throws Exception {
+        var testSha1File = readResource("/jbuild/maven/sha1/a-4.0.pom.sha1");
+        var result = SHA1.computeSha1HexString(readResource("/jbuild/maven/sha1/a-4.0.pom"));
+        assertThat(result).isEqualTo(new String(testSha1File));
+    }
+
     private static byte[] readResource(String path) throws IOException {
         try (var stream = SHA1Test.class.getResourceAsStream(path)) {
             assert stream != null;
