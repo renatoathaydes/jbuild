@@ -74,6 +74,11 @@ final class DependencyTreeLogger {
                 .collect(groupingBy(dep -> dep.scope));
 
         var allLicenses = options.licenses && options.transitive ? new HashSet<License>() : null;
+
+        if (allLicenses != null) {
+            allLicenses.addAll(tree.root.pom.getLicenses());
+        }
+
         var chain = new DependencyChain(log);
 
         for (Scope scope : expandScopes(options.scopes)) {
