@@ -19,5 +19,5 @@ Save the XML snippet created by Sonatype in the file `.publish-token.xml`.
 Now, run:
 
 ```shell
-jb publish
+jb publishAll
 ```
