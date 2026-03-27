@@ -1,0 +1,20 @@
+imports:
+  - ../errorprone.yaml
+  - ../build_properties.yaml
+
+group: com.athaydes.jbuild
+module: jbuild-groovy
+name: JBuild Groovy helper classes
+version: "{{versions.jbuild}}"
+description: |
+  Non-publishable Groovy helper classes.
+  The JBuild jar includes this jar in itself to be able to invoke its helpers by reflection.
+  This allows JBuild to not have a dependency on Groovy. It will use the project's Groovy dependency when needed.
+
+javac-args: [ "--release={{versions.java}}" ]
+
+source-dirs: [ src ]
+
+dependencies:
+  org.apache.groovy:groovy-groovydoc:5.0.4:
+    scope: compile-only

@@ -251,7 +251,7 @@ public final class CompileCommandExecutor {
         }
 
         var jarResults = invokeJarTasks(inputDirectories, mainClass, createSourcesJar, createJavadocsJar,
-                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles, checksum);
+                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles, checksum, groovyJar);
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
@@ -273,7 +273,8 @@ public final class CompileCommandExecutor {
                                                    Either<Boolean, String> manifest,
                                                    String computedClasspath,
                                                    Set<String> sourceFiles,
-                                                   boolean checksum) {
+                                                   boolean checksum,
+                                                   String groovyJar) {
         // make sure the tmp directory exists as the Jar command assumes it does!
         try {
             Files.createTempFile("CompileCommandExecutor", "");
@@ -292,7 +293,7 @@ public final class CompileCommandExecutor {
                         .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
                 javadocJar != null
-                        ? createJavadoc(computedClasspath, sourceFiles)
+                        ? createJavadoc(computedClasspath, sourceFiles, groovyJar)
                         .thenCompose(result -> javadocJar(result, javadocJar))
                         .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
@@ -302,7 +303,7 @@ public final class CompileCommandExecutor {
         return await(
                 awaitSuccessValues(actions),
                 timeout,
-                "jar, sources-jar, javadocs-jar)"
+                "jar, sources-jar, javadocs-jar"
         ).iterator();
     }
 
@@ -327,7 +328,10 @@ public final class CompileCommandExecutor {
         return result;
     }
 
-    private CompletionStage<Either<ToolRunResult, String>> createJavadoc(String classpath, Set<String> sourceFiles) {
+    private CompletionStage<Either<ToolRunResult, String>> createJavadoc(
+            String classpath,
+            Set<String> sourceFiles,
+            String groovyJar) {
         String outputDir;
         try {
             outputDir = Files.createTempDirectory("jbuild-javadocs-").toString();
@@ -337,12 +341,23 @@ public final class CompileCommandExecutor {
         }
         return supplyAsync(() -> {
             var startTime = System.currentTimeMillis();
-            var toolResult = Tools.Javadoc.create().createJavadoc(classpath, sourceFiles, outputDir);
-            if (toolResult.exitCode() == 0) {
-                log.verbosePrintln(() -> "Created javadoc in " + (System.currentTimeMillis() - startTime) + " ms");
-                return Either.right(outputDir);
+            if (groovyJar.isBlank()) {
+                var toolResult = Tools.Javadoc.create().createJavadoc(classpath, sourceFiles, outputDir);
+                if (toolResult.exitCode() == 0) {
+                    log.verbosePrintln(() -> "Created javadoc in " + (System.currentTimeMillis() - startTime) + " ms");
+                    return Either.right(outputDir);
+                }
+                return Either.left(toolResult);
             }
-            return Either.left(toolResult);
+
+            try {
+                GroovyDocInvoker.run(List.copyOf(sourceFiles), groovyJar, outputDir);
+            } catch (Exception | LinkageError e) {
+                e.printStackTrace();
+                throw new JBuildException("Unable to invoke GroovyDoc tool due to " + e,
+                        ACTION_ERROR);
+            }
+            return Either.right(outputDir);
         });
     }
 

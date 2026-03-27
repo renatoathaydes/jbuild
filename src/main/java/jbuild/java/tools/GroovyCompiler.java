@@ -5,7 +5,6 @@ import jbuild.commands.JbuildCompiler;
 import jbuild.log.JBuildLog;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -19,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
+import static jbuild.java.ClasspathUtil.joinClasspath;
 import static jbuild.java.tools.Tools.Javac.collectArgs;
 
 public final class GroovyCompiler implements JbuildCompiler {
@@ -126,11 +126,5 @@ public final class GroovyCompiler implements JbuildCompiler {
         var groovyClassLoaderClass = mainClassLoader.loadClass(GROOVY_CLASS_LOADER);
         var constructor = groovyClassLoaderClass.getDeclaredConstructor(URL[].class, ClassLoader.class);
         return (CL) constructor.newInstance(classpath, mainClassLoader);
-    }
-
-    private static String joinClasspath(String classPath, String modulePath) {
-        if (classPath.isEmpty()) return modulePath;
-        if (modulePath.isEmpty()) return classPath;
-        return classPath + File.pathSeparator + modulePath;
     }
 }

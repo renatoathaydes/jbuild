@@ -5,10 +5,10 @@ import jbuild.api.JBuildLogger;
 import jbuild.api.change.ChangeSet;
 import jbuild.api.config.JbConfig;
 import jbuild.cli.RpcMain;
+import jbuild.java.ClassLoaderFactory;
 import jbuild.log.JBuildLog;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -16,9 +16,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -239,23 +236,9 @@ public final class JavaRunner implements Closeable {
                 return JavaRunner.class.getClassLoader();
             }
             log.verbosePrintln(() -> "Creating new ClassLoader for classpath: " + cp);
-            return createClassLoader(cp);
+            return ClassLoaderFactory.createClassLoader(cp, JavaRunner.class.getClassLoader());
         });
         return classLoader.loadClass(className);
-    }
-
-    private static ClassLoader createClassLoader(String classpath) {
-        var parts = classpath.split(File.pathSeparator);
-        var urls = new URL[parts.length];
-        for (var i = 0; i < parts.length; i++) {
-            var file = new File(parts[i]);
-            try {
-                urls[i] = file.toURI().toURL();
-            } catch (MalformedURLException e) {
-                throw new JBuildException("Invalid classpath URL: " + parts[i], USER_INPUT);
-            }
-        }
-        return new URLClassLoader(urls, JavaRunner.class.getClassLoader());
     }
 
     private static ParamMatch matchByCount(Method method, int argsCount) {

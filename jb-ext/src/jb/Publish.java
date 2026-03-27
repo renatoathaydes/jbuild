@@ -1,42 +1,40 @@
 package jb;
 
-import jbuild.api.JBuildException;
 import jbuild.api.JBuildLogger;
 import jbuild.api.JbTask;
 import jbuild.api.JbTaskInfo;
 import jbuild.api.TaskPhase;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.w3c.dom.*;
-import org.xml.sax.SAXException;
-
 @JbTaskInfo(name = "publishAll",
         description = "Publish all jb artifacts to Maven Central.",
         phase = @TaskPhase(name = "publish", index = 520))
 public class Publish implements JbTask {
 
-
     private final JBuildLogger logger;
     private final DocumentBuilderFactory xmlFactory;
-    
+
     public Publish(JBuildLogger logger) {
         this.logger = logger;
         xmlFactory = DocumentBuilderFactory.newInstance();
-            try {
-                xmlFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            } catch (ParserConfigurationException e) {
-                throw new RuntimeException("Cannot parse XML without feature: " +
-                        XMLConstants.FEATURE_SECURE_PROCESSING);
-            }
+        try {
+            xmlFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (ParserConfigurationException e) {
+            throw new RuntimeException("Cannot parse XML without feature: " +
+                    XMLConstants.FEATURE_SECURE_PROCESSING);
+        }
     }
 
     @Override
@@ -49,8 +47,8 @@ public class Publish implements JbTask {
         var credentials = parseTokenXmlFile();
         var projects = List.of(".");
         for (var project : projects) {
-            System.out.println("Publishing: " + project);
-            var pb = new ProcessBuilder().command("zsh", "-c", "jb -p " + project + " publish :-m");
+            logger.println(() -> "Publishing: " + project);
+            var pb = JbProcess.runJb("jb -p " + project + " publish :-m");
             var env = pb.environment();
             env.put("MAVEN_USER", credentials.getKey());
             env.put("MAVEN_PASSWORD", credentials.getValue());
@@ -60,7 +58,7 @@ public class Publish implements JbTask {
                     throw new RuntimeException("jb publish command failed in project: " + project);
                 }
             } catch (InterruptedException e) {
-                System.out.println("jb command interrupted!");
+                logger.println("jb command interrupted!");
                 return;
             }
         }
@@ -73,7 +71,7 @@ public class Publish implements JbTask {
             var credentialsFile = new FileInputStream(".publish-token.xml");
             try (credentialsFile) {
                 doc = db.parse(credentialsFile);
-            }            
+            }
         } catch (ParserConfigurationException | SAXException e) {
             throw new RuntimeException("Could not process XML file", e);
         }
