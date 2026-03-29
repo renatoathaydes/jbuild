@@ -1,0 +1,7 @@
+net.bytebuddy:byte-buddy:1.12.10 f34127d93639fad8c6fb84b3ca30292697d6c55d
+org.apiguardian:apiguardian-api:1.1.2 a231e0d844d2721b0fa1b238006d15c6ded6842a
+org.assertj:assertj-core:3.23.1 d2bb60570f5b3d7ffa8f8000118c9c07b86eca93
+org.junit.jupiter:junit-jupiter-api:5.9.1 7bb53fbc0173e9f6a9d21d58297af94b1f2f9ce1
+org.junit.jupiter:junit-jupiter-params:5.9.1 ffcd1013edaeee112be11fcddeb38882d79238de
+org.junit.platform:junit-platform-commons:1.9.1 3145f821b5cd10abcdc5f925baa5fffa6f1b628f
+org.opentest4j:opentest4j:1.2.0 28c11eb91f9b6d8e200631d46e20a7f407f2a046
