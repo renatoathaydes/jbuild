@@ -25,9 +25,10 @@ final class GroovyDocInvoker {
 
     static void run(List<String> sourceFiles,
                     String groovyJar,
+                    String groovydocToolClasspath,
                     String outputDir)
             throws Exception {
-        var groovyClassLoader = createGroovyClassLoader(groovyJar);
+        var groovyClassLoader = createGroovyClassLoader(groovyJar, groovydocToolClasspath);
         var helperClass = groovyClassLoader.loadClass(GROOVYDOC_TOOL_HELPER_CLASS);
         var argsClass = groovyClassLoader.loadClass(GROOVYDOC_TOOL_ARGS_CLASS);
 
@@ -45,15 +46,11 @@ final class GroovyDocInvoker {
         helper.call();
     }
 
-    private static ClassLoader createGroovyClassLoader(String groovyJar) {
+    private static ClassLoader createGroovyClassLoader(String groovyJar, String groovydocToolClasspath) {
         var jbuildGroovyJar = extractJBuildGroovyJar();
 
-        // the groovy jar may not contain the GroovyDoc class, so we need to first check if there's an
-        // environment variable that tells us what classpath to use to find it.
-        var groovyDocClasspath = System.getenv("GROOVY_DOC_CLASSPATH");
-
         String fullClasspath = joinClasspath(jbuildGroovyJar,
-                groovyDocClasspath == null ? groovyJar : groovyDocClasspath);
+                groovydocToolClasspath.isBlank() ? groovyJar : groovydocToolClasspath);
 
         return ClassLoaderFactory.createClassLoader(fullClasspath, ClassLoader.getSystemClassLoader());
     }

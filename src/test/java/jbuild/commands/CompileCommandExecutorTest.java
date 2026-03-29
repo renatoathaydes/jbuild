@@ -568,6 +568,7 @@ public class CompileCommandExecutorTest {
                 Either.right(rootDir2.relativize(jar2).toString()),
                 "other_pkg.Other",
                 "",
+                "",
                 false,
                 false,
                 false,

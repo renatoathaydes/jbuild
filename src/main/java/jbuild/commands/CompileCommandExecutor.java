@@ -108,7 +108,7 @@ public final class CompileCommandExecutor {
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(workingDir, inputDirectories, resourcesDirectories, outputDirOrJar, mainClass,
-                groovyJar, generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "",
+                groovyJar, "", generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "",
                 manifest, compilerArgs, incrementalChanges);
     }
 
@@ -118,6 +118,7 @@ public final class CompileCommandExecutor {
                                         Either<String, String> outputDirOrJar,
                                         String mainClass,
                                         String groovyJar,
+                                        String groovydocToolClasspath,
                                         boolean generateJbManifest,
                                         boolean createSourcesJar,
                                         boolean createJavadocsJar,
@@ -251,7 +252,8 @@ public final class CompileCommandExecutor {
         }
 
         var jarResults = invokeJarTasks(inputDirectories, mainClass, createSourcesJar, createJavadocsJar,
-                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles, checksum, groovyJar);
+                incrementalChanges, outputDir, jarFile, manifest, computedClasspath, sourceFiles, checksum,
+                groovyJar, groovydocToolClasspath);
 
         return new CompileCommandResult(compileResult,
                 jarResults.next(), jarResults.next(), jarResults.next());
@@ -274,7 +276,8 @@ public final class CompileCommandExecutor {
                                                    String computedClasspath,
                                                    Set<String> sourceFiles,
                                                    boolean checksum,
-                                                   String groovyJar) {
+                                                   String groovyJar,
+                                                   String groovydocToolClasspath) {
         // make sure the tmp directory exists as the Jar command assumes it does!
         try {
             Files.createTempFile("CompileCommandExecutor", "");
@@ -293,7 +296,7 @@ public final class CompileCommandExecutor {
                         .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
                 javadocJar != null
-                        ? createJavadoc(computedClasspath, sourceFiles, groovyJar)
+                        ? createJavadoc(computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
                         .thenCompose(result -> javadocJar(result, javadocJar))
                         .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
@@ -331,7 +334,8 @@ public final class CompileCommandExecutor {
     private CompletionStage<Either<ToolRunResult, String>> createJavadoc(
             String classpath,
             Set<String> sourceFiles,
-            String groovyJar) {
+            String groovyJar,
+            String groovydocToolClasspath) {
         String outputDir;
         try {
             outputDir = Files.createTempDirectory("jbuild-javadocs-").toString();
@@ -351,9 +355,8 @@ public final class CompileCommandExecutor {
             }
 
             try {
-                GroovyDocInvoker.run(List.copyOf(sourceFiles), groovyJar, outputDir);
+                GroovyDocInvoker.run(List.copyOf(sourceFiles), groovyJar, groovydocToolClasspath, outputDir);
             } catch (Exception | LinkageError e) {
-                e.printStackTrace();
                 throw new JBuildException("Unable to invoke GroovyDoc tool due to " + e,
                         ACTION_ERROR);
             }

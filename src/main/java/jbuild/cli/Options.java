@@ -714,6 +714,8 @@ final class CompileOptions {
             "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
             "        --groovy" + LINE_END +
             "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
+            "        --groovydoc-tool-class-path" + LINE_END +
+            "        -gt <classpath> Groovydoc tool classpath to use (only used if -g and -dj provided)." + LINE_END +
             "        --jar" + LINE_END +
             "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
             "        --checksum" + LINE_END +
@@ -747,6 +749,7 @@ final class CompileOptions {
     final Either<String, String> outputDirOrJar;
     final String mainClass;
     final String groovyJar;
+    final String groovydocToolClasspath;
     final boolean generateJbManifest;
     final boolean createSourcesJar;
     final boolean createJavadocsJar;
@@ -761,6 +764,7 @@ final class CompileOptions {
                           Either<String, String> outputDirOrJar,
                           String mainClass,
                           String groovyJar,
+                          String groovydocToolClasspath,
                           boolean generateJbManifest,
                           boolean createSourcesJar,
                           boolean createJavadocsJar,
@@ -774,6 +778,7 @@ final class CompileOptions {
         this.outputDirOrJar = outputDirOrJar;
         this.mainClass = mainClass;
         this.groovyJar = groovyJar;
+        this.groovydocToolClasspath = groovydocToolClasspath;
         this.generateJbManifest = generateJbManifest;
         this.createSourcesJar = createSourcesJar;
         this.createJavadocsJar = createJavadocsJar;
@@ -789,7 +794,7 @@ final class CompileOptions {
         Set<String> resourcesDirectories = new LinkedHashSet<>(2);
         Set<String> deletedFiles = new LinkedHashSet<>(2);
         Set<String> addedFiles = new LinkedHashSet<>(2);
-        String outputDir = null, jar = null, mainClass = null, groovyJar = null;
+        String outputDir = null, jar = null, mainClass = null, groovyJar = null, groovydocToolClasspath = null;
         Either<Boolean, String> manifest = null;
         StringBuilder classPath = new StringBuilder(), modulePath = new StringBuilder();
 
@@ -800,6 +805,7 @@ final class CompileOptions {
                 waitingForJar = false,
                 waitingForMainClass = false,
                 waitingForGroovyJar = false,
+                waitingForGroovydocToolClasspath = false,
                 waitingForManifest = false,
                 waitingForDeleted = false,
                 waitingForAdded = false,
@@ -857,6 +863,9 @@ final class CompileOptions {
             } else if (waitingForGroovyJar) {
                 waitingForGroovyJar = false;
                 groovyJar = arg;
+            } else if (waitingForGroovydocToolClasspath) {
+                waitingForGroovydocToolClasspath = false;
+                groovydocToolClasspath = arg;
             } else if (arg.startsWith("-")) {
                 if (isEither(arg, "-cp", "--classpath", "--class-path")) {
                     waitingForClasspath = true;
@@ -878,6 +887,12 @@ final class CompileOptions {
                                 (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
                     }
                     waitingForGroovyJar = true;
+                } else if (isEither(arg, "-gt", "--groovydoc-tool-class-path")) {
+                    if (groovydocToolClasspath != null) {
+                        throw new JBuildException("cannot provide groovy option more than once." +
+                                (verbose ? LINE_END + "Run jbuild --help for usage." : ""), USER_INPUT);
+                    }
+                    waitingForGroovydocToolClasspath = true;
                 } else if (isEither(arg, "-d", "--directory")) {
                     if (outputDir != null) {
                         throw new JBuildException("cannot provide repository directory more than once." +
@@ -964,6 +979,7 @@ final class CompileOptions {
                 outputDir != null ? Either.left(outputDir) : Either.right(jar),
                 mainClass == null ? "" : mainClass,
                 groovyJar == null ? "" : groovyJar,
+                groovydocToolClasspath == null ? "" : groovydocToolClasspath,
                 generateJbManifest,
                 createSourcesJar,
                 createJavadocsJar,
