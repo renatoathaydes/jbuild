@@ -93,7 +93,7 @@ public final class CreateJarOptions {
         if (fileSet.isEmpty()) {
             result.add(".");
         } else {
-            result.addAll(fileSet.files);
+            fileSet.files.stream().sorted().forEach(result::add);
         }
     }
 

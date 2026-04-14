@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -745,8 +747,8 @@ final class CompileOptions {
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
 
-    final Set<String> inputDirectories;
-    final Set<String> resourcesDirectories;
+    final SortedSet<String> inputDirectories;
+    final SortedSet<String> resourcesDirectories;
     final Either<String, String> outputDirOrJar;
     final String mainClass;
     final String groovyJar;
@@ -760,8 +762,8 @@ final class CompileOptions {
     final Either<Boolean, String> manifest;
     final IncrementalChanges incrementalChanges;
 
-    public CompileOptions(Set<String> inputDirectories,
-                          Set<String> resourcesDirectories,
+    public CompileOptions(SortedSet<String> inputDirectories,
+                          SortedSet<String> resourcesDirectories,
                           Either<String, String> outputDirOrJar,
                           String mainClass,
                           String groovyJar,
@@ -791,8 +793,8 @@ final class CompileOptions {
     }
 
     static CompileOptions parse(List<String> args, boolean verbose) {
-        Set<String> inputDirectories = new LinkedHashSet<>(2);
-        Set<String> resourcesDirectories = new LinkedHashSet<>(2);
+        SortedSet<String> inputDirectories = new TreeSet<>();
+        SortedSet<String> resourcesDirectories = new TreeSet<>();
         Set<String> deletedFiles = new LinkedHashSet<>(2);
         Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null, groovyJar = null, groovydocToolClasspath = null;

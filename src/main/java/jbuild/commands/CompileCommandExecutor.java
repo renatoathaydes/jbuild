@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +38,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
@@ -44,7 +46,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.IO_READ;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
@@ -293,12 +294,12 @@ public final class CompileCommandExecutor {
                         .thenApply((result) -> computeChecksum(result, jarFile, checksum)),
                 sourcesJar != null
                         ? sourcesJar(inputDirectories, sourcesJar)
-                        .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
+                          .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
                 javadocJar != null
                         ? createJavadoc(computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
-                        .thenCompose(result -> javadocJar(result, javadocJar))
-                        .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
+                          .thenCompose(result -> javadocJar(result, javadocJar))
+                          .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
 
         var timeout = Duration.ofMinutes(5);
@@ -373,7 +374,9 @@ public final class CompileCommandExecutor {
 
         if (incrementalChanges == null) {
             var jarOptions = new CreateJarOptions(
-                    jarFile, mainClass, manifest, "", jarContent, Map.of());
+                    jarFile, mainClass, manifest, "", jarContent,
+                    // TODO allow passing files per Java release version
+                    Map.of());
             log.verbosePrintln(() -> "Creating jar file at " + jarFile + ". Full command: jar " +
                     String.join(" ", jarOptions.toArgs(true)));
             return runAsyncTiming(() -> Tools.Jar.create().createJar(jarOptions),
@@ -416,7 +419,8 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null) {
             var sourceFiles = incrementalChanges.addedFiles.stream()
                     .filter(includeFile)
-                    .collect(toSet());
+                    .sorted()
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             if (!sourceFiles.isEmpty()) {
                 log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedFiles.size()
                         + " files added or modified since last compilation");
@@ -425,7 +429,8 @@ public final class CompileCommandExecutor {
         }
         return collectFiles(inputDirectories, includeGroovy ? JAVA_GROOVY_FILES_FILTER : JAVA_FILES_FILTER).stream()
                 .flatMap(col -> col.files.stream())
-                .collect(toSet());
+                .sorted()
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Set<String> computeDeletedFiles(Set<String> inputDirectories,
