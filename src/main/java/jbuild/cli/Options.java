@@ -712,10 +712,6 @@ final class CompileOptions {
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --resources" + LINE_END +
             "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
-            "        --groovy" + LINE_END +
-            "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
-            "        --groovydoc-tool-class-path" + LINE_END +
-            "        -gt <classpath> Groovydoc tool classpath to use (only used if -g and -dj provided)." + LINE_END +
             "        --jar" + LINE_END +
             "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
             "        --checksum" + LINE_END +
@@ -731,6 +727,11 @@ final class CompileOptions {
             "        --manifest" + LINE_END +
             "        -mf <name> manifest file to pass to the jar command." + LINE_END +
             "            If the name \"-\" is used, no manifest is generated." + LINE_END +
+            "      Groovy options:" + LINE_END +
+            "        --groovy" + LINE_END +
+            "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
+            "        --groovydoc-tool-class-path" + LINE_END +
+            "        -gt <classpath> Groovydoc tool classpath to use (only used if -g and -dj provided)." + LINE_END +
             "      Incremental compilation options:" + LINE_END +
             "        --deleted <file>  deleted file since last compilation." + LINE_END +
             "        --added <file>    added/modified file since last compilation." + LINE_END +
