@@ -184,15 +184,14 @@ public abstract class Tools {
          * Update a jar by adding files to it.
          *
          * @param jarFile to update
-         * @param fileSet files to add
+         * @param dir     to include
          * @return result
          */
-        public ToolRunResult updateJar(String jarFile,
-                                       CreateJarOptions.FileSet fileSet) {
+        public ToolRunResult updateJar(String jarFile, String dir) {
             var args = new ArrayList<String>();
             args.add("uf");
             args.add(jarFile);
-            CreateJarOptions.addFileSetTo(args, fileSet);
+            CreateJarOptions.addFileSetTo(args, dir);
             return run(args);
         }
 

@@ -3,7 +3,6 @@ package jbuild.commands;
 import jbuild.api.JBuildException;
 import jbuild.extension.JbManifestGenerator;
 import jbuild.java.tools.CreateJarOptions;
-import jbuild.java.tools.CreateJarOptions.FileSet;
 import jbuild.java.tools.GroovyCompiler;
 import jbuild.java.tools.ToolRunResult;
 import jbuild.java.tools.Tools;
@@ -370,11 +369,9 @@ public final class CompileCommandExecutor {
                                                String jarFile,
                                                Either<Boolean, String> manifest,
                                                IncrementalChanges incrementalChanges) {
-        var jarContent = new FileSet(Set.of(), outputDir);
-
         if (incrementalChanges == null) {
             var jarOptions = new CreateJarOptions(
-                    jarFile, mainClass, manifest, "", jarContent,
+                    jarFile, mainClass, manifest, "", outputDir,
                     // TODO allow passing files per Java release version
                     Map.of());
             log.verbosePrintln(() -> "Creating jar file at " + jarFile + ". Full command: jar " +
@@ -384,7 +381,7 @@ public final class CompileCommandExecutor {
         }
 
         log.verbosePrintln(() -> "Updating jar file at " + jarFile);
-        return runAsyncTiming(() -> Tools.Jar.create().updateJar(jarFile, jarContent),
+        return runAsyncTiming(() -> Tools.Jar.create().updateJar(jarFile, outputDir),
                 createLogTimer("Updated jar"));
     }
 
