@@ -14,6 +14,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -124,30 +126,51 @@ public final class FileUtils {
 
     public static FileCollection collectFiles(String dirPath,
                                               FilenameFilter filter) {
+        return collectFiles(dirPath, filter, false);
+    }
+
+    public static FileCollection collectFiles(String dirPath,
+                                              FilenameFilter filter,
+                                              boolean includeDirs) {
         var dir = new File(dirPath);
         if (dir.isDirectory()) {
-            var children = dir.listFiles();
-            if (children != null) {
-                return new FileCollection(dirPath, Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter))
-                        .collect(toList()));
-            }
+            var result = new ArrayList<String>();
+            collectFileTree(dir, filter, result, includeDirs);
+            return new FileCollection(dirPath, result);
         }
         return new FileCollection(dirPath);
     }
 
-    private static Stream<String> fileOrChildDirectories(File file, FilenameFilter filter) {
+    private static void collectFileTree(
+            File file, FilenameFilter filter, List<String> result, boolean includeDirs) {
         if (file.isFile() && filter.accept(file.getParentFile(), file.getName())) {
-            return Stream.of(file.getPath());
+            result.add(file.getPath());
+            return;
         }
-        if (file.isDirectory()) {
-            var children = file.listFiles();
+        if (!file.isDirectory()) {
+            return;
+        }
+        // keep track of the next directories to visit
+        var nextDirs = new ArrayDeque<File>();
+        nextDirs.add(file);
+        while (!nextDirs.isEmpty()) {
+            var currentDir = nextDirs.removeLast();
+
+            // check if result is not empty to avoid including even the root dir entry here
+            if (!result.isEmpty() && includeDirs) {
+                result.add(currentDir.getPath() + File.separatorChar);
+            }
+            var children = currentDir.listFiles();
             if (children != null) {
-                return Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter));
+                for (var child : children) {
+                    if (child.isFile() && filter.accept(currentDir, child.getName())) {
+                        result.add(child.getPath());
+                    } else if (child.isDirectory()) {
+                        nextDirs.addLast(child);
+                    }
+                }
             }
         }
-        return Stream.of();
     }
 
 }

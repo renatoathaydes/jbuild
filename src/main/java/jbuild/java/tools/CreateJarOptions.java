@@ -88,7 +88,7 @@ public final class CreateJarOptions {
 
     static void addFileSetTo(List<String> result, String dir) {
         var dirPrefixLength = dir.length() + 1;
-        collectFiles(dir, (_1, _2) -> true).files.stream()
+        collectFiles(dir, (_1, _2) -> true, true).files.stream()
                 .map(path -> path.substring(dirPrefixLength))
                 .sorted()
                 .forEach(file -> {
