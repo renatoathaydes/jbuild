@@ -28,7 +28,7 @@ public final class GroovydocToolHelper implements Callable<Void> {
     public Void call() throws Exception {
         var tool = createGroovyDocTool();
 
-        tool.add(args.sourceFiles);
+        tool.add(List.copyOf(args.sourceFiles));
 
         var output = new FileOutputTool();
         tool.renderToOutput(output, args.outputDir);

@@ -293,12 +293,12 @@ public final class CompileCommandExecutor {
                         .thenApply((result) -> computeChecksum(result, jarFile, checksum)),
                 sourcesJar != null
                         ? sourcesJar(inputDirectories, sourcesJar)
-                        .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
+                          .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
                 javadocJar != null
                         ? createJavadoc(computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
-                        .thenCompose(result -> javadocJar(result, javadocJar))
-                        .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
+                          .thenCompose(result -> javadocJar(result, javadocJar))
+                          .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
 
         var timeout = Duration.ofMinutes(5);
@@ -355,7 +355,7 @@ public final class CompileCommandExecutor {
             }
 
             try {
-                GroovyDocInvoker.run(List.copyOf(sourceFiles), groovyJar, groovydocToolClasspath, outputDir);
+                GroovyDocInvoker.run(sourceFiles, groovyJar, groovydocToolClasspath, outputDir);
             } catch (Exception | LinkageError e) {
                 throw new JBuildException("Unable to invoke GroovyDoc tool due to " + e,
                         ACTION_ERROR);
