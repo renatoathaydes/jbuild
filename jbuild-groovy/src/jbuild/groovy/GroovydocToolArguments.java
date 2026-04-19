@@ -3,7 +3,6 @@ package jbuild.groovy;
 import org.codehaus.groovy.tools.groovydoc.gstringTemplates.GroovyDocTemplateInfo;
 
 import java.util.Collection;
-import java.util.List;
 
 public final class GroovydocToolArguments {
 
@@ -29,7 +28,7 @@ public final class GroovydocToolArguments {
     }
 
     public GroovydocToolArguments(String[] sourceDirs,
-                                  List<String> sourceFiles,
+                                  Collection<String> sourceFiles,
                                   String outputDir) {
         this(sourceDirs, sourceFiles, outputDir,
                 GroovyDocTemplateInfo.DEFAULT_DOC_TEMPLATES,

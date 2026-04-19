@@ -6,10 +6,14 @@ import org.codehaus.groovy.tools.groovydoc.FileOutputTool;
 import org.codehaus.groovy.tools.groovydoc.GroovyDocTool;
 import org.codehaus.groovy.tools.groovydoc.ResourceManager;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * This class is instantiated and invoked by reflection by {@code jbuild.commands.GroovyDocInvoker}.
@@ -28,7 +32,8 @@ public final class GroovydocToolHelper implements Callable<Void> {
     public Void call() throws Exception {
         var tool = createGroovyDocTool();
 
-        tool.add(List.copyOf(args.sourceFiles));
+        // all source files must be relative to the sourceDirs
+        tool.add(relativeToSourceDirs(args.sourceDirs, args.sourceFiles));
 
         var output = new FileOutputTool();
         tool.renderToOutput(output, args.outputDir);
@@ -82,4 +87,17 @@ public final class GroovydocToolHelper implements Callable<Void> {
                         Collections.emptyList(),
                         new Properties());
     }
+
+    private static List<String> relativeToSourceDirs(String[] sourceDirs, Collection<String> sourceFiles) {
+        return sourceFiles.stream().map(file -> {
+            for (var dir : sourceDirs) {
+                if (file.length() > dir.length() && file.startsWith(dir)) {
+                    return file.substring(dir.length() + 1);
+                }
+            }
+            throw new IllegalStateException("No source directory found for file " + file +
+                    ". Source directories: " + Arrays.toString(sourceDirs));
+        }).collect(toList());
+    }
+
 }

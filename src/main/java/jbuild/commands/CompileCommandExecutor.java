@@ -296,7 +296,7 @@ public final class CompileCommandExecutor {
                           .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
                 javadocJar != null
-                        ? createJavadoc(computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
+                        ? createJavadoc(inputDirectories, computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
                           .thenCompose(result -> javadocJar(result, javadocJar))
                           .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
@@ -332,6 +332,7 @@ public final class CompileCommandExecutor {
     }
 
     private CompletionStage<Either<ToolRunResult, String>> createJavadoc(
+            Collection<String> sourceDirs,
             String classpath,
             Set<String> sourceFiles,
             String groovyJar,
@@ -355,7 +356,7 @@ public final class CompileCommandExecutor {
             }
 
             try {
-                GroovyDocInvoker.run(sourceFiles, groovyJar, groovydocToolClasspath, outputDir);
+                GroovyDocInvoker.run(sourceDirs, sourceFiles, groovyJar, groovydocToolClasspath, outputDir);
             } catch (Exception | LinkageError e) {
                 throw new JBuildException("Unable to invoke GroovyDoc tool due to " + e,
                         ACTION_ERROR);
