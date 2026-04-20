@@ -5,13 +5,13 @@ import jbuild.commands.JbuildCompiler;
 import jbuild.log.JBuildLog;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -46,10 +46,14 @@ public final class GroovyCompiler implements JbuildCompiler {
     }
 
     private <CL extends ClassLoader & Closeable> ToolRunResult run(List<String> args) {
+        var groovyFile = new File(groovyJar);
+        if (!groovyFile.isFile()) {
+            throw new JBuildException("Cannot compile Groovy, the Groovy jar does not exist: " + groovyJar, ACTION_ERROR);
+        }
         CL groovyClassLoader;
         URL[] classpath;
         try {
-            classpath = new URL[]{Paths.get(groovyJar).toUri().toURL()};
+            classpath = new URL[]{groovyFile.toURI().toURL()};
         } catch (MalformedURLException e) {
             throw new JBuildException("Could not create Groovy compiler ClassLoader from " + groovyJar +
                     " due to: " + e, ACTION_ERROR);
@@ -98,14 +102,14 @@ public final class GroovyCompiler implements JbuildCompiler {
                         ACTION_ERROR);
             }
             try {
-                method = groovycClass.getMethod("commandLineCompile", String[].class);
+                method = groovycClass.getMethod("commandLineCompile", String[].class, boolean.class);
             } catch (NoSuchMethodException e) {
                 throw new JBuildException("Could not find method " + GROOVYC_CLASS + "#commandLineCompile " +
                         "for compiling Groovy code", ACTION_ERROR);
             }
 
             try {
-                method.invoke(null, (Object) args);
+                method.invoke(null, (Object) args, /* lookupUnnamedFiles = */ false);
             } catch (InvocationTargetException e) {
                 return new MemoryToolRunResult(1, args, "", e.getCause().toString());
             } catch (Exception e) {

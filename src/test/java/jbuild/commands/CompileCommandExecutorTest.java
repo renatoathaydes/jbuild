@@ -1274,6 +1274,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void reportsGroovyCompilationError() throws Exception {
+        TestSystemProperties.validate("groovyJar", groovyJar);
+
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);

@@ -7,8 +7,7 @@ import jbuild.util.Either;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
+import java.util.Collection;
 import java.util.concurrent.Callable;
 
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
@@ -23,7 +22,8 @@ final class GroovyDocInvoker {
     private static final String GROOVYDOC_TOOL_ARGS_CLASS = "jbuild.groovy.GroovydocToolArguments";
     private static final String GROOVYDOC_TOOL_HELPER_CLASS = "jbuild.groovy.GroovydocToolHelper";
 
-    static void run(List<String> sourceFiles,
+    static void run(Collection<String> sourceDirs,
+                    Collection<String> sourceFiles,
                     String groovyJar,
                     String groovydocToolClasspath,
                     String outputDir)
@@ -32,13 +32,11 @@ final class GroovyDocInvoker {
         var helperClass = groovyClassLoader.loadClass(GROOVYDOC_TOOL_HELPER_CLASS);
         var argsClass = groovyClassLoader.loadClass(GROOVYDOC_TOOL_ARGS_CLASS);
 
-        var sourceDirs = new String[]{Paths.get(".").toAbsolutePath().toString()};
-
         // String[] sourceDirs,
-        // List<String> sourceFiles,
+        // Collection<String> sourceFiles,
         // String outputDir
-        var args = argsClass.getConstructor(String[].class, List.class, String.class)
-                .newInstance(sourceDirs, sourceFiles, outputDir);
+        var args = argsClass.getConstructor(String[].class, Collection.class, String.class)
+                .newInstance(sourceDirs.toArray(String[]::new), sourceFiles, outputDir);
 
         var helper = (Callable<?>) helperClass.getConstructor(argsClass)
                 .newInstance(args);

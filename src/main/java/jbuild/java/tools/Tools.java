@@ -253,10 +253,11 @@ public abstract class Tools {
             }
             // warnings options
             if (forGroovy) {
-                if (!compilerArgs.contains("-w") && !compilerArgs.contains("--warningLevel")) {
-                    result.add("-w");
-                    result.add("3");
-                }
+                // FIXME this option does not work in Groovy 4, seems to work only in Groovy 5
+//                if (!compilerArgs.contains("-w") && !compilerArgs.contains("--warningLevel")) {
+//                    result.add("--warningLevel");
+//                    result.add("3");
+//                }
             } else {
                 if (!compilerArgs.contains("-nowarn") && !compilerArgs.contains("-Werror")) {
                     result.add("-Werror");
