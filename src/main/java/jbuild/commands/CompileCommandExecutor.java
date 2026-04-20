@@ -62,6 +62,8 @@ public final class CompileCommandExecutor {
 
     private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) ->
             name.endsWith(".java");
+    private static final FilenameFilter JAR_FILES_FILTER = (dir, name) ->
+            name.endsWith(".jar");
     private static final FilenameFilter JAVA_GROOVY_FILES_FILTER = (dir, name) ->
             name.endsWith(".java") || name.endsWith(".groovy");
     private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) ->
@@ -571,7 +573,10 @@ public final class CompileCommandExecutor {
         return Stream.concat(
                         previousOutput == null ? Stream.of() : Stream.of(previousOutput),
                         Stream.of(classpath.split(File.pathSeparator))
-                                .filter(not(String::isBlank)))
+                                .filter(not(String::isBlank))
+                                .flatMap(p -> p.endsWith(File.separatorChar + "*")
+                                        ? FileUtils.allFilesInDir(p.substring(0, p.length() - 2), JAR_FILES_FILTER)
+                                        : Stream.of(p)))
                 .collect(joining(File.pathSeparator));
     }
 

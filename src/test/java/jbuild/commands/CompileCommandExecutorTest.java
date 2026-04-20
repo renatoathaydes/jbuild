@@ -121,7 +121,7 @@ public class CompileCommandExecutorTest {
                 false,
                 false,
                 false,
-                "",
+                "non-existent-classpath-ignored",
                 Either.left(true),
                 List.of(),
                 null);

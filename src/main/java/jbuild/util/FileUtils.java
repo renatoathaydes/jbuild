@@ -107,6 +107,14 @@ public final class FileUtils {
         return completionStage;
     }
 
+    /**
+     * Get all files in a directory, non-recursive.
+     *
+     * @param directory dir
+     * @param filter    file filter
+     * @return the files in the directory
+     * @throws JBuildException if the directory does not exist
+     */
     public static File[] allFilesInDir(File directory, FileFilter filter) {
         if (!directory.isDirectory()) {
             throw new JBuildException("not a directory: " + directory, USER_INPUT);
@@ -115,6 +123,24 @@ public final class FileUtils {
         if (files == null)
             return new File[0];
         return files;
+    }
+
+    /**
+     * Get all files in a directory, non-recursive.
+     *
+     * @param directory dir
+     * @param filter    file name filter
+     * @return the files in the directory if it exists, or an empty Stream otherwise
+     */
+    public static Stream<String> allFilesInDir(String directory, FilenameFilter filter) {
+        var dir = new File(directory);
+        if (!dir.isDirectory()) {
+            return Stream.empty();
+        }
+        var files = dir.listFiles(filter);
+        if (files == null)
+            return Stream.empty();
+        return Stream.of(files).map(File::getPath);
     }
 
     public static List<FileCollection> collectFiles(Set<String> directories,

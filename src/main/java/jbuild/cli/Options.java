@@ -987,7 +987,9 @@ final class CompileOptions {
                 createSourcesJar,
                 createJavadocsJar,
                 checksum,
-                classPath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classPath.toString(),
+                classPath.length() == 0
+                        ? (InstallCommandExecutor.LIBS_DIR + File.separatorChar + "*")
+                        : classPath.toString(),
                 modulePath.toString(),
                 manifest == null ? Either.left(true) : manifest,
                 incrementalChanges);
