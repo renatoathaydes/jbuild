@@ -129,6 +129,23 @@ public class FileUtilsTest {
                 .containsExactlyInAnyOrder("bar.txt", "car.txt", "foo.txt");
     }
 
+    @Test
+    void canCollectFilesInSubDirWithFiles() throws IOException {
+        FilenameFilter filter = (File dir, String name) -> name.endsWith(".txt");
+        var dir = Files.createTempDirectory(FileUtilsTest.class.getSimpleName());
+        var dirPath = dir.toString();
+
+        assertThat(dir.resolve("sub").toFile().mkdir()).isTrue();
+        Files.writeString(dir.resolve("sub").resolve("foo.txt"), "foo");
+
+        var result = FileUtils.collectFiles(dirPath, filter, true);
+
+        assertThat(result.directory).isEqualTo(dirPath);
+        assertThat(result.files).allMatch(file -> file.startsWith(dirPath + File.separatorChar));
+        assertThat(result.files.stream().map(f -> f.substring(dirPath.length() + 1)))
+                .containsExactlyInAnyOrder("sub" + File.separatorChar, path("sub", "foo.txt"));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void canCollectFilesInDirTree(boolean includeDirs) throws IOException {

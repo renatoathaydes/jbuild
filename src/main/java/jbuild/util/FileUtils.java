@@ -182,8 +182,8 @@ public final class FileUtils {
         while (!nextDirs.isEmpty()) {
             var currentDir = nextDirs.removeLast();
 
-            // check if result is not empty to avoid including even the root dir entry here
-            if (!result.isEmpty() && includeDirs) {
+            // includeDirs but avoid including the root dir itself
+            if (includeDirs && !currentDir.equals(file)) {
                 result.add(currentDir.getPath() + File.separatorChar);
             }
             var children = currentDir.listFiles();
