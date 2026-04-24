@@ -39,10 +39,7 @@ public class JBuildTestRunner {
 
     public interface SystemProperties {
         File integrationTestsRepo = new File(System.getProperty("tests.int-tests.repo"));
-    }
-
-    static File getGroovydocToolDir() {
-        return new File(integrationTestsRepo, "groovydoc-tool");
+        File groovydocToolLibs = new File(System.getProperty("tests.int-tests.groovydoc-tool"));
     }
 
     @BeforeAll
@@ -51,13 +48,13 @@ public class JBuildTestRunner {
             System.out.println("Installing Maven repository for integration tests at " + integrationTestsRepo.getPath());
             var runner = new JBuildTestRunner();
             var result = runner.run("-r", MavenUtils.MAVEN_CENTRAL_URL, "install",
-                    "-O", "-s", "compile", "-c", "-r", integrationTestsRepo.getPath(),
+                    "-s", "compile", "-c", "-r", integrationTestsRepo.getPath(),
                     Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE, Artifacts.GROOVY);
             System.out.println("STDOUT: " + result.getStdout());
             System.out.println("STDERR RESULT: " + result.getStderr());
             verifySuccessful("install int-tests repository", result);
 
-            var groovydocDir = getGroovydocToolDir();
+            var groovydocDir = SystemProperties.groovydocToolLibs;
             System.out.println("Installing Groovydoc tool classpath for integration tests at " +
                     groovydocDir.getPath());
             result = runner.run("-r", MavenUtils.MAVEN_CENTRAL_URL,
@@ -69,7 +66,7 @@ public class JBuildTestRunner {
     }
 
     protected String getGroovydocToolClasspath() {
-        var dir = getGroovydocToolDir();
+        var dir = SystemProperties.groovydocToolLibs;
         var jars = FileUtils.collectFiles(dir.getPath(), (d, name) -> name.endsWith(".jar"));
         return String.join(File.pathSeparator, jars.files);
     }

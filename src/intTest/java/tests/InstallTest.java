@@ -2,8 +2,6 @@ package tests;
 
 import jbuild.artifact.Artifact;
 import org.apache.commons.io.FileUtils;
-import org.assertj.core.api.CollectionAssert;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
@@ -26,12 +24,6 @@ import static util.JBuildTestRunner.SystemProperties.integrationTestsRepo;
  */
 public class InstallTest extends JBuildTestRunner {
 
-    // Verify this class exists due to random errors on Windows (Github CI)
-    @BeforeEach
-    void before() {
-        System.out.println(CollectionAssert.class);
-    }
-
     @Test
     void canInstallJarsIntoLocalMavenRepo() {
         // the install command is used to setup the initial Maven repository,
@@ -42,26 +34,7 @@ public class InstallTest extends JBuildTestRunner {
         assertThat(rootDirectories).isNotNull();
 
         List<String> expectedLines = ("" +
-                "asm" + LE +
-                "  asm" + LE +
-                "    3.2" + LE +
-                "      asm-3.2.jar" + LE +
-                "      asm-3.2.jar.sha1" + LE +
-                "      asm-3.2.pom" + LE +
-                "      asm-3.2.pom.sha1" + LE +
-                "  asm-parent" + LE +
-                "    3.2" + LE +
-                "      asm-parent-3.2.pom" + LE +
-                "      asm-parent-3.2.pom.sha1" + LE +
                 "com" + LE +
-                "  github" + LE +
-                "    luben" + LE +
-                "      zstd-jni" + LE +
-                "        1.5.0-2" + LE +
-                "          zstd-jni-1.5.0-2.jar" + LE +
-                "          zstd-jni-1.5.0-2.jar.sha1" + LE +
-                "          zstd-jni-1.5.0-2.pom" + LE +
-                "          zstd-jni-1.5.0-2.pom.sha1" + LE +
                 "  google" + LE +
                 "    code" + LE +
                 "      findbugs" + LE +
@@ -132,6 +105,17 @@ public class InstallTest extends JBuildTestRunner {
                 "        52" + LE +
                 "          commons-parent-52.pom" + LE +
                 "          commons-parent-52.pom.sha1" + LE +
+                "    groovy" + LE +
+                "      groovy" + LE +
+                "        4.0.12" + LE +
+                "          groovy-4.0.12.jar" + LE +
+                "          groovy-4.0.12.jar.sha1" + LE +
+                "          groovy-4.0.12.pom" + LE +
+                "          groovy-4.0.12.pom.sha1" + LE +
+                "      groovy-bom" + LE +
+                "        4.0.12" + LE +
+                "          groovy-bom-4.0.12.pom" + LE +
+                "          groovy-bom-4.0.12.pom.sha1" + LE +
                 "  apiguardian" + LE +
                 "    apiguardian-api" + LE +
                 "      1.1.0" + LE +
@@ -139,17 +123,6 @@ public class InstallTest extends JBuildTestRunner {
                 "        apiguardian-api-1.1.0.jar.sha1" + LE +
                 "        apiguardian-api-1.1.0.pom" + LE +
                 "        apiguardian-api-1.1.0.pom.sha1" + LE +
-                "  brotli" + LE +
-                "    dec" + LE +
-                "      0.1.2" + LE +
-                "        dec-0.1.2.jar" + LE +
-                "        dec-0.1.2.jar.sha1" + LE +
-                "        dec-0.1.2.pom" + LE +
-                "        dec-0.1.2.pom.sha1" + LE +
-                "    parent" + LE +
-                "      0.1.2" + LE +
-                "        parent-0.1.2.pom" + LE +
-                "        parent-0.1.2.pom.sha1" + LE +
                 "  checkerframework" + LE +
                 "    checker-qual" + LE +
                 "      3.12.0" + LE +
@@ -157,14 +130,6 @@ public class InstallTest extends JBuildTestRunner {
                 "        checker-qual-3.12.0.jar.sha1" + LE +
                 "        checker-qual-3.12.0.pom" + LE +
                 "        checker-qual-3.12.0.pom.sha1" + LE +
-                "  codehaus" + LE +
-                "    groovy" + LE +
-                "      groovy" + LE +
-                "        3.0.9" + LE +
-                "          groovy-3.0.9.jar" + LE +
-                "          groovy-3.0.9.jar.sha1" + LE +
-                "          groovy-3.0.9.pom" + LE +
-                "          groovy-3.0.9.pom.sha1" + LE +
                 "  junit" + LE +
                 "    junit-bom" + LE +
                 "      5.7.0" + LE +
@@ -212,13 +177,6 @@ public class InstallTest extends JBuildTestRunner {
                 "        9" + LE +
                 "          oss-parent-9.pom" + LE +
                 "          oss-parent-9.pom.sha1" + LE +
-                "  tukaani" + LE +
-                "    xz" + LE +
-                "      1.9" + LE +
-                "        xz-1.9.jar" + LE +
-                "        xz-1.9.jar.sha1" + LE +
-                "        xz-1.9.pom" + LE +
-                "        xz-1.9.pom.sha1" +
                 "").lines().collect(toList());
 
         assertThat(fileTreeString(rootDirectories).lines().collect(toList()))

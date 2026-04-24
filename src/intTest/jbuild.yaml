@@ -4,6 +4,7 @@ imports:
 properties:
   CLASSES_DIR: build/classes
   INTEGRATION_TEST_REPO_DIR: build/integration-test-mvn-repo
+  GROOVYDOC_TOOL_LIBS_DIR: build/groovydoc-libs
   INTEGRATION_TEST_RESOURCES_DIR: resources
 
 group: com.athaydes.jbuild
@@ -19,6 +20,7 @@ javac-args: [ "--release={{versions.java}}" ]
 test-java-args:
   - "-Dtests.int-tests.repo={{INTEGRATION_TEST_REPO_DIR}}"
   - "-Dtests.int-tests.resources={{INTEGRATION_TEST_RESOURCES_DIR}}"
+  - "-Dtests.int-tests.groovydoc-tool={{GROOVYDOC_TOOL_LIBS_DIR}}"
 
 test-java-env:
   MAVEN_LOCAL_HOME: "{{INTEGRATION_TEST_REPO_DIR}}"
