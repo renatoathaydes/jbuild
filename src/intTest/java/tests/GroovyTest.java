@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class GroovyTest extends JBuildTestRunner {
 
     @Test
-    void canCompileGroovy3ToJarAndSourcesAndJavadocJar() throws Exception {
+    void canCompileGroovy4ToJarAndSourcesAndJavadocJar() throws Exception {
         var groovyJar = SystemProperties.integrationTestsRepo.toPath()
                 .resolve(Paths.get("org", "apache", "groovy", "groovy",
                         Artifacts.GROOVY_VERSION, Artifacts.GROOVY_JAR_NAME));
