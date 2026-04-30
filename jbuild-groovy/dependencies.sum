@@ -1,0 +1,7 @@
+com.github.javaparser:javaparser-core:3.28.0 59829d055a8327d017e83316fc01b182335da9d6
+com.thoughtworks.qdox:qdox:2.2.0 39651eb3ce73d6e506490ea352e1e13eab6b55e8
+org.apache.groovy:groovy-docgenerator:5.0.4 e45f077b5c9e9b8b5e3c7dd6b82312dfc9d584a1
+org.apache.groovy:groovy-groovydoc:5.0.4 c8351b45f4d3a947aff23c7f55255f8959e220ec
+org.apache.groovy:groovy-templates:5.0.4 2a86c4f378beb56e0a76db0d5a4cf9ef5d27a45e
+org.apache.groovy:groovy-xml:5.0.4 2a445495b25ec6b7585a51155fec1739e44254fb
+org.apache.groovy:groovy:5.0.4 624fd80e3b6234c89730901afffe9225c87f2535
