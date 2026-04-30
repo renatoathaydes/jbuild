@@ -4,7 +4,9 @@ import jbuild.java.tools.Tools;
 import org.junit.jupiter.api.Test;
 import util.JBuildTestRunner;
 
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
@@ -16,9 +18,17 @@ public class GroovyTest extends JBuildTestRunner {
 
     @Test
     void canCompileGroovy4ToJarAndSourcesAndJavadocJar() throws Exception {
-        var groovyJar = SystemProperties.integrationTestsRepo.toPath()
-                .resolve(Paths.get("org", "apache", "groovy", "groovy",
-                        Artifacts.GROOVY_VERSION, Artifacts.GROOVY_JAR_NAME));
+        var groovyJar = SystemProperties.groovydoc4ToolLibs.toPath().resolve(Artifacts.GROOVY4_JAR_NAME);
+        runGroovyCompilationAndDocsTest(groovyJar);
+    }
+
+    @Test
+    void canCompileGroovy5ToJarAndSourcesAndJavadocJar() throws Exception {
+        var groovyJar = SystemProperties.groovydoc5ToolLibs.toPath().resolve(Artifacts.GROOVY5_JAR_NAME);
+        runGroovyCompilationAndDocsTest(groovyJar);
+    }
+
+    private void runGroovyCompilationAndDocsTest(Path groovyJar) throws IOException {
         assert groovyJar.toFile().isFile();
 
         var groovydocToolClasspath = getGroovydocToolClasspath();

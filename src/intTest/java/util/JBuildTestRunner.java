@@ -31,42 +31,63 @@ public class JBuildTestRunner {
 
         String GUAVA_JAR_NAME = "guava-31.0.1-jre.jar";
 
-        String GROOVY_VERSION = "4.0.12";
-        String GROOVY = "org.apache.groovy:groovy:" + GROOVY_VERSION;
-        String GROOVYDOC_TOOL = "org.apache.groovy:groovy-groovydoc:" + GROOVY_VERSION;
-        String GROOVY_JAR_NAME = "groovy-" + GROOVY_VERSION + ".jar";
+        String GROOVY4_VERSION = "4.0.12";
+        String GROOVY4 = "org.apache.groovy:groovy:" + GROOVY4_VERSION;
+        String GROOVYDOC4_TOOL = "org.apache.groovy:groovy-groovydoc:" + GROOVY4_VERSION;
+        String GROOVY4_JAR_NAME = "groovy-" + GROOVY4_VERSION + ".jar";
+
+        String GROOVY5_VERSION = "5.0.5";
+        String GROOVY5 = "org.apache.groovy:groovy:" + GROOVY5_VERSION;
+        String GROOVYDOC5_TOOL = "org.apache.groovy:groovy-groovydoc:" + GROOVY5_VERSION;
+        String GROOVY5_JAR_NAME = "groovy-" + GROOVY5_VERSION + ".jar";
     }
 
     public interface SystemProperties {
         File integrationTestsRepo = new File(System.getProperty("tests.int-tests.repo"));
-        File groovydocToolLibs = new File(System.getProperty("tests.int-tests.groovydoc-tool"));
+        File groovydoc4ToolLibs = new File(System.getProperty("tests.int-tests.groovydoc4-tool"));
+        File groovydoc5ToolLibs = new File(System.getProperty("tests.int-tests.groovydoc5-tool"));
     }
 
     @BeforeAll
     static void initialize() {
-        if (!integrationTestsRepo.isDirectory()) {
-            System.out.println("Installing Maven repository for integration tests at " + integrationTestsRepo.getPath());
-            var runner = new JBuildTestRunner();
-            var result = runner.run("-r", MavenUtils.MAVEN_CENTRAL_URL, "install",
-                    "-s", "compile", "-c", "-r", integrationTestsRepo.getPath(),
-                    Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE, Artifacts.GROOVY);
-            System.out.println("STDOUT: " + result.getStdout());
-            System.out.println("STDERR RESULT: " + result.getStderr());
-            verifySuccessful("install int-tests repository", result);
+        var runner = new JBuildTestRunner();
+        createTestRepository(runner);
+        installGroovydocTool(runner, SystemProperties.groovydoc4ToolLibs, Artifacts.GROOVYDOC4_TOOL);
+        installGroovydocTool(runner, SystemProperties.groovydoc5ToolLibs, Artifacts.GROOVYDOC5_TOOL);
+    }
 
-            var groovydocDir = SystemProperties.groovydocToolLibs;
-            System.out.println("Installing Groovydoc tool classpath for integration tests at " +
-                    groovydocDir.getPath());
-            result = runner.run("-r", MavenUtils.MAVEN_CENTRAL_URL,
-                    "install", Artifacts.GROOVYDOC_TOOL, "-s", "runtime", "-d", groovydocDir.getPath());
-            verifySuccessful("install groovydoc tool", result);
-        } else {
+    private static void createTestRepository(JBuildTestRunner runner) {
+        if (integrationTestsRepo.isDirectory()) {
             System.out.println("Skipping creating a new Maven repository for integration tests as repo already exists");
+            return;
         }
+
+        System.out.println("Installing Maven repository for integration tests at " + integrationTestsRepo.getPath());
+        var result = runner.run("-r", MavenUtils.MAVEN_CENTRAL_URL, "install",
+                "-s", "compile", "-c", "-r", integrationTestsRepo.getPath(),
+                Artifacts.GUAVA, Artifacts.APACHE_COMMONS_COMPRESS, Artifacts.JUNIT5_ENGINE, Artifacts.GROOVY4);
+        System.out.println("STDOUT: " + result.getStdout());
+        System.out.println("STDERR RESULT: " + result.getStderr());
+        verifySuccessful("install int-tests repository", result);
+    }
+
+    private static void installGroovydocTool(JBuildTestRunner runner,
+                                             File groovydocDir,
+                                             String groovyArtifact) {
+        if (groovydocDir.isDirectory()) {
+            System.out.println("Skipping installing tool: " + groovyArtifact);
+            return;
+        }
+
+        System.out.println("Installing Groovydoc tool classpath for integration tests at " +
+                groovydocDir.getPath());
+        var result = runner.run("-r", MavenUtils.MAVEN_CENTRAL_URL,
+                "install", groovyArtifact, "-s", "runtime", "-d", groovydocDir.getPath());
+        verifySuccessful("install " + groovyArtifact, result);
     }
 
     protected String getGroovydocToolClasspath() {
-        var dir = SystemProperties.groovydocToolLibs;
+        var dir = SystemProperties.groovydoc4ToolLibs;
         var jars = FileUtils.collectFiles(dir.getPath(), (d, name) -> name.endsWith(".jar"));
         return String.join(File.pathSeparator, jars.files);
     }
