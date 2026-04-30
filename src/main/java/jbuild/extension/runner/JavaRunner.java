@@ -83,7 +83,12 @@ public final class JavaRunner implements Closeable {
 
     @Override
     public void close() {
+        var ourClassLoader = JavaRunner.class.getClassLoader();
+
         classLoaderByClasspath.values().forEach(cl -> {
+            // never close the ClassLoader used to load this class
+            if (cl == ourClassLoader) return;
+
             if (cl instanceof Closeable) {
                 try {
                     ((Closeable) cl).close();
