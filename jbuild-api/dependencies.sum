@@ -4,6 +4,7 @@ com.google.auto.service:auto-service-annotations:1.0.1 ac86dacc0eb9285ea9d42eee6
 com.google.auto.value:auto-value-annotations:1.9 25a0fcef915f663679fcdb447541c5d86a9be4ba
 com.google.auto:auto-common:1.2.2 9d38f10e22411681cf1d1ee3727e002af19f2c9e
 com.google.errorprone:error_prone_annotation:2.49.0 29848c09345b23612b5a68f71c7ba64880e367f0
+com.google.errorprone:error_prone_annotations:2.49.0 8b42a2e3865f6e0576da3fad51dbb96732ff0f14
 com.google.errorprone:error_prone_check_api:2.49.0 552b2e5ab3f314b3e6bce07cb9acf51c9b684825
 com.google.errorprone:error_prone_core:2.49.0 c75e9f17da85debb7ee1d40c589f67c535c2b9db
 com.google.googlejavaformat:google-java-format:1.35.0 eda07d4a6a67783de179b7fded4506a61cea3171
