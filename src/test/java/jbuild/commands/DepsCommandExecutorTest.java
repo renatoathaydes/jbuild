@@ -5,6 +5,7 @@ import jbuild.artifact.file.FileArtifactRetriever;
 import jbuild.commands.MavenPomRetriever.DefaultPomCreator;
 import jbuild.errors.FileRetrievalError;
 import jbuild.log.JBuildLog;
+import jbuild.maven.DependencyExclusions;
 import jbuild.maven.DependencyTree;
 import jbuild.maven.Scope;
 import jbuild.util.Either;
@@ -14,6 +15,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import static jbuild.util.AsyncUtils.awaitValues;
 import static jbuild.util.CollectionUtils.mapValues;
@@ -78,9 +81,156 @@ public class DepsCommandExecutorTest {
                         "com.athaydes:b:1.0 -> com.athaydes:a:1.0 -> com.athaydes:b:1.0" + System.lineSeparator());
     }
 
+    @Test
+    void canExcludeDependency() throws InterruptedException {
+        var bytesOut = new ByteArrayOutputStream();
+        var depsExecutor = createDepsCommand(bytesOut);
+
+        var result = depsExecutor.fetchDependencyTree(
+                Set.of(new Artifact("com.athaydes", "a", "1.0")),
+                null, EnumSet.allOf(Scope.class), true, true,
+                new DependencyExclusions(Set.of(Pattern.compile("com.athaydes:b:.*")),
+                        Map.of()));
+
+        var queue = new LinkedBlockingDeque<Either<Map<Artifact, DependencyTree>, String>>(1);
+        awaitValues(result).handle((ok, err) -> {
+            if (err != null) return Either.right(err.toString());
+            return queue.offer(unwrap(ok));
+        });
+
+        var res = queue.poll(5, TimeUnit.SECONDS);
+
+        assert res != null : "Timeout waiting for result";
+
+        var map = res.map(ok -> ok, Assertions::fail);
+
+        assertThat(map).hasSize(1);
+        assertThat(map.keySet()).isEqualTo(Set.of(new Artifact("com.athaydes", "a", "1.0", "pom")));
+
+        var tree = map.get(new Artifact("com.athaydes", "a", "1.0", "pom"));
+        assert tree != null;
+
+        assertThat(tree.root.artifact).isEqualTo(new Artifact("com.athaydes", "a", "1.0", "pom"));
+        assertThat(tree.dependencies).isEmpty();
+        assertThat(bytesOut.toString(StandardCharsets.UTF_8)).isEmpty();
+    }
+
+    @Test
+    void excludingSelfIsAllowed() throws InterruptedException {
+        var bytesOut = new ByteArrayOutputStream();
+        var depsExecutor = createDepsCommand(bytesOut);
+
+        var result = depsExecutor.fetchDependencyTree(
+                Set.of(new Artifact("com.athaydes", "a", "1.0")),
+                null, EnumSet.allOf(Scope.class), true, true,
+                new DependencyExclusions(Set.of(Pattern.compile("com.athaydes:a:.*")),
+                        Map.of()));
+
+        var queue = new LinkedBlockingDeque<Either<Map<Artifact, DependencyTree>, String>>(1);
+        awaitValues(result).handle((ok, err) -> {
+            if (err != null) return Either.right(err.toString());
+            return queue.offer(unwrap(ok));
+        });
+
+        var res = queue.poll(5, TimeUnit.SECONDS);
+
+        assert res != null : "Timeout waiting for result";
+
+        var map = res.map(ok -> ok, Assertions::fail);
+
+        assertThat(map).hasSize(1);
+        assertThat(map.keySet()).isEqualTo(Set.of(new Artifact("com.athaydes", "a", "1.0", "pom")));
+
+        var tree = map.get(new Artifact("com.athaydes", "a", "1.0", "pom"));
+        assert tree != null;
+
+        assertThat(tree.root.artifact).isEqualTo(new Artifact("com.athaydes", "a", "1.0", "pom"));
+
+        assertThat(tree.dependencies).hasSize(1);
+        assertThat(tree.dependencies.get(0).root.artifact).isEqualTo(new Artifact("com.athaydes", "b", "1.0", "pom"));
+        assertThat(tree.dependencies.get(0).dependencies).isEmpty();
+
+        assertThat(bytesOut.toString(StandardCharsets.UTF_8)).isEmpty();
+    }
+
+    @Test
+    void warnIfGloballyExcludingNonDependency() throws InterruptedException {
+        var bytesOut = new ByteArrayOutputStream();
+        var depsExecutor = createDepsCommand(bytesOut);
+
+        var result = depsExecutor.fetchDependencyTree(
+                Set.of(new Artifact("com.athaydes", "c", "1.0")),
+                null, EnumSet.allOf(Scope.class), true, true,
+                new DependencyExclusions(Set.of(Pattern.compile("com.athaydes:a:.*")),
+                        Map.of()));
+
+        var queue = new LinkedBlockingDeque<Either<Map<Artifact, DependencyTree>, String>>(1);
+        awaitValues(result).handle((ok, err) -> {
+            if (err != null) return Either.right(err.toString());
+            return queue.offer(unwrap(ok));
+        });
+
+        var res = queue.poll(5, TimeUnit.SECONDS);
+
+        assert res != null : "Timeout waiting for result";
+
+        var map = res.map(ok -> ok, Assertions::fail);
+
+        assertThat(map).hasSize(1);
+        assertThat(map.keySet()).isEqualTo(Set.of(new Artifact("com.athaydes", "c", "1.0", "pom")));
+
+        var tree = map.get(new Artifact("com.athaydes", "c", "1.0", "pom"));
+        assert tree != null;
+
+        assertThat(tree.root.artifact).isEqualTo(new Artifact("com.athaydes", "c", "1.0", "pom"));
+
+        assertThat(tree.dependencies).isEmpty();
+
+        assertThat(bytesOut.toString(StandardCharsets.UTF_8))
+                .isEqualTo("WARNING: global exclusion pattern did not exclude anything: com.athaydes:a:.*\n");
+    }
+
+    @Test
+    void warnIfLocallyExcludingNonDependency() throws InterruptedException {
+        var bytesOut = new ByteArrayOutputStream();
+        var depsExecutor = createDepsCommand(bytesOut);
+
+        var result = depsExecutor.fetchDependencyTree(
+                Set.of(new Artifact("com.athaydes", "c", "1.0")),
+                null, EnumSet.allOf(Scope.class), true, true,
+                new DependencyExclusions(Set.of(),
+                        Map.of("com.athaydes:c:1.0", Set.of(Pattern.compile("com.athaydes:a:.*")))));
+
+        var queue = new LinkedBlockingDeque<Either<Map<Artifact, DependencyTree>, String>>(1);
+        awaitValues(result).handle((ok, err) -> {
+            if (err != null) return Either.right(err.toString());
+            return queue.offer(unwrap(ok));
+        });
+
+        var res = queue.poll(5, TimeUnit.SECONDS);
+
+        assert res != null : "Timeout waiting for result";
+
+        var map = res.map(ok -> ok, Assertions::fail);
+
+        assertThat(map).hasSize(1);
+        assertThat(map.keySet()).isEqualTo(Set.of(new Artifact("com.athaydes", "c", "1.0", "pom")));
+
+        var tree = map.get(new Artifact("com.athaydes", "c", "1.0", "pom"));
+        assert tree != null;
+
+        assertThat(tree.root.artifact).isEqualTo(new Artifact("com.athaydes", "c", "1.0", "pom"));
+        assertThat(tree.dependencies).isEmpty();
+
+        assertThat(bytesOut.toString(StandardCharsets.UTF_8))
+                .isEqualTo("WARNING: exclusion pattern for com.athaydes:c:1.0 did not exclude anything: " +
+                        "com.athaydes:a:.*\n");
+    }
+
     private static DepsCommandExecutor<FileRetrievalError> createDepsCommand(OutputStream bytesOut) {
         var out = new PrintStream(bytesOut);
         var log = new JBuildLog(out, false);
+        assert new File(repoDir).isDirectory() : "Not a directory: " + repoDir;
         var retrievers = new FileArtifactRetriever(Path.of(repoDir));
         var fetcher = new FetchCommandExecutor<>(log, NonEmptyCollection.of(retrievers));
         var pomRetriever = new MavenPomRetriever<>(log, fetcher, DefaultPomCreator.INSTANCE);

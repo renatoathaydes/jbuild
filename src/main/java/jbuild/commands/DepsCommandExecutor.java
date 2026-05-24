@@ -92,6 +92,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
                                                 expandedScopes, transitive, optional, exclusionsWithUsage)
                                                 .thenApply(Optional::of))
                                         .orElseGet(() -> completedFuture(Optional.empty()))));
+
         var completedCount = new AtomicInteger(result.size());
         return mapValues(result, completion ->
                 completion.whenComplete((ok, err) -> {
@@ -142,7 +143,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         log.verbosePrintln(() -> "Dependencies of " + artifact.getCoordinates() + " after exclusions (" +
                 applicableExclusions + "): " + dependencies.stream()
                 .map(dep -> dep.artifact.getCoordinates())
-                .collect(joining(", ")));
+                .collect(joining(", ", "[", "]")));
 
         var maxTreeDepthExceeded = transitive && chain.size() + 1 > Env.MAX_DEPENDENCY_TREE_DEPTH;
 
