@@ -4,6 +4,7 @@ import jbuild.TestSystemProperties;
 import jbuild.java.JavaTypeMapCreator;
 import jbuild.java.tools.Tools;
 import jbuild.util.Either;
+import jbuild.util.SHA1;
 import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +21,8 @@ import java.util.zip.ZipFile;
 import static java.util.stream.Collectors.toList;
 import static jbuild.TestSystemProperties.groovyJar;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
+import static jbuild.util.TestHelper.assertIsZipContaining;
+import static jbuild.util.TestHelper.parseExpectedZipContentsWithSha1;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CompileCommandExecutorTest {
@@ -138,6 +141,63 @@ public class CompileCommandExecutorTest {
         var buildFiles = buildDir.resolve("pkg").toFile().listFiles();
 
         assertThat(buildFiles).containsExactlyInAnyOrder(myClassFile.toFile(), otherClassFile.toFile());
+    }
+
+    @Test
+    void canCreateJarWithPredictableContents() throws Exception {
+        var logEntry = TestHelper.createLog(true);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var src = dir.resolve("src");
+        var pkg1 = src.resolve("pkg1");
+        var pkg2 = src.resolve("pkg2");
+
+        for (var pkg : List.of(pkg1, pkg2)) {
+            assert pkg.toFile().mkdirs();
+            var pkgName = pkg.getFileName();
+            for (int i = 0; i < 25; i++) {
+                var className = "Class" + ((char) (i + 'A'));
+                var myClass = pkg.resolve(className + ".java");
+                Files.write(myClass, List.of("package " + pkgName + ";\n" +
+                        "final class " + className + " {}"));
+            }
+        }
+
+        var jar = dir.resolve("lib.jar");
+
+        // use workingDir argument, and all other paths relative to it
+        var result = command.compile(
+                dir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.right(jar.toString()),
+                "",
+                "",
+                false,
+                false,
+                false,
+                "",
+                Either.left(true),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", result.getJarResult().get());
+        assertThat(result.getSourcesJarResult()).isNotPresent();
+        assertThat(result.getJavadocJarResult()).isNotPresent();
+        System.out.println(logEntry.getValue().toString(StandardCharsets.UTF_8));
+        assertThat(jar.toFile()).isFile();
+        assertIsZipContaining(jar, parseExpectedZipContentsWithSha1("/jbuild/commands/jar-contents-sha1.txt"));
+
+        String expectedSha1 = "41e8c157df1cd5261766638d5a38112ceb5e14fa";
+        String actualSha1 = SHA1.computeSha1HexString(Files.readAllBytes(jar));
+        assertThat(actualSha1)
+                .withFailMessage("Jar SHA1 checksum mismatch (all entries were OK): %s != %s", actualSha1, expectedSha1)
+                .isEqualTo(expectedSha1);
     }
 
     @Test

@@ -24,6 +24,10 @@ test-java-args:
   - "-Dtests.real-jars.groovy.jar=real-jars/groovy-5.0.0-alpha-9.jar"
   - "-Dtests.real-jars.jb-api.jar=../../jbuild-api/build/jbuild-api.jar"
 
+test-java-env:
+  # see https://reproducible-builds.org/docs/source-date-epoch/
+  SOURCE_DATE_EPOCH: 1980-01-01T00:00:02Z
+
 dependencies:
   "org.junit.jupiter:junit-jupiter-api:{{versions.junit}}":
   "org.junit.jupiter:junit-jupiter-params:{{versions.junit}}":
