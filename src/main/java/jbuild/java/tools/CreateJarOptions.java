@@ -1,5 +1,6 @@
 package jbuild.java.tools;
 
+import jbuild.java.JavaVersionHelper;
 import jbuild.util.Either;
 
 import java.io.File;
@@ -10,6 +11,18 @@ import java.util.Map;
 import static jbuild.util.FileUtils.collectFiles;
 
 public final class CreateJarOptions {
+
+    private static final boolean canUseJarDateOption;
+
+    static {
+        int javaVersion = 0;
+        try {
+            javaVersion = JavaVersionHelper.currentJavaVersion();
+        } catch (Throwable t) {
+            t.printStackTrace(System.err);
+        }
+        canUseJarDateOption = javaVersion >= 19;
+    }
 
     public final String name;
     public final String mainClass;
@@ -68,6 +81,13 @@ public final class CreateJarOptions {
             result.add("--module-version");
             result.add(moduleVersion);
         }
+
+        var sourceDateEpoch = canUseJarDateOption ? System.getenv("SOURCE_DATE_EPOCH") : null;
+        if (sourceDateEpoch != null && !sourceDateEpoch.isEmpty()) {
+            result.add("--date");
+            result.add(sourceDateEpoch);
+        }
+
         addFileSetTo(result, dir);
         filesPerRelease.forEach((release, fileSet) -> {
             result.add("--release");

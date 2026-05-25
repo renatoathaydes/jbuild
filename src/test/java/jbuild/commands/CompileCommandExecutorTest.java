@@ -2,11 +2,13 @@ package jbuild.commands;
 
 import jbuild.TestSystemProperties;
 import jbuild.java.JavaTypeMapCreator;
+import jbuild.java.JavaVersionHelper;
 import jbuild.java.tools.Tools;
 import jbuild.util.Either;
 import jbuild.util.SHA1;
 import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -143,6 +145,11 @@ public class CompileCommandExecutorTest {
         assertThat(buildFiles).containsExactlyInAnyOrder(myClassFile.toFile(), otherClassFile.toFile());
     }
 
+    private static boolean beforeJava19() {
+        return JavaVersionHelper.currentJavaVersion() < 19;
+    }
+
+    @DisabledIf("beforeJava19")
     @Test
     void canCreateJarWithPredictableContents() throws Exception {
         var logEntry = TestHelper.createLog(true);
@@ -193,7 +200,9 @@ public class CompileCommandExecutorTest {
         assertThat(jar.toFile()).isFile();
         assertIsZipContaining(jar, parseExpectedZipContentsWithSha1("/jbuild/commands/jar-contents-sha1.txt"));
 
-        String expectedSha1 = "41e8c157df1cd5261766638d5a38112ceb5e14fa";
+//        Files.copy(jar, Paths.get("my-sample.jar"), StandardCopyOption.REPLACE_EXISTING);
+
+        String expectedSha1 = "379fe66b90e452c68641bc043ed9c10957892955";
         String actualSha1 = SHA1.computeSha1HexString(Files.readAllBytes(jar));
         assertThat(actualSha1)
                 .withFailMessage("Jar SHA1 checksum mismatch (all entries were OK): %s != %s", actualSha1, expectedSha1)
