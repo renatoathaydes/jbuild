@@ -145,8 +145,8 @@ public class RequirementsCommandExecutor {
         return resultMap;
     }
 
-    private Function<ClassFile, TreeSet<String>> createClassFileCollector(TreeMap<String, TypeRequirements> resultMap,
-                                                                          boolean perClass) {
+    private Function<ClassFile, Set<String>> createClassFileCollector(Map<String, TypeRequirements> resultMap,
+                                                                      boolean perClass) {
         if (perClass) {
             return (classFile) -> {
                 var set = new TreeSet<String>();
@@ -160,7 +160,7 @@ public class RequirementsCommandExecutor {
         }
     }
 
-    private void collectRequirements(Function<ClassFile, TreeSet<String>> getSet,
+    private void collectRequirements(Function<ClassFile, Set<String>> getSet,
                                      ClassFile file,
                                      boolean perClass,
                                      Set<String> jarTypes) {
@@ -180,9 +180,9 @@ public class RequirementsCommandExecutor {
 
     public static final class TypeRequirements {
         public final ClassFile classFile;
-        public final TreeSet<String> requirements;
+        public final Set<String> requirements;
 
-        public TypeRequirements(ClassFile classFile, TreeSet<String> requirements) {
+        public TypeRequirements(ClassFile classFile, Set<String> requirements) {
             this.classFile = classFile;
             this.requirements = requirements;
         }
@@ -193,7 +193,7 @@ public class RequirementsCommandExecutor {
 
         void handleTypeRequirements(String type, TypeRequirements typeRequirements);
 
-        void handleJarRequirements(TreeSet<String> types);
+        void handleJarRequirements(Set<String> types);
 
         void onDone();
     }
@@ -221,7 +221,7 @@ public class RequirementsCommandExecutor {
         }
 
         @Override
-        public void handleJarRequirements(TreeSet<String> types) {
+        public void handleJarRequirements(Set<String> types) {
             for (var type : types) {
                 log.println("    * " + typeNameToClassName(type));
                 count++;

@@ -35,7 +35,7 @@ public final class JavaTypeSignatureParser {
         }
 
         @Override
-        public String toString() {
+        public String getMessage() {
             return errorMessage + '\n' + typeSignature + '\n' +
                     " ".repeat(Math.max(0, index)) +
                     '^';
@@ -318,7 +318,7 @@ public final class JavaTypeSignatureParser {
                     "ThrowsSignature but reached the end of the type");
             switch (ch) {
                 case 'L':
-                    result.add(new MethodSignature.ThrowsSignature.Class(parseClassTypeSignature(typeSignature)));
+                    result.add(new MethodSignature.ThrowsSignature.ThrownClass(parseClassTypeSignature(typeSignature)));
                     break;
                 case 'T':
                     result.add(new MethodSignature.ThrowsSignature.TypeVariable(parseTypeVariableSignature(typeSignature)));

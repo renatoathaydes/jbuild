@@ -123,7 +123,7 @@ public final class GroovyCompiler implements JbuildCompiler {
         return new MemoryToolRunResult(0, args, "", "");
     }
 
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"})
     private static <CL extends ClassLoader & Closeable> CL createGroovyClassLoader(URL[] classpath)
             throws Exception {
         ClassLoader mainClassLoader = new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());

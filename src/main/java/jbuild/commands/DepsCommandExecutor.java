@@ -83,7 +83,7 @@ public final class DepsCommandExecutor<Err extends ArtifactRetrievalError> {
         log.verbosePrintln(() -> "Fetching dependencies of " + artifacts +
                 (mavenPom == null ? "" : " and " + mavenPom.getArtifact().getCoordinates()) +
                 " with scopes " + expandedScopes +
-                (exclusions.isEmpty() ? "" : " with exclusions " + exclusions));
+                (exclusions.isEmpty() ? "" : " with exclusions " + exclusions.getExclusions()));
 
         var result = mapEntries(withLocalPom(mavenPomRetriever.fetchPoms(artifacts), mavenPom),
                 (artifact, completionStage) ->

@@ -53,6 +53,7 @@ final class ConfigObject {
         LIST_OF_STRINGS(StringListTypeToken.class.getGenericInterfaces()[0]),
         ARRAY_OF_STRINGS(String[].class),
         ;
+        @SuppressWarnings("ImmutableEnumChecker")
         public final Type javaType;
 
         ConfigType(Type javaType) {
@@ -69,7 +70,7 @@ final class ConfigObject {
     static final class ConfigObjectConstructor {
         final Map<String, ConfigType> parameters;
 
-        public ConfigObjectConstructor(LinkedHashMap<String, ConfigType> parameters) {
+        public ConfigObjectConstructor(Map<String, ConfigType> parameters) {
             this.parameters = parameters;
         }
     }

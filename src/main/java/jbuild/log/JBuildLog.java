@@ -121,7 +121,7 @@ public final class JBuildLog implements JBuildLogger {
         private final byte[] buffer = new byte[1024];
         private int index;
 
-        public LogOutputStream(JBuildLog log) {
+        LogOutputStream(JBuildLog log) {
             this.log = log;
         }
 

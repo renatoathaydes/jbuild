@@ -358,7 +358,7 @@ final class DependencyTreeLogger {
         final List<Artifact> chain = new ArrayList<>();
         final Map<ArtifactKey, VersionsEntry> chainByArtifactKey = new HashMap<>();
 
-        public DependencyChain(JBuildLog log) {
+        DependencyChain(JBuildLog log) {
             this.log = log;
         }
 

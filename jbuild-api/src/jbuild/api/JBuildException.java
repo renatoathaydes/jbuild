@@ -9,7 +9,12 @@ package jbuild.api;
  */
 public class JBuildException extends RuntimeException {
     public enum ErrorCause {
-        UNKNOWN, USER_INPUT, TIMEOUT, IO_READ, IO_WRITE, ACTION_ERROR
+        UNKNOWN(1), USER_INPUT(2), TIMEOUT(3), IO_READ(4), IO_WRITE(5), ACTION_ERROR(6);
+        public final int errorCode;
+
+        ErrorCause(int errorCode) {
+            this.errorCode = errorCode;
+        }
     }
 
     private final ErrorCause cause;

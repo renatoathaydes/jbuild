@@ -276,7 +276,7 @@ public class JavaTypeSignatureParserTest {
     void canParseSimpleMethodSignatureThrows() {
         assertThat(parser.parseMethodSignature("()V^Lthrowable/Ex;"))
                 .isEqualTo(new MethodSignature("", List.of(), List.of(), VoidDescriptor.INSTANCE,
-                        List.of(new MethodSignature.ThrowsSignature.Class(
+                        List.of(new MethodSignature.ThrowsSignature.ThrownClass(
                                 new ClassTypeSignature("throwable", new SimpleClassTypeSignature("", "Ex"))
                         ))));
     }
@@ -285,11 +285,11 @@ public class JavaTypeSignatureParserTest {
     void canParseMethodSignatureThrowsMany() {
         assertThat(parser.parseMethodSignature("()V^Lthrowable/Ex;^LMore;^LLast;"))
                 .isEqualTo(new MethodSignature("", List.of(), List.of(), VoidDescriptor.INSTANCE,
-                        List.of(new MethodSignature.ThrowsSignature.Class(
+                        List.of(new MethodSignature.ThrowsSignature.ThrownClass(
                                 new ClassTypeSignature("throwable", new SimpleClassTypeSignature("", "Ex"))
-                        ), new MethodSignature.ThrowsSignature.Class(
+                        ), new MethodSignature.ThrowsSignature.ThrownClass(
                                 new ClassTypeSignature("", new SimpleClassTypeSignature("", "More"))
-                        ), new MethodSignature.ThrowsSignature.Class(
+                        ), new MethodSignature.ThrowsSignature.ThrownClass(
                                 new ClassTypeSignature("", new SimpleClassTypeSignature("", "Last"))
                         ))));
     }
@@ -320,7 +320,7 @@ public class JavaTypeSignatureParserTest {
                 .isEqualTo(new MethodSignature("", List.of(), List.of(), VoidDescriptor.INSTANCE,
                         List.of(new MethodSignature.ThrowsSignature.TypeVariable(
                                 new TypeVariableSignature("T")
-                        ), new MethodSignature.ThrowsSignature.Class(
+                        ), new MethodSignature.ThrowsSignature.ThrownClass(
                                 new ClassTypeSignature("error", new SimpleClassTypeSignature("", "Error"))
                         ))));
     }

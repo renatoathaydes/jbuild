@@ -572,7 +572,7 @@ public final class Main {
             log.println(() -> "JBuild failed in " + time(startTime) +
                     "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
         }
-        exit.accept(exitCode(cause));
+        exit.accept(cause.errorCode);
     }
 
     private ArtifactFileWriter selectArtifactWriter(
@@ -598,9 +598,5 @@ public final class Main {
 
     private static CharSequence time(long startTime) {
         return durationText(Duration.ofMillis(System.currentTimeMillis() - startTime));
-    }
-
-    private static int exitCode(ErrorCause errorCause) {
-        return errorCause.ordinal() + 1;
     }
 }

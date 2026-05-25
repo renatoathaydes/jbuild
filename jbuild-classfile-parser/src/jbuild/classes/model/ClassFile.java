@@ -15,6 +15,7 @@ import jbuild.classes.signature.ClassSignature;
 import jbuild.classes.signature.JavaTypeSignature;
 import jbuild.classes.signature.MethodSignature;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -314,6 +315,22 @@ public final class ClassFile implements TypeGroup {
                 .map(ConstPoolInfo.RefInfo.class::cast)
                 .map(this::refOf)
                 .collect(toList());
+    }
+
+    @Override
+    public String toString() {
+        return "ClassFile{" +
+                "minorVersion=" + minorVersion +
+                ", majorVersion=" + majorVersion +
+                ", constPoolEntries=" + constPoolEntries +
+                ", accessFlags=" + accessFlags +
+                ", thisClass=" + thisClass +
+                ", superClass=" + superClass +
+                ", interfaces=" + Arrays.toString(interfaces) +
+                ", fields=" + fields +
+                ", methods=" + methods +
+                ", attributes=" + attributes +
+                '}';
     }
 
     private List<AnnotationInfo> getAnnotationsAttribute(String name) {

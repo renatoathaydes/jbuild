@@ -155,7 +155,7 @@ public final class RpcMain {
         private final boolean verbose;
         private final JavaRunner javaRunner;
 
-        public JBuildHttpHandler(CountDownLatch stopper, String token, boolean verbose, JavaRunner javaRunner) {
+        JBuildHttpHandler(CountDownLatch stopper, String token, boolean verbose, JavaRunner javaRunner) {
             this.stopper = stopper;
             this.token = token;
             this.verbose = verbose;

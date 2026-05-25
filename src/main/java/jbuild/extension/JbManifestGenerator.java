@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -301,7 +300,7 @@ public final class JbManifestGenerator {
         }
     }
 
-    static HashSet<JbManifestEntry.Str> parseJbExtensions(Scanner stream, String jarFile) {
+    static Set<JbManifestEntry.Str> parseJbExtensions(Scanner stream, String jarFile) {
         var result = new HashSet<JbManifestEntry.Str>(4);
         var currentClass = "";
         var currentTaskName = "";
@@ -344,7 +343,8 @@ public final class JbManifestGenerator {
     }
 
     private static JBuildException invalidJbManifest(int lineNumber, String jarFile, String message) {
-        return new JBuildException("Invalid jb manifest in jar: " + jarFile + " - " + message, ErrorCause.USER_INPUT);
+        return new JBuildException("Invalid jb manifest in jar: " + jarFile + "[" + lineNumber + "] - " +
+                message, ErrorCause.USER_INPUT);
     }
 
     private boolean implementsJbTask(ClassFile type) {
@@ -372,16 +372,6 @@ public final class JbManifestGenerator {
             return parser.parse(stream);
         } catch (IOException e) {
             throw new JBuildException("Unable to read class file at " + classFile + ": " + e,
-                    ErrorCause.IO_READ);
-        }
-    }
-
-    private static ClassFile parseClassFile(JBuildClassFileParser parser, String jarFile, ZipFile zip, ZipEntry classFile) {
-        try {
-            return parser.parse(zip.getInputStream(classFile));
-        } catch (IOException e) {
-            throw new JBuildException("Unable to read class file at " + jarFile + "/" +
-                    classFile.getName() + ": " + e,
                     ErrorCause.IO_READ);
         }
     }

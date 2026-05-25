@@ -44,12 +44,12 @@ public final class JavaRunner implements Closeable {
 
         static final MethodMatch NO = new MethodMatch(ParamMatch.no, null);
 
-        public MethodMatch(ParamMatch paramMatch, Method method) {
+        MethodMatch(ParamMatch paramMatch, Method method) {
             this.paramMatch = paramMatch;
             this.method = method;
         }
 
-        public int checkedParamsCount() {
+        int checkedParamsCount() {
             switch (paramMatch) {
                 case exact:
                     return method.getParameterCount();

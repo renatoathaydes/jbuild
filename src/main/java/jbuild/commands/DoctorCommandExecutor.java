@@ -435,8 +435,8 @@ public final class DoctorCommandExecutor {
 
     private static final class ConsistencyCheckResult {
 
-        public final Set<File> visitedJars;
-        public final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
+        final Set<File> visitedJars;
+        final NonEmptyCollection<ClassPathInconsistency> inconsistencies;
 
         ConsistencyCheckResult(
                 Set<File> visitedJars,
