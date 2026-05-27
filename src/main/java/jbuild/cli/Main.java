@@ -228,8 +228,8 @@ public final class Main {
                 compileOptions.groovyJar, compileOptions.groovydocToolClasspath,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar,
                 compileOptions.createJavadocsJar, compileOptions.checksum,
-                compileOptions.classPath, compileOptions.modulePath, compileOptions.manifest, options.applicationArgs,
-                compileOptions.incrementalChanges
+                compileOptions.classPath, compileOptions.modulePath, compileOptions.processorPath,
+                compileOptions.manifest, options.applicationArgs, compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res ->
                 verifyToolSuccessful(compileOptions.groovyJar.isBlank() ? "javac" : "groovyc", res));

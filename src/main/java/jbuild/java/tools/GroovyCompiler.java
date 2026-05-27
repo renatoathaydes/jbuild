@@ -39,9 +39,10 @@ public final class GroovyCompiler implements JbuildCompiler {
                                  String outDir,
                                  String classPath,
                                  String modulePath,
+                                 String processorPath,
                                  List<String> compilerArgs) {
         // groovy does not have the --module-path option
-        var args = collectArgs(sourceFiles, outDir, joinClasspath(classPath, modulePath), "", compilerArgs, true);
+        var args = collectArgs(sourceFiles, outDir, joinClasspath(classPath, modulePath), "", processorPath, compilerArgs, true);
         return run(args);
     }
 

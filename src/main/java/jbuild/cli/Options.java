@@ -710,6 +710,8 @@ final class CompileOptions {
             "        -cp <paths> Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
             "        --module-path" + LINE_END +
             "        -mp <paths> Java module path (may be given more than once)." + LINE_END +
+            "        --processor-path" + LINE_END +
+            "        -pp <paths> Java annotation processor path (may be given more than once)." + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --resources" + LINE_END +
@@ -759,6 +761,7 @@ final class CompileOptions {
     final boolean checksum;
     final String classPath;
     final String modulePath;
+    final String processorPath;
     final Either<Boolean, String> manifest;
     final IncrementalChanges incrementalChanges;
 
@@ -774,6 +777,7 @@ final class CompileOptions {
                           boolean checksum,
                           String classPath,
                           String modulePath,
+                          String processorPath,
                           Either<Boolean, String> manifest,
                           IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
@@ -788,6 +792,7 @@ final class CompileOptions {
         this.checksum = checksum;
         this.classPath = classPath;
         this.modulePath = modulePath;
+        this.processorPath = processorPath;
         this.manifest = manifest;
         this.incrementalChanges = incrementalChanges;
     }
@@ -799,10 +804,13 @@ final class CompileOptions {
         Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null, groovyJar = null, groovydocToolClasspath = null;
         Either<Boolean, String> manifest = null;
-        StringBuilder classPath = new StringBuilder(), modulePath = new StringBuilder();
+        StringBuilder classPath = new StringBuilder(),
+                modulePath = new StringBuilder(),
+                processorPath = new StringBuilder();
 
         boolean waitingForClasspath = false,
                 waitingForModulePath = false,
+                waitingForProcessorPath = false,
                 waitingForDirectory = false,
                 waitingForResources = false,
                 waitingForJar = false,
@@ -837,6 +845,16 @@ final class CompileOptions {
                         modulePath.append(File.pathSeparatorChar);
                     }
                     modulePath.append(part);
+                }
+            } else if (waitingForProcessorPath) {
+                waitingForProcessorPath = false;
+                for (String part : arg.split("[;:]", -1)) {
+                    if (part.isBlank())
+                        continue;
+                    if (processorPath.length() > 0) {
+                        processorPath.append(File.pathSeparatorChar);
+                    }
+                    processorPath.append(part);
                 }
             } else if (waitingForDirectory) {
                 waitingForDirectory = false;
@@ -874,6 +892,8 @@ final class CompileOptions {
                     waitingForClasspath = true;
                 } else if (isEither(arg, "-mp", "--modulepath", "--module-path")) {
                     waitingForModulePath = true;
+                } else if (isEither(arg, "-pp", "--processorpath", "--processor-path")) {
+                    waitingForProcessorPath = true;
                 } else if (isEither(arg, "-x", "--jb-extension")) {
                     generateJbManifest = true;
                 } else if (isEither(arg, "-sj", "--sources-jar")) {
@@ -939,6 +959,9 @@ final class CompileOptions {
         if (waitingForModulePath) {
             throw new JBuildException("expecting value for '--module-path' option", USER_INPUT);
         }
+        if (waitingForProcessorPath) {
+            throw new JBuildException("expecting value for '--processor-path' option", USER_INPUT);
+        }
         if (waitingForDirectory) {
             throw new JBuildException("expecting value for '--directory' option", USER_INPUT);
         }
@@ -991,6 +1014,7 @@ final class CompileOptions {
                         ? (InstallCommandExecutor.LIBS_DIR + File.separatorChar + "*")
                         : classPath.toString(),
                 modulePath.toString(),
+                processorPath.toString(),
                 manifest == null ? Either.left(true) : manifest,
                 incrementalChanges);
     }

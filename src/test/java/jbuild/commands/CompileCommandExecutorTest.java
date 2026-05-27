@@ -644,6 +644,7 @@ public class CompileCommandExecutorTest {
                 true, // checksum
                 "",
                 "../mylib/build/mylib.jar",
+                "",
                 Either.left(true),
                 List.of(),
                 null);

@@ -35,7 +35,7 @@ public class JavacToolTest {
                 "}");
 
         var result = Tools.Javac.create(log)
-                .compile(Set.of(javaSrc.toString()), outDir.getPath(), "", "", List.of());
+                .compile(Set.of(javaSrc.toString()), outDir.getPath(), "", "", "", List.of());
         verifyToolSuccessful("javac", result);
 
         assertThat(outDir).isDirectory();

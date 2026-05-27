@@ -110,7 +110,7 @@ public final class CompileCommandExecutor {
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(workingDir, inputDirectories, resourcesDirectories, outputDirOrJar, mainClass,
-                groovyJar, "", generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "",
+                groovyJar, "", generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "", "",
                 manifest, compilerArgs, incrementalChanges);
     }
 
@@ -127,6 +127,7 @@ public final class CompileCommandExecutor {
                                         boolean checksum,
                                         String classPath,
                                         String modulePath,
+                                        String processorPath,
                                         Either<Boolean, String> manifest,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
@@ -213,6 +214,10 @@ public final class CompileCommandExecutor {
                 ? ""
                 : computeClasspath(relativize(workingDir, modulePath), null);
 
+        var computedProcessorPath = processorPath.isEmpty()
+                ? ""
+                : computeClasspath(relativize(workingDir, processorPath), null);
+
         ToolRunResult compileResult = null;
         if (sourceFiles.isEmpty()) {
             log.println("No source files to compile");
@@ -226,8 +231,8 @@ public final class CompileCommandExecutor {
 
             compileResult = await(runAsyncTiming(() -> {
                                 try {
-                                    return compiler
-                                            .compile(sourceFiles, outputDir, computedClasspath, computedModulePath, compilerArgs);
+                                    return compiler.compile(sourceFiles, outputDir, computedClasspath,
+                                            computedModulePath, computedProcessorPath, compilerArgs);
                                 } catch (Throwable e) {
                                     log.println("Error trying to run compiler");
                                     e.printStackTrace(log.out);
