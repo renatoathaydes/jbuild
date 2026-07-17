@@ -36,6 +36,7 @@ jobs:
         run: |
               mkdir -p "$JB_HOME"
               tar xzf jb.tar.gz -C "$JB_HOME"
+              "$JB_HOME/bin/jb" -v
         shell: bash
 
       - name: Build and test jbuild-classfile-parser

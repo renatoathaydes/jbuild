@@ -17,6 +17,9 @@ final class JbProcess {
                 jbHome += File.separator;
             }
             jb = jbHome + "bin" + File.separator + "jb";
+            if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                jb += ".exe";
+            }
         }
 
         return new ProcessBuilder(shell, "-c", jb + ' ' + command);
