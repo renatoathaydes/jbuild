@@ -32,20 +32,22 @@ jobs:
 
       - name: Install jb
         run: |
-              mkdir jb
+              mkdir -p jb
               tar xzf jb.tar.gz -C jb
+              echo "JB_HOME=${GITHUB_WORKSPACE//\\//}/jb" >> "$GITHUB_ENV"
+              "$(pwd)/jb/bin/jb" -v
         shell: bash
 
       - name: Build and test jbuild-classfile-parser
-        run: jb/bin/jb -d -p jbuild-classfile-parser/test test
+        run: $JB_HOME/bin/jb -d -p jbuild-classfile-parser/test test
         shell: bash
 
       - name: Build and test JBuild main artifact
-        run: jb/bin/jb -d -p src/test test
+        run: $JB_HOME/bin/jb -d -p src/test test
         shell: bash
 
       - name: Build and execute integration tests
-        run: jb/bin/jb -p src/intTest test
+        run: $JB_HOME/bin/jb -p src/intTest test
         shell: bash
 
       - name: Test Report
