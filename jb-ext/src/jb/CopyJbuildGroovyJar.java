@@ -48,7 +48,7 @@ public class CopyJbuildGroovyJar implements JbTask {
     public void run(String... args) throws IOException {
         logger.println("Running jbuild-groovy build");
 
-        var pb = JbProcess.runJb("jb compile");
+        var pb = JbProcess.runJb("compile");
         pb.directory(new File("jbuild-groovy"));
         Process proc= pb.inheritIO().start();
         int exitCode;

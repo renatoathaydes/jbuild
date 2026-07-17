@@ -14,6 +14,8 @@ jobs:
             - os: windows-latest
               oskind: windows
     runs-on: ${{ matrix.os }}
+    env:
+      JB_HOME: jb
     steps:
       - uses: actions/checkout@v3
 
@@ -32,20 +34,20 @@ jobs:
 
       - name: Install jb
         run: |
-              mkdir jb
-              tar xzf jb.tar.gz -C jb
+              mkdir -p "$JB_HOME"
+              tar xzf jb.tar.gz -C "$JB_HOME"
         shell: bash
 
       - name: Build and test jbuild-classfile-parser
-        run: jb/bin/jb -d -p jbuild-classfile-parser/test test
+        run: $JB_HOME/bin/jb -d -p jbuild-classfile-parser/test test
         shell: bash
 
       - name: Build and test JBuild main artifact
-        run: jb/bin/jb -d -p src/test test
+        run: $JB_HOME/bin/jb -d -p src/test test
         shell: bash
 
       - name: Build and execute integration tests
-        run: jb/bin/jb -p src/intTest test
+        run: $JB_HOME/bin/jb -p src/intTest test
         shell: bash
 
       - name: Test Report
