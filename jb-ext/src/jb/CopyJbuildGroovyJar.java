@@ -50,9 +50,10 @@ public class CopyJbuildGroovyJar implements JbTask {
 
         var pb = JbProcess.runJb("jb compile");
         pb.directory(new File("jbuild-groovy"));
+        Process proc= pb.inheritIO().start();
         int exitCode;
         try {
-            exitCode = pb.start().waitFor();
+            exitCode = proc.waitFor();
         } catch (InterruptedException e) {
             // should never happen
             throw new RuntimeException(e);
