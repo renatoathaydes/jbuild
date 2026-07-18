@@ -196,7 +196,6 @@ public class CompileCommandExecutorTest {
         verifyToolSuccessful("jar", result.getJarResult().get());
         assertThat(result.getSourcesJarResult()).isNotPresent();
         assertThat(result.getJavadocJarResult()).isNotPresent();
-        System.out.println(logEntry.getValue().toString(StandardCharsets.UTF_8));
         assertThat(jar.toFile()).isFile();
         assertIsZipContaining(jar, parseExpectedZipContentsWithSha1("/jbuild/commands/jar-contents-sha1.txt"));
 

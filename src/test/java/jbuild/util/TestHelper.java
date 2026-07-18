@@ -121,13 +121,12 @@ public final class TestHelper {
                             .withFailMessage(() -> "Entry at index " + theIndex + " should be '" + entryName +
                                     "', but was '" + zipEntry.getName() + "'")
                             .isEqualTo(entryName);
-                    var zipEntrySha1 = SHA1.computeSha1HexString(zip.getInputStream(zipEntry).readAllBytes());
-
-//                    System.out.println(entryName + ": " + zipEntrySha1);
-
+                    byte[] actualBytes = zip.getInputStream(zipEntry).readAllBytes();
+                    var zipEntrySha1 = SHA1.computeSha1HexString(actualBytes);
                     assertThat(zipEntrySha1)
                             .withFailMessage(() -> "Entry at index " + theIndex + ", '" + entryName +
-                                    "' SHA1 mismatch: " + zipEntrySha1 + " != " + entry.getValue())
+                                    "' SHA1 mismatch: " + zipEntrySha1 + " != " + entry.getValue() +
+                                    "\nEntry bytes: " + textFor(actualBytes))
                             .isEqualTo(entry.getValue());
                     index++;
                 } else {
@@ -144,5 +143,14 @@ public final class TestHelper {
             entryIterator.forEachRemaining(e -> missingEntries.add(e.getKey()));
             throw new RuntimeException("Missing entries in the jar: " + missingEntries);
         }
+    }
+
+    private static String textFor(byte[] actualBytes) {
+        if (actualBytes.length > 4096) {
+            var subArray = new byte[4096];
+            System.arraycopy(actualBytes, 0, subArray, 0, 4096);
+            return Arrays.toString(subArray) + "...";
+        }
+        return Arrays.toString(actualBytes);
     }
 }
