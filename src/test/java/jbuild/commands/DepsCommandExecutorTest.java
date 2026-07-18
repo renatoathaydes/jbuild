@@ -186,8 +186,8 @@ public class DepsCommandExecutorTest {
 
         assertThat(tree.dependencies).isEmpty();
 
-        assertThat(bytesOut.toString(StandardCharsets.UTF_8))
-                .isEqualTo("WARNING: global exclusion pattern did not exclude anything: com.athaydes:a:.*\n");
+        assertThat(bytesOut.toString(StandardCharsets.UTF_8).trim())
+                .isEqualTo("WARNING: global exclusion pattern did not exclude anything: com.athaydes:a:.*");
     }
 
     @Test
@@ -222,9 +222,9 @@ public class DepsCommandExecutorTest {
         assertThat(tree.root.artifact).isEqualTo(new Artifact("com.athaydes", "c", "1.0", "pom"));
         assertThat(tree.dependencies).isEmpty();
 
-        assertThat(bytesOut.toString(StandardCharsets.UTF_8))
+        assertThat(bytesOut.toString(StandardCharsets.UTF_8).trim())
                 .isEqualTo("WARNING: exclusion pattern for com.athaydes:c:1.0 did not exclude anything: " +
-                        "com.athaydes:a:.*\n");
+                        "com.athaydes:a:.*");
     }
 
     private static DepsCommandExecutor<FileRetrievalError> createDepsCommand(OutputStream bytesOut) {
