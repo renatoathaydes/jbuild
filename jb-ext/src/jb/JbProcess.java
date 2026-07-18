@@ -1,10 +1,11 @@
 package jb;
 
 import java.nio.file.Paths;
+import java.util.Locale;
 
 final class JbProcess {
     static ProcessBuilder runJb(String... args) {
-        var isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        var isWindows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
         var jbHome = System.getenv("JB_HOME");
         var jbExe = isWindows ? "jb.exe" : "jb";
         String jb;
