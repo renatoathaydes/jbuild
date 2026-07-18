@@ -1,5 +1,5 @@
 META-INF/: da39a3ee5e6b4b0d3255bfef95601890afd80709
-META-INF/MANIFEST.MF: bc76a3f3b73d8c2fc22dce4f47bcced21d8a583d
+META-INF/MANIFEST.MF: 7338dc05bf2213a29399dc4b3ceaca8c8ffb9bdb
 pkg1/: da39a3ee5e6b4b0d3255bfef95601890afd80709
 pkg1/ClassA.class: 08cabec6e0aff6d88ed35c397dc7d6421af7e874
 pkg1/ClassB.class: d0d9ae3f812ca79625e212be4496ab448bc3de88

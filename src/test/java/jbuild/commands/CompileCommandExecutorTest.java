@@ -172,6 +172,13 @@ public class CompileCommandExecutorTest {
             }
         }
 
+        var manifestFile = dir.resolve("custom-manifest.mf");
+        Files.write(manifestFile, List.of(
+                "Manifest-Version: 1.0",
+                "Implementation-Title: my-app",
+                "Created-By: 21",
+                ""));
+
         var jar = dir.resolve("lib.jar");
 
         // use workingDir argument, and all other paths relative to it
@@ -186,7 +193,7 @@ public class CompileCommandExecutorTest {
                 false,
                 false,
                 "",
-                Either.left(true),
+                Either.right(manifestFile.toString()),
                 List.of(),
                 null);
 
@@ -201,7 +208,7 @@ public class CompileCommandExecutorTest {
 
 //        Files.copy(jar, Paths.get("my-sample.jar"), StandardCopyOption.REPLACE_EXISTING);
 
-        String expectedSha1 = "379fe66b90e452c68641bc043ed9c10957892955";
+        String expectedSha1 = "3c3563bc00c16c1cc68332a6a350ac4da144c2c6";
         String actualSha1 = SHA1.computeSha1HexString(Files.readAllBytes(jar));
         assertThat(actualSha1)
                 .withFailMessage("Jar SHA1 checksum mismatch (all entries were OK): %s != %s", actualSha1, expectedSha1)
