@@ -1,27 +1,22 @@
 package jb;
 
-import java.io.File;
+import java.nio.file.Paths;
 
 final class JbProcess {
-    static ProcessBuilder runJb(String command) {
-        var shell = System.getenv("SHELL");
-        if (shell == null) {
-            shell = "bash";
-        }
+    static ProcessBuilder runJb(String... args) {
+        var isWindows = System.getProperty("os.name").toLowerCase().contains("win");
         var jbHome = System.getenv("JB_HOME");
+        var jbExe = isWindows ? "jb.exe" : "jb";
         String jb;
         if (jbHome == null) {
-            jb = "jb";
+            jb = jbExe;
         } else {
-            if (!jbHome.isEmpty() && !jbHome.endsWith(File.separator)) {
-                jbHome += File.separator;
-            }
-            jb = jbHome + "bin" + File.separator + "jb";
-            if (System.getProperty("os.name").toLowerCase().contains("win")) {
-                jb += ".exe";
-            }
+            jb = Paths.get(jbHome, "bin", jbExe).toAbsolutePath().toString();
         }
 
-        return new ProcessBuilder(shell, "-c", jb + ' ' + command);
+        var cmd = new String[args.length + 1];
+        cmd[0] = jb;
+        System.arraycopy(args, 0, cmd, 1, args.length);
+        return new ProcessBuilder(cmd);
     }
 }

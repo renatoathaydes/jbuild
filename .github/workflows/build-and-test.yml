@@ -14,8 +14,6 @@ jobs:
             - os: windows-latest
               oskind: windows
     runs-on: ${{ matrix.os }}
-    env:
-      JB_HOME: jb
     steps:
       - uses: actions/checkout@v3
 
@@ -23,6 +21,13 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
+
+      - name: Set JB_HOME
+        # Use an absolute path with forward slashes so the value works both in
+        # bash (including Git Bash on Windows, where GITHUB_WORKSPACE contains
+        # backslashes) and when read by the JVM.
+        run: echo "JB_HOME=${GITHUB_WORKSPACE//\\//}/jb" >> "$GITHUB_ENV"
+        shell: bash
 
       - name: Download jb
         uses: dsaltares/fetch-gh-release-asset@master

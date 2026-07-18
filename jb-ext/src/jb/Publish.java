@@ -48,7 +48,7 @@ public class Publish implements JbTask {
         var projects = List.of(".");
         for (var project : projects) {
             logger.println(() -> "Publishing: " + project);
-            var pb = JbProcess.runJb("-p " + project + " publish :-m");
+            var pb = JbProcess.runJb("-p", project, "publish", ":-m");
             var env = pb.environment();
             env.put("MAVEN_USER", credentials.getKey());
             env.put("MAVEN_PASSWORD", credentials.getValue());
