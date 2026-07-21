@@ -746,6 +746,8 @@ final class CompileOptions {
             "        To pass further arguments directly to javac, use -- <args>." + LINE_END +
             "        Default javac options used are: '-encoding utf-8 -Werr -parameters'." + LINE_END +
             "        Passing javac classpath options explicitly overrides jbuild's -cp." + LINE_END +
+            "        The SOURCE_DATE_EPOCH environment variable can be used to set jar timestamps " + LINE_END +
+            "        in ISO-8601 format (since Java 19)." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
 
