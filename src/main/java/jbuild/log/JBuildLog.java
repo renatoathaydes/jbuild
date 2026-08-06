@@ -89,8 +89,10 @@ public final class JBuildLog implements JBuildLogger {
         if (isEnabled()) {
             out.print(prefix);
             out.print(' ');
-            out.write(buffer, 0, len);
-            lastCharWasNewLine = ((char) buffer[len - 1]) == '\n';
+            if (len > 0) {
+                out.write(buffer, 0, len);
+                lastCharWasNewLine = ((char) buffer[len - 1]) == '\n';
+            }
         }
     }
 
