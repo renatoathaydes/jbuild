@@ -214,7 +214,7 @@ public class RequirementsCommandExecutor {
         @Override
         public void handleTypeRequirements(String type, TypeRequirements typeRequirements) {
             perClass = true;
-            log.println("  - " + typeNameToClassName(type) + " (" + typeRequirements.classFile.getSourceFile() + "):");
+            log.println("  - " + typeNameToClassName(type) + " (" + typeRequirements.classFile.getSourceFile().orElse("unknown source file") + "):");
             for (var requirement : typeRequirements.requirements) {
                 log.println("    * " + typeNameToClassName(requirement));
             }

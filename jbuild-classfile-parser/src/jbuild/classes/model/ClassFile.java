@@ -118,12 +118,11 @@ public final class ClassFile implements TypeGroup {
         return result;
     }
 
-    public String getSourceFile() {
+    public Optional<String> getSourceFile() {
         return attributes.stream()
                 .filter(attr -> getUtf8(attr.nameIndex).equals("SourceFile"))
                 .map(attr -> attributeParser.parseSourceFileAttribute(attr.attributes))
-                .findFirst()
-                .orElseThrow();
+                .findFirst();
     }
 
     @Override
