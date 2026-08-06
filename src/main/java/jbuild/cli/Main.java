@@ -298,7 +298,7 @@ public final class Main {
                 }).collect(toList());
 
         await(awaitValues(allStages), Duration.ofSeconds(10),
-                "Resolve dependencies and log dependency tree");
+                "Resolve dependencies and log dependency tree", log);
 
         var errorCause = anyError.get();
         if (errorCause != null) {
@@ -450,7 +450,7 @@ public final class Main {
         var reqOptions = RequirementsOptions.parse(options.commandArgs, !options.quiet);
         await(command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass),
                 Duration.ofMinutes(2),
-                "requirements");
+                "requirements", log);
     }
 
     private void showModules(Options options) {

@@ -241,7 +241,8 @@ public final class CompileCommandExecutor {
                             },
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
                     Duration.ofMinutes(30),
-                    "compile");
+                    "compile",
+                    log);
 
             if (compileResult.exitCode() != 0) {
                 return new CompileCommandResult(compileResult);
@@ -313,7 +314,8 @@ public final class CompileCommandExecutor {
         return await(
                 awaitSuccessValues(actions),
                 timeout,
-                "jar, sources-jar, javadocs-jar"
+                "jar, sources-jar, javadocs-jar",
+                log
         ).iterator();
     }
 

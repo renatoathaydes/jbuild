@@ -1,6 +1,7 @@
 package jbuild.util;
 
 import jbuild.api.JBuildException;
+import jbuild.log.JBuildLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -215,13 +216,17 @@ public final class AsyncUtils {
         return future;
     }
 
-    public static <T> T await(CompletionStage<T> stage, Duration timeout, String actionName) {
+    public static <T> T await(CompletionStage<T> stage, Duration timeout, String actionName, JBuildLog logger) {
         try {
             return stage.toCompletableFuture().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             var cause = unwrapConcurrentException(e);
             if (cause instanceof JBuildException) {
                 throw (JBuildException) cause;
+            }
+            if (logger.isVerbose()) {
+                logger.verbosePrintln("Error awaiting for '" + actionName + "': " + e);
+                cause.printStackTrace(logger.getPrintStream());
             }
             throw new JBuildException("'" + actionName + "' failed due to: " + cause, ACTION_ERROR);
         }
@@ -240,12 +245,20 @@ public final class AsyncUtils {
     }
 
     private static Throwable unwrapConcurrentException(Throwable throwable) {
-        if (throwable instanceof CompletionException || throwable instanceof ExecutionException) {
-            var cause = throwable.getCause();
-            if (cause != null) {
-                return unwrapConcurrentException(cause);
+        var currentThrowable = Objects.requireNonNull(throwable);
+        int tries = 5;
+        while (tries-- > 0) {
+            if (currentThrowable instanceof CompletionException || currentThrowable instanceof ExecutionException) {
+                var cause = currentThrowable.getCause();
+                if (cause != null) {
+                    currentThrowable = cause;
+                } else {
+                    break;
+                }
+            } else {
+                break;
             }
         }
-        return Objects.requireNonNull(throwable);
+        return currentThrowable;
     }
 }
