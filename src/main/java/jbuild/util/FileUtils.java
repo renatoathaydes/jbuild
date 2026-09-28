@@ -46,15 +46,22 @@ public final class FileUtils {
     }
 
     public static Stream<String> relativizeStream(String dir, Stream<String> paths) {
-        if (dir.equals(".") || dir.isBlank()) return paths;
+        if (dir.isEmpty() || dir.equals(".") || dir.equals("." + File.separatorChar)) return paths;
         var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
         return paths.map(path ->
-                path.startsWith(File.separator) ? path : String.join(File.separator, root, path));
+                isAbsolutePath(path) ? path : String.join(File.separator, root, path));
     }
 
     public static String relativize(String dir, String path) {
         if (dir.isEmpty() || dir.equals(".") || dir.equals("." + File.separatorChar)) return path;
-        return Paths.get(dir).resolve(path).toString();
+        var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
+        return isAbsolutePath(path) ? path : String.join(File.separator, root, path);
+    }
+
+    private static boolean isAbsolutePath(String path) {
+        return path.startsWith(File.separator) ||
+                path.matches("[a-zA-Z]:[\\\\/].*") ||
+                path.startsWith("\\\\");
     }
 
     public static CompletableFuture<byte[]> readAllBytes(Path file) {

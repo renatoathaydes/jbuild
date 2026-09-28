@@ -389,6 +389,7 @@ public class CompileCommandExecutorTest {
     @Test
     void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws Exception {
         TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
+        var jbApiJar = Paths.get(TestSystemProperties.jbApiJar.getPath()).toAbsolutePath().toString();
 
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
@@ -421,7 +422,7 @@ public class CompileCommandExecutorTest {
                 true,
                 false,
                 false,
-                TestSystemProperties.jbApiJar.getAbsolutePath(),
+                jbApiJar,
                 Either.left(true),
                 List.of(),
                 null);

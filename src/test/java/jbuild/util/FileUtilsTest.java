@@ -65,6 +65,14 @@ public class FileUtilsTest {
     }
 
     @Test
+    void canRelativizePathPattern() {
+        final var sep = File.separator;
+        assertThat(FileUtils.relativize(".", "*")).isEqualTo("*");
+        assertThat(FileUtils.relativize("foo", "*"))
+                .isEqualTo(String.join(sep, "foo", "*"));
+    }
+
+    @Test
     void canRelativizePath() {
         final var sep = File.separator;
         assertThat(FileUtils.relativize("foo", "bar.zort"))
@@ -77,6 +85,16 @@ public class FileUtilsTest {
                 .isEqualTo(String.join(sep, "foo", "bar.zort"));
         assertThat(FileUtils.relativize(sep + "foo" + sep, "bar" + File.separator + "zort.txt"))
                 .isEqualTo(String.join(sep, sep + "foo", "bar", "zort.txt"));
+    }
+
+    @Test
+    void doesNotRelativizeWindowsAbsolutePaths() {
+        assertThat(FileUtils.relativize("foo", "C:\\bar\\zort.txt"))
+                .isEqualTo("C:\\bar\\zort.txt");
+        assertThat(FileUtils.relativize("foo", "C:/bar/zort.txt"))
+                .isEqualTo("C:/bar/zort.txt");
+        assertThat(FileUtils.relativize("foo", "\\\\server\\share\\zort.txt"))
+                .isEqualTo("\\\\server\\share\\zort.txt");
     }
 
     @Test
