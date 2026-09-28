@@ -231,6 +231,8 @@ public class JBuildClassFileParserTest {
         assertThat(classFile.getTypeName())
                 .isEqualTo("LHelloWorld;");
         assertThat(classFile.getSourceFile())
+                .isPresent()
+                .get()
                 .isEqualTo("HelloWorld.java");
         assertThat(classFile.getMethods().stream().map(m -> m.name)
                 .collect(Collectors.toList()))

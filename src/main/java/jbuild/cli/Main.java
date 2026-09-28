@@ -228,8 +228,8 @@ public final class Main {
                 compileOptions.groovyJar, compileOptions.groovydocToolClasspath,
                 compileOptions.generateJbManifest, compileOptions.createSourcesJar,
                 compileOptions.createJavadocsJar, compileOptions.checksum,
-                compileOptions.classPath, compileOptions.modulePath, compileOptions.manifest, options.applicationArgs,
-                compileOptions.incrementalChanges
+                compileOptions.classPath, compileOptions.modulePath, compileOptions.processorPath,
+                compileOptions.manifest, options.applicationArgs, compileOptions.incrementalChanges
         );
         result.getCompileResult().ifPresent(res ->
                 verifyToolSuccessful(compileOptions.groovyJar.isBlank() ? "javac" : "groovyc", res));
@@ -298,7 +298,7 @@ public final class Main {
                 }).collect(toList());
 
         await(awaitValues(allStages), Duration.ofSeconds(10),
-                "Resolve dependencies and log dependency tree");
+                "Resolve dependencies and log dependency tree", log);
 
         var errorCause = anyError.get();
         if (errorCause != null) {
@@ -450,7 +450,7 @@ public final class Main {
         var reqOptions = RequirementsOptions.parse(options.commandArgs, !options.quiet);
         await(command.execute(relativize(options.workingDir, reqOptions.files), reqOptions.perClass),
                 Duration.ofMinutes(2),
-                "requirements");
+                "requirements", log);
     }
 
     private void showModules(Options options) {
@@ -572,7 +572,7 @@ public final class Main {
             log.println(() -> "JBuild failed in " + time(startTime) +
                     "! [error-type=" + cause.name().toLowerCase(Locale.ROOT) + "]");
         }
-        exit.accept(exitCode(cause));
+        exit.accept(cause.errorCode);
     }
 
     private ArtifactFileWriter selectArtifactWriter(
@@ -598,9 +598,5 @@ public final class Main {
 
     private static CharSequence time(long startTime) {
         return durationText(Duration.ofMillis(System.currentTimeMillis() - startTime));
-    }
-
-    private static int exitCode(ErrorCause errorCause) {
-        return errorCause.ordinal() + 1;
     }
 }

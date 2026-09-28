@@ -3,7 +3,6 @@ package jbuild.commands;
 import jbuild.api.JBuildException;
 import jbuild.extension.JbManifestGenerator;
 import jbuild.java.tools.CreateJarOptions;
-import jbuild.java.tools.CreateJarOptions.FileSet;
 import jbuild.java.tools.GroovyCompiler;
 import jbuild.java.tools.ToolRunResult;
 import jbuild.java.tools.Tools;
@@ -27,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.completedStage;
@@ -44,7 +45,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static jbuild.api.JBuildException.ErrorCause.ACTION_ERROR;
 import static jbuild.api.JBuildException.ErrorCause.IO_READ;
 import static jbuild.api.JBuildException.ErrorCause.IO_WRITE;
@@ -62,6 +62,8 @@ public final class CompileCommandExecutor {
 
     private static final FilenameFilter JAVA_FILES_FILTER = (dir, name) ->
             name.endsWith(".java");
+    private static final FilenameFilter JAR_FILES_FILTER = (dir, name) ->
+            name.endsWith(".jar");
     private static final FilenameFilter JAVA_GROOVY_FILES_FILTER = (dir, name) ->
             name.endsWith(".java") || name.endsWith(".groovy");
     private static final FilenameFilter NON_JAVA_FILES_FILTER = (dir, name) ->
@@ -108,7 +110,7 @@ public final class CompileCommandExecutor {
                                         IncrementalChanges incrementalChanges)
             throws InterruptedException, ExecutionException {
         return compile(workingDir, inputDirectories, resourcesDirectories, outputDirOrJar, mainClass,
-                groovyJar, "", generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "",
+                groovyJar, "", generateJbManifest, createSourcesJar, createJavadocsJar, false, classpath, "", "",
                 manifest, compilerArgs, incrementalChanges);
     }
 
@@ -125,6 +127,7 @@ public final class CompileCommandExecutor {
                                         boolean checksum,
                                         String classPath,
                                         String modulePath,
+                                        String processorPath,
                                         Either<Boolean, String> manifest,
                                         List<String> compilerArgs,
                                         IncrementalChanges incrementalChanges)
@@ -211,6 +214,10 @@ public final class CompileCommandExecutor {
                 ? ""
                 : computeClasspath(relativize(workingDir, modulePath), null);
 
+        var computedProcessorPath = processorPath.isEmpty()
+                ? ""
+                : computeClasspath(relativize(workingDir, processorPath), null);
+
         ToolRunResult compileResult = null;
         if (sourceFiles.isEmpty()) {
             log.println("No source files to compile");
@@ -224,8 +231,8 @@ public final class CompileCommandExecutor {
 
             compileResult = await(runAsyncTiming(() -> {
                                 try {
-                                    return compiler
-                                            .compile(sourceFiles, outputDir, computedClasspath, computedModulePath, compilerArgs);
+                                    return compiler.compile(sourceFiles, outputDir, computedClasspath,
+                                            computedModulePath, computedProcessorPath, compilerArgs);
                                 } catch (Throwable e) {
                                     log.println("Error trying to run compiler");
                                     e.printStackTrace(log.out);
@@ -234,7 +241,8 @@ public final class CompileCommandExecutor {
                             },
                             createLogTimer("Compilation successful on directory '" + outputDir + "'")),
                     Duration.ofMinutes(30),
-                    "compile");
+                    "compile",
+                    log);
 
             if (compileResult.exitCode() != 0) {
                 return new CompileCommandResult(compileResult);
@@ -293,12 +301,12 @@ public final class CompileCommandExecutor {
                         .thenApply((result) -> computeChecksum(result, jarFile, checksum)),
                 sourcesJar != null
                         ? sourcesJar(inputDirectories, sourcesJar)
-                        .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
+                          .thenApply((result) -> computeChecksum(result, sourcesJar, checksum))
                         : completedStage(null),
                 javadocJar != null
-                        ? createJavadoc(computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
-                        .thenCompose(result -> javadocJar(result, javadocJar))
-                        .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
+                        ? createJavadoc(inputDirectories, computedClasspath, sourceFiles, groovyJar, groovydocToolClasspath)
+                          .thenCompose(result -> javadocJar(result, javadocJar))
+                          .thenApply((result) -> computeChecksum(result, javadocJar, checksum))
                         : completedStage(null));
 
         var timeout = Duration.ofMinutes(5);
@@ -306,7 +314,8 @@ public final class CompileCommandExecutor {
         return await(
                 awaitSuccessValues(actions),
                 timeout,
-                "jar, sources-jar, javadocs-jar"
+                "jar, sources-jar, javadocs-jar",
+                log
         ).iterator();
     }
 
@@ -332,6 +341,7 @@ public final class CompileCommandExecutor {
     }
 
     private CompletionStage<Either<ToolRunResult, String>> createJavadoc(
+            Collection<String> sourceDirs,
             String classpath,
             Set<String> sourceFiles,
             String groovyJar,
@@ -355,7 +365,7 @@ public final class CompileCommandExecutor {
             }
 
             try {
-                GroovyDocInvoker.run(List.copyOf(sourceFiles), groovyJar, groovydocToolClasspath, outputDir);
+                GroovyDocInvoker.run(sourceDirs, sourceFiles, groovyJar, groovydocToolClasspath, outputDir);
             } catch (Exception | LinkageError e) {
                 throw new JBuildException("Unable to invoke GroovyDoc tool due to " + e,
                         ACTION_ERROR);
@@ -369,11 +379,11 @@ public final class CompileCommandExecutor {
                                                String jarFile,
                                                Either<Boolean, String> manifest,
                                                IncrementalChanges incrementalChanges) {
-        var jarContent = new FileSet(Set.of(), outputDir);
-
         if (incrementalChanges == null) {
             var jarOptions = new CreateJarOptions(
-                    jarFile, mainClass, manifest, "", jarContent, Map.of());
+                    jarFile, mainClass, manifest, "", outputDir,
+                    // TODO allow passing files per Java release version
+                    Map.of());
             log.verbosePrintln(() -> "Creating jar file at " + jarFile + ". Full command: jar " +
                     String.join(" ", jarOptions.toArgs(true)));
             return runAsyncTiming(() -> Tools.Jar.create().createJar(jarOptions),
@@ -381,7 +391,7 @@ public final class CompileCommandExecutor {
         }
 
         log.verbosePrintln(() -> "Updating jar file at " + jarFile);
-        return runAsyncTiming(() -> Tools.Jar.create().updateJar(jarFile, jarContent),
+        return runAsyncTiming(() -> Tools.Jar.create().updateJar(jarFile, outputDir),
                 createLogTimer("Updated jar"));
     }
 
@@ -416,7 +426,8 @@ public final class CompileCommandExecutor {
         if (incrementalChanges != null) {
             var sourceFiles = incrementalChanges.addedFiles.stream()
                     .filter(includeFile)
-                    .collect(toSet());
+                    .sorted()
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             if (!sourceFiles.isEmpty()) {
                 log.verbosePrintln(() -> "Compiling " + incrementalChanges.addedFiles.size()
                         + " files added or modified since last compilation");
@@ -425,7 +436,8 @@ public final class CompileCommandExecutor {
         }
         return collectFiles(inputDirectories, includeGroovy ? JAVA_GROOVY_FILES_FILTER : JAVA_FILES_FILTER).stream()
                 .flatMap(col -> col.files.stream())
-                .collect(toSet());
+                .sorted()
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Set<String> computeDeletedFiles(Set<String> inputDirectories,
@@ -568,7 +580,10 @@ public final class CompileCommandExecutor {
         return Stream.concat(
                         previousOutput == null ? Stream.of() : Stream.of(previousOutput),
                         Stream.of(classpath.split(File.pathSeparator))
-                                .filter(not(String::isBlank)))
+                                .filter(not(String::isBlank))
+                                .flatMap(p -> p.endsWith(File.separatorChar + "*")
+                                        ? FileUtils.allFilesInDir(p.substring(0, p.length() - 2), JAR_FILES_FILTER)
+                                        : Stream.of(p)))
                 .collect(joining(File.pathSeparator));
     }
 

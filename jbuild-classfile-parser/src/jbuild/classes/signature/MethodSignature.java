@@ -152,10 +152,10 @@ public final class MethodSignature extends SignatureAttribute {
     }
 
     public interface ThrowsSignature extends TypeGroup {
-        final class Class implements ThrowsSignature {
+        final class ThrownClass implements ThrowsSignature {
             public final JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature typeSignature;
 
-            public Class(JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature typeSignature) {
+            public ThrownClass(JavaTypeSignature.ReferenceTypeSignature.ClassTypeSignature typeSignature) {
                 this.typeSignature = typeSignature;
             }
 
@@ -169,7 +169,7 @@ public final class MethodSignature extends SignatureAttribute {
                 if (this == o) return true;
                 if (o == null || getClass() != o.getClass()) return false;
 
-                Class aClass = (Class) o;
+                ThrownClass aClass = (ThrownClass) o;
 
                 return typeSignature.equals(aClass.typeSignature);
             }
@@ -181,7 +181,7 @@ public final class MethodSignature extends SignatureAttribute {
 
             @Override
             public String toString() {
-                return "Class{" +
+                return "ThrownClass{" +
                         "typeSignature=" + typeSignature +
                         '}';
             }

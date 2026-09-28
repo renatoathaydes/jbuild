@@ -108,6 +108,7 @@ public final class NonEmptyCollection<T> implements Iterable<T> {
         return new NonEmptyCollection<>(iter.next(), list);
     }
 
+    @SuppressWarnings("UndefinedEquals")
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;

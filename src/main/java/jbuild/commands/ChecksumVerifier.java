@@ -16,7 +16,13 @@ final class ChecksumVerifier {
             ResolvedArtifact sha,
             boolean verbose) {
         var actual = SHA1.computeSha1(artifact.getContents());
-        var expected = SHA1.fromSha1StringBytes(sha.getContents());
+        byte[] expected;
+        try {
+            expected = SHA1.fromSha1StringBytes(sha.getContents());
+        } catch (IllegalArgumentException e) {
+            return Either.right(NonEmptyCollection.of(Describable.of(
+                    "Checksum of " + artifact.artifact.getCoordinates() + " is invalid!")));
+        }
         if (!Arrays.equals(expected, actual)) {
             var suffix = verbose
                     ? " (actual=" + Arrays.toString(actual) + ", expected=" + Arrays.toString(expected) + ")"

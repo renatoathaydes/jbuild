@@ -12,6 +12,7 @@ import static jbuild.api.JBuildException.ErrorCause.USER_INPUT;
 public final class ClassLoaderFactory {
 
     public static ClassLoader createClassLoader(String classpath, ClassLoader parent) {
+        @SuppressWarnings("StringSplitter")
         var parts = classpath.split(File.pathSeparator);
         var urls = new URL[parts.length];
         for (var i = 0; i < parts.length; i++) {

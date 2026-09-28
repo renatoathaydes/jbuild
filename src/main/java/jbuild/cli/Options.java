@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -708,14 +710,12 @@ final class CompileOptions {
             "        -cp <paths> Java classpath (may be given more than once; default: java-libs/*)." + LINE_END +
             "        --module-path" + LINE_END +
             "        -mp <paths> Java module path (may be given more than once)." + LINE_END +
+            "        --processor-path" + LINE_END +
+            "        -pp <paths> Java annotation processor path (may be given more than once)." + LINE_END +
             "        --directory" + LINE_END +
             "        -d        output directory, where to put class files on." + LINE_END +
             "        --resources" + LINE_END +
             "        -r <dir>  resources directory, files are copied unmodified with class files." + LINE_END +
-            "        --groovy" + LINE_END +
-            "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
-            "        --groovydoc-tool-class-path" + LINE_END +
-            "        -gt <classpath> Groovydoc tool classpath to use (only used if -g and -dj provided)." + LINE_END +
             "        --jar" + LINE_END +
             "        -j <file> destination jar (default: <working-directory>.jar)." + LINE_END +
             "        --checksum" + LINE_END +
@@ -731,6 +731,11 @@ final class CompileOptions {
             "        --manifest" + LINE_END +
             "        -mf <name> manifest file to pass to the jar command." + LINE_END +
             "            If the name \"-\" is used, no manifest is generated." + LINE_END +
+            "      Groovy options:" + LINE_END +
+            "        --groovy" + LINE_END +
+            "        -g <groovy-jar> compile with the Groovy compiler." + LINE_END +
+            "        --groovydoc-tool-class-path" + LINE_END +
+            "        -gt <classpath> Groovydoc tool classpath to use (only used if -g and -dj provided)." + LINE_END +
             "      Incremental compilation options:" + LINE_END +
             "        --deleted <file>  deleted file since last compilation." + LINE_END +
             "        --added <file>    added/modified file since last compilation." + LINE_END +
@@ -741,11 +746,13 @@ final class CompileOptions {
             "        To pass further arguments directly to javac, use -- <args>." + LINE_END +
             "        Default javac options used are: '-encoding utf-8 -Werr -parameters'." + LINE_END +
             "        Passing javac classpath options explicitly overrides jbuild's -cp." + LINE_END +
+            "        The SOURCE_DATE_EPOCH environment variable can be used to set jar timestamps " + LINE_END +
+            "        in ISO-8601 format (since Java 19)." + LINE_END +
             "      Example:" + LINE_END +
             "        jbuild " + NAME + " -cp libs/jsr305-3.0.2.jar -- --release 11";
 
-    final Set<String> inputDirectories;
-    final Set<String> resourcesDirectories;
+    final SortedSet<String> inputDirectories;
+    final SortedSet<String> resourcesDirectories;
     final Either<String, String> outputDirOrJar;
     final String mainClass;
     final String groovyJar;
@@ -756,11 +763,12 @@ final class CompileOptions {
     final boolean checksum;
     final String classPath;
     final String modulePath;
+    final String processorPath;
     final Either<Boolean, String> manifest;
     final IncrementalChanges incrementalChanges;
 
-    public CompileOptions(Set<String> inputDirectories,
-                          Set<String> resourcesDirectories,
+    public CompileOptions(SortedSet<String> inputDirectories,
+                          SortedSet<String> resourcesDirectories,
                           Either<String, String> outputDirOrJar,
                           String mainClass,
                           String groovyJar,
@@ -771,6 +779,7 @@ final class CompileOptions {
                           boolean checksum,
                           String classPath,
                           String modulePath,
+                          String processorPath,
                           Either<Boolean, String> manifest,
                           IncrementalChanges incrementalChanges) {
         this.inputDirectories = inputDirectories;
@@ -785,21 +794,25 @@ final class CompileOptions {
         this.checksum = checksum;
         this.classPath = classPath;
         this.modulePath = modulePath;
+        this.processorPath = processorPath;
         this.manifest = manifest;
         this.incrementalChanges = incrementalChanges;
     }
 
     static CompileOptions parse(List<String> args, boolean verbose) {
-        Set<String> inputDirectories = new LinkedHashSet<>(2);
-        Set<String> resourcesDirectories = new LinkedHashSet<>(2);
+        SortedSet<String> inputDirectories = new TreeSet<>();
+        SortedSet<String> resourcesDirectories = new TreeSet<>();
         Set<String> deletedFiles = new LinkedHashSet<>(2);
         Set<String> addedFiles = new LinkedHashSet<>(2);
         String outputDir = null, jar = null, mainClass = null, groovyJar = null, groovydocToolClasspath = null;
         Either<Boolean, String> manifest = null;
-        StringBuilder classPath = new StringBuilder(), modulePath = new StringBuilder();
+        StringBuilder classPath = new StringBuilder(),
+                modulePath = new StringBuilder(),
+                processorPath = new StringBuilder();
 
         boolean waitingForClasspath = false,
                 waitingForModulePath = false,
+                waitingForProcessorPath = false,
                 waitingForDirectory = false,
                 waitingForResources = false,
                 waitingForJar = false,
@@ -834,6 +847,16 @@ final class CompileOptions {
                         modulePath.append(File.pathSeparatorChar);
                     }
                     modulePath.append(part);
+                }
+            } else if (waitingForProcessorPath) {
+                waitingForProcessorPath = false;
+                for (String part : arg.split("[;:]", -1)) {
+                    if (part.isBlank())
+                        continue;
+                    if (processorPath.length() > 0) {
+                        processorPath.append(File.pathSeparatorChar);
+                    }
+                    processorPath.append(part);
                 }
             } else if (waitingForDirectory) {
                 waitingForDirectory = false;
@@ -871,6 +894,8 @@ final class CompileOptions {
                     waitingForClasspath = true;
                 } else if (isEither(arg, "-mp", "--modulepath", "--module-path")) {
                     waitingForModulePath = true;
+                } else if (isEither(arg, "-pp", "--processorpath", "--processor-path")) {
+                    waitingForProcessorPath = true;
                 } else if (isEither(arg, "-x", "--jb-extension")) {
                     generateJbManifest = true;
                 } else if (isEither(arg, "-sj", "--sources-jar")) {
@@ -936,6 +961,9 @@ final class CompileOptions {
         if (waitingForModulePath) {
             throw new JBuildException("expecting value for '--module-path' option", USER_INPUT);
         }
+        if (waitingForProcessorPath) {
+            throw new JBuildException("expecting value for '--processor-path' option", USER_INPUT);
+        }
         if (waitingForDirectory) {
             throw new JBuildException("expecting value for '--directory' option", USER_INPUT);
         }
@@ -984,8 +1012,11 @@ final class CompileOptions {
                 createSourcesJar,
                 createJavadocsJar,
                 checksum,
-                classPath.length() == 0 ? InstallCommandExecutor.LIBS_DIR : classPath.toString(),
+                classPath.length() == 0
+                        ? (InstallCommandExecutor.LIBS_DIR + File.separatorChar + "*")
+                        : classPath.toString(),
                 modulePath.toString(),
+                processorPath.toString(),
                 manifest == null ? Either.left(true) : manifest,
                 incrementalChanges);
     }

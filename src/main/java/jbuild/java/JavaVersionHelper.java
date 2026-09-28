@@ -2,9 +2,18 @@ package jbuild.java;
 
 public class JavaVersionHelper {
 
+    private static volatile int javaVersion = -1;
+
     public static int currentJavaVersion() {
-        var versionString = System.getProperty("java.version");
-        return parseJavaVersion(versionString);
+        if (javaVersion == -1) {
+            synchronized (JavaVersionHelper.class) {
+                if (javaVersion == -1) {
+                    var versionString = System.getProperty("java.version");
+                    javaVersion = parseJavaVersion(versionString);
+                }
+            }
+        }
+        return javaVersion;
     }
 
     static int parseJavaVersion(String versionString) {

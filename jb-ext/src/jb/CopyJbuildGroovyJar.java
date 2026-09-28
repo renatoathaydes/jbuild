@@ -48,11 +48,12 @@ public class CopyJbuildGroovyJar implements JbTask {
     public void run(String... args) throws IOException {
         logger.println("Running jbuild-groovy build");
 
-        var pb = JbProcess.runJb("jb compile");
+        var pb = JbProcess.runJb("compile");
         pb.directory(new File("jbuild-groovy"));
+        Process proc= pb.inheritIO().start();
         int exitCode;
         try {
-            exitCode = pb.start().waitFor();
+            exitCode = proc.waitFor();
         } catch (InterruptedException e) {
             // should never happen
             throw new RuntimeException(e);
@@ -66,13 +67,14 @@ public class CopyJbuildGroovyJar implements JbTask {
         logger.println("jbuild-groovy jar successfully copied to jbuild resources directory");
     }
 
+    @SuppressWarnings("unused")
     private void copyJar() throws IOException {
         logger.verbosePrintln(() -> "Copying jbuild-groovy jar into " + OUT_JAR);
 
         var targetJar = Paths.get(TARGET_JAR);
 
         // ensure the parent dir exists
-        var ignore = targetJar.getParent().toFile().mkdirs();
+        var __ = targetJar.getParent().toFile().mkdirs();
 
         Files.copy(Paths.get(OUT_JAR), targetJar, StandardCopyOption.REPLACE_EXISTING);
     }

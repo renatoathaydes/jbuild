@@ -1,21 +1,35 @@
 package jbuild.java.tools;
 
+import jbuild.java.JavaVersionHelper;
 import jbuild.util.Either;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+
+import static jbuild.util.FileUtils.collectFiles;
 
 public final class CreateJarOptions {
+
+    private static final boolean canUseJarDateOption;
+
+    static {
+        int javaVersion = 0;
+        try {
+            javaVersion = JavaVersionHelper.currentJavaVersion();
+        } catch (Throwable t) {
+            t.printStackTrace(System.err);
+        }
+        canUseJarDateOption = javaVersion >= 19;
+    }
 
     public final String name;
     public final String mainClass;
     public final Either<Boolean, String> manifest;
     public final String moduleVersion;
-    public final FileSet fileSet;
-    public final Map<String, FileSet> filesPerRelease;
+    public final String dir;
+    public final Map<String, String> filesPerRelease;
 
     /**
      * Jar tool options for creating a jar.
@@ -24,20 +38,20 @@ public final class CreateJarOptions {
      * @param mainClass       Java main class
      * @param manifest        a boolean (whether to include a manifest) or a text Manifest file name.
      * @param moduleVersion   the module version
-     * @param fileSet         files to include
+     * @param dir             directory to include
      * @param filesPerRelease files per release version
      */
     public CreateJarOptions(String name,
                             String mainClass,
                             Either<Boolean, String> manifest,
                             String moduleVersion,
-                            FileSet fileSet,
-                            Map<String, FileSet> filesPerRelease) {
+                            String dir,
+                            Map<String, String> filesPerRelease) {
         this.name = name;
         this.mainClass = mainClass;
         this.manifest = manifest;
         this.moduleVersion = moduleVersion;
-        this.fileSet = fileSet;
+        this.dir = dir;
         this.filesPerRelease = filesPerRelease;
     }
 
@@ -67,7 +81,14 @@ public final class CreateJarOptions {
             result.add("--module-version");
             result.add(moduleVersion);
         }
-        addFileSetTo(result, fileSet);
+
+        var sourceDateEpoch = canUseJarDateOption ? System.getenv("SOURCE_DATE_EPOCH") : null;
+        if (sourceDateEpoch != null && !sourceDateEpoch.isEmpty()) {
+            result.add("--date");
+            result.add(sourceDateEpoch);
+        }
+
+        addFileSetTo(result, dir);
         filesPerRelease.forEach((release, fileSet) -> {
             result.add("--release");
             result.add(release);
@@ -85,30 +106,15 @@ public final class CreateJarOptions {
         }
     }
 
-    static void addFileSetTo(List<String> result, FileSet fileSet) {
-        if (!fileSet.rootDir.isBlank()) {
-            result.add("-C");
-            result.add(fileSet.rootDir);
-        }
-        if (fileSet.isEmpty()) {
-            result.add(".");
-        } else {
-            result.addAll(fileSet.files);
-        }
-    }
-
-    public static final class FileSet {
-
-        public final Set<String> files;
-        public final String rootDir;
-
-        public FileSet(Set<String> files, String rootDir) {
-            this.files = files;
-            this.rootDir = rootDir;
-        }
-
-        public boolean isEmpty() {
-            return files.isEmpty();
-        }
+    static void addFileSetTo(List<String> result, String dir) {
+        var dirPrefixLength = dir.length() + 1;
+        collectFiles(dir, (_1, _2) -> true, true).files.stream()
+                .map(path -> path.substring(dirPrefixLength))
+                .sorted()
+                .forEach(file -> {
+                    result.add("-C");
+                    result.add(dir);
+                    result.add(file);
+                });
     }
 }

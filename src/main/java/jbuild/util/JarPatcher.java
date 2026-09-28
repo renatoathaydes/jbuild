@@ -79,7 +79,7 @@ public final class JarPatcher {
         final String dir;
         final int index;
 
-        public DirWithIndex(String dir, int index) {
+        DirWithIndex(String dir, int index) {
             this.dir = dir;
             this.index = index;
         }

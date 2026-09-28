@@ -173,7 +173,7 @@ final class JavaDescriptorsCache {
         return result.stream();
     }
 
-    private static final class DummyArray {
+    public static final class DummyArray {
         public final int length = 0;
 
         @SuppressWarnings("MethodDoesntCallSuperMethod")

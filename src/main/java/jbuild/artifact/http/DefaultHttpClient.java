@@ -7,7 +7,7 @@ public final class DefaultHttpClient {
 
     private enum Singleton {
         INSTANCE;
-        public final HttpClient httpClient = create();
+        private final HttpClient httpClient = create();
     }
 
     public static HttpClient get() {

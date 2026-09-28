@@ -10,7 +10,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -170,7 +169,7 @@ public class RequirementsCommandTest {
         }
 
         @Override
-        public void handleJarRequirements(TreeSet<String> types) {
+        public void handleJarRequirements(Set<String> types) {
             this.types.addAll(types);
         }
 
@@ -199,7 +198,7 @@ public class RequirementsCommandTest {
         }
 
         @Override
-        public void handleJarRequirements(TreeSet<String> types) {
+        public void handleJarRequirements(Set<String> types) {
             throw new IllegalStateException("did not expect per requirements per type");
         }
 

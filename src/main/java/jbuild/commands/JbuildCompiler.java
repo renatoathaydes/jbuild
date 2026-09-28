@@ -10,16 +10,18 @@ public interface JbuildCompiler {
     /**
      * Run the compiler tool in order to compile all given files.
      *
-     * @param sourceFiles  files to compile
-     * @param outDir       where to store compiled class files
-     * @param classPath    the classpath (may be empty)
-     * @param modulePath   the module-path (may be empty)
-     * @param compilerArgs compiler arguments
+     * @param sourceFiles   files to compile
+     * @param outDir        where to store compiled class files
+     * @param classPath     the classpath (may be empty)
+     * @param modulePath    the module-path (may be empty)
+     * @param processorPath the annotation processor-path (may be empty)
+     * @param compilerArgs  compiler arguments
      * @return result
      */
     ToolRunResult compile(Set<String> sourceFiles,
                           String outDir,
                           String classPath,
                           String modulePath,
+                          String processorPath,
                           List<String> compilerArgs);
 }

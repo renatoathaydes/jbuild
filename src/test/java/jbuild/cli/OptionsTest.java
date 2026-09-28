@@ -70,14 +70,16 @@ public class OptionsTest {
     @Test
     void parseCompileOptions() {
         Either<Boolean, String> defaultManifest = Either.left(true);
+        String defaultCp = "java-libs" + File.separatorChar + "*";
+
         var p = File.pathSeparatorChar;
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile"}).commandArgs, false),
-                "java-libs", "", Set.of(), Set.of(), Either.right(""), "", defaultManifest, "");
+                defaultCp, "", Set.of(), Set.of(), Either.right(""), "", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "--main-class", "a.b.C", "-d", "out"}).commandArgs, false),
-                "java-libs", "", Set.of(), Set.of(), Either.left("out"), "a.b.C", defaultManifest, "");
+                defaultCp, "", Set.of(), Set.of(), Either.left("out"), "a.b.C", defaultManifest, "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "-m", "a.b.C", "--jar", "lib.jar", "--classpath", "foo"}).commandArgs, false),
@@ -93,18 +95,18 @@ public class OptionsTest {
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "--manifest", "-"}).commandArgs, false),
-                "java-libs", "", Set.of(), Set.of(), Either.right(""), "", Either.left(false), "");
+                defaultCp, "", Set.of(), Set.of(), Either.right(""), "", Either.left(false), "");
 
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "-mf", "MANIFEST.txt"}).commandArgs, false),
-                "java-libs", "", Set.of(), Set.of(), Either.right(""), "", Either.right("MANIFEST.txt"), "");
+                defaultCp, "", Set.of(), Set.of(), Either.right(""), "", Either.right("MANIFEST.txt"), "");
 
         // -q -V compile -m example.Main src -g build/compile-libs/groovy-4.0.20.jar -mp build/compile-libs/groovy-4.0.20.jar
         verifyCompileOptions(CompileOptions.parse(
                         Options.parse(new String[]{"compile", "-m", "example.Main", "src",
                                 "-g", "build/libs/groovy1.jar", "-mp", "build/libs/groovy2.jar"}
                         ).commandArgs, false),
-                "java-libs", "build/libs/groovy2.jar", Set.of("src"), Set.of(), Either.right(""), "example.Main", Either.left(true),
+                defaultCp, "build/libs/groovy2.jar", Set.of("src"), Set.of(), Either.right(""), "example.Main", Either.left(true),
                 "build/libs/groovy1.jar");
     }
 

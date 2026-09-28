@@ -2,19 +2,19 @@ package jbuild.groovy;
 
 import org.codehaus.groovy.tools.groovydoc.gstringTemplates.GroovyDocTemplateInfo;
 
-import java.util.List;
+import java.util.Collection;
 
 public final class GroovydocToolArguments {
 
     public final String[] sourceDirs;
-    public final List<String> sourceFiles;
+    public final Collection<String> sourceFiles;
     public final String outputDir;
     public final String[] docTemplates;
     public final String[] packageTemplates;
     public final String[] classTemplates;
 
     public GroovydocToolArguments(String[] sourceDirs,
-                                  List<String> sourceFiles,
+                                  Collection<String> sourceFiles,
                                   String outputDir,
                                   String[] docTemplates,
                                   String[] packageTemplates,
@@ -28,7 +28,7 @@ public final class GroovydocToolArguments {
     }
 
     public GroovydocToolArguments(String[] sourceDirs,
-                                  List<String> sourceFiles,
+                                  Collection<String> sourceFiles,
                                   String outputDir) {
         this(sourceDirs, sourceFiles, outputDir,
                 GroovyDocTemplateInfo.DEFAULT_DOC_TEMPLATES,

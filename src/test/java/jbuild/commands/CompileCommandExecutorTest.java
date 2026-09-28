@@ -2,10 +2,13 @@ package jbuild.commands;
 
 import jbuild.TestSystemProperties;
 import jbuild.java.JavaTypeMapCreator;
+import jbuild.java.JavaVersionHelper;
 import jbuild.java.tools.Tools;
 import jbuild.util.Either;
+import jbuild.util.SHA1;
 import jbuild.util.TestHelper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +23,8 @@ import java.util.zip.ZipFile;
 import static java.util.stream.Collectors.toList;
 import static jbuild.TestSystemProperties.groovyJar;
 import static jbuild.java.tools.Tools.verifyToolSuccessful;
+import static jbuild.util.TestHelper.assertIsZipContaining;
+import static jbuild.util.TestHelper.parseExpectedZipContentsWithSha1;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CompileCommandExecutorTest {
@@ -121,7 +126,7 @@ public class CompileCommandExecutorTest {
                 false,
                 false,
                 false,
-                "",
+                "non-existent-classpath-ignored",
                 Either.left(true),
                 List.of(),
                 null);
@@ -138,6 +143,74 @@ public class CompileCommandExecutorTest {
         var buildFiles = buildDir.resolve("pkg").toFile().listFiles();
 
         assertThat(buildFiles).containsExactlyInAnyOrder(myClassFile.toFile(), otherClassFile.toFile());
+    }
+
+    private static boolean beforeJava19() {
+        return JavaVersionHelper.currentJavaVersion() < 19;
+    }
+
+    @DisabledIf("beforeJava19")
+    @Test
+    void canCreateJarWithPredictableContents() throws Exception {
+        var logEntry = TestHelper.createLog(true);
+        var log = logEntry.getKey();
+        var command = new CompileCommandExecutor(log);
+
+        var dir = Files.createTempDirectory(CompileCommandExecutorTest.class.getName());
+        var src = dir.resolve("src");
+        var pkg1 = src.resolve("pkg1");
+        var pkg2 = src.resolve("pkg2");
+
+        for (var pkg : List.of(pkg1, pkg2)) {
+            assert pkg.toFile().mkdirs();
+            var pkgName = pkg.getFileName();
+            for (int i = 0; i < 25; i++) {
+                var className = "Class" + ((char) (i + 'A'));
+                var myClass = pkg.resolve(className + ".java");
+                Files.write(myClass, List.of("package " + pkgName + ";\n" +
+                        "final class " + className + " {}"));
+            }
+        }
+
+        var manifestFile = dir.resolve("custom-manifest.mf");
+        Files.write(manifestFile, List.of(
+                "Manifest-Version: 1.0",
+                "Implementation-Title: my-app",
+                "Created-By: 21",
+                ""));
+
+        var jar = dir.resolve("lib.jar");
+
+        // use workingDir argument, and all other paths relative to it
+        var result = command.compile(
+                dir.toString(),
+                Set.of(),
+                Set.of(),
+                Either.right(jar.toString()),
+                "",
+                "",
+                false,
+                false,
+                false,
+                "",
+                Either.right(manifestFile.toString()),
+                List.of(),
+                null);
+
+        assertThat(result.getCompileResult()).isPresent();
+        verifyToolSuccessful("compile", result.getCompileResult().get());
+        assertThat(result.getJarResult()).isPresent();
+        verifyToolSuccessful("jar", result.getJarResult().get());
+        assertThat(result.getSourcesJarResult()).isNotPresent();
+        assertThat(result.getJavadocJarResult()).isNotPresent();
+        assertThat(jar.toFile()).isFile();
+        assertIsZipContaining(jar, parseExpectedZipContentsWithSha1("/jbuild/commands/jar-contents-sha1.txt"));
+
+        String expectedSha1 = "3c3563bc00c16c1cc68332a6a350ac4da144c2c6";
+        String actualSha1 = SHA1.computeSha1HexString(Files.readAllBytes(jar));
+        assertThat(actualSha1)
+                .withFailMessage("Jar SHA1 checksum mismatch (all entries were OK): %s != %s", actualSha1, expectedSha1)
+                .isEqualTo(expectedSha1);
     }
 
     @Test
@@ -316,6 +389,7 @@ public class CompileCommandExecutorTest {
     @Test
     void canCompileToJarOnWorkingDirUsingJbExtensionOption() throws Exception {
         TestSystemProperties.validate("jbApiJar", TestSystemProperties.jbApiJar);
+        var jbApiJar = Paths.get(TestSystemProperties.jbApiJar.getPath()).toAbsolutePath().toString();
 
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
@@ -348,7 +422,7 @@ public class CompileCommandExecutorTest {
                 true,
                 false,
                 false,
-                TestSystemProperties.jbApiJar.getAbsolutePath(),
+                jbApiJar,
                 Either.left(true),
                 List.of(),
                 null);
@@ -575,6 +649,7 @@ public class CompileCommandExecutorTest {
                 true, // checksum
                 "",
                 "../mylib/build/mylib.jar",
+                "",
                 Either.left(true),
                 List.of(),
                 null);
@@ -1274,6 +1349,8 @@ public class CompileCommandExecutorTest {
 
     @Test
     void reportsGroovyCompilationError() throws Exception {
+        TestSystemProperties.validate("groovyJar", groovyJar);
+
         var logEntry = TestHelper.createLog(false);
         var log = logEntry.getKey();
         var command = new CompileCommandExecutor(log);

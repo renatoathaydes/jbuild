@@ -22,6 +22,13 @@ jobs:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
 
+      - name: Set JB_HOME
+        # Use an absolute path with forward slashes so the value works both in
+        # bash (including Git Bash on Windows, where GITHUB_WORKSPACE contains
+        # backslashes) and when read by the JVM.
+        run: echo "JB_HOME=${GITHUB_WORKSPACE//\\//}/jb" >> "$GITHUB_ENV"
+        shell: bash
+
       - name: Download jb
         uses: dsaltares/fetch-gh-release-asset@master
         with:
@@ -32,20 +39,21 @@ jobs:
 
       - name: Install jb
         run: |
-              mkdir jb
-              tar xzf jb.tar.gz -C jb
+              mkdir -p "$JB_HOME"
+              tar xzf jb.tar.gz -C "$JB_HOME"
+              "$JB_HOME/bin/jb" -v
         shell: bash
 
       - name: Build and test jbuild-classfile-parser
-        run: jb/bin/jb -d -p jbuild-classfile-parser/test test
+        run: $JB_HOME/bin/jb -d -p jbuild-classfile-parser/test test
         shell: bash
 
       - name: Build and test JBuild main artifact
-        run: jb/bin/jb -d -p src/test test
+        run: $JB_HOME/bin/jb -d -p src/test test
         shell: bash
 
       - name: Build and execute integration tests
-        run: jb/bin/jb -p src/intTest test
+        run: $JB_HOME/bin/jb -p src/intTest test
         shell: bash
 
       - name: Test Report

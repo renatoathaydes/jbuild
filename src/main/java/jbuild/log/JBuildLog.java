@@ -89,8 +89,10 @@ public final class JBuildLog implements JBuildLogger {
         if (isEnabled()) {
             out.print(prefix);
             out.print(' ');
-            out.write(buffer, 0, len);
-            lastCharWasNewLine = ((char) buffer[len - 1]) == '\n';
+            if (len > 0) {
+                out.write(buffer, 0, len);
+                lastCharWasNewLine = ((char) buffer[len - 1]) == '\n';
+            }
         }
     }
 
@@ -121,7 +123,7 @@ public final class JBuildLog implements JBuildLogger {
         private final byte[] buffer = new byte[1024];
         private int index;
 
-        public LogOutputStream(JBuildLog log) {
+        LogOutputStream(JBuildLog log) {
             this.log = log;
         }
 

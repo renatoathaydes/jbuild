@@ -14,6 +14,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -44,15 +46,22 @@ public final class FileUtils {
     }
 
     public static Stream<String> relativizeStream(String dir, Stream<String> paths) {
-        if (dir.equals(".") || dir.isBlank()) return paths;
+        if (dir.isEmpty() || dir.equals(".") || dir.equals("." + File.separatorChar)) return paths;
         var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
         return paths.map(path ->
-                path.startsWith(File.separator) ? path : String.join(File.separator, root, path));
+                isAbsolutePath(path) ? path : String.join(File.separator, root, path));
     }
 
     public static String relativize(String dir, String path) {
         if (dir.isEmpty() || dir.equals(".") || dir.equals("." + File.separatorChar)) return path;
-        return Paths.get(dir).resolve(path).toString();
+        var root = dir.endsWith(File.separator) ? dir.substring(0, dir.length() - 1) : dir;
+        return isAbsolutePath(path) ? path : String.join(File.separator, root, path);
+    }
+
+    private static boolean isAbsolutePath(String path) {
+        return path.startsWith(File.separator) ||
+                path.matches("[a-zA-Z]:[\\\\/].*") ||
+                path.startsWith("\\\\");
     }
 
     public static CompletableFuture<byte[]> readAllBytes(Path file) {
@@ -105,6 +114,14 @@ public final class FileUtils {
         return completionStage;
     }
 
+    /**
+     * Get all files in a directory, non-recursive.
+     *
+     * @param directory dir
+     * @param filter    file filter
+     * @return the files in the directory
+     * @throws JBuildException if the directory does not exist
+     */
     public static File[] allFilesInDir(File directory, FileFilter filter) {
         if (!directory.isDirectory()) {
             throw new JBuildException("not a directory: " + directory, USER_INPUT);
@@ -113,6 +130,24 @@ public final class FileUtils {
         if (files == null)
             return new File[0];
         return files;
+    }
+
+    /**
+     * Get all files in a directory, non-recursive.
+     *
+     * @param directory dir
+     * @param filter    file name filter
+     * @return the files in the directory if it exists, or an empty Stream otherwise
+     */
+    public static Stream<String> allFilesInDir(String directory, FilenameFilter filter) {
+        var dir = new File(directory);
+        if (!dir.isDirectory()) {
+            return Stream.empty();
+        }
+        var files = dir.listFiles(filter);
+        if (files == null)
+            return Stream.empty();
+        return Stream.of(files).map(File::getPath);
     }
 
     public static List<FileCollection> collectFiles(Set<String> directories,
@@ -124,30 +159,51 @@ public final class FileUtils {
 
     public static FileCollection collectFiles(String dirPath,
                                               FilenameFilter filter) {
+        return collectFiles(dirPath, filter, false);
+    }
+
+    public static FileCollection collectFiles(String dirPath,
+                                              FilenameFilter filter,
+                                              boolean includeDirs) {
         var dir = new File(dirPath);
         if (dir.isDirectory()) {
-            var children = dir.listFiles();
-            if (children != null) {
-                return new FileCollection(dirPath, Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter))
-                        .collect(toList()));
-            }
+            var result = new ArrayList<String>();
+            collectFileTree(dir, filter, result, includeDirs);
+            return new FileCollection(dirPath, result);
         }
         return new FileCollection(dirPath);
     }
 
-    private static Stream<String> fileOrChildDirectories(File file, FilenameFilter filter) {
+    private static void collectFileTree(
+            File file, FilenameFilter filter, List<String> result, boolean includeDirs) {
         if (file.isFile() && filter.accept(file.getParentFile(), file.getName())) {
-            return Stream.of(file.getPath());
+            result.add(file.getPath());
+            return;
         }
-        if (file.isDirectory()) {
-            var children = file.listFiles();
+        if (!file.isDirectory()) {
+            return;
+        }
+        // keep track of the next directories to visit
+        var nextDirs = new ArrayDeque<File>();
+        nextDirs.add(file);
+        while (!nextDirs.isEmpty()) {
+            var currentDir = nextDirs.removeLast();
+
+            // includeDirs but avoid including the root dir itself
+            if (includeDirs && !currentDir.equals(file)) {
+                result.add(currentDir.getPath() + File.separatorChar);
+            }
+            var children = currentDir.listFiles();
             if (children != null) {
-                return Stream.of(children)
-                        .flatMap(child -> fileOrChildDirectories(child, filter));
+                for (var child : children) {
+                    if (child.isFile() && filter.accept(currentDir, child.getName())) {
+                        result.add(child.getPath());
+                    } else if (child.isDirectory()) {
+                        nextDirs.addLast(child);
+                    }
+                }
             }
         }
-        return Stream.of();
     }
 
 }

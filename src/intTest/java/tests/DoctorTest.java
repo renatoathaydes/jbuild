@@ -48,12 +48,12 @@ public class DoctorTest extends JBuildTestRunner {
         var tempDir = Files.createTempDirectory(DoctorTest.class.getName());
 
         // install the artifact in the tempDir
-        var result = runWithIntTestRepo("install", "-d", tempDir.toString(), Artifacts.GROOVY);
+        var result = runWithIntTestRepo("install", "-d", tempDir.toString(), Artifacts.GROOVY4);
         verifySuccessful("jbuild install", result);
 
         // verify that the jar is valid
         result = runWithIntTestRepo("doctor", tempDir.toString(),
-                "-e", Artifacts.GROOVY_JAR_NAME,
+                "-e", Artifacts.GROOVY4_JAR_NAME,
                 // exclude all the optional dependencies
                 "-x", "org\\.apache\\.ivy\\..*",
                 "-x", "org\\.stringtemplate\\..*",

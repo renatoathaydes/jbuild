@@ -184,15 +184,14 @@ public abstract class Tools {
          * Update a jar by adding files to it.
          *
          * @param jarFile to update
-         * @param fileSet files to add
+         * @param dir     to include
          * @return result
          */
-        public ToolRunResult updateJar(String jarFile,
-                                       CreateJarOptions.FileSet fileSet) {
+        public ToolRunResult updateJar(String jarFile, String dir) {
             var args = new ArrayList<String>();
             args.add("uf");
             args.add(jarFile);
-            CreateJarOptions.addFileSetTo(args, fileSet);
+            CreateJarOptions.addFileSetTo(args, dir);
             return run(args);
         }
 
@@ -218,9 +217,10 @@ public abstract class Tools {
                                      String outDir,
                                      String classPath,
                                      String modulePath,
+                                     String processorPath,
                                      List<String> compilerArgs) {
             validateCompilerArgs(compilerArgs);
-            var args = collectArgs(sourceFiles, outDir, classPath, modulePath, compilerArgs, false);
+            var args = collectArgs(sourceFiles, outDir, classPath, modulePath, processorPath, compilerArgs, false);
             log.verbosePrintln(() -> "Compile command: javac " + String.join(" ", args));
             return run(args);
         }
@@ -242,6 +242,7 @@ public abstract class Tools {
                                         String outDir,
                                         String classPath,
                                         String modulePath,
+                                        String processorPath,
                                         List<String> compilerArgs,
                                         boolean forGroovy) {
             var result = new ArrayList<String>();
@@ -254,10 +255,12 @@ public abstract class Tools {
             }
             // warnings options
             if (forGroovy) {
-                if (!compilerArgs.contains("-w") && !compilerArgs.contains("--warningLevel")) {
-                    result.add("-w");
-                    result.add("3");
-                }
+                // TODO is there any Java source files? If so, maybe add the `-j` option.
+                // FIXME this option does not work in Groovy 4, seems to work only in Groovy 5
+//                if (!compilerArgs.contains("-w") && !compilerArgs.contains("--warningLevel")) {
+//                    result.add("--warningLevel");
+//                    result.add("3");
+//                }
             } else {
                 if (!compilerArgs.contains("-nowarn") && !compilerArgs.contains("-Werror")) {
                     result.add("-Werror");
@@ -279,6 +282,10 @@ public abstract class Tools {
             if (!modulePath.isBlank()) {
                 result.add("--module-path");
                 result.add(modulePath);
+            }
+            if (!processorPath.isBlank()) {
+                result.add((forGroovy ? "-J-" : "") +  "-processorpath");
+                result.add(processorPath);
             }
             result.addAll(compilerArgs);
             result.addAll(files);

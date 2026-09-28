@@ -51,9 +51,8 @@ public final class FetchCommandExecutor<Err extends ArtifactRetrievalError> {
     }
 
     // this stops javac from failing due to type inference not working
-    @SuppressWarnings("rawtypes")
     public static FetchCommandExecutor<ArtifactRetrievalError> createDefault(JBuildLog log) {
-        return new FetchCommandExecutor(log, DefaultArtifactRetrievers.get(log));
+        return new FetchCommandExecutor<>(log, DefaultArtifactRetrievers.get(log));
     }
 
     public CompletionStage<Either<ResolvedArtifact, NonEmptyCollection<Describable>>> fetchArtifact(Artifact artifact) {
