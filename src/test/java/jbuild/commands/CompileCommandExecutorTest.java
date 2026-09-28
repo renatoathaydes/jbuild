@@ -206,8 +206,6 @@ public class CompileCommandExecutorTest {
         assertThat(jar.toFile()).isFile();
         assertIsZipContaining(jar, parseExpectedZipContentsWithSha1("/jbuild/commands/jar-contents-sha1.txt"));
 
-//        Files.copy(jar, Paths.get("my-sample.jar"), StandardCopyOption.REPLACE_EXISTING);
-
         String expectedSha1 = "3c3563bc00c16c1cc68332a6a350ac4da144c2c6";
         String actualSha1 = SHA1.computeSha1HexString(Files.readAllBytes(jar));
         assertThat(actualSha1)
